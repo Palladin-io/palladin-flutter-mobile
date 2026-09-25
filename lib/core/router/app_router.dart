@@ -15,6 +15,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/totp_enroll_page.dart';
 import '../../features/auth/presentation/pages/verify_email_page.dart';
+import '../../features/autofill/presentation/generated_password_history_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/notifications/presentation/pages/inbox_grants_page.dart';
 import '../../features/notifications/presentation/pages/notification_center_page.dart';
@@ -49,6 +50,8 @@ abstract final class AppRoutes {
   static const String settingsAudit = '/settings/audit';
   static const String settingsBilling = '/settings/billing';
   static const String settingsSecurity = '/settings/security';
+  static const String generatedPasswords =
+      '/settings/security/generated-passwords';
   static const String settingsPrivacy = '/settings/privacy';
   static const String settingsDataImport = '/settings/data-import';
   static const String changePassword = '/change-password';
@@ -430,6 +433,12 @@ GoRouter createRouter(
           GoRoute(
             path: '/settings/security',
             builder: (_, _) => const SecurityPage(),
+            routes: [
+              GoRoute(
+                path: 'generated-passwords',
+                builder: (_, _) => const GeneratedPasswordHistoryPage(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/settings/data-import',

@@ -14,6 +14,10 @@ final class AutoFillBridgeMutationQueue {
 
 public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     private let mutationQueue = AutoFillBridgeMutationQueue()
+    private let historyQueue = DispatchQueue(
+        label: "io.palladin.mobile.autofill.generated-history",
+        qos: .userInitiated
+    )
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
@@ -21,11 +25,14 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             binaryMessenger: registrar.messenger()
         )
         let instance = PalladinAutoFillBridgePlugin()
+        instance.historyQueue.async {
+            try? GeneratedPasswordHistory().revokeAll()
+        }
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        mutationQueue.submit {
+        let action = {
             do {
                 let store = try AutoFillCacheStore()
                 switch call.method {
@@ -97,6 +104,76 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                             }
                         }
                     }
+                case "activateGeneratedPasswordHistory":
+                    guard let args = call.arguments as? [String: Any],
+                          let principalId = args["principalId"] as? String else {
+                        throw GeneratedPasswordHistoryError.invalidState
+                    }
+                    let token = try GeneratedPasswordHistory().activate(principalId: principalId)
+                    DispatchQueue.main.async { result(token) }
+                case "revokeGeneratedPasswordHistory":
+                    guard let args = call.arguments as? [String: Any],
+                          let token = args["token"] as? String else {
+                        throw GeneratedPasswordHistoryError.invalidState
+                    }
+                    try GeneratedPasswordHistory().revoke(token: token)
+                    DispatchQueue.main.async { result(nil) }
+                case "revokeAllGeneratedPasswordSessions":
+                    try GeneratedPasswordHistory().revokeAll()
+                    DispatchQueue.main.async { result(nil) }
+                case "listGeneratedPasswords", "revealGeneratedPassword",
+                     "deleteGeneratedPassword", "clearGeneratedPasswords",
+                     "generatePasswordForEntry":
+                    guard let args = call.arguments as? [String: Any],
+                          let principalId = args["principalId"] as? String else {
+                        throw GeneratedPasswordHistoryError.invalidState
+                    }
+                    let history = try GeneratedPasswordHistory()
+                    guard let prompt = args["prompt"] as? String,
+                          !prompt.isEmpty else {
+                        throw GeneratedPasswordHistoryError.invalidState
+                    }
+                    switch call.method {
+                    case "generatePasswordForEntry":
+                        guard let domain = args["domain"] as? String else {
+                            throw GeneratedPasswordHistoryError.invalidState
+                        }
+                        let password = try StrongPasswordGenerator.generate()
+                        try history.appendAndHandoff(
+                            domain: domain,
+                            password: password,
+                            prompt: prompt,
+                            expectedPrincipal: principalId
+                        ) {
+                            DispatchQueue.main.sync { result(password) }
+                        }
+                    case "listGeneratedPasswords":
+                        let records = try history.list(expectedPrincipal: principalId, prompt: prompt)
+                        DispatchQueue.main.async {
+                            result(records.map { record in
+                                ["id": record.id, "domain": record.domain,
+                                 "createdAtMillis": record.createdAtMillis]
+                            })
+                        }
+                    case "revealGeneratedPassword":
+                        guard let id = args["id"] as? String else {
+                            throw GeneratedPasswordHistoryError.invalidState
+                        }
+                        let password = try history.list(
+                            expectedPrincipal: principalId, prompt: prompt
+                        ).first(where: { $0.id == id })?.password
+                        guard let password else { throw GeneratedPasswordHistoryError.invalidState }
+                        DispatchQueue.main.async { result(password) }
+                    case "deleteGeneratedPassword":
+                        guard let id = args["id"] as? String else {
+                            throw GeneratedPasswordHistoryError.invalidState
+                        }
+                        try history.delete(expectedPrincipal: principalId, id: id, prompt: prompt)
+                        DispatchQueue.main.async { result(nil) }
+                    default:
+                        try history.clear(expectedPrincipal: principalId, prompt: prompt)
+                        DispatchQueue.main.async { result(nil) }
+                    }
                 default:
                     DispatchQueue.main.async { result(FlutterMethodNotImplemented) }
                 }
@@ -109,6 +186,12 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                     ))
                 }
             }
+        }
+        if call.method.contains("GeneratedPassword") ||
+            call.method == "generatePasswordForEntry" {
+            historyQueue.async(execute: action)
+        } else {
+            mutationQueue.submit(action)
         }
     }
 }

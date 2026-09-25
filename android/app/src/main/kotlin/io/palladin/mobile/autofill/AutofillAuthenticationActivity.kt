@@ -29,7 +29,25 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val originVerified = domain != null &&
             packageName != null &&
             AutofillOriginVerifier(this).isVerified(packageName, domain)
-        if (domain == null || !originVerified || !cacheStore.hasCache()) {
+        if (domain == null || !originVerified) {
+            finishCanceled()
+            return
+        }
+
+        if (intent.getBooleanExtra(EXTRA_GENERATE, false)) {
+            val history = GeneratedPasswordHistory(this)
+            if (!history.hasActiveSession() || intent.autofillIds(EXTRA_NEW_PASSWORD_IDS).isEmpty()) {
+                finishCanceled()
+                return
+            }
+            val historyOperation = runCatching { history.createUnwrapOperation() }.getOrElse {
+                finishCanceled()
+                return
+            }
+            showGenerationPrompt(history, historyOperation, domain, packageName)
+            return
+        }
+        if (!cacheStore.hasCache()) {
             finishCanceled()
             return
         }
@@ -40,6 +58,77 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             return
         }
         showBiometricPrompt(operation, domain, packageName)
+    }
+
+    private fun showGenerationPrompt(
+        history: GeneratedPasswordHistory,
+        operation: GeneratedHistoryUnwrapOperation,
+        domain: String,
+        requestingPackage: String,
+    ) {
+        val prompt = BiometricPrompt(
+            this,
+            ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    val cipher = result.cryptoObject?.cipher
+                    if (cipher == null) {
+                        finishCanceled()
+                        return
+                    }
+                    completeGeneration(history, operation, cipher, domain, requestingPackage)
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    finishCanceled()
+                }
+            },
+        )
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(getString(R.string.autofill_generate_title))
+            .setSubtitle(getString(R.string.autofill_generate_subtitle, domain))
+            .setNegativeButtonText(getString(R.string.autofill_cancel))
+            .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .build()
+        prompt.authenticate(info, BiometricPrompt.CryptoObject(operation.cipher))
+    }
+
+    private fun completeGeneration(
+        history: GeneratedPasswordHistory,
+        operation: GeneratedHistoryUnwrapOperation,
+        authenticatedCipher: javax.crypto.Cipher,
+        domain: String,
+        requestingPackage: String,
+    ) {
+        val ids = intent.autofillIds(EXTRA_NEW_PASSWORD_IDS)
+        if (ids.isEmpty() || !AutofillOriginVerifier(this).isVerified(requestingPackage, domain)) {
+            finishCanceled()
+            return
+        }
+        val password = StrongPasswordGenerator.generate()
+        val presentation = RemoteViews(packageName, android.R.layout.simple_list_item_1).apply {
+            setTextViewText(android.R.id.text1, getString(R.string.autofill_generate_label))
+        }
+        val dataset = Dataset.Builder(presentation)
+        ids.forEach { dataset.setValue(it, AutofillValue.forText(password), presentation) }
+        val response = FillResponse.Builder().addDataset(dataset.build()).build()
+        val handedOff = runCatching {
+            history.appendAuthenticated(
+                operation,
+                authenticatedCipher,
+                domain,
+                password,
+                handoff = {
+                    require(AutofillOriginVerifier(this).isVerified(requestingPackage, domain))
+                    setResult(
+                        Activity.RESULT_OK,
+                        Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response),
+                    )
+                    finish()
+                },
+            )
+        }.isSuccess
+        if (!handedOff) finishCanceled()
     }
 
     private fun showBiometricPrompt(
@@ -172,5 +261,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         const val EXTRA_PACKAGE_NAME = "palladin.autofill.package_name"
         const val EXTRA_USERNAME_IDS = "palladin.autofill.username_ids"
         const val EXTRA_PASSWORD_IDS = "palladin.autofill.password_ids"
+        const val EXTRA_NEW_PASSWORD_IDS = "palladin.autofill.new_password_ids"
+        const val EXTRA_GENERATE = "palladin.autofill.generate"
     }
 }

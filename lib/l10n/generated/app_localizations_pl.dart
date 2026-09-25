@@ -4242,4 +4242,83 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get privacyMarketingNotice =>
       'Za zgodą wyślemy Ci e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne, dotyczące konta i bezpieczeństwa wysyłamy niezależnie od tej zgody. Zgodę możesz wycofać w ustawieniach prywatności.';
+
+  @override
+  String get generatedPasswordTitle => 'Wygenerowane hasła';
+
+  @override
+  String get generatedPasswordSubtitle =>
+      'Odzyskaj hasła użyte przy rejestracji';
+
+  @override
+  String get generatedPasswordBiometric =>
+      'Uwierzytelnij się, aby otworzyć wygenerowane hasła';
+
+  @override
+  String get generatedPasswordUnavailable =>
+      'Wygenerowane hasła są niedostępne. Odblokuj Palladin i spróbuj ponownie.';
+
+  @override
+  String get generatedPasswordEmpty => 'Nie ma jeszcze wygenerowanych haseł.';
+
+  @override
+  String get generatedPasswordReveal => 'Pokaż';
+
+  @override
+  String get generatedPasswordHide => 'Ukryj';
+
+  @override
+  String get generatedPasswordCopy => 'Kopiuj';
+
+  @override
+  String get generatedPasswordCopied => 'Hasło skopiowano tymczasowo';
+
+  @override
+  String get generatedPasswordSave => 'Zapisz w sejfie';
+
+  @override
+  String get generatedPasswordDelete => 'Usuń';
+
+  @override
+  String get generatedPasswordDeleteTitle => 'Usunąć to hasło?';
+
+  @override
+  String get generatedPasswordDeleteBody =>
+      'Możesz potrzebować tego hasła, aby dokończyć zakładanie konta. Tej operacji nie można cofnąć.';
+
+  @override
+  String get generatedPasswordClear => 'Wyczyść historię';
+
+  @override
+  String get generatedPasswordClearTitle =>
+      'Wyczyścić historię wygenerowanych haseł?';
+
+  @override
+  String get generatedPasswordClearBody =>
+      'Wszystkie wygenerowane hasła na tym urządzeniu zostaną usunięte. Tej operacji nie można cofnąć.';
+
+  @override
+  String get generatedPasswordCancel => 'Anuluj';
+
+  @override
+  String get generatedPasswordCreateVaultFirst =>
+      'Utwórz sejf, zanim zapiszesz to hasło.';
+
+  @override
+  String get generatedPasswordGenerate => 'Wygeneruj hasło';
+
+  @override
+  String get generatedPasswordGenerated =>
+      'Silne hasło wygenerowano i zapisano w historii';
+
+  @override
+  String get generatedPasswordEnterWebsite =>
+      'Podaj adres witryny HTTPS przed wygenerowaniem hasła.';
+
+  @override
+  String get generatedPasswordReplaceTitle => 'Zastąpić to hasło?';
+
+  @override
+  String get generatedPasswordReplaceBody =>
+      'Nowe hasło zastąpi wartość w formularzu i zostanie zapisane w historii wygenerowanych haseł.';
 }

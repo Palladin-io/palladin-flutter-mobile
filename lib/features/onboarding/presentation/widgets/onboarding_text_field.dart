@@ -134,6 +134,7 @@ class OnboardingTextField extends StatelessWidget {
     this.obscureText = false,
     this.prefixIcon,
     this.suffixIcon,
+    this.suffixIconWidth = AppSpacing.controlHeight,
     this.autocorrect = false,
     this.enableSuggestions = false,
     this.textCapitalization = TextCapitalization.none,
@@ -172,6 +173,7 @@ class OnboardingTextField extends StatelessWidget {
   /// inflate the input height.
   final Widget? prefixIcon;
   final Widget? suffixIcon;
+  final double suffixIconWidth;
   final bool autocorrect;
   final bool enableSuggestions;
   final TextCapitalization textCapitalization;
@@ -297,8 +299,8 @@ class OnboardingTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         // Keep suffix buttons inside the shared 44px control height so a
         // password visibility toggle cannot make the field taller than email.
-        suffixIconConstraints: const BoxConstraints.tightFor(
-          width: AppSpacing.controlHeight,
+        suffixIconConstraints: BoxConstraints.tightFor(
+          width: suffixIconWidth,
           height: AppSpacing.controlHeight,
         ),
       ),

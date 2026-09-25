@@ -14,6 +14,7 @@ import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_
 import 'package:mobile_palladin/features/auth/domain/auth_provider_id.dart';
 import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
+import 'package:mobile_palladin/features/autofill/data/generated_password_history_bridge.dart';
 
 class MockAuthRemoteDatasource extends Mock implements AuthRemoteDatasource {}
 
@@ -31,6 +32,9 @@ class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 class MockAutoFillCacheInvalidator extends Mock
     implements AutoFillCacheInvalidator {}
 
+class MockGeneratedPasswordHistoryBridge extends Mock
+    implements GeneratedPasswordHistoryBridge {}
+
 class MockCurrentEntryCacheInvalidator extends Mock
     implements CurrentEntryCacheInvalidator {}
 
@@ -40,6 +44,7 @@ void main() {
   late MockGoogleSignIn mockGoogleSignIn;
   late MockFlutterSecureStorage mockSecureStorage;
   late MockAutoFillCacheInvalidator mockAutoFillCacheInvalidator;
+  late MockGeneratedPasswordHistoryBridge mockGeneratedHistory;
   late MockCurrentEntryCacheInvalidator mockCurrentEntryCacheInvalidator;
   late AuthRepositoryImpl repository;
 
@@ -60,6 +65,10 @@ void main() {
     mockGoogleSignIn = MockGoogleSignIn();
     mockSecureStorage = MockFlutterSecureStorage();
     mockAutoFillCacheInvalidator = MockAutoFillCacheInvalidator();
+    mockGeneratedHistory = MockGeneratedPasswordHistoryBridge();
+    when(
+      () => mockGeneratedHistory.revokeAllSessions(),
+    ).thenAnswer((_) async {});
     mockCurrentEntryCacheInvalidator = MockCurrentEntryCacheInvalidator();
     when(
       () => mockAutoFillCacheInvalidator.revokeAccess(),
@@ -80,6 +89,7 @@ void main() {
       tokenStorage: mockStorage,
       secureStorage: mockSecureStorage,
       autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
+      generatedPasswordHistory: mockGeneratedHistory,
       currentEntryCacheInvalidator: mockCurrentEntryCacheInvalidator,
       googleServerClientId: 'test-server-client-id',
       googleSignIn: mockGoogleSignIn,
@@ -196,6 +206,7 @@ void main() {
       verify(() => mockStorage.clearAll()).called(1);
       verify(() => mockAutoFillCacheInvalidator.revokeAccess()).called(1);
       verify(() => mockAutoFillCacheInvalidator.clear()).called(1);
+      verify(() => mockGeneratedHistory.revokeAllSessions()).called(1);
     });
 
     test('clears storage even if backend logout fails', () async {
@@ -353,6 +364,18 @@ void main() {
 
       await expectLater(repository.logout(), throwsStateError);
 
+      verifyNever(() => mockStorage.clearAll());
+    });
+
+    test('keeps auth when generated-password session deny fails', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      when(
+        () => mockGeneratedHistory.revokeAllSessions(),
+      ).thenThrow(StateError('history deny failed'));
+
+      await expectLater(repository.logout(), throwsStateError);
+
+      verifyNever(() => mockAutoFillCacheInvalidator.revokeAccess());
       verifyNever(() => mockStorage.clearAll());
     });
 

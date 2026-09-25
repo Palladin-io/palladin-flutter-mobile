@@ -44,14 +44,17 @@ class PalladinAutofillService : AutofillService() {
         val domain = CredentialFieldIds.domainFrom(structure)
         val requestingPackage = structure.activityComponent?.packageName
         val cacheStore = AutoFillCacheStore(this)
+        val history = GeneratedPasswordHistory(this)
         val originVerified = domain != null &&
             requestingPackage != null &&
             AutofillOriginVerifier(this).isVerified(requestingPackage, domain)
-        if (fields.passwordIds.isEmpty() ||
+        val generate = fields.newPasswordIds.isNotEmpty() &&
+            fields.currentPasswordIds.isEmpty() && history.hasActiveSession()
+        if ((fields.passwordIds.isEmpty() && !generate) ||
             domain == null ||
             requestingPackage == null ||
             !originVerified ||
-            !cacheStore.hasCache()
+            (!generate && !cacheStore.hasCache())
         ) {
             callback.onSuccess(null)
             return
@@ -59,6 +62,7 @@ class PalladinAutofillService : AutofillService() {
 
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
+            putExtra(AutofillAuthenticationActivity.EXTRA_GENERATE, generate)
             putExtra(
                 AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME,
                 requestingPackage,
@@ -71,6 +75,10 @@ class PalladinAutofillService : AutofillService() {
                 AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS,
                 ArrayList(fields.passwordIds),
             )
+            putParcelableArrayListExtra(
+                AutofillAuthenticationActivity.EXTRA_NEW_PASSWORD_IDS,
+                ArrayList(fields.newPasswordIds),
+            )
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -79,6 +87,12 @@ class PalladinAutofillService : AutofillService() {
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val presentation = RemoteViews(packageName, R.layout.autofill_unlock_prompt)
+        if (generate) {
+            presentation.setTextViewText(
+                R.id.autofill_unlock_label,
+                getString(R.string.autofill_generate_prompt),
+            )
+        }
         val response = FillResponse.Builder()
             .setAuthentication(
                 fields.allIds.toTypedArray(),
@@ -99,22 +113,28 @@ class PalladinAutofillService : AutofillService() {
     private data class CredentialFieldIds(
         val usernameIds: List<AutofillId>,
         val passwordIds: List<AutofillId>,
+        val newPasswordIds: List<AutofillId>,
+        val currentPasswordIds: List<AutofillId>,
     ) {
-        val allIds: List<AutofillId> = (usernameIds + passwordIds).distinct()
+        val allIds: List<AutofillId> = (usernameIds + passwordIds + newPasswordIds).distinct()
 
         companion object {
             fun from(structure: AssistStructure): CredentialFieldIds {
                 val usernames = mutableListOf<AutofillId>()
                 val passwords = mutableListOf<AutofillId>()
+                val newPasswords = mutableListOf<AutofillId>()
+                val currentPasswords = mutableListOf<AutofillId>()
 
                 for (index in 0 until structure.windowNodeCount) {
                     collect(
                         structure.getWindowNodeAt(index).rootViewNode,
                         usernames,
                         passwords,
+                        newPasswords,
+                        currentPasswords,
                     )
                 }
-                return CredentialFieldIds(usernames, passwords)
+                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords)
             }
 
             fun domainFrom(structure: AssistStructure): String? {
@@ -132,16 +152,25 @@ class PalladinAutofillService : AutofillService() {
                 node: AssistStructure.ViewNode,
                 usernames: MutableList<AutofillId>,
                 passwords: MutableList<AutofillId>,
+                newPasswords: MutableList<AutofillId>,
+                currentPasswords: MutableList<AutofillId>,
             ) {
                 val id = node.autofillId
                 if (id != null) {
                     when {
+                        node.hasHint(NEW_PASSWORD_HINT) || node.hasHint(WEB_NEW_PASSWORD_HINT) ->
+                            newPasswords += id
+                        node.hasHint(View.AUTOFILL_HINT_PASSWORD) ||
+                            node.hasHint(WEB_CURRENT_PASSWORD_HINT) -> {
+                            passwords += id
+                            currentPasswords += id
+                        }
                         node.isPasswordField() -> passwords += id
                         node.isUsernameField() -> usernames += id
                     }
                 }
                 for (index in 0 until node.childCount) {
-                    collect(node.getChildAt(index), usernames, passwords)
+                    collect(node.getChildAt(index), usernames, passwords, newPasswords, currentPasswords)
                 }
             }
 
@@ -188,6 +217,10 @@ class PalladinAutofillService : AutofillService() {
 
             private fun AssistStructure.ViewNode.hasHint(expected: String): Boolean =
                 autofillHints.orEmpty().any { it.equals(expected, ignoreCase = true) }
+
+            private const val NEW_PASSWORD_HINT = "newPassword"
+            private const val WEB_NEW_PASSWORD_HINT = "new-password"
+            private const val WEB_CURRENT_PASSWORD_HINT = "current-password"
         }
     }
 

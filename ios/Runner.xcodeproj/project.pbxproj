@@ -10,6 +10,7 @@
 		043748E03DCB8DC3F3E4FFBB /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F6260E78E8942529C354D6E1 /* Localizable.strings */; };
 		0D9F10D53F8635E2DF7989B1 /* CredentialProviderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 568D0ABBB8BDD3725AE45AE1 /* CredentialProviderViewController.swift */; };
 		AFA100021AAAA00100000002 /* AutoFillCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */; };
+		AFA100041AAAA00100000004 /* GeneratedPasswordHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		379C7C7796D7895EF9DFEB78 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2857A94836B26F214F0F2AB8 /* Pods_Runner.framework */; };
@@ -81,6 +82,7 @@
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		568D0ABBB8BDD3725AE45AE1 /* CredentialProviderViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CredentialProviderViewController.swift; sourceTree = "<group>"; };
 		AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AutoFillCacheStore.swift; path = AutoFillBridge/Classes/AutoFillCacheStore.swift; sourceTree = "<group>"; };
+		AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeneratedPasswordHistory.swift; path = AutoFillBridge/Classes/GeneratedPasswordHistory.swift; sourceTree = "<group>"; };
 		74710404F29760E5FBF37359 /* Pods-Runner.release-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-staging.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-staging.xcconfig"; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -214,6 +216,7 @@
 			isa = PBXGroup;
 			children = (
 				AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */,
+				AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -550,6 +553,7 @@
 			files = (
 				0D9F10D53F8635E2DF7989B1 /* CredentialProviderViewController.swift in Sources */,
 				AFA100021AAAA00100000002 /* AutoFillCacheStore.swift in Sources */,
+				AFA100041AAAA00100000004 /* GeneratedPasswordHistory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

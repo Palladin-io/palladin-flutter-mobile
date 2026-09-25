@@ -3,3 +3,7 @@
 "credential_provider_biometric_prompt" = "Authenticate to use Palladin AutoFill";
 "credential_provider_no_matches" = "No credentials match this website or app.";
 "credential_provider_unavailable" = "AutoFill is unavailable. Open Palladin and unlock your vault to refresh it.";
+"credential_provider_generate_prompt" = "Generate a strong password for %@?";
+"credential_provider_generate_action" = "Generate and fill";
+"credential_provider_generate_biometric" = "Authenticate to save this generated password in Palladin";
+"credential_provider_cancel" = "Cancel";
