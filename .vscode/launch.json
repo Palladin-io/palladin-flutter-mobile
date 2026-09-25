@@ -13,14 +13,14 @@
       "request": "launch",
       "type": "dart",
       "program": "lib/main_staging.dart",
-      "args": ["--flavor", "staging"]
+      "args": ["--flavor", "staging", "--dart-define-from-file=config/backend-staging.local.json"]
     },
     {
       "name": "Production (Debug)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main_production.dart",
-      "args": ["--flavor", "production"]
+      "args": ["--flavor", "production", "--dart-define-from-file=config/backend-production.local.json"]
     },
     {
       "name": "Local (Release)",
@@ -36,7 +36,7 @@
       "type": "dart",
       "program": "lib/main_staging.dart",
       "flutterMode": "release",
-      "args": ["--flavor", "staging"]
+      "args": ["--flavor", "staging", "--dart-define-from-file=config/backend-staging.local.json"]
     },
     {
       "name": "Production (Release)",
@@ -44,7 +44,7 @@
       "type": "dart",
       "program": "lib/main_production.dart",
       "flutterMode": "release",
-      "args": ["--flavor", "production"]
+      "args": ["--flavor", "production", "--dart-define-from-file=config/backend-production.local.json"]
     }
   ]
 }

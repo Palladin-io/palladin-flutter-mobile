@@ -81,11 +81,14 @@ The maintained application targets are Android and iOS.
 | Flavor | Entry point | API | Application ID / bundle ID |
 |---|---|---|---|
 | `local` | `lib/main_local.dart` | local backend on port 5000 | `io.palladin.mobile.local` |
-| `staging` | `lib/main_staging.dart` | `https://api.stage.palladin.io` | `io.palladin.mobile.staging` |
-| `production` | `lib/main_production.dart` | `https://api.palladin.io` | `io.palladin.mobile` |
+| `staging` | `lib/main_staging.dart` | explicit `PALLADIN_API_BASE_URL` | `io.palladin.mobile.staging` |
+| `production` | `lib/main_production.dart` | explicit `PALLADIN_API_BASE_URL` | `io.palladin.mobile` |
 
 On the Android emulator, the local flavor maps the host to `10.0.2.2`; other
-platforms use `localhost`. Environment values are defined in
+platforms use `localhost`. The default `lib/main.dart` delegates to the local
+entry point. Staging/production require `PALLADIN_API_BASE_URL`; missing or
+invalid HTTPS destinations fail before networking is initialized.
+Environment values are defined in
 `lib/config/env_config.dart` and must not be hardcoded in features.
 
 ## Prerequisites
@@ -109,11 +112,21 @@ flutter gen-l10n
 flutter run --flavor local -t lib/main_local.dart
 ```
 
-Other environments use the matching entry point:
+Create ignored `config/backend-staging.local.json` and/or
+`config/backend-production.local.json` with your API destination:
+
+```json
+{"PALLADIN_API_BASE_URL": "https://api.example.invalid"}
+```
+
+Replace the example with your HTTPS API. Other environments use the matching
+entry point (the checked-in VS Code launch configurations read these same files):
 
 ```bash
-flutter run --flavor staging -t lib/main_staging.dart
-flutter run --flavor production -t lib/main_production.dart
+flutter run --flavor staging -t lib/main_staging.dart \
+  --dart-define-from-file=config/backend-staging.local.json
+flutter run --flavor production -t lib/main_production.dart \
+  --dart-define-from-file=config/backend-production.local.json
 ```
 
 Store testing may build the immutable production app identity against the
@@ -124,8 +137,13 @@ flutter build appbundle \
   --release \
   --flavor production \
   -t lib/main_production.dart \
-  --dart-define=PALLADIN_BACKEND_ENVIRONMENT=staging
+  --dart-define=PALLADIN_BACKEND_ENVIRONMENT=staging \
+  --dart-define-from-file=config/backend-staging.local.json
 ```
+
+The store workflow reads `STAGING_API_BASE_URL` / `PRODUCTION_API_BASE_URL`
+from the protected distribution environment, selecting by backend environment.
+Missing configuration fails without falling back to another environment.
 
 Do not upload the staging application ID as a production-store artifact.
 

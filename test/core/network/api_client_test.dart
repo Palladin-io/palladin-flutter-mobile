@@ -8,7 +8,9 @@ void main() {
   group('createDio', () {
     test('configures Dio with correct baseUrl', () {
       FlutterSecureStorage.setMockInitialValues({});
-      final config = EnvConfig.staging();
+      final config = EnvConfig.staging(
+        apiBaseUrl: 'https://stage.example.test',
+      );
       final storage = SecureTokenStorage(const FlutterSecureStorage());
       final dio = createDio(config, storage);
 
@@ -17,7 +19,9 @@ void main() {
 
     test('attaches interceptors including analytics headers', () {
       FlutterSecureStorage.setMockInitialValues({});
-      final config = EnvConfig.staging();
+      final config = EnvConfig.staging(
+        apiBaseUrl: 'https://stage.example.test',
+      );
       final storage = SecureTokenStorage(const FlutterSecureStorage());
       final dio = createDio(config, storage);
 
