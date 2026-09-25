@@ -11,6 +11,13 @@ credential encryption and decryption on the device.
 > This is security-sensitive software. Development builds and unreviewed
 > changes should never be used with real credentials.
 
+## Palladin ecosystem
+
+[Project overview and public repositories](https://github.com/Palladin-io#readme) · [Backend API](https://github.com/Palladin-io/palladin-net-backend) · [Website](https://palladin.io)
+
+Each component owns its setup and contribution guide. This repository can be
+used independently of the private project workspace.
+
 ## Security model
 
 The backend coordinates accounts, devices, agents, grants, and encrypted
