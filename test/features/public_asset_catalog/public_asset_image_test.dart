@@ -14,8 +14,11 @@ void main() {
   tearDown(() => getIt.reset());
 
   for (final config in [
-    EnvConfig.staging(),
-    EnvConfig.production(useStagingBackend: true),
+    EnvConfig.staging(apiBaseUrl: 'https://stage.example.test'),
+    EnvConfig.production(
+      useStagingBackend: true,
+      apiBaseUrl: 'https://stage.example.test',
+    ),
   ]) {
     testWidgets('loads the published revision from staging for ${config.flavor}', (
       tester,
@@ -32,13 +35,15 @@ void main() {
       final image = tester.widget<Image>(find.byType(Image));
       expect(
         (image.image as NetworkImage).url,
-        'https://api.stage.palladin.io/api/public-assets/$assetId/revisions/1/content',
+        'https://stage.example.test/api/public-assets/$assetId/revisions/1/content',
       );
     });
   }
 
   testWidgets('Vault cards render their public catalog icon', (tester) async {
-    getIt.registerSingleton<EnvConfig>(EnvConfig.staging());
+    getIt.registerSingleton<EnvConfig>(
+      EnvConfig.staging(apiBaseUrl: 'https://stage.example.test'),
+    );
     final icon =
         'public-asset:$assetId|1|${Uri.encodeComponent('https://old-cdn.example/icon.png')}';
     await tester.pumpWidget(
@@ -68,7 +73,7 @@ void main() {
     final image = tester.widget<Image>(find.byType(Image));
     expect(
       (image.image as NetworkImage).url,
-      'https://api.stage.palladin.io/api/public-assets/$assetId/revisions/1/content',
+      'https://stage.example.test/api/public-assets/$assetId/revisions/1/content',
     );
   });
 

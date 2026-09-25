@@ -148,3 +148,17 @@ prerequisite for making a fresh clone independent of Palladin infrastructure.
 Provider restrictions and native login/push smoke tests remain operational
 release gates. Public client identifiers in earlier commits alone do not
 require a history rewrite.
+
+## Explicit API destination
+
+The default entry point uses local configuration. Staging and production read
+`PALLADIN_API_BASE_URL` from a Dart build define, with no Palladin-host fallback.
+The value must be an absolute HTTPS URL without user information, query or
+fragment; a self-hosted base path is supported. See the README for ignored JSON
+inputs and local run commands.
+
+Both store distribution environments must define `STAGING_API_BASE_URL` and
+`PRODUCTION_API_BASE_URL`. Android and iOS select the URL using the same backend
+environment as the Google server audience. Production-distribution tests against
+staging keep their production Firebase, OAuth iOS identity and signing inputs.
+No provider configuration is changed by selecting the API destination.

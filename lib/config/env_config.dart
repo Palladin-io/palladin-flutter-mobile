@@ -6,7 +6,7 @@ enum AppFlavor { local, staging, production }
 /// Holds all environment-specific configuration values.
 ///
 /// Each flavor (staging, production) has its own factory constructor
-/// that provides the correct URLs, keys, and identifiers.
+/// that reads explicitly supplied deployment values.
 class EnvConfig {
   static const _productionCertificatePins = <String>[];
 
@@ -55,15 +55,19 @@ class EnvConfig {
     );
   }
 
-  /// Staging environment targeting `api.stage.palladin.io`.
-  factory EnvConfig.staging() {
-    return const EnvConfig._(
+  /// Staging distribution with an explicitly configured HTTPS API.
+  factory EnvConfig.staging({
+    String apiBaseUrl = const String.fromEnvironment('PALLADIN_API_BASE_URL'),
+  }) {
+    return EnvConfig._(
       flavor: AppFlavor.staging,
       appName: 'Palladin (Stage)',
-      apiBaseUrl: 'https://api.stage.palladin.io',
-      posthogKey: String.fromEnvironment('POSTHOG_PROJECT_KEY'),
+      apiBaseUrl: _requireApiBaseUrl(apiBaseUrl),
+      posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
       posthogHost: 'https://eu.i.posthog.com',
-      googleServerClientId: String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID'),
+      googleServerClientId: const String.fromEnvironment(
+        'GOOGLE_SERVER_CLIENT_ID',
+      ),
     );
   }
 
@@ -71,13 +75,14 @@ class EnvConfig {
   ///
   /// Store testing keeps the production app identity and Firebase/signing
   /// configuration while temporarily targeting the staging API.
-  factory EnvConfig.production({bool useStagingBackend = false}) {
+  factory EnvConfig.production({
+    bool useStagingBackend = false,
+    String apiBaseUrl = const String.fromEnvironment('PALLADIN_API_BASE_URL'),
+  }) {
     return EnvConfig._(
       flavor: AppFlavor.production,
       appName: 'Palladin',
-      apiBaseUrl: useStagingBackend
-          ? 'https://api.stage.palladin.io'
-          : 'https://api.palladin.io',
+      apiBaseUrl: _requireApiBaseUrl(apiBaseUrl),
       posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
       posthogHost: 'https://eu.i.posthog.com',
       googleServerClientId: const String.fromEnvironment(
@@ -88,6 +93,23 @@ class EnvConfig {
           ? const []
           : _productionCertificatePins,
     );
+  }
+
+  static String _requireApiBaseUrl(String value) {
+    final uri = Uri.tryParse(value);
+    if (value != value.trim() ||
+        uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw StateError(
+        'PALLADIN_API_BASE_URL must be an absolute HTTPS URL '
+        'without credentials, query or fragment.',
+      );
+    }
+    return value;
   }
 
   bool get isLocal => flavor == AppFlavor.local;

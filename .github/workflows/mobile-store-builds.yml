@@ -150,6 +150,8 @@ jobs:
         env:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ inputs.backend_environment }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          PRODUCTION_API_BASE_URL: ${{ vars.PRODUCTION_API_BASE_URL }}
         run: |
           set -euo pipefail
 
@@ -162,8 +164,20 @@ jobs:
             exit 1
           fi
 
-          echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
-          echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
+          if [ "$backend_environment" = production ]; then
+            api_base_url="$PRODUCTION_API_BASE_URL"
+          else
+            api_base_url="$STAGING_API_BASE_URL"
+          fi
+          if [ -z "$api_base_url" ]; then
+            echo "::error::Missing API base URL for the selected backend environment"
+            exit 1
+          fi
+          {
+            echo "api_base_url=$api_base_url"
+            echo "backend_environment=${backend_environment}"
+            echo "target=lib/main_${FLAVOR}.dart"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Prepare Google OAuth build configuration
         env:
@@ -191,6 +205,7 @@ jobs:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
           TARGET: ${{ steps.runtime_config.outputs.target }}
+          API_BASE_URL: ${{ steps.runtime_config.outputs.api_base_url }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
@@ -200,6 +215,7 @@ jobs:
             --flavor "${FLAVOR}" \
             -t "${TARGET}" \
             --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
+            --dart-define="PALLADIN_API_BASE_URL=${API_BASE_URL}" \
             --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}"
@@ -519,6 +535,8 @@ jobs:
         env:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ inputs.backend_environment }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          PRODUCTION_API_BASE_URL: ${{ vars.PRODUCTION_API_BASE_URL }}
         run: |
           set -euo pipefail
 
@@ -531,8 +549,20 @@ jobs:
             exit 1
           fi
 
-          echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
-          echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
+          if [ "$backend_environment" = production ]; then
+            api_base_url="$PRODUCTION_API_BASE_URL"
+          else
+            api_base_url="$STAGING_API_BASE_URL"
+          fi
+          if [ -z "$api_base_url" ]; then
+            echo "::error::Missing API base URL for the selected backend environment"
+            exit 1
+          fi
+          {
+            echo "api_base_url=$api_base_url"
+            echo "backend_environment=${backend_environment}"
+            echo "target=lib/main_${FLAVOR}.dart"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Prepare Google OAuth build configuration
         env:
@@ -561,6 +591,7 @@ jobs:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
           TARGET: ${{ steps.runtime_config.outputs.target }}
+          API_BASE_URL: ${{ steps.runtime_config.outputs.api_base_url }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
@@ -570,6 +601,7 @@ jobs:
             --flavor "${FLAVOR}" \
             -t "${TARGET}" \
             --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
+            --dart-define="PALLADIN_API_BASE_URL=${API_BASE_URL}" \
             --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}" \

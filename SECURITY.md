@@ -37,8 +37,8 @@ gitleaks dir . --config .gitleaks.toml --redact --no-banner
 
 `.gitleaks.toml` extends the upstream default rules. Its allowlists match exact
 paths only: deterministic cryptographic fixtures, synthetic test credentials,
-dependency checksums, cryptographic documentation, and the Firebase client
-configuration described in [`docs/firebase-config.md`](docs/firebase-config.md).
+dependency checksums and cryptographic documentation. Firebase client files are
+ignored inputs described in [`docs/firebase-config.md`](docs/firebase-config.md).
 `.gitleaksignore` contains one historical exception constrained to an exact
 commit, path, rule, and line fingerprint for a synthetic UI mock. Do not add
 value-based or repository-wide exceptions. A new finding must be removed,
