@@ -20,9 +20,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        id: checkout
         with:
           persist-credentials: false
       - name: Scan current tree for secrets
+        id: scan_current_tree_for_secrets
         env:
           GITLEAKS_VERSION: 8.30.1
           GITLEAKS_ARCHIVE_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
@@ -37,16 +39,60 @@ jobs:
           tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
           "$binary" dir . --config .gitleaks.toml --redact --no-banner
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        id: setup_flutter
         with:
           flutter-version: 3.41.4
       - name: Install libsodium for native protocol fixtures
+        id: install_libsodium_for_native_protocol_fixtures
         run: sudo apt-get update && sudo apt-get install --yes libsodium-dev
       - name: Verify cloud configuration installers
+        id: verify_cloud_configuration_installers
         run: python3 -m unittest discover -s tool/tests
-      - run: flutter pub get
+      - name: flutter pub get
+        id: flutter_pub_get
+        run: flutter pub get
       - name: Verify third-party notices
+        id: verify_third_party_notices
         run: dart run tool/generate_third_party_notices.dart --check
-      - run: flutter analyze
+      - name: flutter analyze
+        id: flutter_analyze
+        run: flutter analyze
       - name: Enforce Vault v2 structural performance budgets
+        id: enforce_vault_v2_structural_performance_budgets
         run: flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
-      - run: flutter test
+      - name: flutter test
+        id: flutter_test
+        run: flutter test
+
+      - name: Publish CI check summary
+        if: always()
+        shell: bash
+        env:
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          SCAN_CURRENT_TREE_FOR_SECRETS: ${{ steps.scan_current_tree_for_secrets.outcome }}
+          SETUP_FLUTTER: ${{ steps.setup_flutter.outcome }}
+          INSTALL_LIBSODIUM_FOR_NATIVE_PROTOCOL_FIXTURES: ${{ steps.install_libsodium_for_native_protocol_fixtures.outcome }}
+          VERIFY_CLOUD_CONFIGURATION_INSTALLERS: ${{ steps.verify_cloud_configuration_installers.outcome }}
+          FLUTTER_PUB_GET: ${{ steps.flutter_pub_get.outcome }}
+          VERIFY_THIRD_PARTY_NOTICES: ${{ steps.verify_third_party_notices.outcome }}
+          FLUTTER_ANALYZE: ${{ steps.flutter_analyze.outcome }}
+          ENFORCE_VAULT_V2_STRUCTURAL_PERFORMANCE_BUDGETS: ${{ steps.enforce_vault_v2_structural_performance_budgets.outcome }}
+          FLUTTER_TEST: ${{ steps.flutter_test.outcome }}
+        run: |
+          {
+            printf '## CI checks\n\nPlatform: Linux (ubuntu-latest)\n\n'
+            printf '| Check | Result |\n| --- | --- |\n'
+            printf '| %s | %s |\n' 'Checkout' "${CHECKOUT:-not run}"
+            printf '| %s | %s |\n' 'Scan current tree for secrets' "${SCAN_CURRENT_TREE_FOR_SECRETS:-not run}"
+            printf '| %s | %s |\n' 'Set up Flutter' "${SETUP_FLUTTER:-not run}"
+            printf '| %s | %s |\n' 'Install libsodium for native protocol fixtures' "${INSTALL_LIBSODIUM_FOR_NATIVE_PROTOCOL_FIXTURES:-not run}"
+            printf '| %s | %s |\n' 'Verify cloud configuration installers' "${VERIFY_CLOUD_CONFIGURATION_INSTALLERS:-not run}"
+            printf '| %s | %s |\n' 'flutter pub get' "${FLUTTER_PUB_GET:-not run}"
+            printf '| %s | %s |\n' 'Verify third-party notices' "${VERIFY_THIRD_PARTY_NOTICES:-not run}"
+            printf '| %s | %s |\n' 'flutter analyze' "${FLUTTER_ANALYZE:-not run}"
+            printf '| %s | %s |\n' 'Enforce Vault v2 structural performance budgets' "${ENFORCE_VAULT_V2_STRUCTURAL_PERFORMANCE_BUDGETS:-not run}"
+            printf '| %s | %s |\n' 'flutter test' "${FLUTTER_TEST:-not run}"
+            printf '\n[Open workflow logs](%s/%s/actions/runs/%s/attempts/%s)\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf '\nFailure details stay in the failing check log; this report contains only check outcomes.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
