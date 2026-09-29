@@ -284,6 +284,11 @@ void main() {
     'ftp://example.test/login',
     'mailto:person@example.test',
     'javascript:alert(1)',
+    'javascript:123',
+    'mailto:123',
+    'ftp:21',
+    'androidapp:123',
+    'custom:8443',
     'androidapp://example.test',
   ]) {
     test(

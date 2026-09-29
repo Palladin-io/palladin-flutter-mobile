@@ -148,7 +148,10 @@ final class EntryShareCopyProjectionService {
     if (original == null) return null;
     // Like ordinary creation, infer HTTPS for a scheme-less host/path. A
     // numeric host:port is not an opaque URI scheme; mailto/javascript/etc are.
-    final hostPort = RegExp(r'^[^/?#@:]+:[0-9]+(?:[/?#]|$)').hasMatch(raw);
+    final hostPort = RegExp(
+      r'^(?:localhost|[a-z0-9-]+(?:\.[a-z0-9-]+)+):[0-9]+(?:[/?#]|$)',
+      caseSensitive: false,
+    ).hasMatch(raw);
     if (original.hasScheme &&
         !hostPort &&
         !{'https', 'http'}.contains(original.scheme)) {
