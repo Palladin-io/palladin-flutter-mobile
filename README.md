@@ -179,7 +179,6 @@ Before running or building Google Sign-In, supply explicit backend and iOS
 client IDs using `tool/configure_google_oauth.py` and the generated
 `--dart-define-from-file`. See [configuration instructions](docs/firebase-config.md#explicit-google-oauth-build-inputs).
 A fresh clone has no OAuth audience configured; Google login fails closed.
-
 ## Firebase client configuration
 
 Per-flavor `google-services.json` and `GoogleService-Info.plist` files are ignored

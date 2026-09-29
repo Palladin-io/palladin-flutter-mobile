@@ -484,7 +484,6 @@ void main() {
         false,
       );
     });
-
     for (final revoke in [false, true]) {
       test(
         'failed request cannot restore metadata after organization change (revoke=$revoke)',
@@ -900,7 +899,6 @@ void main() {
       expect(tester.takeException(), isNull);
       await dispose(tester);
     });
-
     testWidgets(
       'error state offers explicit retry and recovers without losing scope',
       (tester) async {

@@ -58,7 +58,6 @@ copy. The shared ordinary/new-copy policy keeps CVV at `never`, never Discovery
 or Agent grant delivery. Missing CVV is not synthesized. Sender/receiver schema,
 selection and projection tests cover this addition; older consumers without CVV
 support must be upgraded before coordinated sharing release.
-
 `EntryShareCopyProjectionService` maps an independently decrypted snapshot to a
 new canonical `MemberSecret`. It preserves selected strings without trimming,
 Unicode normalization or guessed required values. Missing required fields are
@@ -792,7 +791,6 @@ Focused creation/list suite: 86 tests pass with the native test-host libsodium;
 historical implementation notes below describe the previous selected-field UI,
 not the current creation contract. Receiver and saved-copy parity are separate
 unfinished work; this checkpoint does not claim them complete.
-
 `EntryShareSelectionService` projects the authenticated current snapshot returned
 by `LocalCurrentEntryService`, not permissive legacy payload constructors. Native
 fields are allowlisted per Entry type. TOTP, description, notes, billing address
@@ -885,7 +883,6 @@ remains separate from the mocked method-channel tests.
 Named-recipient creation does not send the link or Entry content by email. The
 sender distributes the link; the receiver requests an email verification code
 through the existing OTP flow. The backend never receives the link's decryption key.
-
 `PALLADIN_SHARING_WEB_ORIGIN` is a required, build-owned bare origin, empty by
 default. `EntryShareLinkService` rejects credentials, paths, queries, fragments,
 unapproved hosts and insecure non-local origins before opening the source. Stage
@@ -899,7 +896,6 @@ determines this host boundary, not a hardcoded API hostname. Staging/production
 API URLs follow current main's required build configuration; sharing never
 reintroduces runnable cloud defaults. Store testing selects the staging backend
 independently of the production application identity.
-
 Tests cover native crypto roundtrip, identical retry, source substitution,
 cancellation at read/challenge/crypto/POST, session replacement, expiry, the real
 list CTA, foreground ownership, validation, optional PIN/OTP, opt-in Inbox,
@@ -944,7 +940,6 @@ top CTA; the footer keeps the same position before and after the response.
 Refreshing an already empty list retains its layout.
 Both global and per-Vault Entry cards expose the same authorized Share action
 beside reveal/details through the shared `EntryListCard`.
-
 Entry Detail has a fifth Sharing tab, separate from Details, Agents, Logs and
 History. `EntrySharingTab` owns its `EntrySharingCubit` and mounts no shared global
 metadata cache. The authenticated `EntrySharingRemoteDatasource` calls the scoped

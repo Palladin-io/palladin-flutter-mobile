@@ -274,7 +274,6 @@ void main() {
       _defaultCopyPolicy(secret);
     },
   );
-
   test('script needs local execution description and inherits no refs', () {
     final source = _snapshot('script', {
       'script.source': '  echo "\$EXTERNAL"\n',
