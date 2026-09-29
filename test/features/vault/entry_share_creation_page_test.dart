@@ -405,7 +405,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Only this person (email code)').last);
     await tester.pumpAndSettle();
-    await enter(tester, 'Recipient email', ' recipient@example.test ');
+    await enter(
+      tester,
+      'Recipient emails (comma-separated)',
+      ' recipient@example.test ',
+    );
   }
 
   testWidgets(
@@ -536,6 +540,100 @@ void main() {
       await tester.pump(const Duration(seconds: 46));
       await tester.pumpAndSettle();
       expect(clipboard, copiedLink);
+    },
+  );
+
+  testWidgets('selects and copies each recipient\'s independent link', (
+    tester,
+  ) async {
+    const secondId = '778899aa-bbcc-4dde-8899-aabbccddeeff';
+    var challengeCount = 0;
+    when(
+      () => remote.challenge(
+        any(),
+        any(),
+        cancelToken: any(named: 'cancelToken'),
+      ),
+    ).thenAnswer(
+      (_) async => EntryShareCreationChallenge(
+        shareId: challengeCount++ == 0 ? _shareId : secondId,
+        sourceRevision: '1',
+        expiresAt: '2026-09-20T12:00:00Z',
+      ),
+    );
+    await pump(tester);
+    await ready(tester);
+    await enter(
+      tester,
+      'Recipient emails (comma-separated)',
+      'first@example.test, second@example.test',
+    );
+    await create(tester);
+    expect(requests.map((request) => request.options.recipientEmail), [
+      'first@example.test',
+      'second@example.test',
+    ]);
+    expect(find.text('Your link is ready'), findsOneWidget);
+    await tester.tap(find.text('Copy sharing link'));
+    await tester.pumpAndSettle();
+    expect(
+      clipboard,
+      startsWith('https://stage.palladin.io/share/$_shareId#v=1&key='),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('Your link is ready'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('second@example.test').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy sharing link'));
+    await tester.pumpAndSettle();
+    expect(
+      clipboard,
+      startsWith('https://stage.palladin.io/share/$secondId#v=1&key='),
+    );
+    await dispose(tester);
+  });
+
+  testWidgets(
+    'multi-recipient delivery roundtrip expires and cannot restore links',
+    (tester) async {
+      const secondId = '778899aa-bbcc-4dde-8899-aabbccddeeff';
+      var challengeCount = 0;
+      when(
+        () => remote.challenge(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer(
+        (_) async => EntryShareCreationChallenge(
+          shareId: challengeCount++ == 0 ? _shareId : secondId,
+          sourceRevision: '1',
+          expiresAt: '2026-09-20T12:00:00Z',
+        ),
+      );
+      await pump(tester);
+      await ready(tester);
+      await enter(
+        tester,
+        'Recipient emails (comma-separated)',
+        'first@example.test, second@example.test',
+      );
+      await create(tester);
+      await tester.tap(find.text('Copy sharing link'));
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      await tester.pump(const Duration(minutes: 11));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('Copy sharing link'), findsNothing);
+      expect(find.text('Share'), findsNothing);
+      await dispose(tester);
     },
   );
 
@@ -766,7 +864,9 @@ void main() {
     await pump(tester);
     await ready(tester);
     final controller = tester
-        .widget<OnboardingTextField>(input('Recipient email'))
+        .widget<OnboardingTextField>(
+          input('Recipient emails (comma-separated)'),
+        )
         .controller;
     authEvents.add(unlocked.copyWith(clearKeys: true, isVaultLocked: true));
     await tester.pumpAndSettle();

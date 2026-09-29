@@ -14,6 +14,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/accent_button.dart';
 import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/app_bar_title.dart';
+import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -70,6 +71,8 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
   EntryShareLinkService? _links;
   Animation<double>? _coverAnimation;
   Timer? _authorityCheck;
+  Timer? _handoffExpiry;
+  DateTime? _handoffUntil;
   bool _invalidated = false, _copying = false;
   String? _copyMessage;
 
@@ -197,6 +200,9 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
     _wipeSourceKeys();
     _authorityCheck?.cancel();
     _authorityCheck = null;
+    _handoffExpiry?.cancel();
+    _handoffExpiry = null;
+    _handoffUntil = null;
     _copyMessage = null;
   }
 
@@ -209,7 +215,33 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _invalidate();
+    if (state == AppLifecycleState.resumed && _handoffUntil != null) {
+      final valid =
+          DateTime.now().isBefore(_handoffUntil!) && _sameAuth(_auth.state);
+      _handoffExpiry?.cancel();
+      _handoffExpiry = null;
+      _handoffUntil = null;
+      if (!valid) {
+        _invalidate();
+      } else {
+        unawaited(_cubit.revalidate());
+      }
+    } else if (state != AppLifecycleState.resumed &&
+        (state == AppLifecycleState.detached ||
+            _handoffUntil == null ||
+            !DateTime.now().isBefore(_handoffUntil!) ||
+            !_sameAuth(_auth.state))) {
+      _invalidate();
+    }
+  }
+
+  void _allowOneDeliveryRoundtrip() {
+    // Only an explicit Copy/Share of a multi-recipient batch may briefly keep
+    // its RAM-only links while the OS opens the selected receiving app.
+    if (_cubit.state.links.length < 2 || _invalidated) return;
+    _handoffExpiry?.cancel();
+    _handoffUntil = DateTime.now().add(const Duration(minutes: 10));
+    _handoffExpiry = Timer(const Duration(minutes: 10), _invalidate);
   }
 
   @override
@@ -219,13 +251,14 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
     WidgetsBinding.instance.removeObserver(this);
     _coverAnimation?.removeStatusListener(_covered);
     _authorityCheck?.cancel();
+    _handoffExpiry?.cancel();
     unawaited(_authSubscription.cancel());
     unawaited(_flowSubscription.cancel());
     unawaited(_cubit.close());
     super.dispose();
   }
 
-  Future<void> _copy() async {
+  Future<void> _copy([int index = 0]) async {
     if (_copying || _invalidated || _links == null) return;
     setState(() {
       _copying = true;
@@ -233,8 +266,10 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
     });
     final l10n = AppLocalizations.of(context)!;
     try {
-      final fragment = await _cubit.fragmentForCopy();
-      final shareId = _cubit.state.shareId;
+      final fragment = await _cubit.fragmentForCopy(index);
+      final shareId = index < _cubit.state.links.length
+          ? _cubit.state.links[index].shareId
+          : null;
       if (!mounted || _invalidated || fragment == null || shareId == null) {
         return;
       }
@@ -243,6 +278,9 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
           text: _links!.create(shareId: shareId, fragment: fragment),
         ),
       );
+      if (await _cubit.revalidate() && _canShowCopyResult) {
+        _allowOneDeliveryRoundtrip();
+      }
       if (_canShowCopyResult &&
           await _cubit.revalidate() &&
           _canShowCopyResult) {
@@ -262,9 +300,10 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
   bool get _canShowCopyResult =>
       mounted &&
       !_invalidated &&
-      _cubit.state.phase == EntryShareCreationPhase.created;
+      (_cubit.state.phase == EntryShareCreationPhase.created ||
+          _cubit.state.phase == EntryShareCreationPhase.retry);
 
-  Future<void> _share(Rect origin) async {
+  Future<void> _share(int index, Rect origin) async {
     if (_copying || _invalidated || _links == null) return;
     setState(() {
       _copying = true;
@@ -272,11 +311,14 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
     });
     final l10n = AppLocalizations.of(context)!;
     try {
-      final fragment = await _cubit.fragmentForCopy();
-      final shareId = _cubit.state.shareId;
+      final fragment = await _cubit.fragmentForCopy(index);
+      final shareId = index < _cubit.state.links.length
+          ? _cubit.state.links[index].shareId
+          : null;
       if (!mounted || _invalidated || fragment == null || shareId == null) {
         return;
       }
+      _allowOneDeliveryRoundtrip();
       await Share.share(
         _links!.create(shareId: shareId, fragment: fragment),
         sharePositionOrigin: origin,
@@ -288,6 +330,11 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
         setState(() => _copyMessage = l10n.sharingShareError);
       }
     } finally {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _handoffExpiry?.cancel();
+        _handoffExpiry = null;
+        _handoffUntil = null;
+      }
       if (mounted) setState(() => _copying = false);
     }
   }
@@ -339,13 +386,19 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
             final loading =
                 state.phase == EntryShareCreationPhase.loading ||
                 state.phase == EntryShareCreationPhase.creating;
-            final created = state.phase == EntryShareCreationPhase.created;
+            final created =
+                state.phase == EntryShareCreationPhase.created ||
+                (state.phase == EntryShareCreationPhase.retry &&
+                    state.links.isNotEmpty);
             if (created) {
               return _CreatedLinkView(
+                links: state.links,
+                retryPending: state.phase == EntryShareCreationPhase.retry,
                 copying: _copying,
                 message: _copyMessage,
                 onCopy: _copy,
                 onShare: _share,
+                onRetry: () => unawaited(_cubit.retry()),
               );
             }
             final retry = state.phase == EntryShareCreationPhase.retry;
@@ -404,18 +457,31 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
   }
 }
 
-class _CreatedLinkView extends StatelessWidget {
+class _CreatedLinkView extends StatefulWidget {
   const _CreatedLinkView({
+    required this.links,
+    required this.retryPending,
     required this.copying,
     required this.message,
     required this.onCopy,
     required this.onShare,
+    required this.onRetry,
   });
 
+  final List<CreatedEntryShareLink> links;
+  final bool retryPending;
   final bool copying;
   final String? message;
-  final VoidCallback onCopy;
-  final ValueChanged<Rect> onShare;
+  final ValueChanged<int> onCopy;
+  final void Function(int, Rect) onShare;
+  final VoidCallback onRetry;
+
+  @override
+  State<_CreatedLinkView> createState() => _CreatedLinkViewState();
+}
+
+class _CreatedLinkViewState extends State<_CreatedLinkView> {
+  int _selected = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -424,96 +490,155 @@ class _CreatedLinkView extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: CustomScrollView(
-            slivers: [
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Align(
-                  alignment: const Alignment(0, -0.15),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH,
-                      vertical: AppSpacing.screenBottom,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            l10n.sharingCreated,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.onSurface(brightness),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.innerGap),
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(text: l10n.sharingLinkOnceBefore),
-                                TextSpan(
-                                  text: l10n.sharingLinkOnceEmphasis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+          child: LayoutBuilder(
+            builder: (context, viewport) => CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: viewport.maxHeight),
+                    child: Align(
+                      alignment: const Alignment(0, -0.15),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.screenH,
+                          vertical: AppSpacing.screenBottom,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                l10n.sharingCreated,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.onSurface(brightness),
                                 ),
-                                TextSpan(text: l10n.sharingLinkOnceAfter),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: AppColors.onSurfaceMuted(brightness),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.innerGap),
-                          Visibility(
-                            visible: message != null,
-                            maintainSize: true,
-                            maintainAnimation: true,
-                            maintainState: true,
-                            child: Semantics(
-                              liveRegion: true,
-                              child: IndexedStack(
-                                index: message == l10n.sharingShareError
-                                    ? 2
-                                    : message == l10n.sharingCopyError
-                                    ? 1
-                                    : 0,
-                                alignment: Alignment.topCenter,
-                                children: [
-                                  for (final feedback in [
-                                    l10n.sharingCopiedLink,
-                                    l10n.sharingCopyError,
-                                    l10n.sharingShareError,
-                                  ])
-                                    Text(
-                                      feedback,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        height: 1.4,
-                                        color: AppColors.onSurfaceSubtle(
-                                          brightness,
+                              ),
+                              if (widget.links.length > 1) ...[
+                                const SizedBox(height: AppSpacing.section),
+                                AppDropdownField<int>(
+                                  label: l10n.sharingRecipientSection,
+                                  value: _selected,
+                                  items: [
+                                    for (
+                                      var index = 0;
+                                      index < widget.links.length;
+                                      index++
+                                    )
+                                      DropdownMenuItem(
+                                        value: index,
+                                        child: Text(
+                                          widget.links[index].recipientEmail ??
+                                              l10n.sharingAnyone,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _selected = value);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: AppSpacing.innerGap),
+                                Text(
+                                  l10n.sharingMultipleLinkHandoff,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.onSurfaceMuted(brightness),
+                                  ),
+                                ),
+                              ],
+                              if (widget.retryPending) ...[
+                                const SizedBox(height: AppSpacing.section),
+                                Text(
+                                  l10n.sharingPartialCreation,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.onSurfaceMuted(brightness),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: widget.copying
+                                      ? null
+                                      : widget.onRetry,
+                                  child: Text(l10n.sharingRetryCreate),
+                                ),
+                              ],
+                              const SizedBox(height: AppSpacing.innerGap),
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: l10n.sharingLinkOnceBefore),
+                                    TextSpan(
+                                      text: l10n.sharingLinkOnceEmphasis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                ],
+                                    TextSpan(text: l10n.sharingLinkOnceAfter),
+                                  ],
+                                ),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  color: AppColors.onSurfaceMuted(brightness),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: AppSpacing.innerGap),
+                              Visibility(
+                                visible: widget.message != null,
+                                maintainSize: true,
+                                maintainAnimation: true,
+                                maintainState: true,
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: IndexedStack(
+                                    index:
+                                        widget.message == l10n.sharingShareError
+                                        ? 2
+                                        : widget.message ==
+                                              l10n.sharingCopyError
+                                        ? 1
+                                        : 0,
+                                    alignment: Alignment.topCenter,
+                                    children: [
+                                      for (final feedback in [
+                                        l10n.sharingCopiedLink,
+                                        l10n.sharingCopyError,
+                                        l10n.sharingShareError,
+                                      ])
+                                        Text(
+                                          feedback,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            height: 1.4,
+                                            color: AppColors.onSurfaceSubtle(
+                                              brightness,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         AppActionFooter(
@@ -526,13 +651,14 @@ class _CreatedLinkView extends StatelessWidget {
                     builder: (buttonContext) => AccentButton(
                       height: null,
                       label: l10n.sharingShareLink,
-                      onPressed: copying
+                      onPressed: widget.copying
                           ? null
                           : () {
                               final box =
                                   buttonContext.findRenderObject()!
                                       as RenderBox;
-                              onShare(
+                              widget.onShare(
+                                _selected,
                                 box.localToGlobal(Offset.zero) & box.size,
                               );
                             },
@@ -544,8 +670,8 @@ class _CreatedLinkView extends StatelessWidget {
                   child: PrimaryButton(
                     height: null,
                     label: l10n.sharingCopyLink,
-                    isLoading: copying,
-                    onPressed: onCopy,
+                    isLoading: widget.copying,
+                    onPressed: () => widget.onCopy(_selected),
                   ),
                 ),
               ],

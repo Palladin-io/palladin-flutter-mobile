@@ -259,6 +259,66 @@ void main() {
     },
   );
 
+  test(
+    'multiple recipients get independent links and retry only the second request',
+    () async {
+      const secondId = '778899aa-bbcc-4dde-8899-aabbccddeeff';
+      var challengeCount = 0;
+      when(
+        () => remote.challenge(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer(
+        (_) async => EntryShareCreationChallenge(
+          shareId: challengeCount++ == 0 ? _shareId : secondId,
+          sourceRevision: _revision,
+          expiresAt: _challenge.expiresAt,
+        ),
+      );
+      var attempts = 0;
+      when(
+        () => remote.create(
+          any(),
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((invocation) async {
+        requests.add(
+          invocation.positionalArguments[2] as EntryShareCreationRequest,
+        );
+        if (++attempts == 2) throw const EntrySharingRequestException();
+      });
+      await cubit.load();
+      await cubit.create(
+        options: EntryShareCreationOptions.fromInput(
+          recipientMode: EntryShareRecipientMode.namedRecipient,
+          recipientEmail: 'first@example.test, second@example.test',
+        ),
+      );
+      expect(cubit.state.phase, EntryShareCreationPhase.retry);
+      expect(cubit.state.links, hasLength(1));
+      expect(cubit.state.links.first.recipientEmail, 'first@example.test');
+      final secondRequest = requests[1];
+      await cubit.retry();
+      expect(requests, hasLength(3));
+      expect(requests.last, same(secondRequest));
+      expect(challengeCount, 2);
+      expect(cubit.state.phase, EntryShareCreationPhase.created);
+      expect(cubit.state.links.map((link) => link.recipientEmail), [
+        'first@example.test',
+        'second@example.test',
+      ]);
+      expect(cubit.state.links.last.shareId, secondId);
+      expect(
+        cubit.state.links.first.fragment,
+        isNot(cubit.state.links.last.fragment),
+      );
+    },
+  );
+
   test('mismatched source challenge stops before crypto or POST', () async {
     when(
       () => remote.challenge(

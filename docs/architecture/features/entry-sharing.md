@@ -881,14 +881,24 @@ full URL to the existing `share_plus` text channel (with an iPad anchor). It doe
 not copy to clipboard, create a file, attach plaintext Entry data or add analytics.
 The OS/selected receiving application controls retention after this explicit
 handoff. Cancellation is not reported as delivery; no success receipt is invented.
-There is no lifecycle exception: inactive/background, lock, session replacement
-or expiry still invalidate the source capability, including while sharing. A
-returning share operation cannot revive it. Native device/platform acceptance
+For a single link there is no lifecycle exception: inactive/background, lock,
+session replacement or expiry invalidate the source capability, including while
+sharing. For a multi-recipient batch only, an explicit Copy or Share allows one
+RAM-only delivery roundtrip of at most ten minutes. Returning to the foreground
+revalidates the original account/key/permission authority; lock, route cover,
+detachment and expiry still discard all links. A returning share operation cannot
+revive invalidated links. Native device/platform acceptance
 remains separate from the mocked method-channel tests.
 
 Named-recipient creation does not send the link or Entry content by email. The
 sender distributes the link; the receiver requests an email verification code
 through the existing OTP flow. The backend never receives the link's decryption key.
+The sender form accepts 1–20 distinct comma-separated recipient addresses and
+creates a separate independently encrypted link for each. The confirmation lets
+the sender select an address, then Copy or Share its own full link. A partially
+completed batch keeps successful links in RAM; retry reuses the exact pending
+request rather than creating another link for an earlier recipient. Lock,
+background, expiry and leaving the screen discard every retained capability.
 `PALLADIN_SHARING_WEB_ORIGIN` is a required, build-owned bare origin, empty by
 default. `EntryShareLinkService` rejects credentials, paths, queries, fragments,
 unapproved hosts and insecure non-local origins before opening the source. Stage

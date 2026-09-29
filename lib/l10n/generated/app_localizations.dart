@@ -635,13 +635,13 @@ abstract class AppLocalizations {
   /// No description provided for @sharingEmail.
   ///
   /// In en, this message translates to:
-  /// **'Recipient email'**
+  /// **'Recipient emails (comma-separated)'**
   String get sharingEmail;
 
   /// No description provided for @sharingEmailNotice.
   ///
   /// In en, this message translates to:
-  /// **'Send the copied link yourself. Palladin emails only the verification code, not the link. Create a separate link for each person.'**
+  /// **'Each person gets a separate link and receipt limit. Send each link yourself; Palladin emails only the verification code.'**
   String get sharingEmailNotice;
 
   /// No description provided for @sharingAnyoneTitle.
@@ -755,8 +755,20 @@ abstract class AppLocalizations {
   /// No description provided for @sharingEmailError.
   ///
   /// In en, this message translates to:
-  /// **'Enter one valid recipient email address.'**
+  /// **'Enter 1–20 distinct, valid email addresses separated by commas.'**
   String get sharingEmailError;
+
+  /// No description provided for @sharingPartialCreation.
+  ///
+  /// In en, this message translates to:
+  /// **'Some links were created. Copy them now, then retry the remaining requests. Closing this screen loses their secrets.'**
+  String get sharingPartialCreation;
+
+  /// No description provided for @sharingMultipleLinkHandoff.
+  ///
+  /// In en, this message translates to:
+  /// **'Send each link to its matching recipient. After Copy or Share, return to Palladin within 10 minutes to send the next link. Locking or closing this screen removes the remaining links.'**
+  String get sharingMultipleLinkHandoff;
 
   /// No description provided for @sharingPasswordError.
   ///

@@ -326,11 +326,11 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingNamedRecipient => 'Tylko ta osoba (kod e-mail)';
 
   @override
-  String get sharingEmail => 'E-mail odbiorcy';
+  String get sharingEmail => 'Adresy e-mail odbiorców (po przecinku)';
 
   @override
   String get sharingEmailNotice =>
-      'Samodzielnie przekaż skopiowany link. Palladin wysyła e-mailem tylko kod weryfikacji, nie link. Dla każdej osoby utwórz osobny link.';
+      'Każda osoba otrzyma osobny link i limit odbiorów. Wyślij każdy link samodzielnie; Palladin wysyła e-mailem tylko kod weryfikacyjny.';
 
   @override
   String get sharingAnyoneTitle => 'Każdy, kto ma link';
@@ -393,7 +393,16 @@ class AppLocalizationsPl extends AppLocalizations {
       'Jeśli wyjdziesz po wysłaniu żądania, sprawdź listę udostępnień: link mógł powstać mimo utraty odpowiedzi.';
 
   @override
-  String get sharingEmailError => 'Podaj jeden poprawny adres e-mail odbiorcy.';
+  String get sharingEmailError =>
+      'Podaj od 1 do 20 różnych, poprawnych adresów e-mail oddzielonych przecinkami.';
+
+  @override
+  String get sharingPartialCreation =>
+      'Część linków utworzono. Skopiuj je teraz, a potem ponów pozostałe operacje. Zamknięcie ekranu usunie ich sekrety z pamięci.';
+
+  @override
+  String get sharingMultipleLinkHandoff =>
+      'Wyślij każdy link właściwej osobie. Po skopiowaniu lub udostępnieniu wróć do Palladin w ciągu 10 minut, aby wysłać kolejny. Zablokowanie aplikacji lub zamknięcie ekranu usunie pozostałe linki.';
 
   @override
   String get sharingPasswordError =>

@@ -374,6 +374,31 @@ void main() {
     );
 
     test(
+      'parses distinct comma-separated recipients into separate requests',
+      () {
+        final options = EntryShareCreationOptions.fromInput(
+          recipientMode: EntryShareRecipientMode.namedRecipient,
+          recipientEmail: ' first@example.test , second@example.test ',
+        );
+        expect(options.recipientEmails, [
+          'first@example.test',
+          'second@example.test',
+        ]);
+        expect(
+          options.forRecipient('second@example.test').recipientEmail,
+          'second@example.test',
+        );
+        expect(
+          () => EntryShareCreationOptions.fromInput(
+            recipientMode: EntryShareRecipientMode.namedRecipient,
+            recipientEmail: 'first@example.test, FIRST@example.test',
+          ),
+          throwsA(isA<EntryShareFormException>()),
+        );
+      },
+    );
+
+    test(
       'anyone mode drops stale email; additional secret combines with OTP',
       () {
         final anyone = EntryShareCreationOptions.fromInput(

@@ -40,6 +40,7 @@ final class EntryShareCreationOptions {
   const EntryShareCreationOptions._({
     required this.recipientMode,
     required this.recipientEmail,
+    required this.recipientEmails,
     required this.protection,
     required this.protectionSecret,
     required this.lifetimeHours,
@@ -57,10 +58,19 @@ final class EntryShareCreationOptions {
     String maximumReceipts = '',
     bool notifyOnFirstReceipt = false,
   }) {
-    final email = recipientEmail.trim();
+    final emails = recipientMode == EntryShareRecipientMode.namedRecipient
+        ? recipientEmail.split(',').map((value) => value.trim()).toList()
+        : <String>[];
     if (recipientMode == EntryShareRecipientMode.namedRecipient &&
-        (email.length > 320 ||
-            !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email))) {
+        (emails.isEmpty ||
+            emails.length > 20 ||
+            emails.any(
+              (email) =>
+                  email.length > 320 ||
+                  !RegExp(r'^[^\s@,]+@[^\s@,]+\.[^\s@,]+$').hasMatch(email),
+            ) ||
+            emails.map((email) => email.toLowerCase()).toSet().length !=
+                emails.length)) {
       throw const EntryShareFormException(EntryShareFormError.email);
     }
     // A protection secret is exact user input, not a label to normalize.
@@ -86,9 +96,8 @@ final class EntryShareCreationOptions {
     }
     return EntryShareCreationOptions._(
       recipientMode: recipientMode,
-      recipientEmail: recipientMode == EntryShareRecipientMode.namedRecipient
-          ? email
-          : null,
+      recipientEmail: emails.isEmpty ? null : emails.first,
+      recipientEmails: List.unmodifiable(emails),
       protection: protection,
       protectionSecret: protection == EntryShareProtection.none
           ? null
@@ -101,11 +110,24 @@ final class EntryShareCreationOptions {
 
   final EntryShareRecipientMode recipientMode;
   final String? recipientEmail;
+  final List<String> recipientEmails;
   final EntryShareProtection protection;
   final String? protectionSecret;
   final int lifetimeHours;
   final int? maximumReceipts;
   final bool notifyOnFirstReceipt;
+
+  EntryShareCreationOptions forRecipient(String email) =>
+      EntryShareCreationOptions._(
+        recipientMode: recipientMode,
+        recipientEmail: email,
+        recipientEmails: List.unmodifiable([email]),
+        protection: protection,
+        protectionSecret: protectionSecret,
+        lifetimeHours: lifetimeHours,
+        maximumReceipts: maximumReceipts,
+        notifyOnFirstReceipt: notifyOnFirstReceipt,
+      );
 }
 
 final class EntryShareCreationChallenge {
