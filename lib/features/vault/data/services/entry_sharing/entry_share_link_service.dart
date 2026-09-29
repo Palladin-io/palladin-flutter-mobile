@@ -53,8 +53,7 @@ final class EntryShareLinkService {
       throw invalid;
     }
     if (!config.isLocal) {
-      final staging =
-          Uri.parse(config.apiBaseUrl).host == 'api.stage.palladin.io';
+      final staging = config.usesStagingBackend;
       if (uri.port != 443 ||
           (staging && uri.host != 'stage.palladin.io') ||
           (!staging &&

@@ -2,17 +2,6 @@
 useDefault = true
 
 [[allowlists]]
-description = "Public Firebase mobile client configuration; see docs/firebase-config.md"
-paths = [
-  '''^android/app/src/local/google-services\.json$''',
-  '''^android/app/src/staging/google-services\.json$''',
-  '''^android/app/src/production/google-services\.json$''',
-  '''^ios/config/local/GoogleService-Info\.plist$''',
-  '''^ios/config/staging/GoogleService-Info\.plist$''',
-  '''^ios/config/production/GoogleService-Info\.plist$''',
-]
-
-[[allowlists]]
 description = "Deterministic cryptographic fixtures with no production secrets"
 paths = [
   '''^test/fixtures/crypto/envelope-xchacha-hkdf\.json$''',

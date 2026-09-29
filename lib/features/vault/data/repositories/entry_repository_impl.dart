@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/crypto/vault_session_store.dart';
+import '../services/member_sync_service.dart';
 import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -38,6 +40,9 @@ class EntryRepositoryImpl implements EntryRepository {
     this.canonicalImport,
     this.autoFillMutationNotifier,
     this.localCurrentEntry,
+    this.canonicalDetails,
+    this.sessions,
+    this.memberIndex,
   });
 
   final EntryRemoteDatasource entryDatasource;
@@ -46,6 +51,9 @@ class EntryRepositoryImpl implements EntryRepository {
   final CanonicalImportProjectionService? canonicalImport;
   final AutoFillMutationNotifier? autoFillMutationNotifier;
   final LocalCurrentEntryService? localCurrentEntry;
+  final CanonicalEntryDetailService? canonicalDetails;
+  final VaultSessionStore? sessions;
+  final MemberIndexReader? memberIndex;
   final Map<String, _CanonicalImportProgress> _canonicalImports = {};
 
   @override
@@ -105,22 +113,51 @@ class EntryRepositoryImpl implements EntryRepository {
     required String vaultId,
     required String entryId,
   }) async {
-    final mutation = await autoFillMutationNotifier?.beginMutation();
+    final canonical = canonicalDetails;
+    final session = sessions;
+    final index = memberIndex;
+    if (canonical == null || session == null || index == null) {
+      throw const EntryException(EntryErrorKind.cryptoFailure);
+    }
+    Uint8List? privateKey;
     try {
-      AppLogger.d('Entry', 'DELETE /api/vaults/$vaultId/entries/$entryId');
-      await entryDatasource.deleteEntry(vaultId, entryId);
-      await mutation?.complete();
-    } on DioException catch (e, s) {
-      if (e.response != null) {
-        await mutation?.complete();
-      } else {
-        await mutation?.leaveAmbiguous();
+      final generation = session.memberKeySessionGeneration;
+      privateKey = session.copyMemberPrivateKey();
+      final matches = index
+          .entries(vaultId)
+          .where((entry) => entry.entryId == entryId);
+      if (matches.length != 1 || matches.single.corrupt) {
+        throw const EntryException(EntryErrorKind.cryptoFailure);
       }
-      AppLogger.e('Entry', 'deleteEntry failed', error: e, stackTrace: s);
-      throw EntryException(_classifyError(e));
-    } catch (_) {
-      await mutation?.leaveAmbiguous();
-      rethrow;
+      final entry = matches.single;
+      await canonical.deleteEntry(
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: entry.memberLabel,
+          type: EntryTypeExtension.fromWire(entry.entryType),
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          currentRevision: entry.revision,
+          currentKeyVersion: entry.currentKeyVersion,
+          lifecycleState: entry.state,
+        ),
+        memberPrivateKey: privateKey,
+        isSessionCurrent: () =>
+            session.memberKeySessionGeneration == generation,
+      );
+    } on CanonicalEntryDetailException catch (error) {
+      throw EntryException(switch (error.kind) {
+        CanonicalEntryDetailError.conflict => EntryErrorKind.validation,
+        CanonicalEntryDetailError.corrupt => EntryErrorKind.cryptoFailure,
+        CanonicalEntryDetailError.forbidden => EntryErrorKind.forbidden,
+        CanonicalEntryDetailError.notFound => EntryErrorKind.notFound,
+        CanonicalEntryDetailError.network => EntryErrorKind.networkError,
+      });
+    } on StateError {
+      throw const EntryException(EntryErrorKind.forbidden);
+    } finally {
+      privateKey?.fillRange(0, privateKey.length, 0);
     }
   }
 

@@ -14,6 +14,11 @@
   after Keychain biometric authorization.
 - Android registers `PalladinAutofillService` and releases domain-matched
   datasets only after a Keystore-bound `BiometricPrompt` operation.
+- On registration forms, Android offers a 20-character password only for
+  explicit `newPassword`/`new-password` hints without a current-password hint.
+  iOS 26.2+ implements `ASGeneratePasswordsRequest`; earlier iOS versions use
+  the explicit Generate action in the app's Add Credential form. Both paths
+  commit encrypted recovery history before returning the password.
 - Android accepts `webDomain` only when Android 12+ reports an OS-verified App
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
@@ -48,9 +53,11 @@
    key and identity cleanup. A biometric-set change invalidates the platform
    key. Vault lock requires fresh provider authentication before a credential
    can be returned.
-7. Plaintext exists only after successful provider authentication and only long
-   enough to build the OS credential response. Temporary byte buffers are
-   wiped where platform APIs expose mutable storage.
+7. Plaintext exists only after successful provider or app authentication and
+   only long enough to build the OS response, populate an in-memory form, or
+   perform an explicit history reveal/copy. Temporary byte buffers are wiped
+   where platform APIs expose mutable storage. The in-app copy uses the shared
+   timed `SecureClipboard` policy.
 8. Domain policy is exact-host only. HTTP(S) URLs may be projected to their
    ASCII host, but userinfo, explicit ports, wildcards, Unicode/confusable
    hosts, malformed labels, parent-domain inference, and `www` equivalence are
@@ -59,6 +66,48 @@
    readers reject cache files over 16 MiB. The authenticated platform
    ciphertext contains the manifest and only the record id/bindings, display
    label, username, password, and authorized exact hosts.
+10. Generated-password history is separate from the disposable Vault cache.
+    Android stores AES-GCM ciphertext in `noBackupFilesDir`; a per-use
+    biometric Keystore RSA key unwraps its random history key, and an
+    independently authenticated marker binds the active principal.
+    iOS stores AES-GCM ciphertext in the flavor-specific App Group with a
+    `biometryCurrentSet` Keychain key and active-principal marker. Neither
+    provider receives MK, VK, a user private key, or backend access. Every
+    history read and mutation checks the active principal against the caller's
+    authenticated app account where applicable. On iOS, biometric waiting does
+    not hold the revocation lock; the activation token is checked again before
+    a history operation commits. Android likewise binds each biometric unwrap
+    operation to the activation token and rechecks it under the mutation lock
+    before releasing plaintext. The history holds at most 100
+    records per account and fails closed at capacity; it never evicts a password
+    silently. History remains encrypted across app restart and Vault cache
+    rotations. Biometric-set invalidation makes old history inaccessible.
+
+## Generated-password lifecycle
+
+1. On unlock, the app activates a generation session bound to the authenticated
+   principal. A fresh app process revokes the old generation session before
+   accepting bridge calls. Logout and forced session loss revoke the current
+   session using its opaque activation token; a late old revoke cannot remove
+   a newer session. A Vault lock leaves the native ciphertext available only
+   through a fresh biometric challenge.
+2. Android rechecks the exact verified host and requesting package before
+   generation and before returning the dataset. It writes the encrypted record
+   atomically before the OS response, fills only explicitly marked new-password
+   fields (including confirmation when marked), and never overwrites the
+   current-password field. iOS uses the system-provided service identifier,
+   accepts only exact HTTPS hosts or domain identifiers, applies supported
+   password-rule clauses, and rejects unknown or incompatible rules. The iOS
+   provider presents explicit Generate and Cancel actions and writes history
+   before calling `completeGeneratePasswordRequest`.
+3. The app's Security page lists encrypted-history metadata after biometric
+   authentication. Reveal and copy are separate authenticated operations;
+   reveal hides after 30 seconds or app backgrounding. The user may explicitly
+   choose a Vault and open an already-filled Add Credential form, or delete one
+   record or clear history after confirmation. Generating from Add Credential
+   requires a valid HTTPS URL and saves recovery history before populating the
+   form. No OS save callback writes a Vault Entry automatically; Vault save
+   remains an explicit user action through the existing encrypted Entry flow.
 
 ## Cache lifecycle
 
@@ -118,9 +167,15 @@
   that expose their own `Autofill services` preference, also select `Autofill
   using another service` and restart Chrome before testing the login form.
   Then verify biometric success/cancel/failure, stale-cache mutation, logout
-  wipe, and biometric enrollment change.
+  wipe, and biometric enrollment change. Also verify registration forms with
+  new-password and confirmation hints, unrelated current-password forms,
+  unverified native packages, interrupted sign-up recovery after restart,
+  history capacity, explicit Vault save, and session/account switching.
 - iOS: Safari login form, identity selection, biometric success/cancel/failure,
-  stale-cache mutation test, logout wipe, biometric enrollment change.
+  stale-cache mutation test, logout wipe, biometric enrollment change. On iOS
+  26.2+, verify generation requests with and without site rules and recovery
+  after restart; on older iOS verify the explicit in-app Generate path. Verify
+  manual Vault save and account switching on physical iPhones.
 - Native Android application forms return datasets only for exact hosts backed
   by an OS-verified App Link on Android 12+; unverified packages return none.
 - Automated Flutter/native tests and simulator builds do not replace physical

@@ -3,3 +3,7 @@
 "credential_provider_biometric_prompt" = "Uwierzytelnij się, aby użyć autouzupełniania Palladin";
 "credential_provider_no_matches" = "Brak danych logowania pasujących do tej witryny lub aplikacji.";
 "credential_provider_unavailable" = "Autouzupełnianie jest niedostępne. Otwórz Palladin i odblokuj sejf, aby je odświeżyć.";
+"credential_provider_generate_prompt" = "Wygenerować silne hasło dla %@?";
+"credential_provider_generate_action" = "Wygeneruj i uzupełnij";
+"credential_provider_generate_biometric" = "Uwierzytelnij się, aby zapisać wygenerowane hasło w Palladin";
+"credential_provider_cancel" = "Anuluj";

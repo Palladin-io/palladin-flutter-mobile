@@ -150,6 +150,8 @@ jobs:
         env:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ inputs.backend_environment }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          PRODUCTION_API_BASE_URL: ${{ vars.PRODUCTION_API_BASE_URL }}
         run: |
           set -euo pipefail
 
@@ -162,14 +164,48 @@ jobs:
             exit 1
           fi
 
-          echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
-          echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
+          if [ "$backend_environment" = production ]; then
+            api_base_url="$PRODUCTION_API_BASE_URL"
+          else
+            api_base_url="$STAGING_API_BASE_URL"
+          fi
+          if [ -z "$api_base_url" ]; then
+            echo "::error::Missing API base URL for the selected backend environment"
+            exit 1
+          fi
+          {
+            echo "api_base_url=$api_base_url"
+            echo "backend_environment=${backend_environment}"
+            echo "target=lib/main_${FLAVOR}.dart"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Google OAuth build configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
+          STAGING_GOOGLE_SERVER_CLIENT_ID: ${{ vars.STAGING_GOOGLE_SERVER_CLIENT_ID }}
+          PRODUCTION_GOOGLE_SERVER_CLIENT_ID: ${{ vars.PRODUCTION_GOOGLE_SERVER_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ "$BACKEND_ENVIRONMENT" = production ]; then
+            export GOOGLE_SERVER_CLIENT_ID="$PRODUCTION_GOOGLE_SERVER_CLIENT_ID"
+          else
+            export GOOGLE_SERVER_CLIENT_ID="$STAGING_GOOGLE_SERVER_CLIENT_ID"
+          fi
+          python3 tool/configure_google_oauth.py --flavor "$FLAVOR" --platform android
+
+      - name: Prepare Firebase client configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          FIREBASE_CLIENT_CONFIG: ${{ vars.FIREBASE_ANDROID_CONFIG }}
+        run: python3 tool/configure_firebase.py --flavor "$FLAVOR" --platform android
 
       - name: Build Android App Bundle
         env:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
           TARGET: ${{ steps.runtime_config.outputs.target }}
+          API_BASE_URL: ${{ steps.runtime_config.outputs.api_base_url }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
@@ -179,6 +215,8 @@ jobs:
             --flavor "${FLAVOR}" \
             -t "${TARGET}" \
             --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
+            --dart-define="PALLADIN_API_BASE_URL=${API_BASE_URL}" \
+            --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}"
 
@@ -497,6 +535,8 @@ jobs:
         env:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ inputs.backend_environment }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          PRODUCTION_API_BASE_URL: ${{ vars.PRODUCTION_API_BASE_URL }}
         run: |
           set -euo pipefail
 
@@ -509,14 +549,49 @@ jobs:
             exit 1
           fi
 
-          echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
-          echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
+          if [ "$backend_environment" = production ]; then
+            api_base_url="$PRODUCTION_API_BASE_URL"
+          else
+            api_base_url="$STAGING_API_BASE_URL"
+          fi
+          if [ -z "$api_base_url" ]; then
+            echo "::error::Missing API base URL for the selected backend environment"
+            exit 1
+          fi
+          {
+            echo "api_base_url=$api_base_url"
+            echo "backend_environment=${backend_environment}"
+            echo "target=lib/main_${FLAVOR}.dart"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Google OAuth build configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
+          STAGING_GOOGLE_SERVER_CLIENT_ID: ${{ vars.STAGING_GOOGLE_SERVER_CLIENT_ID }}
+          PRODUCTION_GOOGLE_SERVER_CLIENT_ID: ${{ vars.PRODUCTION_GOOGLE_SERVER_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ "$BACKEND_ENVIRONMENT" = production ]; then
+            export GOOGLE_SERVER_CLIENT_ID="$PRODUCTION_GOOGLE_SERVER_CLIENT_ID"
+          else
+            export GOOGLE_SERVER_CLIENT_ID="$STAGING_GOOGLE_SERVER_CLIENT_ID"
+          fi
+          python3 tool/configure_google_oauth.py --flavor "$FLAVOR" --platform ios
+
+      - name: Prepare Firebase client configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          FIREBASE_CLIENT_CONFIG: ${{ vars.FIREBASE_IOS_CONFIG }}
+        run: python3 tool/configure_firebase.py --flavor "$FLAVOR" --platform ios
 
       - name: Build iOS IPA
         env:
           FLAVOR: ${{ inputs.flavor }}
           BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
           TARGET: ${{ steps.runtime_config.outputs.target }}
+          API_BASE_URL: ${{ steps.runtime_config.outputs.api_base_url }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
@@ -526,6 +601,8 @@ jobs:
             --flavor "${FLAVOR}" \
             -t "${TARGET}" \
             --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
+            --dart-define="PALLADIN_API_BASE_URL=${API_BASE_URL}" \
+            --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}" \
             --export-options-plist=ios/ExportOptions.plist

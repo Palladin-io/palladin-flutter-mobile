@@ -13,7 +13,8 @@ import 'core/storage/user_preferences.dart';
 ///
 /// Run with:
 /// ```
-/// flutter run --flavor production -t lib/main_production.dart
+/// flutter run --flavor production -t lib/main_production.dart \
+///   --dart-define-from-file=config/backend-production.local.json
 /// ```
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

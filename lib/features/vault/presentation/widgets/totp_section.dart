@@ -27,10 +27,14 @@ class TotpSection extends StatefulWidget {
     super.key,
     required this.initial,
     required this.onChanged,
+    this.onApplied,
+    this.disabled = false,
   });
 
   final List<CustomField> initial;
   final ValueChanged<List<CustomField>> onChanged;
+  final Future<void> Function()? onApplied;
+  final bool disabled;
 
   @override
   State<TotpSection> createState() => _TotpSectionState();
@@ -46,8 +50,9 @@ class _TotpSectionState extends State<TotpSection> {
   void _emit() => widget.onChanged(List.unmodifiable(_fields));
 
   Future<void> _add() async {
+    if (widget.disabled) return;
     final config = await TotpSetupSheet.show(context);
-    if (config == null || !mounted) return;
+    if (config == null || !mounted || widget.disabled) return;
     setState(() {
       _fields.add(
         CustomField.totpField(
@@ -58,11 +63,13 @@ class _TotpSectionState extends State<TotpSection> {
       );
     });
     _emit();
+    await widget.onApplied?.call();
   }
 
   Future<void> _replace(CustomField field) async {
+    if (widget.disabled) return;
     final config = await TotpSetupSheet.show(context, initial: field.totp);
-    if (config == null || !mounted) return;
+    if (config == null || !mounted || widget.disabled) return;
     setState(() {
       final index = _fields.indexOf(field);
       if (index < 0) return;
@@ -73,6 +80,7 @@ class _TotpSectionState extends State<TotpSection> {
       );
     });
     _emit();
+    await widget.onApplied?.call();
   }
 
   void _remove(CustomField field) {
@@ -99,6 +107,7 @@ class _TotpSectionState extends State<TotpSection> {
   }
 
   Future<void> _openMenu(CustomField field) async {
+    if (widget.disabled) return;
     final l10n = AppLocalizations.of(context)!;
     final config = field.totp;
     final action = await showAppMenuSheet<_TotpAction>(

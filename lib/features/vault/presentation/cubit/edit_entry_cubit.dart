@@ -264,7 +264,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     );
   }
 
-  /// Permanently deletes the entry. Emits [EditEntryDeleted] on success.
+  /// Moves the entry to Recently Deleted. Emits [EditEntryDeleted] on success.
   Future<void> deleteEntry({
     required String vaultId,
     required String entryId,

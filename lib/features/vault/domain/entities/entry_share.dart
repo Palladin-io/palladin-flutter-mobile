@@ -125,6 +125,7 @@ final class EntryShareSnapshot {
     'script.interpreter': 'text',
     'creditCard.cardholderName': 'text',
     'creditCard.cardNumber': 'concealed',
+    'creditCard.cvv': 'concealed',
     'creditCard.expiryMonth': 'text',
     'creditCard.expiryYear': 'text',
     'creditCard.billingAddress': 'multiline',

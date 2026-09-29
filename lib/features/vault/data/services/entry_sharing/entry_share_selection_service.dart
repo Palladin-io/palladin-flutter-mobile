@@ -71,6 +71,7 @@ final class EntryShareSelectionService {
       case 'creditCard':
         native('cardholderName', 'text');
         native('cardNumber', 'concealed');
+        native('cvv', 'concealed');
         native('expiryMonth', 'text');
         native('expiryYear', 'text');
         native('billingAddress', 'multiline', selected: false);

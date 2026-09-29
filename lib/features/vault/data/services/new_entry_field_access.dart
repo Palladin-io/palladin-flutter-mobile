@@ -36,6 +36,7 @@ Map<String, AgentFieldAccess> newEntryFieldAccess(
             ? AgentFieldAccess.never
             : AgentFieldAccess.onGrantRuntime,
       (VaultEntryType.creditCard, 'notes') => AgentFieldAccess.never,
+      (VaultEntryType.creditCard, 'creditCard.cvv') => AgentFieldAccess.never,
       (VaultEntryType.creditCard, _) => AgentFieldAccess.onGrantRuntime,
       _ => AgentFieldAccess.onGrantValue,
     },

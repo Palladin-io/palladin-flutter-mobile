@@ -617,6 +617,21 @@ class AppLocalizationsPl extends AppLocalizations {
       'Ta kopia nie aktualizuje się po zmianie oryginalnego wpisu. Odwołaj ją, jeśli nie powinna być już dostępna.';
 
   @override
+  String get entryConflictTitle => 'Wpis zmieniony w innym miejscu';
+
+  @override
+  String get entryConflictDraftKept =>
+      'Wpis zmienił się w innym miejscu. Twoje zmiany, w tym TOTP, pozostały w formularzu. Kliknij Zapisz ponownie, aby przejść do potwierdzenia nadpisania.';
+
+  @override
+  String get entryConflictOverwrite =>
+      'Zapisać cały formularz zamiast najnowszej wersji? Zmiany wprowadzone w innym miejscu, w tym ustawienia dostępu, zostaną zastąpione.';
+
+  @override
+  String get totpEntryIncomplete =>
+      'Uzupełnij wymagane pola wpisu i zapisz. TOTP nie został jeszcze zapisany.';
+
+  @override
   String get responseUnknownValue => 'Nieznane';
 
   @override
@@ -1481,7 +1496,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryDeleteConfirm =>
-      'Wpis zostanie trwale usunięty wraz z zaszyfrowanymi danymi. Tej operacji nie można cofnąć.';
+      'Ten wpis zostanie przeniesiony do Ostatnio usuniętych. Możesz go przywrócić w okresie przechowywania. Dostęp agentów zostanie cofnięty.';
 
   @override
   String get entryDeleteAction => 'Usuń wpis';
@@ -4358,6 +4373,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryCardholderNameLabel => 'Imię i nazwisko posiadacza';
 
   @override
+  String get entryCvvLabel => 'CVV / CVC';
+
+  @override
   String get entryCardNumberLabel => 'Numer karty';
 
   @override
@@ -4850,4 +4868,83 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get privacyMarketingNotice =>
       'Za zgodą wyślemy Ci e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne, dotyczące konta i bezpieczeństwa wysyłamy niezależnie od tej zgody. Zgodę możesz wycofać w ustawieniach prywatności.';
+
+  @override
+  String get generatedPasswordTitle => 'Wygenerowane hasła';
+
+  @override
+  String get generatedPasswordSubtitle =>
+      'Odzyskaj hasła użyte przy rejestracji';
+
+  @override
+  String get generatedPasswordBiometric =>
+      'Uwierzytelnij się, aby otworzyć wygenerowane hasła';
+
+  @override
+  String get generatedPasswordUnavailable =>
+      'Wygenerowane hasła są niedostępne. Odblokuj Palladin i spróbuj ponownie.';
+
+  @override
+  String get generatedPasswordEmpty => 'Nie ma jeszcze wygenerowanych haseł.';
+
+  @override
+  String get generatedPasswordReveal => 'Pokaż';
+
+  @override
+  String get generatedPasswordHide => 'Ukryj';
+
+  @override
+  String get generatedPasswordCopy => 'Kopiuj';
+
+  @override
+  String get generatedPasswordCopied => 'Hasło skopiowano tymczasowo';
+
+  @override
+  String get generatedPasswordSave => 'Zapisz w sejfie';
+
+  @override
+  String get generatedPasswordDelete => 'Usuń';
+
+  @override
+  String get generatedPasswordDeleteTitle => 'Usunąć to hasło?';
+
+  @override
+  String get generatedPasswordDeleteBody =>
+      'Możesz potrzebować tego hasła, aby dokończyć zakładanie konta. Tej operacji nie można cofnąć.';
+
+  @override
+  String get generatedPasswordClear => 'Wyczyść historię';
+
+  @override
+  String get generatedPasswordClearTitle =>
+      'Wyczyścić historię wygenerowanych haseł?';
+
+  @override
+  String get generatedPasswordClearBody =>
+      'Wszystkie wygenerowane hasła na tym urządzeniu zostaną usunięte. Tej operacji nie można cofnąć.';
+
+  @override
+  String get generatedPasswordCancel => 'Anuluj';
+
+  @override
+  String get generatedPasswordCreateVaultFirst =>
+      'Utwórz sejf, zanim zapiszesz to hasło.';
+
+  @override
+  String get generatedPasswordGenerate => 'Wygeneruj hasło';
+
+  @override
+  String get generatedPasswordGenerated =>
+      'Silne hasło wygenerowano i zapisano w historii';
+
+  @override
+  String get generatedPasswordEnterWebsite =>
+      'Podaj adres witryny HTTPS przed wygenerowaniem hasła.';
+
+  @override
+  String get generatedPasswordReplaceTitle => 'Zastąpić to hasło?';
+
+  @override
+  String get generatedPasswordReplaceBody =>
+      'Nowe hasło zastąpi wartość w formularzu i zostanie zapisane w historii wygenerowanych haseł.';
 }

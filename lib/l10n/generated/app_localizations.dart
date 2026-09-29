@@ -1148,6 +1148,30 @@ abstract class AppLocalizations {
   /// **'This copy does not update when the original entry changes. Revoke it if it should no longer be available.'**
   String get sharingSourceChanged;
 
+  /// No description provided for @entryConflictTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry changed elsewhere'**
+  String get entryConflictTitle;
+
+  /// No description provided for @entryConflictDraftKept.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry changed elsewhere. Your changes, including TOTP, are still here. Save again to review the overwrite confirmation.'**
+  String get entryConflictDraftKept;
+
+  /// No description provided for @entryConflictOverwrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this entire form over the latest version? Changes made elsewhere, including access settings, will be replaced.'**
+  String get entryConflictOverwrite;
+
+  /// No description provided for @totpEntryIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete the required entry fields, then save. Your TOTP has not been saved yet.'**
+  String get totpEntryIncomplete;
+
   /// No description provided for @responseUnknownValue.
   ///
   /// In en, this message translates to:
@@ -2531,7 +2555,7 @@ abstract class AppLocalizations {
   /// Body of the delete entry confirmation dialog
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete this entry and its encrypted data. This cannot be undone.'**
+  /// **'This entry will move to Recently Deleted. You can restore it during the retention period. Agent access will be revoked.'**
   String get entryDeleteConfirm;
 
   /// Destructive button label in the delete entry dialog
@@ -7658,6 +7682,12 @@ abstract class AppLocalizations {
   /// **'Cardholder name'**
   String get entryCardholderNameLabel;
 
+  /// No description provided for @entryCvvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'CVV / CVC'**
+  String get entryCvvLabel;
+
   /// No description provided for @entryCardNumberLabel.
   ///
   /// In en, this message translates to:
@@ -8503,6 +8533,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'With your consent, we will send you emails with Palladin news and offers. Essential transactional, account and security messages are sent independently of this consent. You can withdraw consent in Privacy settings.'**
   String get privacyMarketingNotice;
+
+  /// No description provided for @generatedPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generated passwords'**
+  String get generatedPasswordTitle;
+
+  /// No description provided for @generatedPasswordSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recover passwords used during sign-up'**
+  String get generatedPasswordSubtitle;
+
+  /// No description provided for @generatedPasswordBiometric.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticate to access generated passwords'**
+  String get generatedPasswordBiometric;
+
+  /// No description provided for @generatedPasswordUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Generated passwords are unavailable. Unlock Palladin and try again.'**
+  String get generatedPasswordUnavailable;
+
+  /// No description provided for @generatedPasswordEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No generated passwords yet.'**
+  String get generatedPasswordEmpty;
+
+  /// No description provided for @generatedPasswordReveal.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal'**
+  String get generatedPasswordReveal;
+
+  /// No description provided for @generatedPasswordHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get generatedPasswordHide;
+
+  /// No description provided for @generatedPasswordCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get generatedPasswordCopy;
+
+  /// No description provided for @generatedPasswordCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Password copied temporarily'**
+  String get generatedPasswordCopied;
+
+  /// No description provided for @generatedPasswordSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to vault'**
+  String get generatedPasswordSave;
+
+  /// No description provided for @generatedPasswordDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get generatedPasswordDelete;
+
+  /// No description provided for @generatedPasswordDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this password?'**
+  String get generatedPasswordDeleteTitle;
+
+  /// No description provided for @generatedPasswordDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You may need this password to finish creating your account. This cannot be undone.'**
+  String get generatedPasswordDeleteBody;
+
+  /// No description provided for @generatedPasswordClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear history'**
+  String get generatedPasswordClear;
+
+  /// No description provided for @generatedPasswordClearTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear generated password history?'**
+  String get generatedPasswordClearTitle;
+
+  /// No description provided for @generatedPasswordClearBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All generated passwords on this device will be deleted. This cannot be undone.'**
+  String get generatedPasswordClearBody;
+
+  /// No description provided for @generatedPasswordCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get generatedPasswordCancel;
+
+  /// No description provided for @generatedPasswordCreateVaultFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a vault before saving this password.'**
+  String get generatedPasswordCreateVaultFirst;
+
+  /// No description provided for @generatedPasswordGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate password'**
+  String get generatedPasswordGenerate;
+
+  /// No description provided for @generatedPasswordGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong password generated and saved to history'**
+  String get generatedPasswordGenerated;
+
+  /// No description provided for @generatedPasswordEnterWebsite.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an HTTPS website before generating a password.'**
+  String get generatedPasswordEnterWebsite;
+
+  /// No description provided for @generatedPasswordReplaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace this password?'**
+  String get generatedPasswordReplaceTitle;
+
+  /// No description provided for @generatedPasswordReplaceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A new password will replace the value in this form. The new password will also be saved to generated password history.'**
+  String get generatedPasswordReplaceBody;
 }
 
 class _AppLocalizationsDelegate

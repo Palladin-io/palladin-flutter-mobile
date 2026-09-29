@@ -5,4 +5,8 @@
     <string name="autofill_biometric_title">Unlock Palladin</string>
     <string name="autofill_biometric_subtitle">Use biometrics to fill a credential for %1$s</string>
     <string name="autofill_cancel">Cancel</string>
+    <string name="autofill_generate_title">Generate a strong password</string>
+    <string name="autofill_generate_subtitle">Use biometrics to create a password for %1$s</string>
+    <string name="autofill_generate_label">Use strong password</string>
+    <string name="autofill_generate_prompt">Generate a strong password with Palladin</string>
 </resources>

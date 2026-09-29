@@ -76,6 +76,7 @@ final class EntryShareCopyProjectionService {
       'creditCard' => CreditCardSecretContent(
         cardholderName: values['creditCard.cardholderName']!,
         cardNumber: values['creditCard.cardNumber']!,
+        cvv: values['creditCard.cvv'],
         expiryMonth: values['creditCard.expiryMonth']!,
         expiryYear: values['creditCard.expiryYear']!,
         billingAddress: values['creditCard.billingAddress'],

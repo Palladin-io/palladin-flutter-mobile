@@ -96,7 +96,10 @@ void main() {
       });
       ingress = EntryShareIngress(
         links: EntryShareLinkService(
-          EnvConfig.staging(sharingWebOrigin: 'https://stage.palladin.io'),
+          EnvConfig.staging(
+            apiBaseUrl: 'https://stage.example.test',
+            sharingWebOrigin: 'https://stage.palladin.io',
+          ),
         ),
         now: () => now,
       );

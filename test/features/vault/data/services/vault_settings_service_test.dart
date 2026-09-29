@@ -162,6 +162,40 @@ void main() {
     );
   });
 
+  test(
+    'stores the uploaded asset UUID in canonical encrypted metadata',
+    () async {
+      const assetId = '12345678-1234-4234-9234-123456789abc';
+      when(
+        () => assets.uploadFile(
+          target: PresentationAssetTarget.vault,
+          vaultId: vaultId,
+          file: any(named: 'file'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async => 'asset:$assetId');
+      final result = await service.update(
+        expected: _expected(),
+        name: 'Production',
+        description: 'Current',
+        icon: 'shield',
+        color: '#EB4747',
+        memberPrivateKey: Uint8List(32),
+        localIconPath: '/synthetic/icon.png',
+      );
+      expect(
+        sealedMetadata.icon,
+        isA<EncryptedAssetVaultIcon>().having(
+          (icon) => icon.assetId,
+          'assetId',
+          assetId,
+        ),
+      );
+      expect(result.icon, 'asset:$assetId');
+      verifyNever(() => assets.delete(any(), any()));
+    },
+  );
+
   test('fails before write when authenticated base differs', () async {
     await expectLater(
       service.update(
@@ -278,7 +312,7 @@ void main() {
           file: any(named: 'file'),
           memberPrivateKey: any(named: 'memberPrivateKey'),
         ),
-      ).thenAnswer((_) async => 'asset:$assetId:8');
+      ).thenAnswer((_) async => 'asset:$assetId');
       when(() => assets.delete(vaultId, assetId)).thenAnswer((_) async {});
       when(() => remote.replaceEncryptedMetadata(vaultId, any())).thenAnswer(
         (_) async => Response<void>(

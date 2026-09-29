@@ -11,6 +11,13 @@ credential encryption and decryption on the device.
 > This is security-sensitive software. Development builds and unreviewed
 > changes should never be used with real credentials.
 
+## Palladin ecosystem
+
+[Project overview and public repositories](https://github.com/Palladin-io#readme) · [Backend API](https://github.com/Palladin-io/palladin-net-backend) · [Website](https://palladin.io)
+
+Each component owns its setup and contribution guide. This repository can be
+used independently of the private project workspace.
+
 ## Security model
 
 The backend coordinates accounts, devices, agents, grants, and encrypted
@@ -81,11 +88,14 @@ The maintained application targets are Android and iOS.
 | Flavor | Entry point | API | Application ID / bundle ID |
 |---|---|---|---|
 | `local` | `lib/main_local.dart` | local backend on port 5000 | `io.palladin.mobile.local` |
-| `staging` | `lib/main_staging.dart` | `https://api.stage.palladin.io` | `io.palladin.mobile.staging` |
-| `production` | `lib/main_production.dart` | `https://api.palladin.io` | `io.palladin.mobile` |
+| `staging` | `lib/main_staging.dart` | explicit `PALLADIN_API_BASE_URL` | `io.palladin.mobile.staging` |
+| `production` | `lib/main_production.dart` | explicit `PALLADIN_API_BASE_URL` | `io.palladin.mobile` |
 
 On the Android emulator, the local flavor maps the host to `10.0.2.2`; other
-platforms use `localhost`. Environment values are defined in
+platforms use `localhost`. The default `lib/main.dart` delegates to the local
+entry point. Staging/production require `PALLADIN_API_BASE_URL`; missing or
+invalid HTTPS destinations fail before networking is initialized.
+Environment values are defined in
 `lib/config/env_config.dart` and must not be hardcoded in features.
 
 ## Prerequisites
@@ -109,11 +119,21 @@ flutter gen-l10n
 flutter run --flavor local -t lib/main_local.dart
 ```
 
-Other environments use the matching entry point:
+Create ignored `config/backend-staging.local.json` and/or
+`config/backend-production.local.json` with your API destination:
+
+```json
+{"PALLADIN_API_BASE_URL": "https://api.example.invalid"}
+```
+
+Replace the example with your HTTPS API. Other environments use the matching
+entry point (the checked-in VS Code launch configurations read these same files):
 
 ```bash
-flutter run --flavor staging -t lib/main_staging.dart
-flutter run --flavor production -t lib/main_production.dart
+flutter run --flavor staging -t lib/main_staging.dart \
+  --dart-define-from-file=config/backend-staging.local.json
+flutter run --flavor production -t lib/main_production.dart \
+  --dart-define-from-file=config/backend-production.local.json
 ```
 
 Store testing may build the immutable production app identity against the
@@ -124,8 +144,13 @@ flutter build appbundle \
   --release \
   --flavor production \
   -t lib/main_production.dart \
-  --dart-define=PALLADIN_BACKEND_ENVIRONMENT=staging
+  --dart-define=PALLADIN_BACKEND_ENVIRONMENT=staging \
+  --dart-define-from-file=config/backend-staging.local.json
 ```
+
+The store workflow reads `STAGING_API_BASE_URL` / `PRODUCTION_API_BASE_URL`
+from the protected distribution environment, selecting by backend environment.
+Missing configuration fails without falling back to another environment.
 
 Do not upload the staging application ID as a production-store artifact.
 
@@ -148,12 +173,21 @@ from the recipient device. Provision this value through the approved deployment
 configuration, alongside domain association and web receiver rollout. It is not
 a runtime user preference or a redirect supplied by an incoming link.
 
+## Google OAuth build configuration
+
+Before running or building Google Sign-In, supply explicit backend and iOS
+client IDs using `tool/configure_google_oauth.py` and the generated
+`--dart-define-from-file`. See [configuration instructions](docs/firebase-config.md#explicit-google-oauth-build-inputs).
+A fresh clone has no OAuth audience configured; Google login fails closed.
+
 ## Firebase client configuration
 
-The per-flavor `google-services.json` and `GoogleService-Info.plist` files are
-committed intentionally. They contain Firebase client identifiers that are
-recoverable from distributed applications; they are not server credentials or
-service-account keys.
+Per-flavor `google-services.json` and `GoogleService-Info.plist` files are ignored
+build inputs. Install your downloaded client file using
+`tool/configure_firebase.py --flavor local --platform android --source /path/to/google-services.json`
+(or `--platform ios` with the plist). Native builds require this explicit setup;
+unit tests and analysis do not. The installer preserves existing OAuth metadata.
+Store builds use distribution-scoped GitHub configuration variables.
 
 Public client configuration is safe only when the Firebase/GCP projects are
 secured independently. Maintainers must apply application and API restrictions
@@ -169,10 +203,12 @@ private certificates, backend credentials, or production secrets.
 
 ## Tests and continuous integration
 
-Run the same checks used by pull-request CI:
+Scan a clean checkout (without ignored cloud configuration), then run the
+checks used by pull-request CI:
 
 ```bash
-gitleaks dir . --config .gitleaks.toml --redact --no-banner
+(cd /path/to/clean-checkout && gitleaks dir . --config .gitleaks.toml --redact --no-banner)
+python3 -m unittest discover -s tool/tests
 dart run tool/generate_third_party_notices.dart --check
 flutter analyze
 flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
@@ -188,8 +224,8 @@ analysis, structural budgets, and the complete test suite.
 
 CI runs Gitleaks 8.30.1 against the current tree. The repository configuration
 extends the default rules and contains exact-path exceptions for synthetic
-crypto tests and fixtures, dependency checksums, cryptographic documentation,
-and the documented public Firebase client configuration. A separate
+crypto tests and fixtures, dependency checksums, and cryptographic documentation.
+A separate
 `.gitleaksignore` contains one commit-, path-, rule-, and line-specific
 fingerprint for a historical synthetic Stripe-shaped UI mock; it does not
 suppress current-tree findings.

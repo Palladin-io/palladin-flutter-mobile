@@ -274,6 +274,215 @@ void main() {
     ).called(1);
   });
 
+  testWidgets('applying TOTP saves the canonical entry without a second Save', (
+    tester,
+  ) async {
+    final harness = await pumpTab(
+      tester,
+      entry: _keyEntry(),
+      payload: {'value': secret},
+    );
+    when(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).thenAnswer(
+      (_) async => EntryEntity(
+        id: 'e1',
+        vaultId: 'v1',
+        label: 'Deploy key updated',
+        type: EntryType.key,
+        createdAt: DateTime.utc(2026, 6, 1),
+        updatedAt: DateTime.utc(2026, 7, 30),
+      ),
+    );
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await enterEdit(tester);
+    final addTotp = find.text(l10n.totpAdd);
+    await tester.ensureVisible(addTotp);
+    await tester.tap(addTotp);
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    await tester.enterText(
+      find.descendant(of: sheet, matching: find.byType(TextField)).first,
+      'JBSWY3DPEHPK3PXP',
+    );
+    await tester.tap(
+      find.descendant(of: sheet, matching: find.text(l10n.entrySaveAction)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    expect(find.text(l10n.entryChangesSaved), findsOneWidget);
+    expect(harness.cubit.hasCanonicalSnapshot, isTrue);
+    verify(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(
+          named: 'content',
+          that: predicate<Map<String, dynamic>>(
+            (payload) =>
+                ((payload['fields'] as List).single['value']
+                    as Map)['secret'] ==
+                'JBSWY3DPEHPK3PXP',
+          ),
+        ),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).called(1);
+  });
+
+  testWidgets(
+    'TOTP conflict keeps the draft and requires confirmation before replacing the latest revision',
+    (tester) async {
+      final harness = await pumpTab(
+        tester,
+        entry: _keyEntry(),
+        payload: {'value': secret},
+      );
+      var attempts = 0;
+      final baseRevisions = <String>[];
+      when(
+        () => harness.canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      ).thenAnswer((invocation) async {
+        expect(invocation.namedArguments[#label], 'Local draft');
+        expect((invocation.namedArguments[#content] as Map)['value'], secret);
+        baseRevisions.add(
+          (invocation.namedArguments[#snapshot] as CanonicalEntrySnapshot)
+                  .entry['currentRevision']
+              as String,
+        );
+        if (attempts++ == 0) {
+          throw const CanonicalEntryDetailException(
+            CanonicalEntryDetailError.conflict,
+          );
+        }
+        return EntryEntity(
+          id: 'e1',
+          vaultId: 'v1',
+          label: 'Deploy key updated',
+          type: EntryType.key,
+          createdAt: DateTime.utc(2026, 6, 1),
+          updatedAt: DateTime.utc(2026, 7, 30),
+        );
+      });
+
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      await enterEdit(tester);
+      await tester.enterText(find.byType(TextField).first, 'Local draft');
+      final addTotp = find.text(l10n.totpAdd);
+      await tester.ensureVisible(addTotp);
+      await tester.tap(addTotp);
+      await tester.pumpAndSettle();
+      final sheet = find.byType(BottomSheet);
+      await tester.enterText(
+        find.descendant(of: sheet, matching: find.byType(TextField)).first,
+        'JBSWY3DPEHPK3PXP',
+      );
+      await tester.tap(
+        find.descendant(of: sheet, matching: find.text(l10n.entrySaveAction)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('entry-save-footer')), findsOneWidget);
+      expect(harness.cubit.state, isA<EditEntryConflict>());
+      expect(find.text(l10n.totpAdd), findsNothing);
+      final save = find.text(l10n.entrySaveAction);
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text(l10n.vaultCancel));
+      await tester.pumpAndSettle();
+      expect(attempts, 1);
+      expect(harness.cubit.state, isA<EditEntryConflict>());
+      when(
+        () => harness.canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((invocation) async {
+        if (attempts == 1) {
+          expect(
+            (invocation.namedArguments[#expected] as EntryEntity)
+                .currentRevision,
+            EntryEntity.unspecifiedRevision,
+          );
+        }
+        return CanonicalEntrySnapshot(
+          entry: {'currentRevision': '2'},
+          payload: {'value': 'remote-value'},
+          secret: {},
+        );
+      });
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(l10n.entrySaveAction),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+      expect(find.text(l10n.entryChangesSaved), findsOneWidget);
+      expect(harness.cubit.hasCanonicalSnapshot, isTrue);
+      expect(baseRevisions, ['1', '2']);
+      verify(
+        () => harness.canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(
+            named: 'content',
+            that: predicate<Map<String, dynamic>>(
+              (payload) =>
+                  ((payload['fields'] as List).single['value']
+                      as Map)['secret'] ==
+                  'JBSWY3DPEHPK3PXP',
+            ),
+          ),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      ).called(2);
+    },
+  );
+
   testWidgets('repeated save taps start only one canonical mutation', (
     tester,
   ) async {

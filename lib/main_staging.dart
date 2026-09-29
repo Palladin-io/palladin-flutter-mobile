@@ -13,7 +13,8 @@ import 'core/storage/user_preferences.dart';
 ///
 /// Run with:
 /// ```
-/// flutter run --flavor staging -t lib/main_staging.dart
+/// flutter run --flavor staging -t lib/main_staging.dart \
+///   --dart-define-from-file=config/backend-staging.local.json
 /// ```
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

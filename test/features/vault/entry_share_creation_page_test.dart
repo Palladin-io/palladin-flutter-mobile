@@ -247,7 +247,10 @@ void main() {
     bool fromList = false,
   }) async {
     getIt.registerSingleton<EnvConfig>(
-      EnvConfig.staging(sharingWebOrigin: origin),
+      EnvConfig.staging(
+        apiBaseUrl: 'https://stage.example.test',
+        sharingWebOrigin: origin,
+      ),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -823,7 +826,10 @@ void main() {
       });
       // The source remains pending, so no pumpAndSettle while its skeleton animates.
       getIt.registerSingleton<EnvConfig>(
-        EnvConfig.staging(sharingWebOrigin: 'https://stage.palladin.io'),
+        EnvConfig.staging(
+          apiBaseUrl: 'https://stage.example.test',
+          sharingWebOrigin: 'https://stage.palladin.io',
+        ),
       );
       await tester.pumpWidget(
         MaterialApp(

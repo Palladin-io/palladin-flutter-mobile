@@ -15,6 +15,7 @@ import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../autofill/data/generated_password_history_bridge.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
 import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
@@ -53,6 +54,8 @@ class AddEntryPage extends StatelessWidget {
     required this.vaultId,
     this.vaultName,
     this.wrappedVK,
+    this.initialPassword,
+    this.initialDomain,
   });
 
   final String vaultId;
@@ -63,12 +66,16 @@ class AddEntryPage extends StatelessWidget {
   /// `GET /api/vaults/{id}` call. `null` is safe (the repository will
   /// fetch on demand).
   final String? wrappedVK;
+  final String? initialPassword;
+  final String? initialDomain;
 
   static Future<EntryEntity?> push(
     BuildContext context, {
     required String vaultId,
     String? vaultName,
     String? wrappedVK,
+    String? initialPassword,
+    String? initialDomain,
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryEntity>(
       MaterialPageRoute(
@@ -76,6 +83,8 @@ class AddEntryPage extends StatelessWidget {
           vaultId: vaultId,
           vaultName: vaultName,
           wrappedVK: wrappedVK,
+          initialPassword: initialPassword,
+          initialDomain: initialDomain,
         ),
       ),
     );
@@ -89,17 +98,27 @@ class AddEntryPage extends StatelessWidget {
         vaultId: vaultId,
         vaultName: vaultName,
         wrappedVK: wrappedVK,
+        initialPassword: initialPassword,
+        initialDomain: initialDomain,
       ),
     );
   }
 }
 
 class _AddEntryView extends StatefulWidget {
-  const _AddEntryView({required this.vaultId, this.vaultName, this.wrappedVK});
+  const _AddEntryView({
+    required this.vaultId,
+    this.vaultName,
+    this.wrappedVK,
+    this.initialPassword,
+    this.initialDomain,
+  });
 
   final String vaultId;
   final String? vaultName;
   final String? wrappedVK;
+  final String? initialPassword;
+  final String? initialDomain;
 
   @override
   State<_AddEntryView> createState() => _AddEntryViewState();
@@ -111,11 +130,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _valueController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _generatedHistory = GeneratedPasswordHistoryBridge();
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
   final _scriptController = TextEditingController();
   final _cardholderController = TextEditingController();
   final _cardNumberController = TextEditingController();
+  final _cvvController = TextEditingController();
+  bool _cvvObscured = true;
   final _expiryMonthController = TextEditingController();
   final _expiryYearController = TextEditingController();
   final _billingAddressController = TextEditingController();
@@ -160,6 +182,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialPassword != null) {
+      _passwordController.text = widget.initialPassword!;
+    }
+    if (widget.initialDomain != null) {
+      _urlController.text = 'https://${widget.initialDomain!}';
+      _labelController.text = widget.initialDomain!;
+    }
     _websiteIconResolver = WebsiteIconAutoResolver(
       service: getIt.isRegistered<WebsiteIconService>()
           ? getIt<WebsiteIconService>()
@@ -199,6 +228,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     for (final controller in [
       _cardholderController,
       _cardNumberController,
+      _cvvController,
       _expiryMonthController,
       _expiryYearController,
       _billingAddressController,
@@ -216,6 +246,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     for (final controller in [
       _cardholderController,
       _cardNumberController,
+      _cvvController,
       _expiryMonthController,
       _expiryYearController,
       _billingAddressController,
@@ -239,9 +270,79 @@ class _AddEntryViewState extends State<_AddEntryView> {
         scriptParameters: _scriptParameters,
         cardholderName: _cardholderController.text,
         cardNumber: _cardNumberController.text,
+        cvv: _cvvController.text,
         expiryMonth: _expiryMonthController.text,
         expiryYear: _expiryYearController.text,
       );
+
+  Future<void> _generateCredentialPassword() async {
+    final l10n = AppLocalizations.of(context)!;
+    final uri = Uri.tryParse(_urlController.text.trim());
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasPort) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.generatedPasswordEnterWebsite)),
+      );
+      return;
+    }
+    if (_passwordController.text.isNotEmpty) {
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l10n.generatedPasswordReplaceTitle),
+          content: Text(l10n.generatedPasswordReplaceBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(l10n.generatedPasswordCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(l10n.generatedPasswordGenerate),
+            ),
+          ],
+        ),
+      );
+      if (approved != true || !mounted) return;
+    }
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated ||
+        auth.isVaultLocked ||
+        auth.privateKey == null) {
+      return;
+    }
+    final principalId = auth.userId;
+    final domain = uri.host.toLowerCase();
+    final urlSnapshot = _urlController.text.trim();
+    try {
+      final password = await _generatedHistory.generateForEntry(
+        principalId,
+        domain,
+        biometricPrompt: l10n.generatedPasswordBiometric,
+      );
+      if (!mounted) return;
+      final currentAuth = context.read<AuthBloc>().state;
+      if (currentAuth is! AuthAuthenticated ||
+          currentAuth.isVaultLocked ||
+          currentAuth.userId != principalId ||
+          _urlController.text.trim() != urlSnapshot) {
+        return;
+      }
+      setState(() => _passwordController.text = password);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.generatedPasswordGenerated)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.generatedPasswordUnavailable)),
+        );
+      }
+    }
+  }
 
   /// Loads the vault's key/credential entries so a Script entry can point
   /// its references at them. Best-effort — a failure just leaves the
@@ -292,6 +393,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     returnResultToAgent: _returnResultToAgent,
     cardholderName: _cardholderController.text,
     cardNumber: _cardNumberController.text,
+    cvv: _cvvController.text,
     expiryMonth: _expiryMonthController.text,
     expiryYear: _expiryYearController.text,
     billingAddress: _billingAddressController.text,
@@ -370,13 +472,24 @@ class _AddEntryViewState extends State<_AddEntryView> {
         OnboardingTextField(
           label: l10n.entryPasswordLabel,
           controller: _passwordController,
+          suffixIconWidth: AppSpacing.controlHeight * 2 + 8,
           obscureText: _passwordObscured,
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
-          suffixIcon: EntryObscureToggle(
-            obscured: _passwordObscured,
-            onPressed: () =>
-                setState(() => _passwordObscured = !_passwordObscured),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: l10n.generatedPasswordGenerate,
+                onPressed: _generateCredentialPassword,
+                icon: const Icon(Icons.auto_awesome_outlined),
+              ),
+              EntryObscureToggle(
+                obscured: _passwordObscured,
+                onPressed: () =>
+                    setState(() => _passwordObscured = !_passwordObscured),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
@@ -457,6 +570,18 @@ class _AddEntryViewState extends State<_AddEntryView> {
             obscured: _cardNumberObscured,
             onPressed: () =>
                 setState(() => _cardNumberObscured = !_cardNumberObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCvvLabel,
+          controller: _cvvController,
+          obscureText: _cvvObscured,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _cvvObscured,
+            onPressed: () => setState(() => _cvvObscured = !_cvvObscured),
           ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
@@ -549,6 +674,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   Future<void> _submit() async {
+    if (!_canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.totpEntryIncomplete),
+        ),
+      );
+      return;
+    }
     if (_reservingIcon) return;
     final supportsWebsiteIcon =
         _type == EntryType.key || _type == EntryType.credential;
@@ -793,6 +926,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       // 5. Two-factor authentication (not for Script).
                       if (_type != EntryType.script) ...[
                         TotpSection(
+                          onApplied: _submit,
+                          disabled: isBusy,
                           initial: _totpFields,
                           onChanged: (fields) =>
                               setState(() => _totpFields = fields),

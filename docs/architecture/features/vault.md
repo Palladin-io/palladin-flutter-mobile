@@ -173,8 +173,10 @@ plus execution metadata: required description, up to 32 typed CLI parameter
 definitions, and `returnResultToAgent`. New Scripts default the result flag to
 `true`; an absent legacy flag is interpreted as `false`.
 `EntryType.creditCard` (wire `3`) carries cardholder name, PAN, expiry
-month/year and optional billing address. It has no dedicated CVV/CVC or PIN
-field. General custom fields remain neutral and are not detected, promoted, or
+month/year, optional billing address and optional `cvv` (3–4 ASCII digits).
+CVV is independently masked in create/edit/detail/history, included in the
+encrypted MemberSecret and explicit plaintext export, and always has `never`
+Agent policy. The existing importer continues to skip cards. PIN has no dedicated field. General custom fields remain neutral and are not detected, promoted, or
 autofilled as card-verification data. Its Agent fields
 are runtime-only, Discovery advertises only `inject`, and grant descriptors use
 authenticated delivery policy `2` (`InjectOnly`); `get`/`exec` never receive the
@@ -309,6 +311,8 @@ index limit.
 
 ### Recently Deleted Entry lifecycle
 
+Deleting an Entry from the list or detail uses the canonical POST `/entries/{entryId}/delete` transition with an encrypted Deleted revision, MemberIndex and fresh Entry key. Agent Discovery is omitted. The repository binds the operation to the current unlocked key generation and local structural head; a lock or replacement session blocks submission and retries. The request carries a memory-only session guard through the HTTP interceptor, so asynchronous token lookup and 401 refresh cannot bypass that check. Native AutoFill is invalidated before the write; ambiguous transport failures leave it invalidated. All borrowed keys are wiped.
+
 Recently Deleted is a separate surface from Archive. Structural lifecycle
 pages provide only opaque Entry ids, `DeletedAt` and authoritative
 `RetentionExpiresAt`; all
@@ -330,10 +334,23 @@ Vault and Entry icons share `EncryptedPresentationAssetService`. The picker
 provides local bytes only; the client validates a bounded JPEG, PNG or WebP by
 magic bytes and decoded dimensions before deriving a resource-scoped asset key
 from the Vault key or Entry DEK. A fresh XChaCha20-Poly1305 nonce and AAD bind
-the organization, Vault, asset id, target kind, optional Entry id, revision,
-media type, key version and member generation. The API receives only the
+the organization, Vault, asset id, target kind, optional Entry id, media type,
+key version and member generation. The API receives only the
 opaque `PLDNV2AS` container and its SHA-256 digest—never a source URL, domain,
 file path or plaintext image.
+
+The container uses the same version-1 header (84 bytes), protocol 2, suite 1,
+HKDF and AAD as Web. Canonical metadata stores only the asset UUID; the mobile
+presentation reference is `asset:<uuid>`, without a metadata revision. Updating
+the name or other metadata therefore does not invalidate an immutable icon.
+The current REST Vault key epoch authorizes VK unwrap and asset key derivation;
+Entry wrapper scope, key version, generation and wrapping VK version are checked
+against the requested resource and REST heads before the canonical Entry crypto
+service opens its DEK. Old header-based envelopes are not used by this pipeline.
+The existing create sheet attaches a selected file after successful Vault
+creation; Settings uses the same upload service and canonical metadata writer.
+The Web-generated synthetic fixture in `test/fixtures/encrypted_assets/` guards
+cross-client read compatibility, including reads after metadata edits.
 
 Rendering downloads authenticated opaque bytes, verifies length and digest,
 then decrypts locally through the same service. Decoded byte ownership is
@@ -356,3 +373,7 @@ Member-sync wrappers accept additional server metadata and nine-digit .NET
 Instant fractions. Required fields and cryptographic/offline authority checks
 remain enforced. See [API response boundaries](../api-response-validation.md)
 for the audit of retained checks and forward-compatible display values.
+
+Confirming or scanning a new/replacement TOTP submits the complete Add/Edit form through the existing encrypted save path. Invalid forms show an explicit not-yet-saved message; failed saves retain the draft for retry. Removing TOTP still requires the form Save action.
+
+A populated edit form retains its local fields and TOTP after an optimistic conflict. Saving again requires explicit confirmation before fetching the latest authenticated canonical head and using it as the new optimistic base for the complete local draft. Canceling that confirmation keeps the draft; another race remains a conflict. Lock/background still wipe plaintext.

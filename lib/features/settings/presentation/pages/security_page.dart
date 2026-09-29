@@ -44,6 +44,13 @@ class SecurityPage extends StatelessWidget {
           AppSpacing.screenBottom,
         ),
         children: [
+          _SecurityAction(
+            icon: Icons.key_outlined,
+            title: l10n.generatedPasswordTitle,
+            subtitle: l10n.generatedPasswordSubtitle,
+            onTap: () => context.push(AppRoutes.generatedPasswords),
+          ),
+          const SizedBox(height: AppSpacing.cardGap),
           if (isPasswordAccount) ...[
             _SecurityAction(
               icon: Icons.password_outlined,

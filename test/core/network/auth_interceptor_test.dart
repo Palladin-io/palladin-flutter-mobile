@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -48,6 +49,44 @@ void main() {
     dio.httpClientAdapter = adapter;
     dio.interceptors.add(AuthInterceptor(tokenStorage: storage, dio: dio));
     return dio;
+  }
+
+  for (final retry in [false, true]) {
+    test(
+      'session guard blocks transport after asynchronous token lookup (retry: $retry)',
+      () async {
+        final token = Completer<String?>();
+        when(() => storage.accessToken).thenAnswer((_) => token.future);
+        final adapter = _FakeAdapter((_) => 200);
+        final dio = buildDio(adapter);
+        var current = true;
+        final options = RequestOptions(
+          path: '/api/vaults/vault/entries/entry/delete',
+          method: 'POST',
+          extra: {
+            AuthInterceptor.sessionGuardKey: () => current,
+            '__retried__': retry,
+          },
+        );
+        final operation = dio.fetch<dynamic>(options);
+        final expectation = expectLater(
+          operation,
+          throwsA(
+            isA<DioException>().having(
+              (error) => error.type,
+              'type',
+              DioExceptionType.cancel,
+            ),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        current = false;
+        token.complete('token');
+        await expectation;
+        expect(adapter.callCount, 0);
+        verifyNever(() => storage.clearAll());
+      },
+    );
   }
 
   test(

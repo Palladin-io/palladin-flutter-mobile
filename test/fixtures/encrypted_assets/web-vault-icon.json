@@ -1,0 +1,13 @@
+{
+  "scope": {
+    "organizationId": "00112233-4455-4677-8899-aabbccddeeff",
+    "vaultId": "22222233-4455-4677-8899-aabbccddeeff",
+    "assetId": "44444444-4455-4677-8899-aabbccddeeff",
+    "target": 1,
+    "keyVersion": 4,
+    "memberKeyGeneration": 3
+  },
+  "baseKey": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+  "plaintext": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
+  "ciphertext": "UExETlYyQVMAAQACAAEAAQACAAAAAAAEAAAAA0REREREVUZ3iJmqu8zd7v8AAAAAAAAAAAAAAAAAAAAANLmGKTKsWPTPg17YYSrmsvgw4P+2abX85MXFtbk4Shc2kezOHOuchZHaK7LaYbTgx4B3bpPhPLlgdC9+Pnl4fYk3Ny2FaLmXIgHK8XTDOWaUeMQ2x3JAckZRjHpvsUqHUqVXk5X3DrnWKe2H9TQ="
+}

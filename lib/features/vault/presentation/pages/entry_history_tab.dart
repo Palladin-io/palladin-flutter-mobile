@@ -545,6 +545,14 @@ class _HistoricalEntryViewState extends State<_HistoricalEntryView> {
           _revealedFields.contains('cardNumber'),
           () => _toggle('cardNumber'),
         );
+        _addSecret(
+          add,
+          l10n.entryCvvLabel,
+          payload['cvv'],
+          Icons.lock_outline,
+          _revealedFields.contains('cvv'),
+          () => _toggle('cvv'),
+        );
         _addText(
           add,
           l10n.entryExpiryMonthLabel,

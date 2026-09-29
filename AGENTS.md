@@ -66,8 +66,8 @@ flutter gen-l10n                                             # Regenerate AppLoc
 flutter analyze                                              # Lint
 flutter test                                                 # Run all tests
 flutter run --flavor local -t lib/main_local.dart            # Run local (localhost:5000)
-flutter run --flavor staging -t lib/main_staging.dart         # Run staging
-flutter run --flavor production -t lib/main_production.dart   # Run production
+flutter run --flavor staging -t lib/main_staging.dart --dart-define-from-file=config/backend-staging.local.json         # Run staging
+flutter run --flavor production -t lib/main_production.dart --dart-define-from-file=config/backend-production.local.json   # Run production
 ```
 
 ## CI/CD
@@ -101,7 +101,13 @@ Three flavors: **local**, **staging**, **production**. Each has its own entry po
 | Entry point | `lib/main_local.dart` | `lib/main_staging.dart` | `lib/main_production.dart` |
 | Bundle ID | `io.palladin.mobile.local` | `io.palladin.mobile.staging` | `io.palladin.mobile` |
 | App name | Palladin (Local) | Palladin (Stage) | Palladin |
-| API URL | `http://localhost:5000` | `https://api.stage.palladin.io` | `https://api.palladin.io` |
+| API URL | `http://localhost:5000` | Explicit `PALLADIN_API_BASE_URL` | Explicit `PALLADIN_API_BASE_URL` |
+
+The default `lib/main.dart` delegates to local. Staging/production require an
+explicit HTTPS `PALLADIN_API_BASE_URL` Dart build define; they fail before network
+initialization when it is missing or invalid. Cloud examples must use placeholders.
+Store builds select `STAGING_API_BASE_URL` / `PRODUCTION_API_BASE_URL` from protected
+distribution-environment variables according to the selected backend environment.
 
 Config class: `lib/config/env_config.dart` — `EnvConfig.local()` / `EnvConfig.staging()` / `EnvConfig.production()`.
 
@@ -170,7 +176,7 @@ lib/
       domain/          # Entities, repositories, usecases
       presentation/    # Bloc, pages, widgets
   app.dart             # App widget
-  main.dart            # Default entry (staging)
+  main.dart            # Default entry (local)
   main_staging.dart    # Staging entry point
   main_production.dart # Production entry point
 ```

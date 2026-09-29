@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -9,6 +10,7 @@ import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/jwt_claims.dart';
 import '../../../autofill/domain/autofill_cache_invalidator.dart';
+import '../../../autofill/data/generated_password_history_bridge.dart';
 import '../../domain/auth_provider_id.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -27,9 +29,13 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.autoFillCacheInvalidator,
     required String googleServerClientId,
     this.currentEntryCacheInvalidator,
+    GeneratedPasswordHistoryBridge? generatedPasswordHistory,
     GoogleSignIn? googleSignIn,
     this.operationTimeout = const Duration(seconds: 4),
-  }) : _googleSignIn =
+  }) : _generatedPasswordHistory =
+           generatedPasswordHistory ?? GeneratedPasswordHistoryBridge(),
+       _googleConfigured = googleServerClientId.trim().isNotEmpty,
+       _googleSignIn =
            googleSignIn ??
            GoogleSignIn(
              scopes: ['email'],
@@ -44,12 +50,16 @@ class AuthRepositoryImpl implements AuthRepository {
   final SecureTokenStorage tokenStorage;
   final FlutterSecureStorage secureStorage;
   final AutoFillCacheInvalidator autoFillCacheInvalidator;
+  final GeneratedPasswordHistoryBridge _generatedPasswordHistory;
   final GoogleSignIn _googleSignIn;
+  final bool _googleConfigured;
   final Duration operationTimeout;
   final CurrentEntryCacheInvalidator? currentEntryCacheInvalidator;
 
   @override
   Future<AuthResultModel> loginWithGoogle() async {
+    // Never fall back to a client ID embedded in the Firebase platform config.
+    if (!_googleConfigured) throw const AuthGoogleConfigurationException();
     AppLogger.d('Auth', 'Starting Google Sign-In');
     final account = await _googleSignIn.signIn();
     if (account == null) {
@@ -57,7 +67,6 @@ class AuthRepositoryImpl implements AuthRepository {
       throw AuthCancelledException();
     }
 
-    AppLogger.d('Auth', 'Google account: ${account.email}');
     final auth = await account.authentication;
     final idToken = auth.idToken;
     AppLogger.d('Auth', 'Got auth tokens, idToken present: ${idToken != null}');
@@ -139,6 +148,16 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> logout() async {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
+
+    // The generated-password session is independent of the disposable Vault
+    // cache. Its deny must be acknowledged before logout can clear auth state.
+    try {
+      await _generatedPasswordHistory.revokeAllSessions().timeout(
+        operationTimeout,
+      );
+    } on MissingPluginException {
+      // Unsupported test hosts and iOS simulators have no native provider.
+    }
 
     // Native revocation returns only after the durable deny fence commits.
     // If that commit cannot be confirmed, a synchronous cache clear is the
@@ -293,4 +312,8 @@ enum AuthServerErrorKind {
   cannotConnect,
   connectionFailed,
   invalidResponse,
+}
+
+class AuthGoogleConfigurationException implements Exception {
+  const AuthGoogleConfigurationException();
 }

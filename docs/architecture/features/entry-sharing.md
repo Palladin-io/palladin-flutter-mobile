@@ -52,6 +52,13 @@ Gitleaks 8.30.1 passed with the repository configuration and no allowlist change
 
 ## Received-copy projection
 
+Current-main integration (2026-09-29): whole-card snapshots include the optional
+`creditCard.cvv` as a concealed field and preserve its exact value when saving a
+copy. The shared ordinary/new-copy policy keeps CVV at `never`, never Discovery
+or Agent grant delivery. Missing CVV is not synthesized. Sender/receiver schema,
+selection and projection tests cover this addition; older consumers without CVV
+support must be upgraded before coordinated sharing release.
+
 `EntryShareCopyProjectionService` maps an independently decrypted snapshot to a
 new canonical `MemberSecret`. It preserves selected strings without trimming,
 Unicode normalization or guessed required values. Missing required fields are
@@ -886,6 +893,12 @@ API requires the stage panel even with the production store identity; production
 rejects the stage host. Local HTTP needs explicit configuration reachable from
 the recipient device. Domain association/actual receiver deployment remains a
 release prerequisite, not something inferred from a successful URL parser.
+
+The explicitly selected backend distribution (`EnvConfig.usesStagingBackend`)
+determines this host boundary, not a hardcoded API hostname. Staging/production
+API URLs follow current main's required build configuration; sharing never
+reintroduces runnable cloud defaults. Store testing selects the staging backend
+independently of the production application identity.
 
 Tests cover native crypto roundtrip, identical retry, source substitution,
 cancellation at read/challenge/crypto/POST, session replacement, expiry, the real

@@ -313,6 +313,7 @@ void main() {
             payload: {
               'cardholderName': 'Person',
               'cardNumber': 'synthetic-number',
+              'cvv': '007',
               'expiryMonth': '01',
               'expiryYear': '2030',
               'billingAddress': 'private',
@@ -321,7 +322,7 @@ void main() {
         );
         expect(
           card.choices.where((field) => field.selectedByDefault).length,
-          4,
+          5,
         );
         expect(
           card.choices
@@ -331,6 +332,22 @@ void main() {
         );
         expect(
           card.select(['creditCard.cardNumber']).fields.single.type,
+          'concealed',
+        );
+        expect(
+          card
+              .wholeEntry()
+              .fields
+              .singleWhere((field) => field.id == 'creditCard.cvv')
+              .value,
+          '007',
+        );
+        expect(
+          card
+              .wholeEntry()
+              .fields
+              .singleWhere((field) => field.id == 'creditCard.cvv')
+              .type,
           'concealed',
         );
       },

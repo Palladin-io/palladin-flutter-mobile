@@ -1,3 +1,5 @@
 PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.staging
 DISPLAY_NAME = Palladin (Stage)
 PALLADIN_SHARING_HOST = sharing.invalid
+
+#include? "staging.oauth.local.xcconfig"

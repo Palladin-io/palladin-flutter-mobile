@@ -5,4 +5,8 @@
     <string name="autofill_biometric_title">Odblokuj Palladin</string>
     <string name="autofill_biometric_subtitle">Użyj biometrii, aby uzupełnić dane dla %1$s</string>
     <string name="autofill_cancel">Anuluj</string>
+    <string name="autofill_generate_title">Wygeneruj silne hasło</string>
+    <string name="autofill_generate_subtitle">Użyj biometrii, aby utworzyć hasło dla %1$s</string>
+    <string name="autofill_generate_label">Użyj silnego hasła</string>
+    <string name="autofill_generate_prompt">Wygeneruj silne hasło w Palladin</string>
 </resources>

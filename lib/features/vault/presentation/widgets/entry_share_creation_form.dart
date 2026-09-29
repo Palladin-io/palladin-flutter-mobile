@@ -492,6 +492,7 @@ String entryShareFieldLabel(AppLocalizations l10n, String id, String label) =>
       'script.interpreter' => l10n.entryInterpreterLabel,
       'creditCard.cardholderName' => l10n.entryCardholderNameLabel,
       'creditCard.cardNumber' => l10n.entryCardNumberLabel,
+      'creditCard.cvv' => l10n.entryCvvLabel,
       'creditCard.expiryMonth' => l10n.entryExpiryMonthLabel,
       'creditCard.expiryYear' => l10n.entryExpiryYearLabel,
       'creditCard.billingAddress' => l10n.entryBillingAddressLabel,

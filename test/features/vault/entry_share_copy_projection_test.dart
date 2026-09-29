@@ -36,7 +36,8 @@ EntryShareSnapshot _snapshot(
             switch (item.key) {
               'key.value' ||
               'credential.password' ||
-              'creditCard.cardNumber' => 'concealed',
+              'creditCard.cardNumber' ||
+              'creditCard.cvv' => 'concealed',
               'notes' ||
               'description' ||
               'script.source' ||
@@ -71,6 +72,7 @@ void _defaultCopyPolicy(MemberSecret secret) {
   expect(fieldIds, isNot(contains('credential.totp')));
   expect(fieldIds, isNot(contains('script.source')));
   expect(fieldIds, isNot(contains('creditCard.cardNumber')));
+  expect(fieldIds, isNot(contains('creditCard.cvv')));
   expect(VaultPlaintextProjector.memberIndex(secret).customIndex, isEmpty);
 }
 
@@ -254,6 +256,24 @@ void main() {
     expect(content.toJson().containsKey('pin'), isFalse);
     _defaultCopyPolicy(secret);
   });
+
+  test(
+    'received CVV stays concealed, exact and excluded from all Agent access',
+    () {
+      final secret = service.project(
+        snapshot: _snapshot('creditCard', {
+          'creditCard.cardholderName': 'Synthetic holder',
+          'creditCard.cardNumber': 'synthetic-card-value',
+          'creditCard.cvv': '007',
+          'creditCard.expiryMonth': '09',
+          'creditCard.expiryYear': '2030',
+        }),
+      );
+      expect((secret.content as CreditCardSecretContent).cvv, '007');
+      expect(secret.agentFieldAccess['creditCard.cvv'], AgentFieldAccess.never);
+      _defaultCopyPolicy(secret);
+    },
+  );
 
   test('script needs local execution description and inherits no refs', () {
     final source = _snapshot('script', {

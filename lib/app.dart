@@ -28,6 +28,7 @@ import 'features/agents/presentation/bloc/agents_cubit.dart';
 import 'features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/autofill/data/autofill_cache_service.dart';
+import 'features/autofill/data/generated_password_history_bridge.dart';
 import 'features/autofill/data/autofill_mutation_notifier.dart';
 import 'features/autofill/data/durable_autofill_repair_coordinator.dart';
 import 'features/notifications/data/services/notification_signalr_service.dart';
@@ -113,6 +114,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
+  final GeneratedPasswordHistoryBridge _generatedPasswordHistory =
+      GeneratedPasswordHistoryBridge();
+  Future<String?> _historyActivation = Future<String?>.value(null);
   final OrganizationMemberDirectoryService _memberDirectory =
       getIt<OrganizationMemberDirectoryService>();
   final MemberIndexPreparationService _memberIndexPreparation =
@@ -494,6 +498,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             listener: (_, state) {
               final authenticated = state as AuthAuthenticated;
               _autoFillUnlockSessionIdentity = Object();
+              _historyActivation = _generatedPasswordHistory
+                  .activate(authenticated.userId)
+                  .then<String?>((token) => token)
+                  .catchError((Object _) => null);
               unawaited(
                 _startAutoFillSession(privateKey: authenticated.privateKey!),
               );
@@ -712,6 +720,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Future<void> _clearAutoFillAfterSessionLoss() async {
     if (_sessionLossAutoFillCleanupRunning) return;
     _sessionLossAutoFillCleanupRunning = true;
+    final historyActivation = _historyActivation;
     var denyConfirmed = false;
     try {
       for (
@@ -720,11 +729,31 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             _authBloc.state is! AuthAuthenticated;
         attempt++
       ) {
+        var historyRevoked = false;
+        try {
+          final token = await historyActivation;
+          if (_authBloc.state is AuthAuthenticated) return;
+          if (token != null) {
+            await _generatedPasswordHistory
+                .revoke(token)
+                .timeout(_sessionLossAutoFillOperationTimeout);
+          } else {
+            await _generatedPasswordHistory
+                .revokeAllSessions()
+                .timeout(_sessionLossAutoFillOperationTimeout);
+          }
+          historyRevoked = true;
+        } catch (error) {
+          AppLogger.w(
+            'AutoFill',
+            'Generated-password session revocation failed: ${error.runtimeType}',
+          );
+        }
         try {
           await _autoFillCache.revokeAccess().timeout(
             _sessionLossAutoFillOperationTimeout,
           );
-          denyConfirmed = true;
+          denyConfirmed = historyRevoked;
         } catch (error) {
           AppLogger.w(
             'AutoFill',
@@ -740,7 +769,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           await _autoFillCache.clear().timeout(
             _sessionLossAutoFillOperationTimeout,
           );
-          denyConfirmed = true;
+          denyConfirmed = historyRevoked;
         } catch (error) {
           AppLogger.w(
             'AutoFill',

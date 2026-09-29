@@ -8,7 +8,10 @@ void main() {
   const shareId = '00112233-4455-4677-8899-aabbccddeeff';
   final fragment = '#v=1&key=${'A' * 43}&access=${'A' * 43}';
   final receiver = EntryShareLinkService(
-    EnvConfig.staging(sharingWebOrigin: 'https://stage.palladin.io'),
+    EnvConfig.staging(
+      apiBaseUrl: 'https://stage.example.test',
+      sharingWebOrigin: 'https://stage.palladin.io',
+    ),
   );
   test(
     'receiver parses only the configured exact link and owns wipeable bytes',
@@ -70,8 +73,12 @@ void main() {
       'https://api.stage.palladin.io',
     ]) {
       expect(
-        () =>
-            EntryShareLinkService(EnvConfig.staging(sharingWebOrigin: origin)),
+        () => EntryShareLinkService(
+          EnvConfig.staging(
+            apiBaseUrl: 'https://stage.example.test',
+            sharingWebOrigin: origin,
+          ),
+        ),
         invalid,
       );
     }
@@ -79,6 +86,7 @@ void main() {
   test('store identity with staging backend uses staging, not production', () {
     final service = EntryShareLinkService(
       EnvConfig.production(
+        apiBaseUrl: 'https://api.example.test',
         useStagingBackend: true,
         sharingWebOrigin: 'https://stage.palladin.io',
       ),
@@ -87,6 +95,7 @@ void main() {
     expect(
       () => EntryShareLinkService(
         EnvConfig.production(
+          apiBaseUrl: 'https://api.example.test',
           useStagingBackend: true,
           sharingWebOrigin: 'https://palladin.io',
         ),
@@ -95,13 +104,19 @@ void main() {
     );
     expect(
       () => EntryShareLinkService(
-        EnvConfig.production(sharingWebOrigin: 'https://stage.palladin.io'),
+        EnvConfig.production(
+          apiBaseUrl: 'https://api.example.test',
+          sharingWebOrigin: 'https://stage.palladin.io',
+        ),
       ),
       invalid,
     );
     expect(
       () => EntryShareLinkService(
-        EnvConfig.production(sharingWebOrigin: 'https://example.test'),
+        EnvConfig.production(
+          apiBaseUrl: 'https://api.example.test',
+          sharingWebOrigin: 'https://example.test',
+        ),
       ),
       invalid,
     );
@@ -124,7 +139,10 @@ void main() {
   });
   test('link composition rejects paths and malformed secret fragments', () {
     final service = EntryShareLinkService(
-      EnvConfig.staging(sharingWebOrigin: 'https://stage.palladin.io/'),
+      EnvConfig.staging(
+        apiBaseUrl: 'https://stage.example.test',
+        sharingWebOrigin: 'https://stage.palladin.io/',
+      ),
     );
     expect(
       () => service.create(

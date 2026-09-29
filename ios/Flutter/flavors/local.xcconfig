@@ -1,3 +1,5 @@
 PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.local
 DISPLAY_NAME = Palladin (Local)
 PALLADIN_SHARING_HOST = sharing.invalid
+
+#include? "local.oauth.local.xcconfig"
