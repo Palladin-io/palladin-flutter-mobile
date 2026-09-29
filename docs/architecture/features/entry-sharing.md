@@ -52,6 +52,12 @@ Gitleaks 8.30.1 passed with the repository configuration and no allowlist change
 
 ## Received-copy projection
 
+Copy projection derives the Credential domain for scheme-less host/path input
+just as ordinary creation does, without changing the received URL string. An
+explicit non-HTTP scheme remains inert and has no HTTP domain hint; a numeric
+host:port is supported. Focused regressions cover host/path/case/port and opaque
+mailto/javascript as well as FTP/native application schemes.
+
 Current-main integration (2026-09-29): whole-card snapshots include the optional
 `creditCard.cvv` as a concealed field and preserve its exact value when saving a
 copy. The shared ordinary/new-copy policy keeps CVV at `never`, never Discovery

@@ -144,7 +144,18 @@ final class EntryShareCopyProjectionService {
 
   String? _domain(String? raw) {
     if (raw == null) return null;
-    final url = Uri.tryParse(raw);
+    final original = Uri.tryParse(raw);
+    if (original == null) return null;
+    // Like ordinary creation, infer HTTPS for a scheme-less host/path. A
+    // numeric host:port is not an opaque URI scheme; mailto/javascript/etc are.
+    final hostPort = RegExp(r'^[^/?#@:]+:[0-9]+(?:[/?#]|$)').hasMatch(raw);
+    if (original.hasScheme &&
+        !hostPort &&
+        !{'https', 'http'}.contains(original.scheme)) {
+      return null;
+    }
+    final normalized = original.hasScheme && !hostPort ? raw : 'https://$raw';
+    final url = Uri.tryParse(normalized);
     if (url == null ||
         !{'https', 'http'}.contains(url.scheme) ||
         url.host.isEmpty) {

@@ -257,6 +257,52 @@ void main() {
     _defaultCopyPolicy(secret);
   });
 
+  for (final url in [
+    'example.test',
+    'example.test/login',
+    'EXAMPLE.test/login',
+    'example.test:8443/login',
+    'https://EXAMPLE.test/login',
+  ]) {
+    test(
+      'received credential preserves scheme-less domain and exact URL: $url',
+      () {
+        final secret = service.project(
+          snapshot: _snapshot('credential', {
+            'credential.username': 'user',
+            'credential.password': 'synthetic',
+            'credential.url': url,
+          }),
+        );
+        final content = secret.content as CredentialSecretContent;
+        expect(content.url, url);
+        expect(content.urlDomain, 'example.test');
+      },
+    );
+  }
+  for (final url in [
+    'ftp://example.test/login',
+    'mailto:person@example.test',
+    'javascript:alert(1)',
+    'androidapp://example.test',
+  ]) {
+    test(
+      'received credential never derives an HTTP domain from other schemes: $url',
+      () {
+        final secret = service.project(
+          snapshot: _snapshot('credential', {
+            'credential.username': 'user',
+            'credential.password': 'synthetic',
+            'credential.url': url,
+          }),
+        );
+        final content = secret.content as CredentialSecretContent;
+        expect(content.url, url);
+        expect(content.urlDomain, isNull);
+      },
+    );
+  }
+
   test(
     'received CVV stays concealed, exact and excluded from all Agent access',
     () {
