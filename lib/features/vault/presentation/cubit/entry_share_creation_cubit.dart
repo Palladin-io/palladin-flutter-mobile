@@ -120,15 +120,12 @@ class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
     }
   }
 
-  Future<void> create({
-    required EntryShareCreationOptions options,
-    required Iterable<String> selectedIds,
-  }) async {
+  Future<void> create({required EntryShareCreationOptions options}) async {
     if (isClosed || state.phase != EntryShareCreationPhase.ready) return;
     final selection = state.selection!;
     EntryShareSnapshot snapshot;
     try {
-      snapshot = selection.select(selectedIds);
+      snapshot = selection.wholeEntry();
     } on EntryShareException {
       emit(
         EntryShareCreationState(
@@ -224,7 +221,8 @@ class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
   Future<bool> revalidate() => _valid(_epoch);
 
   Future<String?> fragmentForCopy() async {
-    if (state.phase != EntryShareCreationPhase.created || !await _valid(_epoch)) {
+    if (state.phase != EntryShareCreationPhase.created ||
+        !await _valid(_epoch)) {
       return null;
     }
     return state.fragment;

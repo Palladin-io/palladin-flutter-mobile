@@ -8,19 +8,26 @@ import '../../../../core/crypto/vault_session_store.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/app_form_section.dart';
+import '../../../../core/widgets/card_action_footer.dart';
+import '../../../../core/widgets/accent_button.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
-import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/sheet_drag_handle.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../grants/presentation/widgets/org_grant_card.dart';
 import '../../data/datasources/entry_sharing_remote_datasource.dart';
 import '../../data/services/member_sync_session_authority_provider.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/entry_share_list.dart';
+import '../../domain/entities/entry_share_creation.dart';
 import '../cubit/entry_sharing_cubit.dart';
+import '../widgets/entry_share_creation_form.dart';
+import '../widgets/entry_share_protection_sheet.dart';
 import 'entry_share_creation_page.dart';
 
 class EntrySharingTab extends StatefulWidget {
@@ -42,6 +49,7 @@ class _EntrySharingTabState extends State<EntrySharingTab>
   bool _identityInvalidated = false;
   bool _creating = false;
   BuildContext? _sheetContext;
+  final _sheetAuthorityEpoch = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -123,6 +131,7 @@ class _EntrySharingTabState extends State<EntrySharingTab>
   }
 
   void _stop() {
+    _sheetAuthorityEpoch.value++;
     _poll?.cancel();
     _poll = null;
     _cubit.clear();
@@ -162,6 +171,8 @@ class _EntrySharingTabState extends State<EntrySharingTab>
 
   @override
   void dispose() {
+    _sheetAuthorityEpoch.value++;
+    _sheetAuthorityEpoch.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     unawaited(_authSubscription.cancel());
@@ -257,6 +268,57 @@ class _EntrySharingTabState extends State<EntrySharingTab>
     if (mounted) _start();
   }
 
+  Future<void> _changeProtection(EntryShareListItem item) async {
+    if (!item.canChangeProtection ||
+        _cubit.state.busy ||
+        !mounted ||
+        _identityInvalidated ||
+        !widget.active ||
+        !_foreground) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.transparent,
+      builder: (sheetContext) {
+        _sheetContext = sheetContext;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.8,
+            child: EntryShareProtectionSheet(
+              protection: EntryShareProtection.values.firstWhere(
+                (value) => value.name == item.protection,
+              ),
+              authorityEpoch: _sheetAuthorityEpoch,
+              onSave: (protection, secret) =>
+                  _cubit.changeProtection(item.shareId, protection, secret),
+            ),
+          ),
+        );
+      },
+    );
+    _sheetContext = null;
+    if (_cubit.state.changingProtectionId != null) {
+      _cubit.clear();
+      if (mounted) _start();
+    }
+    if (changed == true &&
+        mounted &&
+        !_identityInvalidated &&
+        widget.active &&
+        _foreground) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.sharingProtectionChanged)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<EntrySharingCubit, EntrySharingState>(
@@ -266,6 +328,7 @@ class _EntrySharingTabState extends State<EntrySharingTab>
           onRefresh: () => _cubit.load(),
           onMore: () => _cubit.load(more: true),
           onRevoke: _revoke,
+          onChangeProtection: _changeProtection,
           onCreate:
               !_creating && state.failure != EntrySharingFailure.unavailable
               ? _create
@@ -282,95 +345,144 @@ class EntrySharingListBody extends StatelessWidget {
     required this.onMore,
     required this.onRevoke,
     this.onCreate,
+    this.onChangeProtection,
   });
   final EntrySharingState state;
-  final VoidCallback onRefresh, onMore;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onMore;
   final ValueChanged<EntryShareListItem> onRevoke;
   final VoidCallback? onCreate;
+  final ValueChanged<EntryShareListItem>? onChangeProtection;
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(child: _content(context)),
+        if (onCreate != null)
+          EntryShareActionFooter(
+            label: AppLocalizations.of(context)!.sharingCreate,
+            onPressed: state.busy ? null : onCreate,
+          ),
+      ],
+    );
+  }
+
+  Widget _content(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final textStyle = TextStyle(
       fontSize: 13,
       color: AppColors.onSurfaceSubtle(brightness),
     );
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.listBottom,
-      ),
-      children: [
-        if (onCreate != null) ...[
-          PrimaryButton(
-            label: l10n.sharingCreate,
-            onPressed: state.busy ? null : onCreate,
-          ),
-          const SizedBox(height: AppSpacing.section),
-        ],
-        Text(l10n.sharingListNotice, style: textStyle),
-        const SizedBox(height: AppSpacing.section),
-        if (state.failure != null) ...[
-          Text(switch (state.failure!) {
-            EntrySharingFailure.unavailable => l10n.sharingUnavailable,
-            EntrySharingFailure.revoke => l10n.sharingRevokeError,
-            _ => l10n.sharingLoadError,
-          }, style: textStyle),
-          if (state.failure != EntrySharingFailure.unavailable)
+    // Do not flash the populated-list header before the first result arrives.
+    // In particular, its top CTA must not jump into the centered empty state.
+    if (!state.loaded && state.items.isEmpty && state.failure == null) {
+      if (!state.loading) return const SizedBox.expand();
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+          child: SizedBox(width: 240, child: SkeletonBox(height: 180)),
+        ),
+      );
+    }
+    if (state.loaded && state.items.isEmpty && state.failure == null) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: AppEmptyState(
+                icon: Icons.link_outlined,
+                title: l10n.sharingEmpty,
+                hint: l10n.sharingEmptyHint,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          AppSpacing.fieldGap,
+          AppSpacing.screenH,
+          AppSpacing.screenBottom,
+        ),
+        children: [
+          if (state.failure != null) ...[
+            Text(switch (state.failure!) {
+              EntrySharingFailure.unavailable => l10n.sharingUnavailable,
+              EntrySharingFailure.revoke => l10n.sharingRevokeError,
+              EntrySharingFailure.protection =>
+                l10n.sharingProtectionChangeError,
+              _ => l10n.sharingLoadError,
+            }, style: textStyle),
+            if (state.failure != EntrySharingFailure.unavailable)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: state.busy
+                      ? null
+                      : state.failure == EntrySharingFailure.loadMore
+                      ? onMore
+                      : onRefresh,
+                  child: Text(l10n.vaultRetry),
+                ),
+              ),
+          ],
+          if (state.loading && state.items.isEmpty)
+            const SkeletonBox(height: 180)
+          else if (state.loaded && state.items.isEmpty)
+            Text(l10n.sharingEmpty, style: textStyle),
+          for (final item in state.items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+              child: _ShareCard(
+                item: item,
+                showChangeProtection: onChangeProtection != null,
+                onRevoke: state.busy ? null : () => onRevoke(item),
+                onChangeProtection: onChangeProtection == null
+                    ? null
+                    : state.busy
+                    ? null
+                    : () => onChangeProtection!(item),
+              ),
+            ),
+          if (state.nextCursor != null)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed: state.busy
-                    ? null
-                    : state.failure == EntrySharingFailure.loadMore
-                    ? onMore
-                    : onRefresh,
-                child: Text(l10n.vaultRetry),
+                onPressed: state.busy ? null : onMore,
+                child: Text(l10n.entryHistoryLoadMore),
               ),
             ),
+          if (state.loadingMore ||
+              state.revokingId != null ||
+              state.changingProtectionId != null)
+            const SkeletonBox(height: AppSpacing.controlHeight),
         ],
-        if (state.loading && state.items.isEmpty)
-          const SkeletonBox(height: 180)
-        else if (state.loaded && state.items.isEmpty)
-          Text(l10n.sharingEmpty, style: textStyle),
-        for (final item in state.items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-            child: _ShareCard(
-              item: item,
-              onRevoke: state.busy ? null : () => onRevoke(item),
-            ),
-          ),
-        if (state.nextCursor != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: state.busy ? null : onMore,
-              child: Text(l10n.entryHistoryLoadMore),
-            ),
-          ),
-        if (state.loaded)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: state.busy ? null : onRefresh,
-              child: Text(l10n.sharingRefresh),
-            ),
-          ),
-        if (state.loadingMore || state.revokingId != null)
-          const SkeletonBox(height: AppSpacing.controlHeight),
-      ],
+      ),
     );
   }
 }
 
 class _ShareCard extends StatelessWidget {
-  const _ShareCard({required this.item, required this.onRevoke});
+  const _ShareCard({
+    required this.item,
+    required this.onRevoke,
+    this.onChangeProtection,
+    this.showChangeProtection = false,
+  });
   final EntryShareListItem item;
   final VoidCallback? onRevoke;
+  final VoidCallback? onChangeProtection;
+  final bool showChangeProtection;
 
   @override
   Widget build(BuildContext context) {
@@ -406,29 +518,11 @@ class _ShareCard extends StatelessWidget {
     };
     Widget detail(String label, String value) => Padding(
       padding: const EdgeInsets.only(top: AppSpacing.innerGap),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.onSurfaceSubtle(brightness),
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.onSurface(brightness),
-            ),
-          ),
-        ],
-      ),
+      child: GrantDetailRow(label: label, value: value, maxLines: null),
     );
     return Container(
       key: ValueKey('entry-share-${item.shareId}'),
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -437,50 +531,133 @@ class _ShareCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            recipient,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.onSurface(brightness),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.cardPadding,
+              vertical: AppSpacing.innerGap,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    recipient,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface(brightness),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.innerGap),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    status,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.onSurfaceSubtle(brightness),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.innerGap),
-          Text(
-            status,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.onSurfaceSubtle(brightness),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.cardBorder(brightness),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.cardPadding,
+              AppSpacing.xs,
+              AppSpacing.cardPadding,
+              AppSpacing.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                detail(l10n.sharingValidUntil, date(item.expiresAt)),
+                detail(
+                  l10n.sharingReceipts,
+                  '${item.deliveryCount} / ${item.maximumReceipts ?? l10n.sharingUnlimited}',
+                ),
+                AppFormSection(
+                  label: l10n.entryTabDetails,
+                  summary: protection,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      detail(
+                        l10n.sharingFirstDelivery,
+                        date(item.firstDeliveredAt),
+                      ),
+                      detail(
+                        l10n.sharingLastDelivery,
+                        date(item.lastDeliveredAt),
+                      ),
+                      detail(
+                        l10n.sharingConfirmation,
+                        date(item.firstConfirmedAt),
+                      ),
+                      detail(
+                        l10n.sharingNotification,
+                        item.notifyOnFirstReceipt
+                            ? l10n.sharingNotificationOn
+                            : l10n.sharingNotificationOff,
+                      ),
+                      const SizedBox(height: AppSpacing.innerGap),
+                      Text(
+                        l10n.sharingListNotice,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.onSurfaceSubtle(brightness),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (item.sourceChanged) ...[
+                  const SizedBox(height: AppSpacing.section),
+                  WarningZone(
+                    title: l10n.sharingSourceChangedTitle,
+                    message: l10n.sharingSourceChanged,
+                  ),
+                ],
+              ],
             ),
           ),
-          detail(l10n.sharingValidUntil, date(item.expiresAt)),
-          detail(
-            l10n.sharingReceipts,
-            '${item.deliveryCount} / ${item.maximumReceipts}',
-          ),
-          detail(l10n.sharingFirstDelivery, date(item.firstDeliveredAt)),
-          detail(l10n.sharingLastDelivery, date(item.lastDeliveredAt)),
-          detail(l10n.sharingConfirmation, date(item.firstConfirmedAt)),
-          detail(l10n.sharingProtection, protection),
-          detail(
-            l10n.sharingNotification,
-            item.notifyOnFirstReceipt
-                ? l10n.sharingNotificationOn
-                : l10n.sharingNotificationOff,
-          ),
-          if (item.sourceChanged) ...[
-            const SizedBox(height: AppSpacing.section),
-            WarningZone(
-              title: l10n.sharingSourceChangedTitle,
-              message: l10n.sharingSourceChanged,
-            ),
-          ],
           if (item.canRevoke)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: onRevoke,
-                child: Text(l10n.sharingRevoke),
+            CardActionFooter(
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (item.canChangeProtection && showChangeProtection) ...[
+                      Expanded(
+                        child: AccentButton(
+                          height: null,
+                          label: l10n.sharingChangeProtection,
+                          onPressed: onChangeProtection,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                    ],
+                    Expanded(
+                      child: CardRevokeButton(
+                        height: item.canChangeProtection && showChangeProtection
+                            ? null
+                            : 36,
+                        label: l10n.sharingRevoke,
+                        onPressed: onRevoke,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],

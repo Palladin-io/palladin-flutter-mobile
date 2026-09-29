@@ -342,6 +342,7 @@ void main() {
       'safe defaults, trimmed email, and explicitly optional protection',
       () {
         final options = EntryShareCreationOptions.fromInput(
+          recipientMode: EntryShareRecipientMode.namedRecipient,
           recipientEmail: ' person@example.test ',
           protectionSecret: 'stale-hidden-secret',
         );
@@ -350,7 +351,7 @@ void main() {
         expect(options.protection, EntryShareProtection.none);
         expect(options.protectionSecret, isNull);
         expect(options.lifetimeHours, 24);
-        expect(options.maximumReceipts, 1);
+        expect(options.maximumReceipts, isNull);
         expect(options.notifyOnFirstReceipt, isFalse);
       },
     );
@@ -364,13 +365,14 @@ void main() {
         );
         expect(anyone.recipientEmail, isNull);
         final named = EntryShareCreationOptions.fromInput(
+          recipientMode: EntryShareRecipientMode.namedRecipient,
           recipientEmail: 'person@example.test',
           protection: EntryShareProtection.pin,
-          protectionSecret: '012345',
+          protectionSecret: '739284',
           notifyOnFirstReceipt: true,
         );
         expect(named.recipientMode, EntryShareRecipientMode.namedRecipient);
-        expect(named.protectionSecret, '012345');
+        expect(named.protectionSecret, '739284');
         expect(named.notifyOnFirstReceipt, isTrue);
       },
     );
@@ -394,6 +396,14 @@ void main() {
         '123456 ',
         'a12345',
         '1' * 129,
+        '000000',
+        '111111',
+        '123456',
+        '654321',
+        '789012',
+        '210987',
+        '121212',
+        '123123',
       ]) {
         expect(
           () => EntryShareCreationOptions.fromInput(
@@ -422,7 +432,7 @@ void main() {
           throwsA(isA<EntryShareFormException>()),
         );
       }
-      for (final count in ['0', '-1', '01', '+1', '1e2', '1.0', '101', '']) {
+      for (final count in ['0', '-1', '01', '+1', '1e2', '1.0', '101']) {
         expect(
           () => EntryShareCreationOptions.fromInput(
             recipientEmail: 'person@example.test',
@@ -453,7 +463,7 @@ void main() {
     });
 
     test(
-      'challenge uses scoped POST without body, redirect or numeric revision loss',
+      'challenge uses scoped JSON POST without redirect or numeric revision loss',
       () async {
         adapter.body = jsonEncode({
           'shareId': 'share',
@@ -475,7 +485,8 @@ void main() {
           request.path,
           '/api/vaults/vault/entries/entry/sharing/creation-challenge',
         );
-        expect(request.data, isNull);
+        expect(request.data, isEmpty);
+        expect(request.contentType, Headers.jsonContentType);
         expect(request.queryParameters, isEmpty);
         expect(request.followRedirects, isFalse);
         expect(request.headers['Cache-Control'], 'no-store');
@@ -491,9 +502,10 @@ void main() {
           sourceRevision: '9007199254740993',
           expiresAt: '2026-09-22T12:00:00Z',
           options: EntryShareCreationOptions.fromInput(
+            recipientMode: EntryShareRecipientMode.namedRecipient,
             recipientEmail: 'person@example.test',
             protection: EntryShareProtection.pin,
-            protectionSecret: '012345',
+            protectionSecret: '739284',
             notifyOnFirstReceipt: true,
           ),
           accessToken: 'synthetic-bearer',
@@ -520,11 +532,11 @@ void main() {
           'shareId': 'share',
           'sourceRevision': '9007199254740993',
           'expiresAt': '2026-09-22T12:00:00Z',
-          'maximumReceipts': 1,
+          'maximumReceipts': null,
           'recipientMode': 'namedRecipient',
           'recipientEmail': 'person@example.test',
           'protection': 'pin',
-          'protectionSecret': '012345',
+          'protectionSecret': '739284',
           'accessToken': 'synthetic-bearer',
           'nonce': 'synthetic-nonce',
           'ciphertext': 'synthetic-ciphertext',

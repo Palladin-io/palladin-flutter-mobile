@@ -31,6 +31,13 @@ final class EntryShareSelection {
   final List<EntryShareFieldChoice> choices;
   final List<UnsupportedEntryShareField> unsupported;
 
+  EntryShareSnapshot wholeEntry() {
+    if (unsupported.isNotEmpty) {
+      throw const EntryShareException(EntryShareErrorKind.invalidSnapshot);
+    }
+    return select(choices.map((field) => field.id));
+  }
+
   EntryShareSnapshot select(Iterable<String> selectedIds) {
     const invalid = EntryShareException(EntryShareErrorKind.invalidSnapshot);
     final requested = selectedIds.toList(growable: false);

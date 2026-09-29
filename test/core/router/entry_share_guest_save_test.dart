@@ -694,12 +694,12 @@ void main() {
           final unlocking = accountFlow == 'unlock';
           final oauth = accountFlow == 'oauth';
           if (oauth) {
-            await tap(tester, l10n.sharingLogin);
+            await tap(tester, l10n.sharingLoginAction);
             await tap(tester, l10n.continueWithGoogle);
           } else {
             await tap(
               tester,
-              unlocking ? l10n.sharingContinueAccount : l10n.sharingRegister,
+              unlocking ? l10n.sharingUnlockToSave : l10n.sharingRegisterAction,
             );
           }
           expect(
@@ -832,8 +832,8 @@ void main() {
       (tester) async {
         scenario = variant;
         await mount(tester);
-        await tap(tester, 'Open sharing');
-        await tap(tester, 'Receive entry');
+        await tap(tester, 'Check link');
+        await tap(tester, 'Show entry');
         expect(deliveries, 1);
         expect(confirmations, 1);
         final lifetime = tester
@@ -844,7 +844,7 @@ void main() {
         final unlocking = variant.startsWith('unlock');
         final oauth = variant.startsWith('oauth');
         if (oauth) {
-          await tap(tester, 'Sign in to save a copy');
+          await tap(tester, 'Sign in');
           oauthGate = Completer<void>();
           final google = find.text('Continue with Google').last;
           await tester.ensureVisible(google);
@@ -923,7 +923,7 @@ void main() {
           verifyNever(() => biometrics.enroll(any(), any()));
           verifyNever(() => biometrics.unlockKey(any()));
         } else if (unlocking) {
-          await tap(tester, 'Continue account setup or unlock');
+          await tap(tester, 'Unlock to save');
           expect(find.byType(UnlockPage), findsOneWidget);
           expect((auth.state as AuthAuthenticated).isVaultLocked, true);
           expect(keys.copyMemberPrivateKey, throwsStateError);
@@ -961,7 +961,7 @@ void main() {
           verifyNever(() => biometrics.enroll(any(), any()));
           verifyNever(() => biometrics.unlockKey(any()));
         } else if (registering) {
-          await tap(tester, 'Create an account to save a copy');
+          await tap(tester, 'Create account');
           expect(find.byType(RegisterPage), findsOneWidget);
           for (final (label, value) in [
             ('Email', 'recipient@example.invalid'),
@@ -1034,7 +1034,7 @@ void main() {
           expect(defaultProvisioned, true);
           expect(verificationChecks, variant == 'register' ? 1 : 2);
         } else {
-          await tap(tester, 'Sign in to save a copy');
+          await tap(tester, 'Sign in');
           expect(find.byType(LoginPage), findsOneWidget);
           await tap(tester, 'Continue with Email');
           for (final (label, value) in [
@@ -1206,7 +1206,7 @@ void main() {
               (secret['content'] as Map)['username'],
               'recipient username',
             );
-            expect(secret['discoverable'], false);
+            expect(secret['discoverable'], true);
           } finally {
             opened.vaultKey.fillRange(0, opened.vaultKey.length, 0);
             opened.vaultDiscoveryKey?.fillRange(

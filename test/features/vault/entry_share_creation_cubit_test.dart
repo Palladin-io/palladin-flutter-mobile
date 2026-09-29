@@ -65,7 +65,7 @@ CanonicalEntrySnapshot _source([Map<String, dynamic> changes = const {}]) =>
 final _options = EntryShareCreationOptions.fromInput(
   recipientEmail: 'recipient@example.test',
   protection: EntryShareProtection.pin,
-  protectionSecret: '012345',
+  protectionSecret: '739284',
   lifetimeHours: 1,
   notifyOnFirstReceipt: true,
 );
@@ -137,8 +137,7 @@ void main() {
     cubit = build();
   });
   tearDown(() => cubit.close());
-  Future<void> create() =>
-      cubit.create(options: _options, selectedIds: ['credential.password']);
+  Future<void> create() => cubit.create(options: _options);
 
   test(
     'opens authoritative selection and clears original plaintext maps',
@@ -191,8 +190,20 @@ void main() {
               key: secrets.key,
             );
         expect(snapshot.title, 'verified title');
-        expect(snapshot.fields.single.id, 'credential.password');
-        expect(snapshot.fields.single.value, 'synthetic-secret');
+        expect(
+          snapshot.fields.map((field) => field.id),
+          containsAll(['credential.username', 'credential.password', 'notes']),
+        );
+        expect(
+          snapshot.fields
+              .singleWhere((field) => field.id == 'credential.password')
+              .value,
+          'synthetic-secret',
+        );
+        expect(
+          snapshot.fields.singleWhere((field) => field.id == 'notes').value,
+          'private-note',
+        );
       } finally {
         secrets.dispose();
       }
@@ -231,7 +242,6 @@ void main() {
         options: EntryShareCreationOptions.fromInput(
           recipientMode: EntryShareRecipientMode.anyoneWithLink,
         ),
-        selectedIds: ['notes'],
       );
       expect(requests, hasLength(1));
       await cubit.retry();
@@ -415,16 +425,11 @@ void main() {
     },
   );
 
-  test(
-    'concurrent taps send one operation and invalid selection makes no request',
-    () async {
-      await cubit.load();
-      await cubit.create(options: _options, selectedIds: ['notes', 'notes']);
-      expect(cubit.state.failure, EntryShareCreationFailure.invalidSelection);
-      await Future.wait([create(), create()]);
-      expect(requests, hasLength(1));
-    },
-  );
+  test('concurrent taps send one whole-entry operation', () async {
+    await cubit.load();
+    await Future.wait([create(), create()]);
+    expect(requests, hasLength(1));
+  });
 
   test(
     'expiry drops the returned fragment and pending retry material',
@@ -445,12 +450,7 @@ void main() {
           final timed = build(now: () => _now.add(clock.elapsed));
           unawaited(timed.load());
           clock.flushMicrotasks();
-          unawaited(
-            timed.create(
-              options: _options,
-              selectedIds: ['credential.password'],
-            ),
-          );
+          unawaited(timed.create(options: _options));
           clock.flushMicrotasks();
           expect(
             timed.state.phase,

@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../config/env_config.dart';
 import '../../../../core/crypto/vault_session_store.dart';
@@ -10,9 +11,11 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/utils/secure_clipboard.dart';
+import '../../../../core/widgets/accent_button.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -25,20 +28,27 @@ import '../../data/services/member_sync_session_authority_provider.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/entry_share.dart';
 import '../../domain/entities/entry_share_list.dart';
+import '../../domain/entities/vault_entity.dart';
+import '../cubit/vault_list_cubit.dart';
 import '../cubit/entry_share_creation_cubit.dart';
 import '../widgets/entry_share_creation_form.dart';
 
 class EntryShareCreationPage extends StatefulWidget {
-  const EntryShareCreationPage({super.key, required this.entry});
+  const EntryShareCreationPage({super.key, required this.entry, this.vault});
   final EntryEntity entry;
+  final VaultEntity? vault;
 
   static Future<void> push(BuildContext context, EntryEntity entry) {
     final auth = context.read<AuthBloc>();
+    final vaults = getIt<VaultListCubit>().state;
+    final vault = vaults is VaultListLoaded
+        ? vaults.vaults.where((vault) => vault.id == entry.vaultId).firstOrNull
+        : null;
     return Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
         builder: (_) => BlocProvider.value(
           value: auth,
-          child: EntryShareCreationPage(entry: entry),
+          child: EntryShareCreationPage(entry: entry, vault: vault),
         ),
       ),
     );
@@ -228,8 +238,10 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
       if (!mounted || _invalidated || fragment == null || shareId == null) {
         return;
       }
-      await SecureClipboard.copy(
-        _links!.create(shareId: shareId, fragment: fragment),
+      await Clipboard.setData(
+        ClipboardData(
+          text: _links!.create(shareId: shareId, fragment: fragment),
+        ),
       );
       if (_canShowCopyResult &&
           await _cubit.revalidate() &&
@@ -252,6 +264,34 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
       !_invalidated &&
       _cubit.state.phase == EntryShareCreationPhase.created;
 
+  Future<void> _share(Rect origin) async {
+    if (_copying || _invalidated || _links == null) return;
+    setState(() {
+      _copying = true;
+      _copyMessage = null;
+    });
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final fragment = await _cubit.fragmentForCopy();
+      final shareId = _cubit.state.shareId;
+      if (!mounted || _invalidated || fragment == null || shareId == null) {
+        return;
+      }
+      await Share.share(
+        _links!.create(shareId: shareId, fragment: fragment),
+        sharePositionOrigin: origin,
+      );
+    } catch (_) {
+      if (_canShowCopyResult &&
+          await _cubit.revalidate() &&
+          _canShowCopyResult) {
+        setState(() => _copyMessage = l10n.sharingShareError);
+      }
+    } finally {
+      if (mounted) setState(() => _copying = false);
+    }
+  }
+
   String? _failure(AppLocalizations l10n, EntryShareCreationFailure? failure) =>
       switch (failure) {
         EntryShareCreationFailure.load => l10n.sharingSourceLoadError,
@@ -270,6 +310,7 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
         if (didPop) _invalidate();
       },
       child: AppScreen.appBar(
+        safeAreaBottom: false,
         appBar: AppBar(
           titleSpacing: 0,
           centerTitle: false,
@@ -287,17 +328,26 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
               return EntryShareCreationForm(
                 key: ObjectKey(selection),
                 selection: selection,
+                entry: widget.entry,
+                vault: widget.vault,
                 busy: state.phase == EntryShareCreationPhase.creating,
                 failure: _failure(l10n, state.failure),
-                onCreate: (options, ids) => unawaited(
-                  _cubit.create(options: options, selectedIds: ids),
-                ),
+                onCreate: (options) =>
+                    unawaited(_cubit.create(options: options)),
               );
             }
             final loading =
                 state.phase == EntryShareCreationPhase.loading ||
                 state.phase == EntryShareCreationPhase.creating;
             final created = state.phase == EntryShareCreationPhase.created;
+            if (created) {
+              return _CreatedLinkView(
+                copying: _copying,
+                message: _copyMessage,
+                onCopy: _copy,
+                onShare: _share,
+              );
+            }
             final retry = state.phase == EntryShareCreationPhase.retry;
             final canLoad = state.phase == EntryShareCreationPhase.initial;
             return Column(
@@ -312,8 +362,6 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
                         Text(
                           _links == null
                               ? l10n.sharingConfigurationError
-                              : created
-                              ? l10n.sharingCreated
                               : retry
                               ? l10n.sharingRetryNotice
                               : _failure(l10n, state.failure) ??
@@ -325,20 +373,6 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
                             ),
                           ),
                         ),
-                        if (created) ...[
-                          const SizedBox(height: AppSpacing.section),
-                          Text(
-                            _links!.displayOrigin,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.onSurfaceSubtle(
-                                Theme.of(context).brightness,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.section),
-                          Text(l10n.sharingLinkOnceNotice),
-                        ],
                         if (retry) ...[
                           const SizedBox(height: AppSpacing.section),
                           Text(l10n.sharingCancelNotice),
@@ -351,18 +385,12 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
                     ],
                   ),
                 ),
-                if (created || retry || canLoad || loading)
+                if (retry || canLoad || loading)
                   EntryShareActionFooter(
-                    label: created
-                        ? l10n.sharingCopyLink
-                        : retry
-                        ? l10n.sharingRetryCreate
-                        : l10n.vaultRetry,
+                    label: retry ? l10n.sharingRetryCreate : l10n.vaultRetry,
                     busy: loading || _copying,
                     onPressed: loading
                         ? null
-                        : created
-                        ? _copy
                         : retry
                         ? () => unawaited(_cubit.retry())
                         : () => unawaited(_cubit.load()),
@@ -372,6 +400,159 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
           },
         ),
       ),
+    );
+  }
+}
+
+class _CreatedLinkView extends StatelessWidget {
+  const _CreatedLinkView({
+    required this.copying,
+    required this.message,
+    required this.onCopy,
+    required this.onShare,
+  });
+
+  final bool copying;
+  final String? message;
+  final VoidCallback onCopy;
+  final ValueChanged<Rect> onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Column(
+      children: [
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Align(
+                  alignment: const Alignment(0, -0.15),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.screenH,
+                      vertical: AppSpacing.screenBottom,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            l10n.sharingCreated,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.onSurface(brightness),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.innerGap),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: l10n.sharingLinkOnceBefore),
+                                TextSpan(
+                                  text: l10n.sharingLinkOnceEmphasis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                TextSpan(text: l10n.sharingLinkOnceAfter),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: AppColors.onSurfaceMuted(brightness),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.innerGap),
+                          Visibility(
+                            visible: message != null,
+                            maintainSize: true,
+                            maintainAnimation: true,
+                            maintainState: true,
+                            child: Semantics(
+                              liveRegion: true,
+                              child: IndexedStack(
+                                index: message == l10n.sharingShareError
+                                    ? 2
+                                    : message == l10n.sharingCopyError
+                                    ? 1
+                                    : 0,
+                                alignment: Alignment.topCenter,
+                                children: [
+                                  for (final feedback in [
+                                    l10n.sharingCopiedLink,
+                                    l10n.sharingCopyError,
+                                    l10n.sharingShareError,
+                                  ])
+                                    Text(
+                                      feedback,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1.4,
+                                        color: AppColors.onSurfaceSubtle(
+                                          brightness,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        AppActionFooter(
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Builder(
+                    builder: (buttonContext) => AccentButton(
+                      height: null,
+                      label: l10n.sharingShareLink,
+                      onPressed: copying
+                          ? null
+                          : () {
+                              final box =
+                                  buttonContext.findRenderObject()!
+                                      as RenderBox;
+                              onShare(
+                                box.localToGlobal(Offset.zero) & box.size,
+                              );
+                            },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: PrimaryButton(
+                    height: null,
+                    label: l10n.sharingCopyLink,
+                    isLoading: copying,
+                    onPressed: onCopy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

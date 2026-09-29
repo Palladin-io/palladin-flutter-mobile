@@ -128,8 +128,17 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingLogin => 'Zaloguj się, aby zapisać kopię';
 
   @override
+  String get sharingLoginAction => 'Zaloguj się';
+
+  @override
+  String get sharingRegisterAction => 'Załóż konto';
+
+  @override
   String get sharingContinueAccount =>
       'Dokończ konfigurację lub odblokuj konto';
+
+  @override
+  String get sharingUnlockToSave => 'Odblokuj, aby zapisać';
 
   @override
   String get sharingSaveCopy => 'Zapisz kopię';
@@ -165,7 +174,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sharingCopyAccessNotice =>
-      'Obecni członkowie i w pełni zaufani Agenci tego sejfu mogą mieć dostęp do kopii. Uprawnienia źródła nie są kopiowane; wykrywanie wpisu i dostęp Agentów do poszczególnych pól są początkowo wyłączone.';
+      'Kopia podlega zwykłym zasadom dostępu tego sejfu. Agenci mogą ją wykryć, ale Discovery nie daje dostępu do sekretów. Uprawnienia źródła nie są kopiowane.';
 
   @override
   String get sharingCopyTitleError =>
@@ -219,13 +228,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sharingReceiveWelcome =>
-      'Odbierz kopię wpisu bez zakładania konta. Otwarcie weryfikacji nie zużywa limitu. Samodzielnie wybierasz moment odbioru.';
+      'Czeka na Ciebie udostępniony wpis. Sprawdź link, zanim wyświetlisz jego zawartość.';
 
   @override
-  String get sharingOpen => 'Otwórz udostępnienie';
+  String get sharingOpen => 'Sprawdź link';
 
   @override
-  String get sharingReceive => 'Odbierz wpis';
+  String get sharingReceive => 'Pokaż wpis';
 
   @override
   String get sharingReceiveError =>
@@ -328,7 +337,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sharingAnyoneWarning =>
-      'Link można przekazać dalej. Limit odbiorów jest wspólny dla jego posiadaczy; każdy uprawniony odbiorca może zakończyć go dla wszystkich.';
+      'Link można przekazać dalej. Jeśli ustawisz limit odbiorów, będzie wspólny dla wszystkich osób, które mają link.';
 
   @override
   String get sharingSecretNotice =>
@@ -345,7 +354,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingLifetimeHour => '1 godzina';
 
   @override
-  String get sharingLifetimeDay => '1 dzień';
+  String get sharingLifetimeDay => '24 godziny';
 
   @override
   String get sharingLifetimeThreeDays => '3 dni';
@@ -365,7 +374,19 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sharingCreateNotice =>
-      'To niezależna kopia, nie dostęp do sejfu. Późniejsze zmiany jej nie aktualizują. Odwołanie linku nie usuwa pobranych kopii.';
+      'Udostępniasz cały wpis jako niezależną kopię. Późniejsze zmiany jej nie aktualizują.';
+
+  @override
+  String get sharingUnlimited => 'Bez limitu';
+
+  @override
+  String get sharingNoProtection => 'Brak';
+
+  @override
+  String get sharingRecipientSection => 'Odbiorca';
+
+  @override
+  String get sharingSecuritySection => 'Zabezpieczenie';
 
   @override
   String get sharingCancelNotice =>
@@ -379,7 +400,14 @@ class AppLocalizationsPl extends AppLocalizations {
       'Użyj 8–128 znaków. Spacje są częścią hasła.';
 
   @override
-  String get sharingPinError => 'Użyj 6–128 cyfr (0–9), bez spacji.';
+  String get sharingPinError =>
+      'Użyj od 6 do 128 cyfr (0–9). Unikaj powtórzeń i prostych sekwencji.';
+
+  @override
+  String get sharingConfirmSecret => 'Potwierdź hasło lub PIN';
+
+  @override
+  String get sharingSecretMismatch => 'Wartości nie są takie same.';
 
   @override
   String get sharingLimitError => 'Podaj liczbę całkowitą od 1 do 100.';
@@ -418,8 +446,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingCopyLink => 'Kopiuj link';
 
   @override
-  String get sharingCopiedLink =>
-      'Link skopiowany. Schowek wyczyści się po 45 sekundach, jeśli jego zawartość się nie zmieni.';
+  String get sharingCopiedLink => 'Link skopiowany.';
 
   @override
   String get sharingCopyError =>
@@ -427,7 +454,26 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sharingLinkOnceNotice =>
-      'Skopiuj link przed wyjściem. Palladin nie odzyska później jego klucza odszyfrowania. Nadal możesz odwołać link na liście udostępnień.';
+      'Skopiuj lub udostępnij link teraz. Po opuszczeniu tego ekranu nie będzie można skopiować go ponownie. Nadal możesz go odwołać na liście udostępnień.';
+
+  @override
+  String get sharingLinkOnceBefore =>
+      'Skopiuj lub udostępnij link teraz. Po opuszczeniu tego ekranu ';
+
+  @override
+  String get sharingLinkOnceEmphasis =>
+      'nie będzie można skopiować go ponownie';
+
+  @override
+  String get sharingLinkOnceAfter =>
+      '. Nadal możesz go odwołać na liście udostępnień.';
+
+  @override
+  String get sharingShareLink => 'Udostępnij';
+
+  @override
+  String get sharingShareError =>
+      'Nie udało się otworzyć udostępniania. Spróbuj ponownie, dopóki ten ekran jest otwarty.';
 
   @override
   String get sharingConfigurationError =>
@@ -450,6 +496,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingEmpty => 'Ten wpis nie ma jeszcze linków udostępniania.';
 
   @override
+  String get sharingEmptyHint =>
+      'Utwórz bezpieczny link, aby udostępnić kopię tego wpisu.';
+
+  @override
+  String get sharingShareEntry => 'Udostępnij wpis';
+
+  @override
   String get sharingUnavailable =>
       'Udostępnienia są niedostępne w tej sesji. Otwórz wpis ponownie po odblokowaniu.';
 
@@ -459,6 +512,23 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get sharingRevokeError =>
       'Nie udało się odwołać linku. Sprawdź jego status i spróbuj ponownie.';
+
+  @override
+  String get sharingChangeProtection => 'Zmień zabezpieczenie';
+
+  @override
+  String get sharingProtectionChangeNotice =>
+      'Zmiana unieważnia wcześniejsze sesje odbioru. Nie można cofnąć już zapisanych lub pobranych kopii.';
+
+  @override
+  String get sharingProtectionChangeError =>
+      'Nie udało się zmienić zabezpieczenia. Sprawdź status linku i spróbuj ponownie.';
+
+  @override
+  String get sharingProtectionChanged => 'Zabezpieczenie linku zmienione.';
+
+  @override
+  String get sharingSavingProtection => 'Zapisywanie…';
 
   @override
   String get sharingRevoke => 'Odwołaj link';

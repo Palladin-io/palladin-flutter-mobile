@@ -84,6 +84,22 @@ sync failures are isolated; index invalidations re-read the authoritative runtim
 projection, and lock/disposal fences late completions and wipes borrowed key
 copies. No MemberSecret is opened for list rendering.
 
+Global and per-Vault lists use one `EntryListCard`, extracted from the Vault
+list without changing its typography, spacing, icon or reveal-panel treatment.
+Global cards keep the Vault name as their secondary context. Both show the same
+actions ordered reveal → Share → details arrow, with Share available for an
+unlocked verified manager; the
+Share action opens the existing whole-Entry creation page. Unknown Entry types
+remain display-only. No-op URL-opening buttons are omitted; URL copy remains.
+
+Global reveal is explicit and uses `LocalCurrentEntryService`, never another
+secret-fetch endpoint. Its Cubit owns scoped `(Vault, Entry)` snapshots and
+pending key copies. Collapse, index refresh, Vault replacement, session/key
+replacement, route coverage, background and disposal clear plaintext, wipe
+owned keys and fence late completions. Values remain masked in the same shared
+reveal panel until their own reveal action. Empty Vault and Sharing surfaces
+reuse `AppEmptyState` with a centered icon, title, short hint and one action.
+
 The Add Entry FAB opens a searchable Vault bottom sheet before invoking the
 existing `AddEntryPage` with the selected Vault ID and a visible Vault-name
 subtitle in its header. The sheet dismisses on lock,

@@ -14,7 +14,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/config/env_config.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
+import 'package:mobile_palladin/core/theme/app_colors.dart';
+import 'package:mobile_palladin/core/widgets/accent_button.dart';
+import 'package:mobile_palladin/core/widgets/app_action_footer.dart';
 import 'package:mobile_palladin/core/widgets/app_toggle.dart';
+import 'package:mobile_palladin/core/widgets/app_form_section.dart';
 import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -25,6 +29,8 @@ import 'package:mobile_palladin/features/vault/data/services/local_current_entry
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_creation.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_list.dart';
@@ -42,6 +48,8 @@ class _Local extends Mock implements LocalCurrentEntryService {}
 class _Authority extends Mock implements MemberSyncSessionAuthorityProvider {}
 
 class _Auth extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+
+class _Vaults extends MockCubit<VaultListState> implements VaultListCubit {}
 
 const _organizationId = '11112233-4455-4677-8899-aabbccddeeff';
 const _vaultId = '22112233-4455-4677-8899-aabbccddeeff';
@@ -76,11 +84,13 @@ void main() {
   late _Remote remote;
   late _Local local;
   late _Auth auth;
+  late _Vaults vaults;
   late StreamController<AuthState> authEvents;
   late AuthAuthenticated unlocked;
   final requests = <EntryShareCreationRequest>[];
   final copiedKeys = <Uint8List>[];
   String? clipboard;
+  final nativeShares = <Map<dynamic, dynamic>>[];
   setUpAll(() async {
     final visualFont = Platform.environment['PALLADIN_SHARING_VISUAL_FONT'];
     if (visualFont != null) {
@@ -123,6 +133,9 @@ void main() {
     remote = _Remote();
     local = _Local();
     auth = _Auth();
+    vaults = _Vaults();
+    when(() => vaults.state).thenReturn(const VaultListInitial());
+    getIt.registerSingleton<VaultListCubit>(vaults);
     authEvents = StreamController<AuthState>();
     unlocked = AuthAuthenticated(
       userId: 'member',
@@ -202,6 +215,16 @@ void main() {
           if (call.method == 'Clipboard.getData') return {'text': clipboard};
           return null;
         });
+    nativeShares.clear();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('dev.fluttercommunity.plus/share'),
+          (call) async {
+            expect(call.method, 'share');
+            nativeShares.add(call.arguments as Map);
+            return 'dev.fluttercommunity.plus/share/dismissed';
+          },
+        );
   });
   tearDown(() async {
     await authEvents.close();
@@ -209,6 +232,11 @@ void main() {
     await getIt.reset();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('dev.fluttercommunity.plus/share'),
+          null,
+        );
   });
   Future<void> pump(
     WidgetTester tester, {
@@ -317,7 +345,20 @@ void main() {
         .first;
     tester.state<ScrollableState>(scrollable).position.jumpTo(0);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(finder, 200, scrollable: scrollable);
+    // Expanded security fields can occupy the drag starting point. Use the
+    // owned list position rather than accidentally dragging an editable field.
+    for (
+      var attempt = 0;
+      finder.evaluate().isEmpty && attempt < 50;
+      attempt++
+    ) {
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(
+        (position.pixels + 200).clamp(0, position.maxScrollExtent),
+      );
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
   }
 
@@ -336,9 +377,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> ready(WidgetTester tester) async {
-    await chooseToggle(tester, 'I have checked the selected fields');
-    await enter(tester, 'Recipient email', ' recipient@example.test ');
+  Future<void> section(WidgetTester tester, String label) async {
+    final header = find
+        .descendant(
+          of: find.byWidgetPredicate(
+            (widget) => widget is AppFormSection && widget.label == label,
+          ),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    await visible(tester, header);
+    await tester.tap(header);
+    await tester.pumpAndSettle();
   }
 
   Future<void> create(WidgetTester tester) async {
@@ -346,8 +396,81 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> ready(WidgetTester tester) async {
+    await section(tester, 'Recipient');
+    await tester.tap(find.byType(DropdownButton<EntryShareRecipientMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Only this person (email code)').last);
+    await tester.pumpAndSettle();
+    await enter(tester, 'Recipient email', ' recipient@example.test ');
+  }
+
   testWidgets(
-    'source keys are copied and wiped, private fields opt-in, review required',
+    'root-navigator creation resolves the source Vault from the shared cache',
+    (tester) async {
+      when(() => vaults.state).thenReturn(
+        VaultListLoaded([
+          VaultEntity(
+            id: _vaultId,
+            name: 'Personal vault',
+            grantMode: GrantMode.granular,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            entryCount: 1,
+            activeGrantCount: 0,
+            memberCount: 1,
+          ),
+        ]),
+      );
+      await pump(tester, fromList: true);
+      expect(find.text('Personal vault'), findsOneWidget);
+      expect(find.text('22112233…ddeeff'), findsNothing);
+      expect(
+        tester.getRect(find.text('Personal vault')).right,
+        closeTo(tester.getRect(find.byType(AppFormSection).first).right, 0.01),
+      );
+      await dispose(tester);
+    },
+  );
+
+  testWidgets('collapsed option chevrons share the right edge', (tester) async {
+    await pump(tester);
+    final sections = find.byType(AppFormSection);
+    final right = tester.getRect(sections.first).right;
+    for (final section in sections.evaluate()) {
+      final chevron = find.descendant(
+        of: find.byWidget(section.widget),
+        matching: find.byIcon(Icons.expand_more),
+      );
+      expect(tester.getRect(chevron).right, closeTo(right, 0.01));
+    }
+    await dispose(tester);
+  });
+
+  testWidgets('footer paints through the device bottom safe area', (
+    tester,
+  ) async {
+    tester.view.padding = FakeViewPadding(
+      bottom: 34 * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.resetPadding);
+    await pump(tester);
+    final screenBottom =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final footer = tester.getRect(find.byType(EntryShareActionFooter));
+    final button = tester.getRect(find.byType(PrimaryButton));
+    expect(footer.bottom, closeTo(screenBottom, 0.01));
+    expect(button.bottom, lessThanOrEqualTo(screenBottom - 34));
+    expect(footer.left, 0);
+    expect(
+      footer.right,
+      tester.view.physicalSize.width / tester.view.devicePixelRatio,
+    );
+    await dispose(tester);
+  });
+
+  testWidgets(
+    'source keys are wiped; whole-entry defaults and four collapsed sections',
     (tester) async {
       await pump(tester);
       expect(copiedKeys.single, everyElement(0));
@@ -355,24 +478,18 @@ void main() {
       expect(find.text('synthetic-password'), findsNothing);
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
-        isNull,
-      );
-      final notesToggle = find.descendant(
-        of: toggle('Notes'),
-        matching: find.byType(AppToggle),
-      );
-      await visible(tester, notesToggle);
-      expect(tester.widget<AppToggle>(notesToggle).value, isFalse);
-      await chooseToggle(tester, 'I have checked the selected fields');
-      expect(
-        tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
         isNotNull,
       );
-      await chooseToggle(tester, 'Notes');
+      expect(find.byType(AppFormSection), findsNWidgets(4));
+      expect(find.byType(AppToggle), findsOneWidget);
+      expect(find.text('I have checked the selected fields'), findsNothing);
       expect(
-        tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
-        isNull,
+        find.byType(DropdownButton<EntryShareRecipientMode>),
+        findsNothing,
       );
+      expect(find.text('Anyone with the link'), findsOneWidget);
+      expect(find.text('Unlimited'), findsOneWidget);
+      await section(tester, 'Recipient');
       await visible(
         tester,
         find.byType(DropdownButton<EntryShareRecipientMode>),
@@ -401,7 +518,7 @@ void main() {
       expect(requests.single.options.recipientEmail, 'recipient@example.test');
       expect(requests.single.options.protection, EntryShareProtection.none);
       expect(requests.single.options.notifyOnFirstReceipt, isTrue);
-      expect(find.text('Your sharing link is ready'), findsOneWidget);
+      expect(find.text('Your link is ready'), findsOneWidget);
       expect(find.byType(EntryShareCreationForm), findsNothing);
       expect(clipboard, isNull);
       await tester.tap(find.text('Copy sharing link'));
@@ -411,10 +528,167 @@ void main() {
         startsWith('https://stage.palladin.io/share/$_shareId#v=1&key='),
       );
       expect(find.text(clipboard!), findsNothing);
+      final copiedLink = clipboard;
       await dispose(tester);
       await tester.pump(const Duration(seconds: 46));
       await tester.pumpAndSettle();
-      expect(clipboard, '');
+      expect(clipboard, copiedLink);
+    },
+  );
+
+  for (final locale in ['en', 'pl']) {
+    testWidgets(
+      'centered ready state fits 320px and keeps copy stable: $locale',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 740));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await pump(
+          tester,
+          locale: locale,
+          brightness: Brightness.dark,
+          scale: 1.5,
+        );
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(EntryShareCreationForm)),
+        )!;
+        await tester.tap(
+          find.widgetWithText(PrimaryButton, l10n.sharingCreate),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.sharingCreated), findsOneWidget);
+        final notice = find.text(
+          l10n.sharingLinkOnceNotice,
+          findRichText: true,
+        );
+        expect(notice, findsOneWidget);
+        final richText = tester.widget<Text>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                widget.textSpan?.toPlainText() == l10n.sharingLinkOnceNotice,
+          ),
+        );
+        expect(
+          (richText.textSpan as TextSpan).children!
+              .whereType<TextSpan>()
+              .singleWhere((span) => span.text == l10n.sharingLinkOnceEmphasis)
+              .style!
+              .fontWeight,
+          FontWeight.w700,
+        );
+        expect(find.byType(EntryShareActionFooter), findsNothing);
+        final button = find.widgetWithText(PrimaryButton, l10n.sharingCopyLink);
+        final before = tester.getRect(button);
+        final share = tester.getRect(find.byType(AccentButton));
+        final footer = tester.getRect(find.byType(AppActionFooter));
+        expect(share.right, lessThan(before.left));
+        expect(share.top, closeTo(before.top, 0.1));
+        expect(share.height, closeTo(before.height, 0.1));
+        expect(share.width, closeTo(before.width, 0.1));
+        expect(footer.left, 0);
+        expect(footer.right, 320);
+        expect(footer.bottom, 740);
+        expect(before.bottom, greaterThan(680));
+        expect(before.bottom, lessThan(740));
+        expect(tester.getCenter(find.text(l10n.sharingCreated)).dx, 160);
+        final contentAlignment = find
+            .ancestor(
+              of: find.text(l10n.sharingCreated),
+              matching: find.byType(Align),
+            )
+            .first;
+        expect(
+          tester.widget<Align>(contentAlignment).alignment,
+          const Alignment(0, -0.15),
+        );
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(button), before);
+        expect(find.byIcon(Icons.check_circle_outline), findsNothing);
+        final titleBefore = tester.getRect(find.text(l10n.sharingCreated));
+        final noticeBefore = tester.getRect(notice);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(button), before);
+        expect(find.text(l10n.sharingCopiedLink), findsOneWidget);
+        expect(tester.getRect(find.text(l10n.sharingCreated)), titleBefore);
+        expect(tester.getRect(notice), noticeBefore);
+        expect(tester.takeException(), isNull);
+        await capture(tester, 'ready-$locale-dark-320-150');
+        await dispose(tester);
+        await tester.pump(const Duration(seconds: 46));
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets(
+    'system Share sends only the link, supports cancellation and guards lock',
+    (tester) async {
+      await pump(tester);
+      await create(tester);
+      expect(nativeShares, isEmpty);
+      expect(find.widgetWithText(PrimaryButton, 'Share'), findsNothing);
+      expect(find.widgetWithText(AccentButton, 'Share'), findsOneWidget);
+      final shareButton = find.widgetWithText(OutlinedButton, 'Share');
+      expect(shareButton, findsOneWidget);
+      final style = tester.widget<OutlinedButton>(shareButton).style!;
+      final foreground = AppColors.onSurface(
+        Theme.of(tester.element(shareButton)).brightness,
+      );
+      expect(style.foregroundColor!.resolve({}), foreground);
+      expect(style.side!.resolve({})!.color, foreground);
+      expect(style.backgroundColor, isNull);
+      expect(find.byIcon(Icons.ios_share), findsNothing);
+      await tester.tap(find.text('Share'));
+      await tester.pumpAndSettle();
+      expect(nativeShares, hasLength(1));
+      expect(
+        nativeShares.single['text'],
+        startsWith('https://stage.palladin.io/share/$_shareId#v=1&key='),
+      );
+      expect(
+        nativeShares.single['text'],
+        isNot(contains('synthetic-password')),
+      );
+      expect(nativeShares.single['subject'], isNull);
+      expect(nativeShares.single['originWidth'], greaterThan(0));
+      expect(clipboard, isNull);
+      expect(requests, hasLength(1));
+      expect(find.text('Your link is ready'), findsOneWidget);
+      authEvents.add(unlocked.copyWith(clearKeys: true, isVaultLocked: true));
+      await tester.pumpAndSettle();
+      expect(find.text('Share'), findsNothing);
+      expect(nativeShares, hasLength(1));
+      await dispose(tester);
+    },
+  );
+
+  testWidgets(
+    'late native Share failure cannot revive a backgrounded capability',
+    (tester) async {
+      await pump(tester);
+      await create(tester);
+      final pending = Completer<String>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('dev.fluttercommunity.plus/share'),
+            (_) => pending.future,
+          );
+      await tester.tap(find.text('Share'));
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      pending.completeError(PlatformException(code: 'synthetic'));
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('Share'), findsNothing);
+      expect(find.text('Copy sharing link'), findsNothing);
+      expect(find.textContaining('Could not open sharing'), findsNothing);
+      expect(clipboard, isNull);
+      expect(requests, hasLength(1));
+      await dispose(tester);
     },
   );
 
@@ -423,6 +697,7 @@ void main() {
     (tester) async {
       await pump(tester);
       await ready(tester);
+      await section(tester, 'Security');
       await visible(tester, find.text('No additional secret'));
       await tester.tap(find.text('No additional secret'));
       await tester.pumpAndSettle();
@@ -438,9 +713,12 @@ void main() {
       );
       expect(requests, isEmpty);
       expect(find.textContaining('A PIN is weaker'), findsOneWidget);
-      await enter(tester, 'PIN', '012345');
+      await enter(tester, 'PIN', '739284');
       await create(tester);
-      expect(requests.single.options.protectionSecret, '012345');
+      expect(requests, isEmpty);
+      await enter(tester, 'Confirm password or PIN', '739284');
+      await create(tester);
+      expect(requests.single.options.protectionSecret, '739284');
       expect(
         requests.single.options.recipientMode,
         EntryShareRecipientMode.namedRecipient,
@@ -474,7 +752,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(requests, hasLength(2));
       expect(requests.last, same(requests.first));
-      expect(find.text('Your sharing link is ready'), findsOneWidget);
+      expect(find.text('Your link is ready'), findsOneWidget);
       await dispose(tester);
     },
   );
@@ -588,14 +866,16 @@ void main() {
       await pump(tester, locale: 'pl', brightness: Brightness.dark, scale: 1.5);
       await capture(tester, 'create-pl-dark-320-150-fields');
       expect(tester.takeException(), isNull);
-      await chooseToggle(tester, 'Sprawdziłem wybrane pola');
-      await enter(tester, 'E-mail odbiorcy', 'person@example.test');
+      await section(tester, 'Zabezpieczenie');
       await visible(tester, find.text('Bez dodatkowego sekretu'));
       await tester.tap(find.text('Bez dodatkowego sekretu'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('PIN').last);
       await tester.pumpAndSettle();
-      await enter(tester, 'PIN', '012345');
+      await enter(tester, 'PIN', '739284');
+      await enter(tester, 'Potwierdź hasło lub PIN', '739284');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
       await capture(tester, 'create-pl-dark-320-150-pin');
       await chooseToggle(tester, 'Powiadom mnie o pierwszym odbiorze');
       await capture(tester, 'create-pl-dark-320-150-options');

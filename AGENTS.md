@@ -214,6 +214,9 @@ lib/
 | `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
 | `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip`. `.shell` includes the established shell right/bottom inset |
 | `AppFabToast` | `lib/core/widgets/app_fab_toast.dart` | Shell action slot: sequential FAB fade-out → localized hint → current FAB return; latest hint wins, supports reduced motion |
+| `AppFormSection` | `lib/core/widgets/app_form_section.dart` | Initially collapsed form group with current-choice summary; opens for a new error and retains feedback when collapsed. Params: `label`, `summary`, `child`, `error` |
+| `AppEmptyState` | `lib/core/widgets/app_empty_state.dart` | Centered icon, title, hint and optional primary action; shared by empty Vault Entries and Sharing. |
+| `CardActionFooter` / `CardRevokeButton` | `lib/core/widgets/card_action_footer.dart` | Shared tinted card-footer band and compact outlined revoke action, used by Grant and Entry-sharing cards. |
 | `SheetDragHandle` | `lib/core/widgets/sheet_drag_handle.dart` | The 36×4 rounded pill at the top of a modal sheet. Use in new sheets; the ~17 inline copies migrate opportunistically |
 | `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | 0×0 widget that claims the shell FAB slot for the current page. Param: `fab` (null = suppress a covered page's leaked FAB) |
 | `AppBarTitle` | `lib/core/widgets/app_bar_title.dart` | Canonical pushed-screen AppBar title: 16/w700 name + optional 11px subtle subtitle (ellipsised). Params: `title`, `subtitle` (null/empty ⇒ title only). Use in every `AppBar(title:)` — never hand-roll the `Column(start, [Text, Text])` |
@@ -233,6 +236,8 @@ lib/
 | `PrimaryButtonGlow` | `lib/core/widgets/primary_button_glow.dart` | Shared decorative brand shadow for enabled primary actions; no shadow while disabled/loading |
 | `AppSegmentedControl<T>` | `lib/core/widgets/app_segmented_control.dart` | Shared 44px under-title segment track with selected glow and optional count badges; used by Inbox and Vaults / Entries |
 | `PrimaryButton` | `lib/core/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state and subtle brand glow |
+| `AccentButton` | `lib/core/widgets/accent_button.dart` | Full-width 44px neutral outline action, matching API-key Copy: onSurface label/border, no red fill or glow |
+| `AppActionFooter` | `lib/core/widgets/app_action_footer.dart` | Full-width form/action footer surface with top border and safe-area bottom padding; accepts a single CTA or a paired action row |
 | `CompactPrimaryButton` | `lib/core/widgets/compact_primary_button.dart` | Compact inline primary CTA matching onboarding checklist actions. Params: `label`, `onPressed`, optional colors/loading/minimum width |
 
 ### Cross-feature widgets (live in a feature, reused by 2+ features)
@@ -242,6 +247,7 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 | Widget | File | Purpose / reused by |
 |--------|------|---------------------|
 | `OnboardingTextField` + `FieldFeedbackSlot` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Primary 44px text input with label, border, and animated feedback slot below the input. Used by every feature with a form field (auth, onboarding, vault settings, recovery) |
+| `EntryListCard` | `lib/features/vault/presentation/widgets/entry_list_card.dart` | One Entry row/reveal panel for global and per-Vault lists; shared show/details/share actions, optional Vault-name context. Never duplicate with ListTile. |
 | `PasswordSecurityCheckController` + `resolvePasswordSecurityFeedback` + `PasswordSecurityStatusLine` | `lib/features/auth/presentation/widgets/password_security_status.dart` | Shared debounced HIBP state, presentation resolver, and compact one-line renderer. Registration reuses the resolver in its pinned copy; master-password screens use the line widget. Never duplicate breach-check state or message precedence |
 | `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | 5-slot bottom navigation bar with badge counts (used by `AppShell`) |
 | `AgentAvatar` | `lib/features/agents/presentation/widgets/agent_avatar.dart` | Agent icon circle (tinted initials fallback or custom icon/color). Reused by grants (`OrgGrantCard`) + notifications (`NotificationCard`) |
@@ -291,6 +297,10 @@ Create and edit forms use the same pinned action-footer pattern. The form fields
 6. **Inputs** — `OnboardingTextField` for text, `AppSearchField` for search, `AppDropdownField` for dropdowns, `AppAutocompleteField` for autocomplete. Never re-style an input inline.
 7. **Buttons** — `PrimaryButton` for the primary CTA, `ApproveActionButton` for approve actions, `AppFab` for floating actions. Never build a bare `ElevatedButton` with inline brand styling.
 
+**Accent means neutral outline, not destructive red.** Use `AccentButton`: transparent background, `AppColors.onSurface(brightness)` text and border (light in dark mode, dark in light mode), matching the API-key Copy action. Red tinted fill/border belongs to destructive actions, not the accent variant. Do not substitute `PrimaryButton` for accent. Paired text-only actions such as Copy and Share must both remain without icons.
+
+For the sharing-link ready screen, pin an `AppActionFooter` below the centered message: Share (accent) left, Copy (primary) right, equal widths. Use `height: null` for paired buttons inside an `IntrinsicHeight` row so scaled labels can grow together above the 44px minimum; loading must preserve label geometry.
+
 ## Theming & Colors
 
 **Theme mode:** The app supports both light and dark mode. Default is dark. User can change it in settings — preference is persisted. Never hardcode `ThemeMode.dark` permanently; use the stored user preference.
@@ -304,7 +314,7 @@ Create and edit forms use the same pinned action-footer pattern. The form fields
 | `AppColors.mobileSurface` | `#23262C` | Graphite card background (vault list/detail) |
 | `AppColors.lightBackground` | `#E8EAED` | Light scaffold background — warm cream |
 | `AppColors.lightSurface` | `#DCDEE2` | Light elevated surfaces |
-| `AppColors.brandRed` | `#E54645` | Primary/interactive color: "Vault" wordmark, errors, primary buttons, **all interactive actions** (links, Retry, button foregrounds), **active/focused inputs**, loaders |
+| `AppColors.brandRed` | `#E54645` | Primary/interactive color: "Vault" wordmark, errors, primary buttons, links, Retry, **active/focused inputs**, loaders. Neutral accent buttons use `onSurface`, not brandRed. |
 | `AppColors.positiveAccent` | `#10B981` | Success / positive green — password-strength "strong/veryStrong", positive states. **Same green as web (`--cv-success`); web↔mobile parity. NEVER use teal (`#48ECDF`) or `#2EC4B6` as the success green.** |
 | `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
 

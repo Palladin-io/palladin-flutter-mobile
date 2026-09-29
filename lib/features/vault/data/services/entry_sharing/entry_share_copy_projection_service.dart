@@ -2,6 +2,7 @@ import '../../../domain/entities/custom_field.dart';
 import '../../../domain/entities/entry_share.dart';
 import '../../../domain/entities/entry_share_copy.dart';
 import '../../../domain/entities/vault_plaintext.dart';
+import '../new_entry_field_access.dart';
 import 'entry_share_totp_codec.dart';
 
 final class EntryShareCopyProjectionService {
@@ -86,25 +87,16 @@ final class EntryShareCopyProjectionService {
     final secret = MemberSecret(
       entryType: VaultEntryType.parse(snapshot.entryType),
       memberLabel: label,
-      agentLabel: null,
+      agentLabel: label,
       description: values['description'],
       icon: null,
       color: null,
-      discoverable: false,
+      discoverable: true,
       content: content,
-      agentFieldAccess: {
-        for (final id in {
-          'memberLabel',
-          'agentLabel',
-          'description',
-          'icon',
-          'color',
-          'entryType',
-          ...content.fieldValues().keys,
-          ...custom.map((field) => field.fieldId),
-        })
-          id: AgentFieldAccess.never,
-      },
+      agentFieldAccess: newEntryFieldAccess(
+        VaultEntryType.parse(snapshot.entryType),
+        content,
+      ),
     );
     try {
       // Independent shared plaintext must remain readable by the canonical index.

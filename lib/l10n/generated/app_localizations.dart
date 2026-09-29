@@ -290,11 +290,29 @@ abstract class AppLocalizations {
   /// **'Sign in to save a copy'**
   String get sharingLogin;
 
+  /// No description provided for @sharingLoginAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get sharingLoginAction;
+
+  /// No description provided for @sharingRegisterAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get sharingRegisterAction;
+
   /// No description provided for @sharingContinueAccount.
   ///
   /// In en, this message translates to:
   /// **'Continue account setup or unlock'**
   String get sharingContinueAccount;
+
+  /// No description provided for @sharingUnlockToSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock to save'**
+  String get sharingUnlockToSave;
 
   /// No description provided for @sharingSaveCopy.
   ///
@@ -353,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @sharingCopyAccessNotice.
   ///
   /// In en, this message translates to:
-  /// **'Existing members and fully trusted Agents of this vault can access the copy. Source permissions are not copied; Discovery and individual field access for Agents start disabled.'**
+  /// **'The copy uses this vault\'s normal access rules. It is discoverable by Agents, but Discovery does not grant secret access. Source permissions are not copied.'**
   String get sharingCopyAccessNotice;
 
   /// No description provided for @sharingCopyTitleError.
@@ -443,19 +461,19 @@ abstract class AppLocalizations {
   /// No description provided for @sharingReceiveWelcome.
   ///
   /// In en, this message translates to:
-  /// **'View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.'**
+  /// **'A shared entry is waiting for you. Check the link before revealing its contents.'**
   String get sharingReceiveWelcome;
 
   /// No description provided for @sharingOpen.
   ///
   /// In en, this message translates to:
-  /// **'Open sharing'**
+  /// **'Check link'**
   String get sharingOpen;
 
   /// No description provided for @sharingReceive.
   ///
   /// In en, this message translates to:
-  /// **'Receive entry'**
+  /// **'Show entry'**
   String get sharingReceive;
 
   /// No description provided for @sharingReceiveError.
@@ -635,7 +653,7 @@ abstract class AppLocalizations {
   /// No description provided for @sharingAnyoneWarning.
   ///
   /// In en, this message translates to:
-  /// **'The link can be forwarded. Its receipt limit is shared by everyone who has it; any authorized recipient can end it for everyone.'**
+  /// **'The link can be forwarded. If you set a receipt limit, it is shared by everyone who has the link.'**
   String get sharingAnyoneWarning;
 
   /// No description provided for @sharingSecretNotice.
@@ -665,7 +683,7 @@ abstract class AppLocalizations {
   /// No description provided for @sharingLifetimeDay.
   ///
   /// In en, this message translates to:
-  /// **'1 day'**
+  /// **'24 hours'**
   String get sharingLifetimeDay;
 
   /// No description provided for @sharingLifetimeThreeDays.
@@ -701,8 +719,32 @@ abstract class AppLocalizations {
   /// No description provided for @sharingCreateNotice.
   ///
   /// In en, this message translates to:
-  /// **'This is an independent copy, not access to your vault. It will not follow later edits. Revoking the link cannot recall downloaded copies.'**
+  /// **'Shares the entire entry as an independent copy. Later edits will not update it.'**
   String get sharingCreateNotice;
+
+  /// No description provided for @sharingUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get sharingUnlimited;
+
+  /// No description provided for @sharingNoProtection.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get sharingNoProtection;
+
+  /// No description provided for @sharingRecipientSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient'**
+  String get sharingRecipientSection;
+
+  /// No description provided for @sharingSecuritySection.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get sharingSecuritySection;
 
   /// No description provided for @sharingCancelNotice.
   ///
@@ -725,8 +767,20 @@ abstract class AppLocalizations {
   /// No description provided for @sharingPinError.
   ///
   /// In en, this message translates to:
-  /// **'Use 6–128 digits (0–9), without spaces.'**
+  /// **'Use 6–128 digits (0–9). Avoid repeated digits and simple sequences.'**
   String get sharingPinError;
+
+  /// No description provided for @sharingConfirmSecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password or PIN'**
+  String get sharingConfirmSecret;
+
+  /// No description provided for @sharingSecretMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'The values do not match.'**
+  String get sharingSecretMismatch;
 
   /// No description provided for @sharingLimitError.
   ///
@@ -779,7 +833,7 @@ abstract class AppLocalizations {
   /// No description provided for @sharingCreated.
   ///
   /// In en, this message translates to:
-  /// **'Your sharing link is ready'**
+  /// **'Your link is ready'**
   String get sharingCreated;
 
   /// No description provided for @sharingCopyLink.
@@ -791,7 +845,7 @@ abstract class AppLocalizations {
   /// No description provided for @sharingCopiedLink.
   ///
   /// In en, this message translates to:
-  /// **'Sharing link copied. Clipboard clears after 45 seconds if unchanged.'**
+  /// **'Sharing link copied.'**
   String get sharingCopiedLink;
 
   /// No description provided for @sharingCopyError.
@@ -803,8 +857,38 @@ abstract class AppLocalizations {
   /// No description provided for @sharingLinkOnceNotice.
   ///
   /// In en, this message translates to:
-  /// **'Copy this link before leaving. Palladin cannot recover its decryption key later. You can still revoke it from the sharing list.'**
+  /// **'Copy or share the link now. After you leave this screen, you won\'t be able to copy it again. You can still revoke it from the sharing list.'**
   String get sharingLinkOnceNotice;
+
+  /// No description provided for @sharingLinkOnceBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy or share the link now. After you leave this screen, '**
+  String get sharingLinkOnceBefore;
+
+  /// No description provided for @sharingLinkOnceEmphasis.
+  ///
+  /// In en, this message translates to:
+  /// **'you won\'t be able to copy it again'**
+  String get sharingLinkOnceEmphasis;
+
+  /// No description provided for @sharingLinkOnceAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'. You can still revoke it from the sharing list.'**
+  String get sharingLinkOnceAfter;
+
+  /// No description provided for @sharingShareLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get sharingShareLink;
+
+  /// No description provided for @sharingShareError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open sharing. Try again while this screen is open.'**
+  String get sharingShareError;
 
   /// No description provided for @sharingConfigurationError.
   ///
@@ -842,6 +926,18 @@ abstract class AppLocalizations {
   /// **'No sharing links for this entry.'**
   String get sharingEmpty;
 
+  /// No description provided for @sharingEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a secure link to share a copy of this entry.'**
+  String get sharingEmptyHint;
+
+  /// No description provided for @sharingShareEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Share entry'**
+  String get sharingShareEntry;
+
   /// No description provided for @sharingUnavailable.
   ///
   /// In en, this message translates to:
@@ -859,6 +955,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not revoke the link. Check its status and try again.'**
   String get sharingRevokeError;
+
+  /// No description provided for @sharingChangeProtection.
+  ///
+  /// In en, this message translates to:
+  /// **'Change protection'**
+  String get sharingChangeProtection;
+
+  /// No description provided for @sharingProtectionChangeNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This invalidates earlier receipt sessions. Copies already saved or downloaded cannot be recalled.'**
+  String get sharingProtectionChangeNotice;
+
+  /// No description provided for @sharingProtectionChangeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not change protection. Check the link status and try again.'**
+  String get sharingProtectionChangeError;
+
+  /// No description provided for @sharingProtectionChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Link protection updated.'**
+  String get sharingProtectionChanged;
+
+  /// No description provided for @sharingSavingProtection.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get sharingSavingProtection;
 
   /// No description provided for @sharingRevoke.
   ///

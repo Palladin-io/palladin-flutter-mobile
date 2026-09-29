@@ -10,6 +10,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_selection_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_totp_codec.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/new_entry_field_access.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_copy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
@@ -52,13 +53,24 @@ Matcher _error(EntryShareCopyInputError kind) => throwsA(
   isA<EntryShareCopyInputException>().having((e) => e.kind, 'kind', kind),
 );
 
-void _private(MemberSecret secret) {
-  expect(secret.discoverable, isFalse);
-  expect(secret.agentLabel, isNull);
+void _defaultCopyPolicy(MemberSecret secret) {
+  expect(secret.discoverable, isTrue);
+  expect(secret.agentLabel, secret.memberLabel);
   expect(secret.icon, isNull);
   expect(secret.color, isNull);
-  expect(secret.agentFieldAccess.values, everyElement(AgentFieldAccess.never));
-  expect(VaultPlaintextProjector.agentDiscovery(secret), isNull);
+  expect(
+    secret.agentFieldAccess,
+    newEntryFieldAccess(secret.entryType, secret.content),
+  );
+  final discovery = VaultPlaintextProjector.agentDiscovery(secret)!;
+  final fieldIds = (discovery['fields'] as List).map(
+    (field) => (field as Map)['id'],
+  );
+  expect(fieldIds, isNot(contains('key.value')));
+  expect(fieldIds, isNot(contains('credential.password')));
+  expect(fieldIds, isNot(contains('credential.totp')));
+  expect(fieldIds, isNot(contains('script.source')));
+  expect(fieldIds, isNot(contains('creditCard.cardNumber')));
   expect(VaultPlaintextProjector.memberIndex(secret).customIndex, isEmpty);
 }
 
@@ -69,7 +81,7 @@ void main() {
       'otpauth://totp/Account?secret=JBSWY3DPEHPK3PXP'
       '&algorithm=SHA256&digits=8&period=45';
 
-  test('credential copies exact selected values with a private policy', () {
+  test('credential copies exact values with the normal creation policy', () {
     final source = _snapshot('credential', {
       'credential.username': '  member\u0000e\u0301  ',
       'credential.password': '  secret\u0000e\u0301  ',
@@ -89,7 +101,7 @@ void main() {
     expect(content.notes, '  notes\n  ');
     expect(content.totp, isNull);
     expect(jsonEncode(source.toJson()), original);
-    _private(secret);
+    _defaultCopyPolicy(secret);
   });
 
   test('omitted required data must be explicitly supplied, not guessed', () {
@@ -107,7 +119,7 @@ void main() {
       (secret.content as CredentialSecretContent).username,
       '  explicit user  ',
     );
-    _private(secret);
+    _defaultCopyPolicy(secret);
   });
 
   test('an intentionally empty selected value is not an omitted field', () {
@@ -167,7 +179,7 @@ void main() {
     expect(content.value, '  secret  ');
     expect(content.url, 'urn:exact:source');
     expect(content.notes, '');
-    _private(secret);
+    _defaultCopyPolicy(secret);
   });
 
   test('a copy cannot create an index that its own reader rejects', () {
@@ -240,7 +252,7 @@ void main() {
     expect(content.billingAddress, '  Billing\nAddress  ');
     expect(content.toJson().containsKey('cvv'), isFalse);
     expect(content.toJson().containsKey('pin'), isFalse);
-    _private(secret);
+    _defaultCopyPolicy(secret);
   });
 
   test('script needs local execution description and inherits no refs', () {
@@ -267,7 +279,7 @@ void main() {
       'parameters': [],
       'returnResultToAgent': false,
     });
-    _private(secret);
+    _defaultCopyPolicy(secret);
   });
 
   test('unsupported script interpreter never silently becomes bash', () {
@@ -306,7 +318,7 @@ void main() {
     expect(field.value, '  e\u0301\u0000  ');
     expect(field.includeInMemberIndex, isFalse);
     expect(first.agentFieldAccess.containsKey('custom:foreign-id'), isFalse);
-    _private(first);
+    _defaultCopyPolicy(first);
   });
 
   test(
@@ -334,7 +346,7 @@ void main() {
       });
       expect(content.customFields.single.value, content.totp);
       expect(() => content.totp!['digits'] = 6, throwsUnsupportedError);
-      _private(secret);
+      _defaultCopyPolicy(secret);
     },
   );
 
@@ -440,7 +452,7 @@ void main() {
   }
 
   test(
-    'private copy encrypts with fresh Entry keys and no Discovery projection',
+    'discoverable copy encrypts with fresh Entry keys and independent Discovery projection',
     () async {
       final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
       final sodium = configured != null || Platform.isLinux
@@ -473,8 +485,8 @@ void main() {
         );
         final first = await seal('33333333-3333-4333-8333-333333333333');
         final second = await seal('44444444-4444-4444-8444-444444444444');
-        expect(first.agentDiscovery, isNull);
-        expect(second.agentDiscovery, isNull);
+        expect(first.agentDiscovery, isNotNull);
+        expect(second.agentDiscovery, isNotNull);
         firstKey = await crypto.openEntryDek(
           entryKey: Map<String, dynamic>.from(first.entryKey),
           vaultKey: vaultKey,

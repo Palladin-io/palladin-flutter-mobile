@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
+import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
@@ -19,10 +21,11 @@ import '../cubit/global_entries_cubit.dart';
 import '../cubit/vault_list_cubit.dart';
 import '../widgets/choose_entry_vault_sheet.dart';
 import '../widgets/create_vault_sheet.dart';
-import '../widgets/entry_list_icon.dart';
+import '../widgets/entry_list_card.dart';
 import '../widgets/vault_library_switch.dart';
 import 'add_entry_page.dart';
 import 'entry_detail_page.dart';
+import 'entry_share_creation_page.dart';
 
 /// Owned by the library route, so switching segments preserves search/scroll.
 class GlobalEntriesPreferences {
@@ -46,10 +49,15 @@ class GlobalEntriesPage extends StatefulWidget {
   State<GlobalEntriesPage> createState() => _GlobalEntriesPageState();
 }
 
-class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
+class _GlobalEntriesPageState extends State<GlobalEntriesPage>
+    with WidgetsBindingObserver {
   late final GlobalEntriesCubit _entries;
   late final VaultListCubit _vaults;
   late final StreamSubscription<VaultListState> _vaultChanges;
+  late final StreamSubscription<GlobalEntriesState> _entryChanges;
+  final _revealedFields = <(String, String), Set<String>>{};
+  AuthState? _lastAuth;
+  Animation<double>? _coverAnimation;
   Widget? _fab;
   GlobalEntriesPreferences get ui => widget.preferences;
 
@@ -58,6 +66,13 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
     super.initState();
     _vaults = context.read<VaultListCubit>();
     _entries = getIt<GlobalEntriesCubit>();
+    _lastAuth = context.read<AuthBloc>().state;
+    WidgetsBinding.instance.addObserver(this);
+    _entryChanges = _entries.stream.listen((state) {
+      _revealedFields.removeWhere(
+        (id, _) => !state.expandedEntries.contains(id),
+      );
+    });
     _vaultChanges = _vaults.stream.listen((state) {
       if (mounted) setState(() {});
       if (state is VaultListLoaded) {
@@ -88,6 +103,7 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
   }
 
   Future<void> _add() async {
+    _clearReveals();
     // Do not restore focus to the off-screen search field when the modal or
     // pushed form closes: Flutter would scroll it into view over our position.
     FocusManager.instance.primaryFocus?.unfocus();
@@ -124,10 +140,11 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
   }
 
   Future<void> _open(GlobalEntryRow row) async {
+    _clearReveals();
     FocusManager.instance.primaryFocus?.unfocus();
     await EntryDetailPage.push(
       context,
-      entry: _entryEntity(row),
+      entry: row.toEntryEntity(),
       wrappedVK: row.vault.wrappedVK,
     );
     if (mounted) await _load();
@@ -142,25 +159,82 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
     if (mounted) await _add();
   }
 
-  EntryEntity _entryEntity(GlobalEntryRow row) {
-    final epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-    return EntryEntity(
-      id: row.entry.entryId,
-      vaultId: row.vault.id,
-      label: row.entry.memberLabel,
-      type:
-          EntryType.values.elementAtOrNull(row.entry.entryType) ??
-          EntryType.key,
-      icon: row.entry.iconReference,
-      createdAt: epoch,
-      updatedAt: epoch,
-      currentRevision: row.entry.revision,
-      currentKeyVersion: row.entry.currentKeyVersion,
-    );
+  bool get _canShare {
+    final auth = context.read<AuthBloc>().state;
+    return auth is AuthAuthenticated &&
+        !auth.isVaultLocked &&
+        auth.privateKey != null &&
+        auth.emailVerified &&
+        (auth.permissions & Permissions.vaultManage) != 0;
+  }
+
+  void _clearReveals() {
+    _revealedFields.clear();
+    _entries.clearReveals();
+  }
+
+  Future<void> _share(GlobalEntryRow row) async {
+    if (!_canShare) return;
+    _clearReveals();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await EntryShareCreationPage.push(context, row.toEntryEntity());
+  }
+
+  Future<void> _toggleReveal(GlobalEntryRow row) async {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated ||
+        auth.isVaultLocked ||
+        auth.privateKey == null) {
+      return;
+    }
+    final success = await _entries.toggleReveal(row, auth.privateKey!);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.entryErrorCrypto)),
+      );
+    }
+  }
+
+  Future<void> _copy(String value) async {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.isVaultLocked) return;
+    await SecureClipboard.copy(value);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.vaultCopyValue)),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _clearReveals();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.secondaryAnimation;
+    if (!identical(animation, _coverAnimation)) {
+      _coverAnimation?.removeStatusListener(_covered);
+      _coverAnimation = animation;
+      animation?.addStatusListener(_covered);
+    }
+  }
+
+  void _covered(AnimationStatus status) {
+    if (status == AnimationStatus.forward ||
+        status == AnimationStatus.completed) {
+      _clearReveals();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _coverAnimation?.removeStatusListener(_covered);
+    unawaited(_entryChanges.cancel());
+    _revealedFields.clear();
     unawaited(_vaultChanges.cancel());
     unawaited(_entries.close());
     super.dispose();
@@ -169,15 +243,18 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final types = [
-      l10n.entryTypeKey,
-      l10n.entryTypeCredential,
-      l10n.entryTypeScript,
-      l10n.entryTypeCreditCard,
-    ];
     return BlocListener<AuthBloc, AuthState>(
       listener: (_, state) {
+        final previous = _lastAuth;
+        _lastAuth = state;
+        if (state is AuthAuthenticated &&
+            previous is AuthAuthenticated &&
+            (state.userId != previous.userId ||
+                !identical(state.privateKey, previous.privateKey))) {
+          _entries.lock();
+          ui.clear();
+        }
+        _clearReveals();
         if (state is! AuthAuthenticated || state.isVaultLocked) {
           _entries.lock();
           ui.clear();
@@ -262,35 +339,36 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage> {
                             const SizedBox(height: AppSpacing.cardGap),
                         itemBuilder: (_, index) {
                           final row = rows[index];
-                          return Material(
-                            color: AppColors.cardFill(brightness),
-                            borderRadius: BorderRadius.circular(12),
-                            child: ListTile(
-                              leading: EntryListIcon(entry: _entryEntity(row)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(
-                                  color: AppColors.cardBorder(brightness),
-                                ),
-                              ),
-                              title: Text(
-                                row.entry.memberLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                '${row.vault.name} · ${types.elementAtOrNull(row.entry.entryType) ?? l10n.entryTypeLabel}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              onTap:
-                                  EntryType.values.elementAtOrNull(
-                                        row.entry.entryType,
-                                      ) ==
-                                      null
-                                  ? null
-                                  : () => _open(row),
+                          final entry = row.toEntryEntity();
+                          return EntryListCard(
+                            enabled:
+                                EntryType.values.elementAtOrNull(
+                                  row.entry.entryType,
+                                ) !=
+                                null,
+                            key: ValueKey(row.identity),
+                            entry: entry,
+                            vaultName: row.vault.name,
+                            isExpanded: state.expandedEntries.contains(
+                              row.identity,
                             ),
+                            payload:
+                                state.revealedEntries[row.identity]?.payload,
+                            revealedFields:
+                                _revealedFields[row.identity] ?? const {},
+                            onToggleReveal: () => _toggleReveal(row),
+                            onToggleFieldReveal: (entryId, field) =>
+                                setState(() {
+                                  final fields = _revealedFields.putIfAbsent(
+                                    row.identity,
+                                    () => {},
+                                  );
+                                  final id = '$entryId:$field';
+                                  if (!fields.remove(id)) fields.add(id);
+                                }),
+                            onCopy: _copy,
+                            onEdit: () => _open(row),
+                            onShare: _canShare ? () => _share(row) : null,
                           );
                         },
                       ),

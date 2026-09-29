@@ -60,9 +60,12 @@ fields or inject policies. An oversized title needs an explicit replacement,
 never truncation. The generated Member index must pass its own reader before a
 copy can be prepared, so unsupported input cannot create an unreadable index.
 
-All field policies are `never`, Discovery is disabled, custom field identities
-are fresh, and source icons, grants, memberships, history and Script references
-are absent. A Script needs a recipient-provided execution description; its new
+Owner correction (2026-09-28): the new copy is discoverable and uses
+`newEntryFieldAccess`, shared with ordinary `KeyEntryCreationService` creation.
+Source policy is not inherited. Discovery contains metadata, not password/key,
+TOTP seed, card number or Script source; secret delivery still requires a grant.
+Custom field identities are fresh, and source icons, grants, memberships, history
+and Script references are absent. A Script needs a recipient-provided execution description; its new
 execution metadata has no parameters/references and does not return results to
 Agents. This does **not** exclude existing members or fully trusted FULL Agents
 of the destination Vault; the destination picker explicitly explains that access.
@@ -544,8 +547,11 @@ Immutable strings and external clipboard histories cannot be securely erased.
 
 The first display acknowledgement is scheduled after a rendered frame and after
 delivery finishes, not when decryption returns. A failed ACK retains the copy;
-retry sends only the ACK. Ending a link needs a separate confirmation sheet,
-which closes on authority loss. A five-second foreground ownership repair backs
+retry sends only the ACK. The recipient page never offers an action that appears
+to end the sender's link. On receipt, its pinned footer offers Save for an
+unlocked authorized account, equal-height Sign in/Create account actions for a guest or account continuation
+for a locked/unverified account. The receiver's own native auth state controls
+this CTA; mobile does not infer an installed browser extension. A five-second foreground ownership repair backs
 up the immediate checks. Pop, covering the route, account/lock/permission/key
 changes and disposal retire the capability and drop controllers/plaintext.
 Background also destroys an already received copy or an in-flight operation.
@@ -561,8 +567,8 @@ auth change, route exit, any in-flight request, or an already verified email
 falls back to full discard. This bounded pre-delivery exception fixes a reproduced
 widget failure where reading the email made the code impossible to submit.
 
-Sixteen mounted receiver tests cover explicit gates, ACK timing/retry, clipboard,
-end/cancel and sheet invalidation, delayed failures, plaintext/input cleanup,
+Mounted receiver tests cover explicit gates, ACK timing/retry, clipboard,
+recipient link-action absence, delayed failures, plaintext/input cleanup,
 email app roundtrip, unknown gates, route changes and ownership repair. Six shared
 field-card tests cover mask/reveal and late, denied or failed authorization. The
 31 Cubit cases include seven email-suspension lifecycle/deadline/operation tests.
@@ -725,6 +731,61 @@ and [Android App Link verification](https://developer.android.com/training/app-l
 
 ## Sender creation boundary
 
+### Owner correction checkpoint (2026-09-21)
+
+Creation now shares the whole supported Entry. The Cubit calls `wholeEntry()`;
+the form no longer exposes field selection or a preview-confirmation toggle.
+Unsupported fields prevent the entire operation. Notes, TOTP and custom fields
+are included; source keys, Agent policy, history and Script refs are not.
+Defaults match web: anyone with the link, no protection, 24 hours and `null`
+receipt limit. Blank input serializes as null; an optional finite limit is 1–100.
+The list also handles null without rendering the literal string "null".
+
+Sender protection checkpoint (2026-09-28): optional password/PIN requires an exact
+masked confirmation, which is never serialized. Repeated digit patterns and
+simple monotonic PIN sequences are rejected as user-input feedback, not as a
+cryptographic boundary. The existing animated input-feedback slot handles errors.
+Closing or backgrounding the owned creation flow drops both entered values.
+Editing protection on an existing link remains missing on native mobile.
+
+Gap-audit verification (2026-09-28): 236 focused tests in 8 files pass in one
+run, covering sender input, copy projection/crypto/service, mounted receiver,
+combined account/save and ordinary creation. Six structural budgets and analyze
+pass. The test-host libsodium path is required on macOS; the initial unconfigured
+run did not establish widget/Cubit results. The PL 320px/150% test additionally
+checks the confirmation field and footer. These are local substituted transports,
+not a new APK/IPA, physical-device run or deployment.
+
+Four shared `AppFormSection` controls start collapsed, with the selected option
+on the right. Validation opens the affected section; collapsed errors remain
+visible. The native page retains the established pinned primary-action footer.
+Source identity reads the existing unlocked Vault-list state. The owner approved
+the revised Entry-first identity: primary Entry icon/name on the left, smaller
+muted Vault icon/name on the right, without a frame or arrow. Mobile now uses
+the same hierarchy. The Vault icon/name form one end-aligned group, so the name
+reaches the same trailing gutter as the option rows even when the name is short.
+The creation route disables the outer bottom safe area; the painted footer owns
+its safe-area padding instead, extending its background through the home-indicator
+area while keeping the primary action clear of it and above the keyboard.
+Geometry regressions cover both the trailing edge and a 34px bottom inset.
+
+The root-navigator creation route resolves that state through the app-owned
+`VaultListCubit` singleton, not a page-local provider that is absent above the
+root route. The shared `AppFormSection` gives its end-aligned summary a tight
+column so every chevron reaches the same trailing edge. Regression tests cover
+the real list-to-creation route with a cached Vault name and section geometry.
+After rebasing on main `1ec09d4`, both new regressions were reproduced before
+the fixes. The focused suite passes 88 tests; the full suite passes 1,883 with
+two plugin-only skips, and analyze passes. The running staging iOS simulator
+shows right-aligned options and the resolved Vault name after reopening the
+form. No sharing link was created for this check; no CI or push was performed.
+
+Focused creation/list suite: 86 tests pass with the native test-host libsodium;
+`flutter analyze` passes. No device/native-build acceptance is claimed. The
+historical implementation notes below describe the previous selected-field UI,
+not the current creation contract. Receiver and saved-copy parity are separate
+unfinished work; this checkpoint does not claim them complete.
+
 `EntryShareSelectionService` projects the authenticated current snapshot returned
 by `LocalCurrentEntryService`, not permissive legacy payload constructors. Native
 fields are allowlisted per Entry type. TOTP, description, notes, billing address
@@ -743,7 +804,10 @@ and receipt-count input are trimmed; protection secrets are deliberately exact.
 Changing to anyone mode drops a stale email; choosing no protection drops a stale
 secret. The explicit create serializer has no decryption-key or plaintext field.
 The authenticated datasource exposes challenge/create POSTs with cancellation,
-no redirects/no-store and redacted feature-level errors.
+no redirects/no-store and redacted feature-level errors. The creation-challenge
+POST sends an empty JSON object with `application/json`; its scope stays in the
+route. A body-less request without that media type is rejected by the endpoint
+with HTTP 415 before challenge creation.
 
 `EntryShareCreationCubit` binds its initial principal/organization/authorization
 and memory-key generation. Source scope/revision is independently compared with
@@ -778,11 +842,42 @@ copy recheck immediately. Clipboard completion and failure revalidate before
 publishing UI feedback. A negative widget test reproduced retaining the old link
 on the clipboard error path after key replacement before this was fixed.
 
-Only explicit Copy writes the full link through SecureClipboard's existing
-45-second conditional clear. The full capability is not displayed, logged, sent
+Only explicit Copy writes the full link to the system clipboard. By product
+decision it is not automatically cleared after 45 seconds, including after
+leaving this page; password and other secret copy flows retain SecureClipboard.
+Success replaces the form/footer with a centered
+confirmation without a decorative success icon, existing success typography,
+primary Copy and neutral outlined AccentButton for native Share, both without
+icons. Both sit in a pinned `AppActionFooter`, Share on the left and Copy on the
+right at equal widths. The notice block is optically raised as a whole within
+the scrollable area above the footer (`Alignment(0, -0.15)`); feedback does
+not move the footer. The footer surface is shared with the Create action and
+extends through the bottom safe area. Scaled labels can increase both buttons'
+height together without changing geometry during Copy loading.
+Share matches the existing API-key Copy action: onSurface text and border,
+without a red destructive tint.
+EN/PL explicitly warn that the link cannot be copied again after leaving this
+screen; revocation remains available. No raw capability or origin-only pseudo-link
+is displayed. The irreversible-copy warning is bold. Feedback reserves the maximum
+space for copy success, copy failure and share failure so none shifts the CTA.
+The full capability is not displayed, logged, sent
 to analytics or persisted. It cannot be recovered after leaving the page. System
 clipboard managers/cloud sync remain outside the application's deletion guarantee.
 The covered sharing list suspends polling and refreshes after the form returns.
+
+Native Share revalidates the same created capability before handing only its
+full URL to the existing `share_plus` text channel (with an iPad anchor). It does
+not copy to clipboard, create a file, attach plaintext Entry data or add analytics.
+The OS/selected receiving application controls retention after this explicit
+handoff. Cancellation is not reported as delivery; no success receipt is invented.
+There is no lifecycle exception: inactive/background, lock, session replacement
+or expiry still invalidate the source capability, including while sharing. A
+returning share operation cannot revive it. Native device/platform acceptance
+remains separate from the mocked method-channel tests.
+
+Named-recipient creation does not send the link or Entry content by email. The
+sender distributes the link; the receiver requests an email verification code
+through the existing OTP flow. The backend never receives the link's decryption key.
 
 `PALLADIN_SHARING_WEB_ORIGIN` is a required, build-owned bare origin, empty by
 default. `EntryShareLinkService` rejects credentials, paths, queries, fragments,
@@ -803,6 +898,40 @@ transport tests do not prove physical-device behavior or actual HTTP delivery.
 
 ## Sender list and revocation
 
+### Editing additional protection (2026-09-29)
+
+Active links with a known protection mode offer `EntryShareProtectionSheet`.
+The sheet reuses shared dropdown, masked onboarding inputs, animated feedback,
+`SheetSurface` and a pinned neutral-outline action footer. A new password/PIN
+needs an exact matching confirmation; the old secret is never fetched. Sender
+input checks reuse creation feedback, not backend-owned response validation.
+Removing protection sends `none` with an explicit null secret.
+
+`EntrySharingCubit.changeProtection` owns the scoped PUT, cancellation and
+principal/organization/authorization/key-generation fences. Secrets never enter
+emitted Cubit state. Completion reloads authoritative metadata rather than
+inventing a status. Tab/background/lock retirement clears both controllers even
+when an overlaid dropdown prevents immediate sheet dismissal. Dismissal during
+an in-flight mutation cancels local work; it cannot undo an accepted server write.
+The notice explains receipt-session invalidation and the inability to recall
+already saved/downloaded copies. Request errors stay value-free.
+
+Focused transport, race, sheet and mounted-list tests cover exact whitespace,
+explicit null removal, confirmation/PIN feedback, duplicate taps, cancellation,
+late success/error after session replacement, lock cleanup, authoritative reload
+and EN/PL controls with equal-height pinned actions at 320px.
+
+An empty loaded list uses the shared `AppEmptyState` pattern from Vault Entries:
+centered link icon and short localized hint. The single Create link action is
+pinned in `EntryShareActionFooter` for both empty and populated lists. The long
+delivery/confirmation explanation and standalone Refresh action are absent in
+this state; pull-to-refresh remains available. Errors are not rendered as empty.
+The initial loading content shows only a centered skeleton, never a transient
+top CTA; the footer keeps the same position before and after the response.
+Refreshing an already empty list retains its layout.
+Both global and per-Vault Entry cards expose the same authorized Share action
+beside reveal/details through the shared `EntryListCard`.
+
 Entry Detail has a fifth Sharing tab, separate from Details, Agents, Logs and
 History. `EntrySharingTab` owns its `EntrySharingCubit` and mounts no shared global
 metadata cache. The authenticated `EntrySharingRemoteDatasource` calls the scoped
@@ -812,7 +941,15 @@ parser excerpts cannot reach shared transport logging. Neither route uses an
 Entry/Vault encryption key or sends decrypted Entry content.
 
 Cards distinguish delivery count/limit, first/last delivery and first display
-confirmation. They show finite expiry, optional protection, notification choice
+confirmation. Their compact default shows recipient, status/revoke, expiry,
+receipt count and protection summary. The shared collapsed Details section holds
+delivery/confirmation dates, notification choice and the receipt explanation.
+The layout follows Grant access cards: recipient/status header, shared
+`GrantDetailRow` information rows, and `CardActionFooter` / `CardRevokeButton`
+for revocation. The Create link action remains in the screen footer. There is
+no standalone Refresh button: both populated and empty states support pull-to-refresh,
+awaiting the actual refresh operation; foreground repair remains unchanged.
+They show finite expiry, optional protection, notification choice
 and stale-source warning. Unavailable timestamps display a dash; additive fields
 and future server statuses/protection remain readable. Unknown statuses do not
 enable a guessed mutation. All copy is EN/PL and shared theme/spacing tokens and

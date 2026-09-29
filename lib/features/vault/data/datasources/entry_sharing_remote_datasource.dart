@@ -26,6 +26,7 @@ class EntrySharingRemoteDatasource {
     try {
       final response = await _dio.post<String>(
         '${_path(vaultId, entryId)}/creation-challenge',
+        data: const <String, dynamic>{},
         options: _options,
         cancelToken: cancelToken,
       );
@@ -83,7 +84,7 @@ class EntrySharingRemoteDatasource {
             shareId: item['shareId'] as String,
             status: item['status'] as String,
             expiresAt: date('expiresAt'),
-            maximumReceipts: item['maximumReceipts'] as int,
+            maximumReceipts: item['maximumReceipts'] as int?,
             deliveryCount: item['deliveryCount'] as int,
             firstDeliveredAt: date('firstDeliveredAt'),
             lastDeliveredAt: date('lastDeliveredAt'),
@@ -111,6 +112,31 @@ class EntrySharingRemoteDatasource {
     try {
       await _dio.delete<void>(
         '${_path(vaultId, entryId)}/${Uri.encodeComponent(shareId)}',
+        options: _options,
+        cancelToken: cancelToken,
+      );
+    } catch (_) {
+      throw const EntrySharingRequestException();
+    }
+  }
+
+  Future<void> changeProtection(
+    String vaultId,
+    String entryId,
+    String shareId, {
+    required EntryShareProtection protection,
+    required String? protectionSecret,
+    required CancelToken cancelToken,
+  }) async {
+    try {
+      await _dio.put<void>(
+        '${_path(vaultId, entryId)}/${Uri.encodeComponent(shareId)}/protection',
+        data: {
+          'protection': protection.name,
+          'protectionSecret': protection == EntryShareProtection.none
+              ? null
+              : protectionSecret,
+        },
         options: _options,
         cancelToken: cancelToken,
       );

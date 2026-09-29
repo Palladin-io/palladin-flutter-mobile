@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/core/widgets/app_empty_state.dart';
+import 'package:mobile_palladin/core/widgets/card_action_footer.dart';
+import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
@@ -16,6 +19,7 @@ import 'package:mobile_palladin/features/vault/data/services/member_sync_service
 import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_list.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/entry_share_creation.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_sharing_cubit.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_sharing_tab.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
@@ -170,6 +174,76 @@ void main() {
       expect(adapter.requests.single.data, null);
     });
     test(
+      'protection PUT sends only exact secret and mode, removal sends null',
+      () async {
+        final adapter = _Adapter('', status: 204);
+        final api = EntrySharingRemoteDatasource(
+          Dio()..httpClientAdapter = adapter,
+        );
+        await api.changeProtection(
+          'v/1',
+          'e/1',
+          's/1',
+          protection: EntryShareProtection.password,
+          protectionSecret: '  synthetic secret  ',
+          cancelToken: CancelToken(),
+        );
+        final request = adapter.requests.single;
+        expect(request.method, 'PUT');
+        expect(
+          request.path,
+          '/api/vaults/v%2F1/entries/e%2F1/sharing/s%2F1/protection',
+        );
+        expect(request.data, {
+          'protection': 'password',
+          'protectionSecret': '  synthetic secret  ',
+        });
+        expect(request.followRedirects, false);
+        expect(request.headers['Cache-Control'], 'no-store');
+        await api.changeProtection(
+          'v',
+          'e',
+          's',
+          protection: EntryShareProtection.none,
+          protectionSecret: 'must-not-be-sent',
+          cancelToken: CancelToken(),
+        );
+        expect(adapter.requests.last.data, {
+          'protection': 'none',
+          'protectionSecret': null,
+        });
+      },
+    );
+    test(
+      'protection transport hides request/body diagnostics on failure',
+      () async {
+        final api = EntrySharingRemoteDatasource(
+          Dio()
+            ..httpClientAdapter = _Adapter(
+              'synthetic-private-response',
+              status: 403,
+            ),
+        );
+        await expectLater(
+          api.changeProtection(
+            'v',
+            'e',
+            's',
+            protection: EntryShareProtection.pin,
+            protectionSecret: '739284',
+            cancelToken: CancelToken(),
+          ),
+          throwsA(
+            isA<EntrySharingRequestException>().having(
+              (error) => error.toString(),
+              'redacted',
+              'EntrySharingRequestException',
+            ),
+          ),
+        );
+      },
+    );
+    test(
       'HTTP and JSON errors expose neither body nor request diagnostics',
       () async {
         for (final status in [200, 403, 500]) {
@@ -228,6 +302,187 @@ void main() {
     });
     tearDown(() async {
       if (!cubit.isClosed) await cubit.close();
+    });
+
+    test(
+      'changing protection reloads authoritative rows without storing a secret',
+      () async {
+        await cubit.load();
+        when(
+          () => remote.changeProtection(
+            'v',
+            'e',
+            _shareId,
+            protection: EntryShareProtection.password,
+            protectionSecret: ' synthetic secret ',
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).thenAnswer((_) async {});
+        expect(
+          await cubit.changeProtection(
+            _shareId,
+            EntryShareProtection.password,
+            ' synthetic secret ',
+          ),
+          true,
+        );
+        verify(
+          () => remote.changeProtection(
+            'v',
+            'e',
+            _shareId,
+            protection: EntryShareProtection.password,
+            protectionSecret: ' synthetic secret ',
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+        verify(
+          () => remote.list(
+            'v',
+            'e',
+            cursor: any(named: 'cursor'),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(2);
+        expect(cubit.state.changingProtectionId, isNull);
+      },
+    );
+    for (final fails in [false, true]) {
+      test(
+        'protection replacement session fences late result (failure=$fails)',
+        () async {
+          await cubit.load();
+          final pending = Completer<void>();
+          CancelToken? token;
+          var calls = 0;
+          when(
+            () => remote.changeProtection(
+              'v',
+              'e',
+              _shareId,
+              protection: EntryShareProtection.none,
+              protectionSecret: null,
+              cancelToken: any(named: 'cancelToken'),
+            ),
+          ).thenAnswer((invocation) {
+            calls++;
+            token = invocation.namedArguments[#cancelToken] as CancelToken;
+            return pending.future;
+          });
+          final result = cubit.changeProtection(
+            _shareId,
+            EntryShareProtection.none,
+            null,
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(
+            await cubit.changeProtection(
+              _shareId,
+              EntryShareProtection.none,
+              null,
+            ),
+            false,
+          );
+          expect(calls, 1);
+          session = (
+            principalId: 'different',
+            organizationId: 'org',
+            authorizationGeneration: '1',
+            keyGeneration: 0,
+          );
+          if (fails) {
+            pending.completeError(const EntrySharingRequestException());
+          } else {
+            pending.complete();
+          }
+          expect(await result, false);
+          expect(cubit.state.items, isEmpty);
+          expect(cubit.state.failure, EntrySharingFailure.unavailable);
+          expect(token!.isCancelled, true);
+        },
+      );
+    }
+    test(
+      'clear cancels protection update; late response cannot reload',
+      () async {
+        await cubit.load();
+        final pending = Completer<void>();
+        CancelToken? token;
+        when(
+          () => remote.changeProtection(
+            'v',
+            'e',
+            _shareId,
+            protection: EntryShareProtection.none,
+            protectionSecret: null,
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).thenAnswer((invocation) {
+          token = invocation.namedArguments[#cancelToken] as CancelToken;
+          return pending.future;
+        });
+        final result = cubit.changeProtection(
+          _shareId,
+          EntryShareProtection.none,
+          null,
+        );
+        await Future<void>.delayed(Duration.zero);
+        cubit.clear();
+        expect(token!.isCancelled, true);
+        pending.complete();
+        expect(await result, false);
+        expect(cubit.state.items, isEmpty);
+        verify(
+          () => remote.list(
+            'v',
+            'e',
+            cursor: any(named: 'cursor'),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+      },
+    );
+    test(
+      'failed protection update preserves rows and exposes typed failure',
+      () async {
+        await cubit.load();
+        when(
+          () => remote.changeProtection(
+            'v',
+            'e',
+            _shareId,
+            protection: EntryShareProtection.none,
+            protectionSecret: null,
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).thenThrow(const EntrySharingRequestException());
+        expect(
+          await cubit.changeProtection(
+            _shareId,
+            EntryShareProtection.none,
+            null,
+          ),
+          false,
+        );
+        expect(cubit.state.items, hasLength(1));
+        expect(cubit.state.failure, EntrySharingFailure.protection);
+      },
+    );
+    test('non-active shares never offer a protection update', () async {
+      when(
+        () => remote.list(
+          'v',
+          'e',
+          cursor: any(named: 'cursor'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async => _page(status: 'consumed'));
+      await cubit.load();
+      expect(cubit.state.items.single.canChangeProtection, false);
+      expect(
+        await cubit.changeProtection(_shareId, EntryShareProtection.none, null),
+        false,
+      );
     });
 
     for (final revoke in [false, true]) {
@@ -585,6 +840,67 @@ void main() {
       await tester.pump();
     }
 
+    testWidgets('empty Sharing reuses the centered empty state with one CTA', (
+      tester,
+    ) async {
+      when(
+        () => remote.list(
+          any(),
+          any(),
+          cursor: any(named: 'cursor'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async => EntrySharesPage(items: [], nextCursor: null));
+      await tester.binding.setSurfaceSize(const Size(320, 740));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await pump(tester, textScale: 1.5);
+      expect(find.byType(AppEmptyState), findsOneWidget);
+      expect(find.byIcon(Icons.link_outlined), findsOneWidget);
+      expect(find.byType(PrimaryButton), findsOneWidget);
+      expect(find.text('Refresh'), findsNothing);
+      expect(find.textContaining('Delivery and display'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await dispose(tester);
+    });
+
+    testWidgets('first load does not flash the top create action', (
+      tester,
+    ) async {
+      await pump(tester);
+      Future<void> show(EntrySharingState state) => tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: EntrySharingListBody(
+              state: state,
+              onRefresh: () async {},
+              onMore: () {},
+              onRevoke: (_) {},
+              onCreate: () {},
+            ),
+          ),
+        ),
+      );
+      for (final state in [
+        const EntrySharingState(),
+        const EntrySharingState(loading: true),
+      ]) {
+        await show(state);
+        expect(find.byType(PrimaryButton), findsOneWidget);
+        expect(find.byType(AppEmptyState), findsNothing);
+        expect(find.textContaining('Delivery and display'), findsNothing);
+      }
+      await show(const EntrySharingState(loaded: true));
+      expect(find.byType(AppEmptyState), findsOneWidget);
+      expect(find.byType(PrimaryButton), findsOneWidget);
+      final action = tester.getRect(find.byType(PrimaryButton));
+      await show(const EntrySharingState(loaded: true, loading: true));
+      expect(tester.getRect(find.byType(PrimaryButton)), action);
+      expect(tester.takeException(), isNull);
+      await dispose(tester);
+    });
+
     testWidgets(
       'error state offers explicit retry and recovers without losing scope',
       (tester) async {
@@ -664,6 +980,19 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(320, 740));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await pump(tester);
+        expect(find.text('Refresh'), findsNothing);
+        expect(find.byType(RefreshIndicator), findsOneWidget);
+        expect(find.byType(CardActionFooter), findsOneWidget);
+        expect(find.byType(CardRevokeButton), findsOneWidget);
+        final createAction = find.widgetWithText(
+          PrimaryButton,
+          'Create sharing link',
+        );
+        final footerPosition = tester.getRect(createAction);
+        expect(find.text('First delivery'), findsNothing);
+        await tester.tap(find.text('Details'));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(createAction), footerPosition);
         expect(find.text('First delivery'), findsOneWidget);
         expect(find.text('First display confirmation'), findsOneWidget);
         expect(find.text('PIN'), findsOneWidget);
@@ -798,6 +1127,73 @@ void main() {
           ),
         ).called(1);
         expect(find.text('Link udostępniania odwołany.'), findsOneWidget);
+        await dispose(tester);
+      },
+    );
+
+    testWidgets(
+      'active link protection action submits through owned Cubit and shows success',
+      (tester) async {
+        when(
+          () => remote.changeProtection(
+            'v',
+            'e',
+            _shareId,
+            protection: EntryShareProtection.pin,
+            protectionSecret: '739284',
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).thenAnswer((_) async {});
+        await pump(tester);
+        await tester.ensureVisible(find.text('Change protection'));
+        await tester.tap(find.text('Change protection'));
+        await tester.pumpAndSettle();
+        final secret = find.descendant(
+          of: find.byKey(const ValueKey('sharing-protection-secret')),
+          matching: find.byType(TextField),
+        );
+        final confirmation = find.descendant(
+          of: find.byKey(const ValueKey('sharing-protection-confirmation')),
+          matching: find.byType(TextField),
+        );
+        await tester.enterText(secret, '739284');
+        await tester.enterText(confirmation, '739284');
+        tester.testTextInput.hide();
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Save'));
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        verify(
+          () => remote.changeProtection(
+            'v',
+            'e',
+            _shareId,
+            protection: EntryShareProtection.pin,
+            protectionSecret: '739284',
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+        expect(find.text('Link protection updated.'), findsOneWidget);
+        expect(secret, findsNothing);
+        await dispose(tester);
+      },
+    );
+    testWidgets(
+      'locking a protection sheet dismisses and never sends draft secret',
+      (tester) async {
+        await pump(tester);
+        await tester.ensureVisible(find.text('Change protection'));
+        await tester.tap(find.text('Change protection'));
+        await tester.pumpAndSettle();
+        final secret = find.descendant(
+          of: find.byKey(const ValueKey('sharing-protection-secret')),
+          matching: find.byType(TextField),
+        );
+        await tester.enterText(secret, '739284');
+        authEvents.add(unlocked.copyWith(isVaultLocked: true));
+        await tester.pumpAndSettle();
+        expect(secret, findsNothing);
+        expect(find.text('Save'), findsNothing);
         await dispose(tester);
       },
     );

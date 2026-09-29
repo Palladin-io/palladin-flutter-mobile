@@ -128,7 +128,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharingLogin => 'Sign in to save a copy';
 
   @override
+  String get sharingLoginAction => 'Sign in';
+
+  @override
+  String get sharingRegisterAction => 'Create account';
+
+  @override
   String get sharingContinueAccount => 'Continue account setup or unlock';
+
+  @override
+  String get sharingUnlockToSave => 'Unlock to save';
 
   @override
   String get sharingSaveCopy => 'Save a copy';
@@ -164,7 +173,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharingCopyAccessNotice =>
-      'Existing members and fully trusted Agents of this vault can access the copy. Source permissions are not copied; Discovery and individual field access for Agents start disabled.';
+      'The copy uses this vault\'s normal access rules. It is discoverable by Agents, but Discovery does not grant secret access. Source permissions are not copied.';
 
   @override
   String get sharingCopyTitleError =>
@@ -219,13 +228,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharingReceiveWelcome =>
-      'View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.';
+      'A shared entry is waiting for you. Check the link before revealing its contents.';
 
   @override
-  String get sharingOpen => 'Open sharing';
+  String get sharingOpen => 'Check link';
 
   @override
-  String get sharingReceive => 'Receive entry';
+  String get sharingReceive => 'Show entry';
 
   @override
   String get sharingReceiveError =>
@@ -328,7 +337,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharingAnyoneWarning =>
-      'The link can be forwarded. Its receipt limit is shared by everyone who has it; any authorized recipient can end it for everyone.';
+      'The link can be forwarded. If you set a receipt limit, it is shared by everyone who has the link.';
 
   @override
   String get sharingSecretNotice =>
@@ -345,7 +354,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharingLifetimeHour => '1 hour';
 
   @override
-  String get sharingLifetimeDay => '1 day';
+  String get sharingLifetimeDay => '24 hours';
 
   @override
   String get sharingLifetimeThreeDays => '3 days';
@@ -365,7 +374,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharingCreateNotice =>
-      'This is an independent copy, not access to your vault. It will not follow later edits. Revoking the link cannot recall downloaded copies.';
+      'Shares the entire entry as an independent copy. Later edits will not update it.';
+
+  @override
+  String get sharingUnlimited => 'Unlimited';
+
+  @override
+  String get sharingNoProtection => 'None';
+
+  @override
+  String get sharingRecipientSection => 'Recipient';
+
+  @override
+  String get sharingSecuritySection => 'Security';
 
   @override
   String get sharingCancelNotice =>
@@ -379,7 +400,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Use 8–128 characters. Spaces count as part of the password.';
 
   @override
-  String get sharingPinError => 'Use 6–128 digits (0–9), without spaces.';
+  String get sharingPinError =>
+      'Use 6–128 digits (0–9). Avoid repeated digits and simple sequences.';
+
+  @override
+  String get sharingConfirmSecret => 'Confirm password or PIN';
+
+  @override
+  String get sharingSecretMismatch => 'The values do not match.';
 
   @override
   String get sharingLimitError => 'Enter a whole number from 1 to 100.';
@@ -411,14 +439,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharingRetryCreate => 'Retry same request';
 
   @override
-  String get sharingCreated => 'Your sharing link is ready';
+  String get sharingCreated => 'Your link is ready';
 
   @override
   String get sharingCopyLink => 'Copy sharing link';
 
   @override
-  String get sharingCopiedLink =>
-      'Sharing link copied. Clipboard clears after 45 seconds if unchanged.';
+  String get sharingCopiedLink => 'Sharing link copied.';
 
   @override
   String get sharingCopyError =>
@@ -426,7 +453,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sharingLinkOnceNotice =>
-      'Copy this link before leaving. Palladin cannot recover its decryption key later. You can still revoke it from the sharing list.';
+      'Copy or share the link now. After you leave this screen, you won\'t be able to copy it again. You can still revoke it from the sharing list.';
+
+  @override
+  String get sharingLinkOnceBefore =>
+      'Copy or share the link now. After you leave this screen, ';
+
+  @override
+  String get sharingLinkOnceEmphasis => 'you won\'t be able to copy it again';
+
+  @override
+  String get sharingLinkOnceAfter =>
+      '. You can still revoke it from the sharing list.';
+
+  @override
+  String get sharingShareLink => 'Share';
+
+  @override
+  String get sharingShareError =>
+      'Could not open sharing. Try again while this screen is open.';
 
   @override
   String get sharingConfigurationError =>
@@ -449,6 +494,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharingEmpty => 'No sharing links for this entry.';
 
   @override
+  String get sharingEmptyHint =>
+      'Create a secure link to share a copy of this entry.';
+
+  @override
+  String get sharingShareEntry => 'Share entry';
+
+  @override
   String get sharingUnavailable =>
       'Sharing is unavailable in this session. Reopen the entry after unlocking.';
 
@@ -458,6 +510,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get sharingRevokeError =>
       'Could not revoke the link. Check its status and try again.';
+
+  @override
+  String get sharingChangeProtection => 'Change protection';
+
+  @override
+  String get sharingProtectionChangeNotice =>
+      'This invalidates earlier receipt sessions. Copies already saved or downloaded cannot be recalled.';
+
+  @override
+  String get sharingProtectionChangeError =>
+      'Could not change protection. Check the link status and try again.';
+
+  @override
+  String get sharingProtectionChanged => 'Link protection updated.';
+
+  @override
+  String get sharingSavingProtection => 'Saving…';
 
   @override
   String get sharingRevoke => 'Revoke link';

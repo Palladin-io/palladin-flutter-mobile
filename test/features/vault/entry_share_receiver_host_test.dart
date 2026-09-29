@@ -210,7 +210,7 @@ void main() {
           },
         );
         await link(tester);
-        await tester.tap(find.text('Open sharing'));
+        await tester.tap(find.text('Check link'));
         await tester.pumpAndSettle();
         final original = receiver(tester);
         final lifetime = original.lifetime;
@@ -279,9 +279,9 @@ void main() {
     (tester) async {
       await mount(tester);
       await link(tester);
-      expect(find.text('Open sharing'), findsOneWidget);
+      expect(find.text('Check link'), findsOneWidget);
       verifyZeroInteractions(remotes.single);
-      await tester.tap(find.text('Open sharing'));
+      await tester.tap(find.text('Check link'));
       await tester.pumpAndSettle();
       verify(
         () => remotes.single.open(
@@ -309,7 +309,7 @@ void main() {
       authEvents.add(const AuthUnauthenticated());
       await tester.pump();
       await tester.pump();
-      expect(find.text('Open sharing'), findsOneWidget);
+      expect(find.text('Check link'), findsOneWidget);
       expect(ingress.hasPending, false);
       await unmount(tester);
     },
@@ -331,7 +331,7 @@ void main() {
       );
       await link(tester);
       current = receiver(tester);
-      await tester.tap(find.text('Open sharing'));
+      await tester.tap(find.text('Check link'));
       await tester.pumpAndSettle();
       clearInteractions(remotes.single);
       await tester.tap(find.byTooltip('Close sharing'));
@@ -390,7 +390,7 @@ void main() {
         await tester.pump();
         expect(receiver(tester), same(current));
         expect(current.isClosed, false);
-        expect(find.text('Open sharing'), findsOneWidget);
+        expect(find.text('Check link'), findsOneWidget);
         expect(remotes.length, 1);
         verifyZeroInteractions(remotes.single);
         await unmount(tester);
@@ -410,7 +410,7 @@ void main() {
       );
       await mount(tester);
       await link(tester);
-      expect(find.text('Open sharing'), findsOneWidget);
+      expect(find.text('Check link'), findsOneWidget);
       verifyZeroInteractions(remotes.single);
       await unmount(tester);
     },
@@ -454,13 +454,13 @@ void main() {
       await mount(tester);
       await link(tester);
       final old = receiver(tester);
-      await tester.tap(find.text('Open sharing'));
+      await tester.tap(find.text('Check link'));
       await tester.pumpAndSettle();
       await link(tester);
       expect(old.isClosed, true);
       expect(old.state.phase, EntryShareReceptionPhase.unavailable);
       expect(receiver(tester), isNot(same(old)));
-      expect(find.text('Open sharing'), findsOneWidget);
+      expect(find.text('Check link'), findsOneWidget);
       verify(() => remotes.first.close()).called(greaterThanOrEqualTo(1));
       verifyZeroInteractions(remotes.last);
       await unmount(tester);
@@ -476,7 +476,7 @@ void main() {
       await link(tester, url: 'https://evil.example.test/share/$id$fragment');
       expect(old.isClosed, true);
       expect(find.byType(EntryShareReceiverPage), findsNothing);
-      expect(find.text('Open sharing'), findsNothing);
+      expect(find.text('Check link'), findsNothing);
       await unmount(tester);
     },
   );
@@ -555,7 +555,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       await tester.pump();
-      expect(find.text('Open sharing'), findsOneWidget);
+      expect(find.text('Check link'), findsOneWidget);
       await unmount(tester);
     },
   );
@@ -577,30 +577,13 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('new link closes the previous termination confirmation', (
-    tester,
-  ) async {
-    await mount(tester);
-    await link(tester);
-    await tester.tap(find.text('Open sharing'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('End sharing'));
-    await tester.pumpAndSettle();
-    expect(find.byType(BottomSheet), findsOneWidget);
-    await link(tester);
-    await tester.pumpAndSettle();
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(find.text('Open sharing'), findsOneWidget);
-    await unmount(tester);
-  });
-
   testWidgets(
     'host preserves the same pre-delivery OTP session through email app return',
     (tester) async {
       recipientMode = 'namedRecipient';
       await mount(tester);
       await link(tester);
-      await tester.tap(find.text('Open sharing'));
+      await tester.tap(find.text('Check link'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Send email code'));
       await tester.pumpAndSettle();

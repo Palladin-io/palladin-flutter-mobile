@@ -6,6 +6,31 @@ enum EntryShareProtection { none, password, pin }
 
 enum EntryShareFormError { email, password, pin, lifetime, maximumReceipts }
 
+// Sender input feedback, never a substitute for the backend verification gate.
+bool obviousSharingPin(String value) {
+  if (!RegExp(r'^[0-9]+$').hasMatch(value)) return false;
+  for (final width in [1, 2, 3]) {
+    if (value.length >= width * 2 &&
+        value.length % width == 0 &&
+        value ==
+            List.filled(
+              value.length ~/ width,
+              value.substring(0, width),
+            ).join()) {
+      return true;
+    }
+  }
+  return [1, 9].any((step) {
+    for (var index = 1; index < value.length; index++) {
+      if ((int.parse(value[index]) - int.parse(value[index - 1]) + 10) % 10 !=
+          step) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 final class EntryShareFormException implements Exception {
   const EntryShareFormException(this.kind);
   final EntryShareFormError kind;
@@ -24,12 +49,12 @@ final class EntryShareCreationOptions {
 
   factory EntryShareCreationOptions.fromInput({
     EntryShareRecipientMode recipientMode =
-        EntryShareRecipientMode.namedRecipient,
+        EntryShareRecipientMode.anyoneWithLink,
     String recipientEmail = '',
     EntryShareProtection protection = EntryShareProtection.none,
     String protectionSecret = '',
     int lifetimeHours = 24,
-    String maximumReceipts = '1',
+    String maximumReceipts = '',
     bool notifyOnFirstReceipt = false,
   }) {
     final email = recipientEmail.trim();
@@ -44,7 +69,8 @@ final class EntryShareCreationOptions {
       throw const EntryShareFormException(EntryShareFormError.password);
     }
     if (protection == EntryShareProtection.pin &&
-        !RegExp(r'^[0-9]{6,128}$').hasMatch(protectionSecret)) {
+        (!RegExp(r'^[0-9]{6,128}$').hasMatch(protectionSecret) ||
+            obviousSharingPin(protectionSecret))) {
       throw const EntryShareFormException(EntryShareFormError.pin);
     }
     if (!{1, 24, 72, 168}.contains(lifetimeHours)) {
@@ -52,9 +78,10 @@ final class EntryShareCreationOptions {
     }
     final receiptInput = maximumReceipts.trim();
     final receipts = int.tryParse(receiptInput);
-    if (!RegExp(r'^[1-9][0-9]{0,2}$').hasMatch(receiptInput) ||
-        receipts == null ||
-        receipts > 100) {
+    if (receiptInput.isNotEmpty &&
+        (!RegExp(r'^[1-9][0-9]{0,2}$').hasMatch(receiptInput) ||
+            receipts == null ||
+            receipts > 100)) {
       throw const EntryShareFormException(EntryShareFormError.maximumReceipts);
     }
     return EntryShareCreationOptions._(
@@ -76,7 +103,8 @@ final class EntryShareCreationOptions {
   final String? recipientEmail;
   final EntryShareProtection protection;
   final String? protectionSecret;
-  final int lifetimeHours, maximumReceipts;
+  final int lifetimeHours;
+  final int? maximumReceipts;
   final bool notifyOnFirstReceipt;
 }
 

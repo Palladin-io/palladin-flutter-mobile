@@ -422,17 +422,22 @@ void main() {
       expect(request['entryId'], _entry);
       expect(request['vaultId'], _vault);
       expect(request['deliveryPolicy'], 'standard');
-      expect(request['agentDiscovery'], isNull);
+      expect(request['agentDiscovery'], isNotNull);
       final plaintext = await entryCrypto.openMemberSecret(
         entryKey: request['entryKey'],
         memberSecret: request['memberSecret'],
         vaultKey: bundle.vaultKey,
       );
       expect((plaintext['content'] as Map)['password'], _value);
-      expect(plaintext['discoverable'], isFalse);
+      expect(plaintext['discoverable'], isTrue);
+      expect((plaintext['agentFieldAccess'] as Map)['agentLabel'], 'discovery');
       expect(
-        (plaintext['agentFieldAccess'] as Map).values,
-        everyElement('never'),
+        (plaintext['agentFieldAccess'] as Map)['credential.password'],
+        'onGrantValue',
+      );
+      expect(
+        (plaintext['agentFieldAccess'] as Map)['credential.totp'],
+        'onGrantDerived',
       );
       for (final request in requests) {
         expect(request.headers.value('authorization'), 'Bearer ${_jwt()}');

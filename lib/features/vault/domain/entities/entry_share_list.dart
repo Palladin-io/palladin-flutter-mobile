@@ -20,11 +20,16 @@ final class EntryShareListItem {
       firstDeliveredAt,
       lastDeliveredAt,
       firstConfirmedAt;
-  final int maximumReceipts, deliveryCount;
+  final int? maximumReceipts;
+  final int deliveryCount;
   final bool notifyOnFirstReceipt, sourceChanged;
 
   bool get canRevoke =>
       const {'active', 'locked', 'suspended', 'consumed'}.contains(status);
+
+  bool get canChangeProtection =>
+      status == 'active' &&
+      const {'none', 'password', 'pin'}.contains(protection);
 }
 
 final class EntrySharesPage {
@@ -43,7 +48,7 @@ typedef EntrySharingSession = ({
   int keyGeneration,
 });
 
-enum EntrySharingFailure { load, loadMore, revoke, unavailable }
+enum EntrySharingFailure { load, loadMore, revoke, protection, unavailable }
 
 final class EntrySharingRequestException implements Exception {
   const EntrySharingRequestException();

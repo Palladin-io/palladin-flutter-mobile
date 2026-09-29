@@ -5,13 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
+import '../../../../core/widgets/accent_button.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/primary_button.dart';
-import '../../../../core/widgets/sheet_action_buttons.dart';
-import '../../../../core/widgets/sheet_drag_handle.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -56,8 +55,7 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
   late final StreamSubscription<EntryShareReceptionState> _flowSubscription;
   Timer? _authorityCheck;
   Animation<double>? _coverAnimation;
-  BuildContext? _sheetContext;
-  bool _invalidated = false, _copying = false, _ending = false;
+  bool _invalidated = false, _copying = false;
   bool _secretError = false, _otpError = false;
   String? _message;
   bool _displayScheduled = false;
@@ -111,14 +109,6 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
     _otp.clear();
     _copyCubit?.clear();
     _message = null;
-    final sheet = _sheetContext;
-    _sheetContext = null;
-    if (sheet != null && sheet.mounted) {
-      final route = ModalRoute.of(sheet);
-      if (route != null && route.isActive) {
-        Navigator.of(sheet).removeRoute(route);
-      }
-    }
   }
 
   void _discard() {
@@ -351,47 +341,6 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
     });
   }
 
-  Future<void> _end() async {
-    if (!_active || _ending || _cubit.state.busy) return;
-    _ending = true;
-    final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: AppColors.modalBackground(Theme.of(context).brightness),
-      builder: (sheetContext) {
-        _sheetContext = sheetContext;
-        return SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Center(child: SheetDragHandle()),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.screenH),
-                  child: Text(l10n.sharingEndNotice),
-                ),
-                SheetActionButtons(
-                  onCancel: () => Navigator.of(sheetContext).pop(false),
-                  onConfirm: () => Navigator.of(sheetContext).pop(true),
-                  confirmLabel: l10n.sharingEndConfirm,
-                  confirmColor: AppColors.brandRed,
-                  equalActions: true,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    _sheetContext = null;
-    _ending = false;
-    if (confirmed == true && _active) await _run(_cubit.end);
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -417,6 +366,15 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
             final terminal =
                 state.phase == EntryShareReceptionPhase.unavailable ||
                 state.phase == EntryShareReceptionPhase.ended;
+            final auth = _auth.state;
+            final accountAction = auth is AuthUnauthenticated
+                ? EntryShareAccountAction.register
+                : auth is AuthAuthenticated &&
+                      (!auth.isOnboarded ||
+                          !auth.emailVerified ||
+                          auth.isVaultLocked)
+                ? EntryShareAccountAction.continueAccount
+                : null;
             final copy = _copyCubit;
             if (!terminal && copy != null && snapshot != null) {
               return EntryShareCopyPanel(
@@ -440,18 +398,12 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                       if (state.phase == EntryShareReceptionPhase.ended)
                         Text(l10n.sharingEnded),
                       if (!terminal &&
+                          snapshot == null &&
                           widget.onAccount != null &&
-                          (_auth.state is AuthUnauthenticated ||
-                              _auth.state is AuthAuthenticated &&
-                                  (!(_auth.state as AuthAuthenticated)
-                                          .isOnboarded ||
-                                      !(_auth.state as AuthAuthenticated)
-                                          .emailVerified ||
-                                      (_auth.state as AuthAuthenticated)
-                                          .isVaultLocked))) ...[
+                          accountAction != null) ...[
                         const SizedBox(height: AppSpacing.fieldGap),
                         Text(l10n.sharingAccountNotice),
-                        if (_auth.state is AuthUnauthenticated) ...[
+                        if (auth is AuthUnauthenticated) ...[
                           TextButton(
                             onPressed: state.busy
                                 ? null
@@ -547,11 +499,6 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                         const SizedBox(height: AppSpacing.fieldGap),
                         Text(_message!),
                       ],
-                      if (state.gatesReady && !terminal)
-                        TextButton(
-                          onPressed: state.busy ? null : _end,
-                          child: Text(l10n.sharingEnd),
-                        ),
                     ],
                   ),
                 ),
@@ -563,6 +510,58 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                     label: l10n.sharingSaveCopy,
                     busy: _openingCopy,
                     onPressed: state.busy || _openingCopy ? null : _startSave,
+                  ),
+                if (snapshot != null &&
+                    !terminal &&
+                    !_canSaveCopy &&
+                    !_savedCopy &&
+                    auth is AuthUnauthenticated &&
+                    widget.onAccount != null)
+                  AppActionFooter(
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AccentButton(
+                              label: l10n.sharingLoginAction,
+                              height: null,
+                              onPressed: state.busy
+                                  ? null
+                                  : () => widget.onAccount!(
+                                      EntryShareAccountAction.login,
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: PrimaryButton(
+                              label: l10n.sharingRegisterAction,
+                              height: null,
+                              onPressed: state.busy
+                                  ? null
+                                  : () => widget.onAccount!(
+                                      EntryShareAccountAction.register,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (snapshot != null &&
+                    !terminal &&
+                    !_canSaveCopy &&
+                    !_savedCopy &&
+                    auth is! AuthUnauthenticated &&
+                    accountAction != null &&
+                    widget.onAccount != null)
+                  EntryShareActionFooter(
+                    label: auth is AuthAuthenticated && auth.isVaultLocked
+                        ? l10n.sharingUnlockToSave
+                        : l10n.sharingContinueAccount,
+                    onPressed: state.busy
+                        ? null
+                        : () => widget.onAccount!(accountAction),
                   ),
                 if (state.phase == EntryShareReceptionPhase.welcome ||
                     state.phase == EntryShareReceptionPhase.verification &&

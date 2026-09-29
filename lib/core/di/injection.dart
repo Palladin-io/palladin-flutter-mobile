@@ -596,6 +596,7 @@ void configureDependencies(EnvConfig config) {
   // stale loading / reveal state never leaks across vaults).
   getIt.registerFactory<GlobalEntriesCubit>(
     () => GlobalEntriesCubit(
+      localEntries: getIt<LocalCurrentEntryService>(),
       index: getIt<MemberSyncService>(),
       loader: getIt<MemberEntryListService>(),
       indexUpdates: getIt<MemberSyncService>().indexUpdates,

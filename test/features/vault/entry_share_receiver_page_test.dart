@@ -16,6 +16,7 @@ import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
 import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/widgets/primary_button.dart';
+import 'package:mobile_palladin/core/widgets/accent_button.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -311,8 +312,8 @@ void main() {
   }
 
   Future<void> receive(WidgetTester tester) async {
-    await tap(tester, 'Open sharing');
-    await tap(tester, 'Receive entry');
+    await tap(tester, 'Check link');
+    await tap(tester, 'Show entry');
     await tester.runAsync(
       () async => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
@@ -542,7 +543,7 @@ void main() {
             );
         expect((plaintext['content'] as Map)['password'], 'fixture-only');
         expect((plaintext['content'] as Map)['username'], '  recipient user  ');
-        expect(plaintext['discoverable'], isFalse);
+        expect(plaintext['discoverable'], isTrue);
       });
       await tap(tester, 'Back to received entry');
       expect(find.text('Save a copy'), findsNothing);
@@ -780,7 +781,7 @@ void main() {
         maximumReceipts: 3,
       );
       await mount(tester);
-      await tap(tester, 'Open sharing');
+      await tap(tester, 'Check link');
       expect(find.textContaining('Link valid until:'), findsOneWidget);
       expect(find.textContaining('2031'), findsOneWidget);
       expect(find.text('Receipt limit: 3'), findsOneWidget);
@@ -789,7 +790,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('Entry type:'), findsNothing);
-      await tap(tester, 'Receive entry');
+      await tap(tester, 'Show entry');
       await tester.runAsync(
         () async => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
@@ -824,7 +825,7 @@ void main() {
         width: pl ? 320 : 390,
         scale: pl ? 1.5 : 1,
       );
-      await tap(tester, pl ? 'Otwórz udostępnienie' : 'Open sharing');
+      await tap(tester, pl ? 'Sprawdź link' : 'Check link');
       final label = pl ? 'Wyślij kod za 39 s' : 'Send code in 39s';
       final button = find.widgetWithText(PrimaryButton, label);
       await tester.ensureVisible(button);
@@ -939,7 +940,7 @@ void main() {
                 vaultKey: opened.vaultKey,
               );
           expect((secret['content'] as Map)['password'], 'fixture-only');
-          expect(secret['discoverable'], false);
+          expect(secret['discoverable'], true);
         } finally {
           opened.vaultKey.fillRange(0, opened.vaultKey.length, 0);
           opened.vaultDiscoveryKey?.fillRange(
@@ -1139,8 +1140,8 @@ void main() {
     (tester) async {
       final posts = await enablePersonalVaultCreation(tester);
       await mount(tester, language: 'pl', dark: true, width: 320, scale: 1.5);
-      await tap(tester, 'Otwórz udostępnienie');
-      await tap(tester, 'Odbierz wpis');
+      await tap(tester, 'Sprawdź link');
+      await tap(tester, 'Pokaż wpis');
       await tester.runAsync(
         () async => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
@@ -1195,8 +1196,8 @@ void main() {
     (tester) async {
       await enableSaving(tester);
       await mount(tester, language: 'pl', dark: true, width: 320, scale: 1.5);
-      await tap(tester, 'Otwórz udostępnienie');
-      await tap(tester, 'Odbierz wpis');
+      await tap(tester, 'Sprawdź link');
+      await tap(tester, 'Pokaż wpis');
       await tester.runAsync(
         () async => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
@@ -1381,10 +1382,7 @@ void main() {
       });
       await mount(tester);
       verifyZeroInteractions(remote);
-      expect(
-        find.textContaining('without creating an account'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('A shared entry is waiting'), findsOneWidget);
       await receive(tester);
       expect(cubit.state.phase, EntryShareReceptionPhase.received);
       expect(cubit.state.confirmation, EntryShareConfirmation.confirmed);
@@ -1410,7 +1408,7 @@ void main() {
       protection: 'pin',
     );
     await mount(tester);
-    await tap(tester, 'Open sharing');
+    await tap(tester, 'Check link');
     await tap(tester, 'Send email code');
     final pin = find.byWidgetPredicate(
       (w) => w is OnboardingTextField && w.label == 'PIN',
@@ -1510,41 +1508,25 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('end requires confirmation and cancel keeps capability', (
-    tester,
-  ) async {
+  testWidgets('recipient cannot end the sender link', (tester) async {
     await mount(tester);
-    await tap(tester, 'Open sharing');
-    await tap(tester, 'End sharing');
-    expect(find.textContaining('End this link for everyone'), findsOneWidget);
-    await tap(tester, 'Cancel');
+    await tap(tester, 'Check link');
+    expect(find.text('End sharing'), findsNothing);
     verifyNever(
       () => remote.end(any(), any(), cancelToken: any(named: 'cancelToken')),
     );
-    await tap(tester, 'End sharing');
-    await tap(tester, 'End link');
-    expect(cubit.state.phase, EntryShareReceptionPhase.ended);
-    expect(find.textContaining('Sharing ended.'), findsOneWidget);
-    expect(secrets.key, everyElement(0));
     await finish(tester);
   });
 
-  testWidgets('auth replacement closes open end sheet and drops reception', (
-    tester,
-  ) async {
-    await mount(tester);
-    await tap(tester, 'Open sharing');
-    await tap(tester, 'End sharing');
-    expect(find.textContaining('End this link for everyone'), findsOneWidget);
-    authEvents.add(
-      const AuthAuthenticated(userId: 'new-user', isOnboarded: true),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('End this link for everyone'), findsNothing);
-    expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
-    verifyNever(
-      () => remote.end(any(), any(), cancelToken: any(named: 'cancelToken')),
-    );
+  testWidgets('received guest actions share one footer height', (tester) async {
+    await mount(tester, onAccount: (_) async {});
+    await receive(tester);
+    final signIn = find.widgetWithText(AccentButton, 'Sign in');
+    final register = find.widgetWithText(PrimaryButton, 'Create account');
+    expect(signIn, findsOneWidget);
+    expect(register, findsOneWidget);
+    expect(tester.getSize(signIn).height, tester.getSize(register).height);
+    expect(tester.getSize(signIn).height, greaterThanOrEqualTo(44));
     await finish(tester);
   });
 
@@ -1572,8 +1554,8 @@ void main() {
           remote.receive(any(), any(), cancelToken: any(named: 'cancelToken')),
     ).thenAnswer((_) => delivery.future);
     await mount(tester);
-    await tap(tester, 'Open sharing');
-    await tester.tap(find.text('Receive entry'));
+    await tap(tester, 'Check link');
+    await tester.tap(find.text('Show entry'));
     await tester.pump();
     expect(cubit.state.busy, true);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
@@ -1604,7 +1586,7 @@ void main() {
       protection: 'pin',
     );
     await mount(tester);
-    await tap(tester, 'Open sharing');
+    await tap(tester, 'Check link');
     await tap(tester, 'Send email code');
     final fields = tester
         .widgetList<OnboardingTextField>(find.byType(OnboardingTextField))
@@ -1633,9 +1615,9 @@ void main() {
       protection: 'future-proof',
     );
     await mount(tester);
-    await tap(tester, 'Open sharing');
+    await tap(tester, 'Check link');
     expect(cubit.state.phase, EntryShareReceptionPhase.verification);
-    expect(find.text('Receive entry'), findsNothing);
+    expect(find.text('Show entry'), findsNothing);
     expect(find.text('End sharing'), findsNothing);
     verifyNever(
       () =>
@@ -1673,7 +1655,7 @@ void main() {
       protection: 'none',
     );
     await mount(tester);
-    await tap(tester, 'Open sharing');
+    await tap(tester, 'Check link');
     await tap(tester, 'Send email code');
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
@@ -1687,7 +1669,7 @@ void main() {
     expect(find.byType(OnboardingTextField), findsOneWidget);
     await tester.enterText(find.byType(OnboardingTextField), '012345');
     await tap(tester, 'Verify email code');
-    await tap(tester, 'Receive entry');
+    await tap(tester, 'Show entry');
     expect(cubit.state.phase, EntryShareReceptionPhase.received);
     verify(
       () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
@@ -1757,7 +1739,7 @@ void main() {
           () =>
               remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
         );
-        await tap(tester, polish ? 'Otwórz udostępnienie' : 'Open sharing');
+        await tap(tester, polish ? 'Sprawdź link' : 'Check link');
         expect(cubit.state.phase, EntryShareReceptionPhase.verification);
         expect(tester.takeException(), isNull);
         await finish(tester);
@@ -1776,7 +1758,7 @@ void main() {
       protection: 'pin',
     );
     await mount(tester, language: 'pl', dark: true, width: 320, scale: 1.5);
-    await tap(tester, 'Otwórz udostępnienie');
+    await tap(tester, 'Sprawdź link');
     await tap(tester, 'Wyślij kod e-mail');
     expect(tester.takeException(), isNull);
     await capture(tester, 'receiver-pl-dark-320-150');
@@ -1804,23 +1786,4 @@ void main() {
     expect(cubit.state.secretVerified, true);
     await finish(tester);
   });
-
-  testWidgets(
-    'PL narrow large-text end confirmation keeps both actions usable',
-    (tester) async {
-      await mount(tester, language: 'pl', dark: true, width: 320, scale: 1.5);
-      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
-      addTearDown(tester.view.resetViewPadding);
-      await tap(tester, 'Otwórz udostępnienie');
-      await tap(tester, 'Zakończ udostępnianie');
-      expect(tester.takeException(), isNull);
-      await capture(tester, 'receiver-end-pl-dark-320-150');
-      await tap(tester, 'Anuluj');
-      expect(cubit.state.phase, EntryShareReceptionPhase.verification);
-      verifyNever(
-        () => remote.end(any(), any(), cancelToken: any(named: 'cancelToken')),
-      );
-      await finish(tester);
-    },
-  );
 }

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/datasources/entry_sharing_remote_datasource.dart';
 import '../../domain/entities/entry_share_list.dart';
+import '../../domain/entities/entry_share_creation.dart';
 
 final class EntrySharingState {
   const EntrySharingState({
@@ -11,14 +12,19 @@ final class EntrySharingState {
     this.loading = false,
     this.loadingMore = false,
     this.revokingId,
+    this.changingProtectionId,
     this.failure,
     this.loaded = false,
   });
   final List<EntryShareListItem> items;
-  final String? nextCursor, revokingId;
+  final String? nextCursor, revokingId, changingProtectionId;
   final bool loading, loadingMore, loaded;
   final EntrySharingFailure? failure;
-  bool get busy => loading || loadingMore || revokingId != null;
+  bool get busy =>
+      loading ||
+      loadingMore ||
+      revokingId != null ||
+      changingProtectionId != null;
 }
 
 class EntrySharingCubit extends Cubit<EntrySharingState> {
@@ -154,6 +160,62 @@ class EntrySharingCubit extends Cubit<EntrySharingState> {
     _request?.cancel();
     _request = null;
     if (!isClosed) emit(EntrySharingState(failure: failure));
+  }
+
+  Future<bool> changeProtection(
+    String shareId,
+    EntryShareProtection protection,
+    String? secret,
+  ) async {
+    if (isClosed ||
+        state.busy ||
+        !state.items.any(
+          (item) => item.shareId == shareId && item.canChangeProtection,
+        )) {
+      return false;
+    }
+    final previous = state;
+    final epoch = ++_epoch;
+    final token = _request = CancelToken();
+    // Secrets are never placed in Cubit state or an emitted/cacheable object.
+    emit(
+      EntrySharingState(
+        items: previous.items,
+        nextCursor: previous.nextCursor,
+        loaded: true,
+        changingProtectionId: shareId,
+      ),
+    );
+    try {
+      if (!await _valid(epoch)) return false;
+      await _remote.changeProtection(
+        vaultId,
+        entryId,
+        shareId,
+        protection: protection,
+        protectionSecret: secret,
+        cancelToken: token,
+      );
+      if (!await _valid(epoch)) return false;
+      emit(const EntrySharingState());
+      await load();
+      return !isClosed &&
+          _epoch == epoch + 1 &&
+          state.failure != EntrySharingFailure.unavailable;
+    } catch (_) {
+      if (!await _valid(epoch)) return false;
+      emit(
+        EntrySharingState(
+          items: previous.items,
+          nextCursor: previous.nextCursor,
+          loaded: true,
+          failure: EntrySharingFailure.protection,
+        ),
+      );
+      return false;
+    } finally {
+      if (identical(_request, token)) _request = null;
+    }
   }
 
   @override
