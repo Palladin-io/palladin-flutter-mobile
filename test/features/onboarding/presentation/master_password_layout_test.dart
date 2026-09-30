@@ -85,7 +85,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.getRect(find.byType(PrimaryButton)), footerBeforeScroll);
-      expect(tester.getRect(find.byType(AuthBrandHeader)), headerBeforeScroll);
+      final headerAfterScroll = tester.getRect(find.byType(AuthBrandHeader));
+      expect(headerAfterScroll.size, headerBeforeScroll.size);
+      expect(headerAfterScroll.top, lessThan(headerBeforeScroll.top));
       expect(footerBeforeScroll.bottom, lessThanOrEqualTo(744 - 250));
       expect(
         tester.getRect(find.byType(TextField).last).bottom,

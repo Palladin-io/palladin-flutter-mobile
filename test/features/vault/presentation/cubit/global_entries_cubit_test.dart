@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_entry_list_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
@@ -43,6 +46,8 @@ class Index implements MemberIndexReader {
   Future<void> waitForCurrent(String id) async {}
 }
 
+class _LocalEntries extends Mock implements LocalCurrentEntryService {}
+
 class Loader implements MemberEntryListLoader {
   final calls = <String>[];
   Future<void> Function(String, Uint8List)? onLoad;
@@ -65,11 +70,23 @@ void main() {
   late Loader loader;
   late StreamController<String> updates;
   late GlobalEntriesCubit cubit;
+  late _LocalEntries localEntries;
+  setUpAll(() {
+    registerFallbackValue(Uint8List(32));
+    registerFallbackValue(
+      GlobalEntryRow(
+        vault: vault('A'),
+        entry: entry('a', 'Alpha'),
+      ).toEntryEntity(),
+    );
+  });
   setUp(() {
+    localEntries = _LocalEntries();
     index = Index();
     loader = Loader();
     updates = StreamController.broadcast(sync: true);
     cubit = GlobalEntriesCubit(
+      localEntries: localEntries,
       index: index,
       loader: loader,
       indexUpdates: updates.stream,
@@ -78,6 +95,91 @@ void main() {
   tearDown(() async {
     await cubit.close();
     await updates.close();
+  });
+
+  for (final invalidation in [
+    'collapse',
+    'background',
+    'lock',
+    'index',
+    'vaults',
+  ]) {
+    test(
+      'reveal is cleared and late plaintext rejected on $invalidation',
+      () async {
+        index.values['A'] = [entry('a', 'Alpha')];
+        await cubit.load([vault('A')], Uint8List(32));
+        final row = cubit.state.rows.single;
+        final pending = Completer<CanonicalEntrySnapshot>();
+        Uint8List? borrowed;
+        when(
+          () => localEntries.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((call) {
+          borrowed = call.namedArguments[#memberPrivateKey] as Uint8List;
+          return pending.future;
+        });
+        final original = Uint8List.fromList(List.filled(32, 7));
+        final operation = cubit.toggleReveal(row, original);
+        expect(cubit.state.expandedEntries, contains(row.identity));
+        switch (invalidation) {
+          case 'collapse':
+            await cubit.toggleReveal(row, original);
+          case 'background':
+            cubit.clearReveals();
+          case 'lock':
+            cubit.lock();
+          case 'index':
+            updates.add('A');
+          case 'vaults':
+            cubit.replaceVaults([]);
+        }
+        expect(borrowed, everyElement(0));
+        expect(original, everyElement(7));
+        final late = CanonicalEntrySnapshot(
+          entry: {},
+          secret: {},
+          payload: {'password': 'synthetic-secret'},
+        );
+        pending.complete(late);
+        await operation;
+        expect(late.payload, isEmpty);
+        expect(cubit.state.revealedEntries, isEmpty);
+        expect(cubit.state.expandedEntries, isEmpty);
+      },
+    );
+  }
+
+  test('reveal is explicit, Vault scoped, and cleared on collapse', () async {
+    index.values['A'] = [entry('same', 'Alpha')];
+    index.values['B'] = [entry('same', 'Beta')];
+    await cubit.load([vault('A'), vault('B')], Uint8List(32));
+    verifyNever(
+      () => localEntries.reveal(
+        expected: any(named: 'expected'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    );
+    final row = cubit.state.rows.first;
+    final snapshot = CanonicalEntrySnapshot(
+      entry: {},
+      secret: {},
+      payload: {'password': 'synthetic-secret'},
+    );
+    when(
+      () => localEntries.reveal(
+        expected: any(named: 'expected'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((_) async => snapshot);
+    expect(await cubit.toggleReveal(row, Uint8List(32)), isTrue);
+    expect(cubit.state.revealedEntries.keys, [row.identity]);
+    expect(cubit.state.expandedEntries.contains(('B', 'same')), isFalse);
+    await cubit.toggleReveal(row, Uint8List(32));
+    expect(snapshot.payload, isEmpty);
+    expect(cubit.state.revealedEntries, isEmpty);
   });
 
   test(

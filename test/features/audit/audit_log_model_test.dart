@@ -93,8 +93,8 @@ void main() {
   });
 
   group('AuditEventType.entryRelevant', () {
-    test('exposes exactly the 8 entry-scoped filter chips', () {
-      expect(AuditEventType.entryRelevant.length, 8);
+    test('exposes the 8 existing and 8 sharing entry-scoped filter chips', () {
+      expect(AuditEventType.entryRelevant.length, 16);
       expect(
         AuditEventType.entryRelevant,
         containsAll([

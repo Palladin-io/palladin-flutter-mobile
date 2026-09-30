@@ -10,6 +10,7 @@ import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/entry_v2_contracts.dart';
 import 'entry_v2_crypto_service.dart';
+import 'new_entry_field_access.dart';
 import 'vault_crypto_service.dart';
 
 /// Creates one canonical Key revision without exposing plaintext to the server.
@@ -297,62 +298,13 @@ final class KeyEntryCreationService {
         customFields: custom,
       ),
     };
-    final fields = <String, AgentFieldAccess>{
-      'memberLabel': AgentFieldAccess.never,
-      'agentLabel': AgentFieldAccess.discovery,
-      'description': discoverDescription
-          ? AgentFieldAccess.discovery
-          : AgentFieldAccess.never,
-      'icon': AgentFieldAccess.never,
-      'color': AgentFieldAccess.never,
-      'entryType': AgentFieldAccess.discovery,
-      ...switch (type) {
-        EntryType.key => {
-          'key.value': AgentFieldAccess.onGrantValue,
-          if (raw['url'] != null) 'key.url': AgentFieldAccess.onGrantValue,
-          'notes': AgentFieldAccess.onGrantValue,
-        },
-        EntryType.credential => {
-          'credential.username': exposeUsername
-              ? AgentFieldAccess.discovery
-              : AgentFieldAccess.onGrantValue,
-          'credential.password': AgentFieldAccess.onGrantValue,
-          'credential.url': AgentFieldAccess.onGrantValue,
-          'credential.urlDomain': exposeDomain
-              ? AgentFieldAccess.discovery
-              : AgentFieldAccess.never,
-          'credential.totp': AgentFieldAccess.onGrantDerived,
-          'notes': AgentFieldAccess.onGrantValue,
-        },
-        EntryType.script => {
-          'script.source': AgentFieldAccess.onGrantRuntime,
-          'script.interpreter': AgentFieldAccess.discovery,
-          'script.refs': AgentFieldAccess.onGrantRuntime,
-          'notes': AgentFieldAccess.onGrantValue,
-        },
-        EntryType.creditCard => {
-          'creditCard.cardholderName': AgentFieldAccess.onGrantRuntime,
-          'creditCard.cardNumber': AgentFieldAccess.onGrantRuntime,
-          if (raw['cvv'] != null) 'creditCard.cvv': AgentFieldAccess.never,
-          'creditCard.expiryMonth': AgentFieldAccess.onGrantRuntime,
-          'creditCard.expiryYear': AgentFieldAccess.onGrantRuntime,
-          'creditCard.billingAddress': raw['billingAddress'] == null
-              ? AgentFieldAccess.never
-              : AgentFieldAccess.onGrantRuntime,
-          'notes': AgentFieldAccess.never,
-        },
-      },
-      for (final field in custom)
-        field.fieldId: field.kind == 'totp'
-            ? AgentFieldAccess.onGrantDerived
-            : type == EntryType.creditCard
-            ? AgentFieldAccess.onGrantRuntime
-            : field.includeInMemberIndex
-            ? AgentFieldAccess.discovery
-            : type == EntryType.script
-            ? AgentFieldAccess.onGrantRuntime
-            : AgentFieldAccess.onGrantValue,
-    };
+    final fields = newEntryFieldAccess(
+      VaultEntryType.values[type.index],
+      content,
+      discoverDescription: discoverDescription,
+      exposeUsername: exposeUsername,
+      exposeDomain: exposeDomain,
+    );
     return MemberSecret(
       entryType: VaultEntryType.values[type.index],
       memberLabel: label,

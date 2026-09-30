@@ -43,6 +43,7 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
     if (!auth.isOnboarded ||
         !_foreground ||
         const {
+          '/share',
           '/login',
           '/register',
           '/onboarding',
@@ -62,8 +63,7 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
     if (_consents.state.consents.any(
       (c) => c.status == 'unknown' && c.currentNotice != null,
     )) {
-      // Optional choices belong above the ready app, never inside registration,
-      // verification, setup or unlock. A late read preserves the current route.
+      // Covering a one-shot reception retires its sensitive state.
       // Recheck account, route and consent after the navigator has finished building.
       if (!present) {
         if (_offerScheduled) return;

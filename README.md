@@ -161,6 +161,17 @@ configures a self-hosted API. There is no separate asset-host allowlist or build
 variable. Deploy the backend content endpoint before releasing these clients;
 unavailable images use a local glyph. Mobile still selects its API through the
 build configuration; this change does not add a runtime server selector.
+Individual Entry sharing also requires the explicit build value
+`PALLADIN_SHARING_WEB_ORIGIN` for the receiving web panel (a bare origin, without
+a path, query, credentials or fragment). It is empty by default: an unconfigured
+build cannot create a sharing link. Do not derive it from the application flavor;
+a production-store identity may target the staging backend. The staging backend
+requires its HTTPS panel origin `https://stage.palladin.io`; production rejects
+the staging host and requires an explicitly configured HTTPS Palladin host.
+Local builds may use an explicitly configured HTTP development origin reachable
+from the recipient device. Provision this value through the approved deployment
+configuration, alongside domain association and web receiver rollout. It is not
+a runtime user preference or a redirect supplied by an incoming link.
 
 ## Google OAuth build configuration
 
@@ -168,7 +179,6 @@ Before running or building Google Sign-In, supply explicit backend and iOS
 client IDs using `tool/configure_google_oauth.py` and the generated
 `--dart-define-from-file`. See [configuration instructions](docs/firebase-config.md#explicit-google-oauth-build-inputs).
 A fresh clone has no OAuth audience configured; Google login fails closed.
-
 ## Firebase client configuration
 
 Per-flavor `google-services.json` and `GoogleService-Info.plist` files are ignored

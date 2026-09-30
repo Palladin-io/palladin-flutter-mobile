@@ -2,6 +2,13 @@
 
 Navigation shell: bottom nav, FAB ownership stack, settings end-drawer.
 
+Inbox-only sharing receipts are repaired by the app-owned
+`NotificationForegroundRepair`, not by a shell-specific timer or new push.
+The existing singleton Inbox supplies the navbar badge. Repair is immediate on
+ready foreground context, then bounded to 30 seconds and one in-flight request
+per session generation; see [notifications](notifications.md). Existing tab-tap,
+resume and SignalR refresh paths remain supported by the same fenced Cubit.
+
 - **State:** `LibraryViewCubit` restores and saves the non-sensitive device-local Entries/Vaults preference through `UserPreferences`. `AppShellScope` (an `InheritedWidget`) lets descendants open the settings drawer and register a FAB.
 - **Pages:** `AppShell`, `FabOwnershipStack`, `PlaceholderPage`. **Widgets:** `AppBottomNav` (5 slots + badge counts), `SettingsDrawer`.
 - **Layering:** presentation only — no data/domain (it is pure navigation chrome).
@@ -38,6 +45,14 @@ authorization rules.
 **Cross-feature deps:** hosts all tab features (vault, agents, notifications).
 Settings drawer routes to settings, API keys, and audit. Descendants open the
 drawer via `AppShellScope.of(context)` — never mount a duplicate `endDrawer`.
+
+The public `/share` receiver is outside the authenticated shell. Its app-owned
+ingress navigates using only that constant route; the secret capability stays in
+the bounded RAM handoff, never route state. It permits guest/locked/new-account
+reception but grants no Vault access. Closing disposes local reception and returns
+to `/` through normal guards. Native interception is wired on both platforms;
+device/domain acceptance and account/save continuation remain pending;
+see [Entry sharing](entry-sharing.md).
 
 ## Brand surfaces
 

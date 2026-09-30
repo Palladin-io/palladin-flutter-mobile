@@ -14,6 +14,7 @@ enum AuditActorType {
   user,
   agent,
   system,
+  externalRecipient,
   unknown;
 
   /// Maps the backend wire value (int ordinal or string) to a typed
@@ -23,6 +24,9 @@ enum AuditActorType {
       1 || 'user' || 'User' => AuditActorType.user,
       2 || 'agent' || 'Agent' => AuditActorType.agent,
       3 || 'system' || 'System' => AuditActorType.system,
+      4 ||
+      'externalRecipient' ||
+      'ExternalRecipient' => AuditActorType.externalRecipient,
       _ => AuditActorType.unknown,
     };
   }
@@ -55,6 +59,7 @@ enum AuditEventGroup {
   credentialAccess,
   grants,
   vaultEntry,
+  entrySharing,
   agentLifecycle,
   apiKeys,
   orgAccount,
@@ -86,6 +91,20 @@ enum AuditEventType {
   entryCreated('entry.created', AuditEventGroup.vaultEntry),
   entryUpdated('entry.updated', AuditEventGroup.vaultEntry),
   entryDeleted('entry.deleted', AuditEventGroup.vaultEntry),
+  entryShareCreated('entry-share.created', AuditEventGroup.entrySharing),
+  entryShareDelivered('entry-share.delivered', AuditEventGroup.entrySharing),
+  entryShareConfirmed('entry-share.confirmed', AuditEventGroup.entrySharing),
+  entryShareProtectionChanged(
+    'entry-share.protection-changed',
+    AuditEventGroup.entrySharing,
+  ),
+  entryShareExpired('entry-share.expired', AuditEventGroup.entrySharing),
+  entryShareRevoked('entry-share.revoked', AuditEventGroup.entrySharing),
+  entryShareEnded('entry-share.ended', AuditEventGroup.entrySharing),
+  entryShareSourceAccessRemoved(
+    'entry-share.source-access-removed',
+    AuditEventGroup.entrySharing,
+  ),
   agentEnrolled('agent.enrolled', AuditEventGroup.agentLifecycle),
   agentBlocked('agent.blocked', AuditEventGroup.agentLifecycle),
   agentReactivated('agent.reactivated', AuditEventGroup.agentLifecycle),
@@ -139,6 +158,14 @@ enum AuditEventType {
     AuditEventType.entryCreated,
     AuditEventType.entryUpdated,
     AuditEventType.entryDeleted,
+    AuditEventType.entryShareCreated,
+    AuditEventType.entryShareDelivered,
+    AuditEventType.entryShareConfirmed,
+    AuditEventType.entryShareProtectionChanged,
+    AuditEventType.entryShareExpired,
+    AuditEventType.entryShareRevoked,
+    AuditEventType.entryShareEnded,
+    AuditEventType.entryShareSourceAccessRemoved,
     AuditEventType.grantCreated,
     AuditEventType.grantApproved,
     AuditEventType.grantRevoked,
@@ -150,6 +177,7 @@ enum AuditEventType {
     AuditEventGroup.credentialAccess,
     AuditEventGroup.grants,
     AuditEventGroup.vaultEntry,
+    AuditEventGroup.entrySharing,
     AuditEventGroup.agentLifecycle,
   ];
 

@@ -15,12 +15,14 @@ class PrimaryButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.leading,
+    this.height = AppSpacing.controlHeight,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
   final Widget? leading;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +31,11 @@ class PrimaryButton extends StatelessWidget {
       enabled: enabled,
       child: SizedBox(
         width: double.infinity,
-        height: AppSpacing.controlHeight,
+        height: height,
         child: ElevatedButton(
           onPressed: enabled ? onPressed : null,
           style: ElevatedButton.styleFrom(
+            minimumSize: const Size(0, AppSpacing.controlHeight),
             backgroundColor: AppColors.brandRed,
             disabledBackgroundColor: AppColors.brandRed,
             foregroundColor: AppColors.onBrandRed,
@@ -44,7 +47,29 @@ class PrimaryButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          child: isLoading
+          child: height == null && leading == null
+              ? Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Visibility(
+                      visible: !isLoading,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: _label(),
+                    ),
+                    if (isLoading)
+                      const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.onBrandRed,
+                        ),
+                      ),
+                  ],
+                )
+              : isLoading
               ? const SizedBox(
                   height: 18,
                   width: 18,
@@ -70,6 +95,7 @@ class PrimaryButton extends StatelessWidget {
   Widget _label() {
     return Text(
       label,
+      textAlign: TextAlign.center,
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
     );
   }

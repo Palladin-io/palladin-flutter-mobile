@@ -49,8 +49,8 @@ class OnboardingScaffold extends StatelessWidget {
   final bool showTitleBlock;
 
   /// Places [footer] in the visual center of the flexible space between the
-  /// last child and [bottom]. All three regions stay in one scroll view, so a
-  /// compact screen scrolls instead of clipping the final form actions.
+  /// last child and [bottom]. The header and all three regions share one scroll
+  /// view so a reduced keyboard/account-notice viewport cannot clip the form.
   final bool centerFooterInRemainingSpace;
   final bool centerFooterAbovePinnedBottom;
 
@@ -82,32 +82,9 @@ class OnboardingScaffold extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  header ??
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            child: onBack != null
-                                ? GestureDetector(
-                                    onTap: onBack,
-                                    child: Icon(
-                                      Icons.arrow_back_ios_new,
-                                      color: AppColors.onSurfaceMuted(
-                                        brightness,
-                                      ),
-                                      size: 18,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          Expanded(
-                            child: OnboardingProgressDots(
-                              currentStep: currentStep,
-                            ),
-                          ),
-                          const SizedBox(width: 28),
-                        ],
-                      ),
+                  if (!centerFooterInRemainingSpace &&
+                      !centerFooterAbovePinnedBottom)
+                    _header(brightness),
                   if (contentTopSpacing != null &&
                       (centerFooterInRemainingSpace ||
                           centerFooterAbovePinnedBottom))
@@ -124,6 +101,7 @@ class OnboardingScaffold extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
+                                    _header(brightness),
                                     SizedBox(height: contentTopSpacing!),
                                     if (showTitleBlock) ...[
                                       _TitleBlock(
@@ -256,6 +234,28 @@ class OnboardingScaffold extends StatelessWidget {
       ),
     );
   }
+
+  Widget _header(Brightness brightness) =>
+      header ??
+      Row(
+        children: [
+          SizedBox(
+            width: 28,
+            child: onBack != null
+                ? GestureDetector(
+                    onTap: onBack,
+                    child: Icon(
+                      Icons.arrow_back_ios_new,
+                      color: AppColors.onSurfaceMuted(brightness),
+                      size: 18,
+                    ),
+                  )
+                : null,
+          ),
+          Expanded(child: OnboardingProgressDots(currentStep: currentStep)),
+          const SizedBox(width: 28),
+        ],
+      );
 }
 
 class _OnboardingBackground extends StatelessWidget {

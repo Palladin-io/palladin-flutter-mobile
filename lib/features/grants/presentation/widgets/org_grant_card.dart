@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/card_action_footer.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/agent_avatar.dart';
 import '../../domain/entities/grant.dart';
@@ -218,10 +219,16 @@ class _StatusPill extends StatelessWidget {
 /// single-line truncated value. Shared by the org-grant (history) card and the
 /// pending-approval card so both line up identically (web `DetailRow`).
 class GrantDetailRow extends StatelessWidget {
-  const GrantDetailRow({super.key, required this.label, required this.value});
+  const GrantDetailRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.maxLines = 1,
+  });
 
   final String label;
   final String value;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -244,8 +251,10 @@ class GrantDetailRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: maxLines,
+            overflow: maxLines == null
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
             style: TextStyle(
               color: AppColors.onSurfaceMuted(brightness),
               fontSize: 11,
@@ -285,8 +294,7 @@ class _Footer extends StatelessWidget {
 
     // Actions are driven strictly by the backend capability flags.
     if (grant.status == GrantStatus.pending) {
-      return _FooterShell(
-        brightness: brightness,
+      return CardActionFooter(
         child: _FilledFooterAction(
           label: l10n.orgGrantReviewRequest,
           onPressed: onReviewPending,
@@ -296,15 +304,17 @@ class _Footer extends StatelessWidget {
     }
 
     if (grant.canRevoke) {
-      return _FooterShell(
-        brightness: brightness,
-        child: _RevokeButton(isRevoking: isRevoking, onRevoke: onRevoke),
+      return CardActionFooter(
+        child: CardRevokeButton(
+          label: l10n.grantsRevoke,
+          busy: isRevoking,
+          onPressed: onRevoke,
+        ),
       );
     }
 
     if (grant.canGrantAgain && grant.scope != GrantScope.unknown) {
-      return _FooterShell(
-        brightness: brightness,
+      return CardActionFooter(
         child: _FilledFooterAction(
           label: l10n.approvalRegrant,
           onPressed: onRegrant,
@@ -315,8 +325,7 @@ class _Footer extends StatelessWidget {
 
     if (grant.status.isTerminal) {
       final hasActiveCoverage = grant.activeCoveringGrantIds.isNotEmpty;
-      return _FooterShell(
-        brightness: brightness,
+      return CardActionFooter(
         child: _FooterInfoAction(
           icon: hasActiveCoverage ? Icons.check_circle : Icons.info_outline,
           color: hasActiveCoverage
@@ -418,72 +427,6 @@ class _FilledFooterAction extends StatelessWidget {
           label,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
-      ),
-    );
-  }
-}
-
-class _FooterShell extends StatelessWidget {
-  const _FooterShell({required this.brightness, required this.child});
-
-  final Brightness brightness;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 46),
-      decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.cardBorder(brightness)),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.cardPadding,
-        vertical: AppSpacing.innerGap,
-      ),
-      child: Center(child: child),
-    );
-  }
-}
-
-class _RevokeButton extends StatelessWidget {
-  const _RevokeButton({required this.isRevoking, required this.onRevoke});
-
-  final bool isRevoking;
-  final VoidCallback onRevoke;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return SizedBox(
-      width: double.infinity,
-      height: 36,
-      child: OutlinedButton(
-        onPressed: isRevoking ? null : onRevoke,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.brandRed,
-          side: const BorderSide(color: AppColors.brandRed),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: isRevoking
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.brandRed,
-                ),
-              )
-            : Text(
-                l10n.grantsRevoke,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
       ),
     );
   }

@@ -75,7 +75,7 @@ class AppDropdownField<T> extends StatelessWidget {
                 color: AppColors.onSurfaceSubtle(brightness),
               ),
               dropdownColor: AppColors.modalBackground(brightness),
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.inputText(brightness),
                 fontSize: 13,
               ),

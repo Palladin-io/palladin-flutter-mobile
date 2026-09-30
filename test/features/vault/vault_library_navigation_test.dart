@@ -13,6 +13,8 @@ import 'package:mobile_palladin/core/storage/user_preferences.dart';
 import 'package:mobile_palladin/features/shell/presentation/cubit/library_view_cubit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
+import 'package:mobile_palladin/features/vault/presentation/widgets/entry_list_card.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/router/shell_tab_page.dart';
 import 'package:mobile_palladin/core/widgets/app_fab.dart';
@@ -38,6 +40,8 @@ class _Auth extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 class _Vaults extends MockCubit<VaultListState> implements VaultListCubit {}
 
 class _Entries extends Mock implements EntryRepository {}
+
+class _LocalEntries extends Mock implements LocalCurrentEntryService {}
 
 class _Index implements MemberIndexReader {
   @override
@@ -105,6 +109,7 @@ void main() {
           isOnboarded: true,
           isVaultLocked: false,
           privateKey: Uint8List(32),
+          permissions: 8,
         ),
       );
       final items = List.generate(
@@ -135,6 +140,7 @@ void main() {
       );
       getIt.registerFactory<GlobalEntriesCubit>(
         () => GlobalEntriesCubit(
+          localEntries: _LocalEntries(),
           index: _Index(),
           loader: _Loader(),
           indexUpdates: const Stream.empty(),
@@ -218,6 +224,10 @@ void main() {
       expect(tester.getTopLeft(find.byType(VaultLibrarySwitch)).dy, switchY);
       await tester.tap(find.byTooltip('Entries'));
       await tester.pumpAndSettle();
+      expect(find.byType(EntryListCard), findsWidgets);
+      expect(find.byIcon(Icons.visibility), findsWidgets);
+      expect(find.byIcon(Icons.arrow_forward), findsWidgets);
+      expect(find.byTooltip('Share entry'), findsWidgets);
       expect(router.routeInformationProvider.value.uri.path, '/entries');
       expect(tester.state(find.byType(VaultListPage)), same(originalPageState));
       expect(find.byIcon(Icons.tune), findsNothing);

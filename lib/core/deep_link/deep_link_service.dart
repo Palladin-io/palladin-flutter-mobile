@@ -66,7 +66,7 @@ class DeepLinkService {
           queryParameters: {'token': token},
         ).toString();
       default:
-        AppLogger.w('DeepLink', 'Unhandled deep link host: $target');
+        AppLogger.w('DeepLink', 'Unhandled deep link');
         return null;
     }
   }

@@ -4,6 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/services/member_entry_list_service.dart';
+import '../../data/services/local_current_entry_service.dart';
+import '../../data/services/canonical_entry_detail_service.dart';
+import '../../domain/entities/entry_entity.dart';
 import '../../data/services/member_sync_service.dart';
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/entities/vault_entity.dart';
@@ -14,6 +17,31 @@ final class GlobalEntryRow {
 
   final VaultEntity vault;
   final MemberIndexEntry entry;
+
+  (String, String) get identity => (vault.id, entry.entryId);
+
+  EntryEntity toEntryEntity() {
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    final domain = entry.autofillDomains.firstOrNull;
+    return EntryEntity(
+      id: entry.entryId,
+      vaultId: vault.id,
+      label: entry.memberLabel,
+      type: EntryType.values.elementAtOrNull(entry.entryType) ?? EntryType.key,
+      icon: entry.iconReference,
+      createdAt: epoch,
+      updatedAt: epoch,
+      urlDomain: domain == null
+          ? null
+          : Uri.tryParse(
+              domain.contains('://') ? domain : 'https://$domain',
+            )?.host,
+      currentRevision: entry.revision,
+      currentKeyVersion: entry.currentKeyVersion,
+      lifecycleState: entry.state,
+      corrupt: entry.corrupt,
+    );
+  }
 }
 
 final class GlobalEntriesState {
@@ -21,11 +49,15 @@ final class GlobalEntriesState {
     this.rows = const [],
     this.loading = false,
     this.failedVaultIds = const {},
+    this.expandedEntries = const {},
+    this.revealedEntries = const {},
   });
 
   final List<GlobalEntryRow> rows;
   final bool loading;
   final Set<String> failedVaultIds;
+  final Set<(String, String)> expandedEntries;
+  final Map<(String, String), CanonicalEntrySnapshot> revealedEntries;
 
   List<GlobalEntryRow> filter({
     String query = '',
@@ -64,13 +96,22 @@ final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
     required MemberIndexReader index,
     required MemberEntryListLoader loader,
     required Stream<String> indexUpdates,
+    required LocalCurrentEntryService localEntries,
   }) : _index = index,
+       _localEntries = localEntries,
        _loader = loader,
        super(const GlobalEntriesState()) {
-    _updates = indexUpdates.listen((_) => _publish());
+    _updates = indexUpdates.listen((_) {
+      _clearReveals();
+      _publish();
+    });
   }
 
   final MemberIndexReader _index;
+  final LocalCurrentEntryService _localEntries;
+  final _expanded = <(String, String)>{};
+  final _revealed = <(String, String), CanonicalEntrySnapshot>{};
+  final _pendingKeys = <(String, String), Uint8List>{};
   final MemberEntryListLoader _loader;
   late final StreamSubscription<String> _updates;
   List<VaultEntity> _vaults = const [];
@@ -82,6 +123,7 @@ final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
 
   void replaceVaults(List<VaultEntity> vaults) {
     if (_locked || isClosed) return;
+    _clearReveals();
     _vaults = List.unmodifiable(vaults);
     _failed = _failed.intersection(vaults.map((vault) => vault.id).toSet());
     _publish();
@@ -90,6 +132,7 @@ final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
   Future<void> load(List<VaultEntity> vaults, Uint8List privateKey) async {
     if (isClosed) return;
     final generation = ++_generation;
+    _clearReveals();
     _wipeKey();
     _locked = false;
     _vaults = List.unmodifiable(vaults);
@@ -140,6 +183,8 @@ final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
         rows: List.unmodifiable(rows),
         loading: _loading,
         failedVaultIds: Set.unmodifiable(_failed),
+        expandedEntries: Set.unmodifiable(_expanded),
+        revealedEntries: Map.unmodifiable(_revealed),
       ),
     );
   }
@@ -148,12 +193,79 @@ final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
   /// its own state and makes late completions unable to republish it.
   void lock() {
     _generation++;
+    _clearReveals();
     _locked = true;
     _loading = false;
     _vaults = const [];
     _failed = {};
     _wipeKey();
     if (!isClosed) emit(const GlobalEntriesState());
+  }
+
+  Future<bool> toggleReveal(GlobalEntryRow row, Uint8List privateKey) async {
+    if (_locked || isClosed) return true;
+    if (EntryType.values.elementAtOrNull(row.entry.entryType) == null) {
+      return false;
+    }
+    final id = row.identity;
+    if (_expanded.remove(id)) {
+      _pendingKeys.remove(id)?.fillRange(0, 32, 0);
+      _revealed.remove(id)?.clear();
+      _publish();
+      return true;
+    }
+    if (privateKey.length != 32 ||
+        !state.rows.any(
+          (current) =>
+              current.identity == id &&
+              current.entry.revision == row.entry.revision,
+        )) {
+      return false;
+    }
+    final generation = _generation;
+    final key = Uint8List.fromList(privateKey);
+    _pendingKeys[id] = key;
+    _expanded.add(id);
+    _publish();
+    bool current() => _current(generation) && identical(_pendingKeys[id], key);
+    CanonicalEntrySnapshot? snapshot;
+    try {
+      snapshot = await _localEntries.reveal(
+        expected: row.toEntryEntity(),
+        memberPrivateKey: key,
+      );
+      if (!current()) return true;
+      _revealed[id] = snapshot;
+      snapshot = null;
+      _publish();
+      return true;
+    } catch (_) {
+      if (!current()) return true;
+      _expanded.remove(id);
+      _publish();
+      return false;
+    } finally {
+      snapshot?.clear();
+      key.fillRange(0, key.length, 0);
+      if (identical(_pendingKeys[id], key)) _pendingKeys.remove(id);
+    }
+  }
+
+  void clearReveals() {
+    _clearReveals();
+    _publish();
+  }
+
+  void _clearReveals() {
+    for (final key in _pendingKeys.values) {
+      key.fillRange(0, key.length, 0);
+    }
+    _pendingKeys.clear();
+    for (final snapshot in _revealed.values) {
+      snapshot.clear();
+    }
+    _revealed.clear();
+    _expanded.clear();
   }
 
   void _wipeKey() {
