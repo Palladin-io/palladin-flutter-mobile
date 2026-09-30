@@ -54,7 +54,8 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditEventEntryShareRevoked => 'Odwołano link udostępnienia';
 
   @override
-  String get auditEventEntryShareEnded => 'Odbiorca zakończył udostępnienie';
+  String get auditEventEntryShareEnded =>
+      'Zakończono starszy link udostępnienia';
 
   @override
   String get auditEventEntryShareSourceAccessRemoved =>
@@ -92,7 +93,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String auditSentenceEntryShareEnded(String actor, String entry) {
-    return '$actor zakończył link udostępnienia: $entry';
+    return 'Zakończono starszy link udostępnienia wpisu $entry (uczestnik: $actor)';
   }
 
   @override

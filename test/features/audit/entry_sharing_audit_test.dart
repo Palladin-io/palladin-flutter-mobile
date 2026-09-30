@@ -29,7 +29,15 @@ void main() {
         expect(AuditEventType.inGroup(type.group), hasLength(8));
         for (final locale in ['en', 'pl']) {
           final l10n = lookupAppLocalizations(Locale(locale));
-          expect(auditEventLabel(l10n, type, wire), isNot(wire));
+          final label = auditEventLabel(l10n, type, wire);
+          expect(label, isNot(wire));
+          if (event.key == 'ended') {
+            expect(label, contains(locale == 'en' ? 'Legacy' : 'starszy'));
+            expect(
+              label,
+              isNot(contains(locale == 'en' ? 'recipient' : 'Odbiorca')),
+            );
+          }
           final row = AuditLogEntry(
             id: 'log',
             eventType: type,

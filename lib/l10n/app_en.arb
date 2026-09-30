@@ -13,7 +13,7 @@
   "auditEventEntryShareProtectionChanged": "Sharing protection changed",
   "auditEventEntryShareExpired": "Sharing link expired",
   "auditEventEntryShareRevoked": "Sharing link revoked",
-  "auditEventEntryShareEnded": "Sharing ended by recipient",
+  "auditEventEntryShareEnded": "Legacy sharing link ended",
   "auditEventEntryShareSourceAccessRemoved": "Sharing source access removed",
   "auditSentenceEntryShareCreated": "{actor} created a sharing link for {entry}",
   "@auditSentenceEntryShareCreated": {
@@ -78,7 +78,7 @@
       }
     }
   },
-  "auditSentenceEntryShareEnded": "{actor} ended the sharing link for {entry}",
+  "auditSentenceEntryShareEnded": "A legacy sharing link for {entry} was ended (actor: {actor})",
   "@auditSentenceEntryShareEnded": {
     "placeholders": {
       "actor": {

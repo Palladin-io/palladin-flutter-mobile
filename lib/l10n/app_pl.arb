@@ -13,7 +13,7 @@
   "auditEventEntryShareProtectionChanged": "Zmieniono ochronę udostępnienia",
   "auditEventEntryShareExpired": "Link udostępnienia wygasł",
   "auditEventEntryShareRevoked": "Odwołano link udostępnienia",
-  "auditEventEntryShareEnded": "Odbiorca zakończył udostępnienie",
+  "auditEventEntryShareEnded": "Zakończono starszy link udostępnienia",
   "auditEventEntryShareSourceAccessRemoved": "Utracono dostęp do źródła udostępnienia",
   "auditSentenceEntryShareCreated": "{actor} utworzył(a) link udostępnienia: {entry}",
   "@auditSentenceEntryShareCreated": {
@@ -78,7 +78,7 @@
       }
     }
   },
-  "auditSentenceEntryShareEnded": "{actor} zakończył link udostępnienia: {entry}",
+  "auditSentenceEntryShareEnded": "Zakończono starszy link udostępnienia wpisu {entry} (uczestnik: {actor})",
   "@auditSentenceEntryShareEnded": {
     "placeholders": {
       "actor": {

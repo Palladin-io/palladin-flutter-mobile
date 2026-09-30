@@ -185,7 +185,7 @@ abstract class AppLocalizations {
   /// No description provided for @auditEventEntryShareEnded.
   ///
   /// In en, this message translates to:
-  /// **'Sharing ended by recipient'**
+  /// **'Legacy sharing link ended'**
   String get auditEventEntryShareEnded;
 
   /// No description provided for @auditEventEntryShareSourceAccessRemoved.
@@ -233,7 +233,7 @@ abstract class AppLocalizations {
   /// No description provided for @auditSentenceEntryShareEnded.
   ///
   /// In en, this message translates to:
-  /// **'{actor} ended the sharing link for {entry}'**
+  /// **'A legacy sharing link for {entry} was ended (actor: {actor})'**
   String auditSentenceEntryShareEnded(String actor, String entry);
 
   /// No description provided for @auditSentenceEntryShareSourceAccessRemoved.

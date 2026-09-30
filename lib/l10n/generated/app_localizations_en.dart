@@ -54,7 +54,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditEventEntryShareRevoked => 'Sharing link revoked';
 
   @override
-  String get auditEventEntryShareEnded => 'Sharing ended by recipient';
+  String get auditEventEntryShareEnded => 'Legacy sharing link ended';
 
   @override
   String get auditEventEntryShareSourceAccessRemoved =>
@@ -92,7 +92,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String auditSentenceEntryShareEnded(String actor, String entry) {
-    return '$actor ended the sharing link for $entry';
+    return 'A legacy sharing link for $entry was ended (actor: $actor)';
   }
 
   @override
