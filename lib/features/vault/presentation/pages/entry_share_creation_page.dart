@@ -397,6 +397,8 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
             if (created) {
               return _CreatedLinkView(
                 links: state.links,
+                multipleRequestedRecipients:
+                    _cubit.hasMultipleRequestedRecipients,
                 retryPending: state.phase == EntryShareCreationPhase.retry,
                 copying: _copying,
                 message: _copyMessage,
@@ -464,6 +466,7 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
 class _CreatedLinkView extends StatefulWidget {
   const _CreatedLinkView({
     required this.links,
+    required this.multipleRequestedRecipients,
     required this.retryPending,
     required this.copying,
     required this.message,
@@ -473,6 +476,7 @@ class _CreatedLinkView extends StatefulWidget {
   });
 
   final List<CreatedEntryShareLink> links;
+  final bool multipleRequestedRecipients;
   final bool retryPending;
   final bool copying;
   final String? message;
@@ -522,32 +526,65 @@ class _CreatedLinkViewState extends State<_CreatedLinkView> {
                                   color: AppColors.onSurface(brightness),
                                 ),
                               ),
-                              if (widget.links.length > 1) ...[
+                              if (widget.multipleRequestedRecipients) ...[
                                 const SizedBox(height: AppSpacing.section),
-                                AppDropdownField<int>(
-                                  label: l10n.sharingRecipientSection,
-                                  value: _selected,
-                                  items: [
-                                    for (
-                                      var index = 0;
-                                      index < widget.links.length;
-                                      index++
-                                    )
-                                      DropdownMenuItem(
-                                        value: index,
-                                        child: Text(
-                                          widget.links[index].recipientEmail ??
-                                              l10n.sharingAnyone,
-                                          overflow: TextOverflow.ellipsis,
+                                if (widget.links.length > 1)
+                                  AppDropdownField<int>(
+                                    label: l10n.sharingRecipientSection,
+                                    value: _selected,
+                                    items: [
+                                      for (
+                                        var index = 0;
+                                        index < widget.links.length;
+                                        index++
+                                      )
+                                        DropdownMenuItem(
+                                          value: index,
+                                          child: Text(
+                                            widget
+                                                    .links[index]
+                                                    .recipientEmail ??
+                                                l10n.sharingAnyone,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                    ],
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() => _selected = value);
+                                      }
+                                    },
+                                  )
+                                else
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.sharingRecipientSection,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.onSurfaceMuted(
+                                            brightness,
+                                          ),
                                         ),
                                       ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() => _selected = value);
-                                    }
-                                  },
-                                ),
+                                      const SizedBox(
+                                        height: AppSpacing.innerGap,
+                                      ),
+                                      SelectableText(
+                                        widget.links.single.recipientEmail ??
+                                            l10n.sharingAnyone,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.onSurface(
+                                            brightness,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 const SizedBox(height: AppSpacing.innerGap),
                                 Text(
                                   l10n.sharingMultipleLinkHandoff,

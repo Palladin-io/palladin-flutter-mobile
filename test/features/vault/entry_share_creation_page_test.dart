@@ -639,6 +639,12 @@ void main() {
       await create(tester);
       expect(requests, hasLength(2));
       expect(find.text('Retry same request'), findsOneWidget);
+      expect(find.text('first@example.test'), findsOneWidget);
+      expect(find.text('second@example.test'), findsNothing);
+      expect(
+        find.textContaining('Send each link to its matching recipient'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Copy sharing link'));
       await tester.pumpAndSettle();
@@ -652,6 +658,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Retry same request'), findsOneWidget);
+      await tester.ensureVisible(find.text('Retry same request'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Retry same request'));
       await tester.pumpAndSettle();
       expect(requests, hasLength(3));
