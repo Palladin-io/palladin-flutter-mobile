@@ -213,6 +213,14 @@ class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
       ? _batchOptions!.recipientEmails.length
       : 1;
 
+  bool get hasMultipleRequestedRecipients {
+    final options = _batchOptions;
+    return options == null
+        ? _createdLinks.length > 1
+        : options.recipientMode == EntryShareRecipientMode.namedRecipient &&
+              options.recipientEmails.length > 1;
+  }
+
   Future<void> _createRemaining(
     int epoch,
     CancelToken token,

@@ -238,7 +238,11 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
   void _allowOneDeliveryRoundtrip() {
     // Only an explicit Copy/Share of a multi-recipient batch may briefly keep
     // its RAM-only links while the OS opens the selected receiving app.
-    if (_cubit.state.links.length < 2 || _invalidated) return;
+    if (!_cubit.hasMultipleRequestedRecipients ||
+        _cubit.state.links.isEmpty ||
+        _invalidated) {
+      return;
+    }
     _handoffExpiry?.cancel();
     _handoffUntil = DateTime.now().add(const Duration(minutes: 10));
     _handoffExpiry = Timer(const Duration(minutes: 10), _invalidate);

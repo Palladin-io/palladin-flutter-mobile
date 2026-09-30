@@ -599,6 +599,70 @@ void main() {
   });
 
   testWidgets(
+    'copy preserves exact partial-batch retry across a delivery roundtrip',
+    (tester) async {
+      const secondId = '778899aa-bbcc-4dde-8899-aabbccddeeff';
+      var challengeCount = 0;
+      when(
+        () => remote.challenge(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer(
+        (_) async => EntryShareCreationChallenge(
+          shareId: challengeCount++ == 0 ? _shareId : secondId,
+          sourceRevision: '1',
+          expiresAt: '2026-09-20T12:00:00Z',
+        ),
+      );
+      when(
+        () => remote.create(
+          any(),
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((invocation) async {
+        requests.add(
+          invocation.positionalArguments[2] as EntryShareCreationRequest,
+        );
+        if (requests.length == 2) throw const EntrySharingRequestException();
+      });
+      await pump(tester);
+      await ready(tester);
+      await enter(
+        tester,
+        'Recipient emails (comma-separated)',
+        'first@example.test, second@example.test',
+      );
+      await create(tester);
+      expect(requests, hasLength(2));
+      expect(find.text('Retry same request'), findsOneWidget);
+
+      await tester.tap(find.text('Copy sharing link'));
+      await tester.pumpAndSettle();
+      expect(
+        clipboard,
+        startsWith('https://stage.palladin.io/share/$_shareId#'),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Retry same request'), findsOneWidget);
+      await tester.tap(find.text('Retry same request'));
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(3));
+      expect(requests[2], same(requests[1]));
+      expect(challengeCount, 2);
+      expect(find.text('Your link is ready'), findsOneWidget);
+      await dispose(tester);
+    },
+  );
+
+  testWidgets(
     'multi-recipient delivery roundtrip expires and cannot restore links',
     (tester) async {
       const secondId = '778899aa-bbcc-4dde-8899-aabbccddeeff';
