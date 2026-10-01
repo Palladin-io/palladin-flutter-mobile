@@ -88,7 +88,7 @@ dependencies:
   unorm_dart: ^0.3.2
 
   # Logging
-  logger: ^2.5.0
+  logger: ^2.8.0
 
   # Analytics
   package_info_plus: ^8.0.0
