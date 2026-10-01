@@ -240,7 +240,7 @@ jobs:
           rm -f android/upload-keystore.jks android/key.properties
 
       - name: Generate the Android artifact SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           path: ${{ runner.temp }}/android-sbom-input
           format: spdx-json
@@ -638,7 +638,7 @@ jobs:
           fi
 
       - name: Generate the iOS artifact SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           path: ${{ runner.temp }}/ios-sbom-input
           format: spdx-json
