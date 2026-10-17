@@ -56,3 +56,14 @@ continue to be checked against the listed plan/current session; key/profile and
 source-page preparation budgets remain bounded. User input, file import,
 decrypted protocol payloads, Script parameter contracts and third-party/native
 messages remain independently validated.
+
+Individual Entry sharing accepts additive recipient metadata and preserves
+future mode/protection values for presentation; unknown gates never enable an
+unsupported operation. Its isolated public transport bounds metadata to 16 KiB
+and ciphertext delivery JSON to 512 KiB before decoding to protect device memory.
+Reception limits secret residence to a local 15-minute monotonic/wall lifetime,
+shortened by server session expiry. This is a local capability-lifetime boundary,
+not a reimplementation of backend lifecycle rules. Decryption independently binds
+the requested share ID to canonical delivery authority and authenticated AAD.
+See [Entry sharing](features/entry-sharing.md) and its negative transport/Cubit
+tests for scope substitution, expiry, owner replacement and oversized streams.

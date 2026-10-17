@@ -87,20 +87,21 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return BlocConsumer<OnboardingCubit, OnboardingState>(
-      listenWhen: (p, c) => p.error != c.error && c.error != null,
+      listenWhen: (p, c) => p.error != c.error,
       listener: (context, state) {
+        // Outgoing wizard Scaffolds overlap; stale SnackBars must not follow them.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.removeCurrentSnackBar();
         final error = state.error;
         if (error == null) return;
         final message = _resolveErrorMessage(l10n, error);
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(message),
-              backgroundColor: AppColors.brandRed,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: AppColors.brandRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       },
       builder: (context, state) {
         final mnemonic = state.mnemonic;

@@ -266,8 +266,9 @@ class _LoginViewState extends State<_LoginView> {
     AppLocalizations l10n,
     Brightness brightness,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: AppSpacing.xs,
       children: [
         Text(
           l10n.authNoAccountPrompt,
@@ -276,7 +277,6 @@ class _LoginViewState extends State<_LoginView> {
             color: AppColors.onSurfaceSubtle(brightness),
           ),
         ),
-        const SizedBox(width: AppSpacing.xs),
         GestureDetector(
           onTap: () => context.go('/register'),
           child: Text(

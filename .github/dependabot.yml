@@ -1,6 +1,7 @@
 version: 2
 
 # CocoaPods is not supported by Dependabot; iOS Pod updates remain manual.
+# Automatic PRs are security-only; review other dependency updates deliberately each month.
 updates:
   - package-ecosystem: pub
     directory: /
@@ -8,7 +9,7 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - flutter
@@ -19,7 +20,7 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - android
@@ -30,7 +31,7 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - github-actions

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/inbox_notification.dart';
@@ -64,12 +65,34 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   String? _activeAccountId;
   String? _activeOrganizationId;
   List<VaultEntity> _activeVaults = const [];
+  String? _ownerAccountId;
+  String? _ownerOrganizationId;
+  int _generation = 0;
+  int _feedGeneration = 0;
+  int _summaryGeneration = 0;
+
+  int get presentationGeneration => _generation;
+
+  bool _current(int generation) => !isClosed && generation == _generation;
 
   void configureUnlockedResolution({
     required String activeAccountId,
     required String activeOrganizationId,
     required List<VaultEntity> activeVaults,
   }) {
+    if (_activeAccountId == activeAccountId &&
+        _activeOrganizationId == activeOrganizationId &&
+        listEquals(_activeVaults, activeVaults)) {
+      return;
+    }
+    if (_ownerAccountId != null &&
+        (_ownerAccountId != activeAccountId ||
+            _ownerOrganizationId != activeOrganizationId)) {
+      reset();
+    }
+    _generation++;
+    _ownerAccountId = activeAccountId;
+    _ownerOrganizationId = activeOrganizationId;
     _activeAccountId = activeAccountId;
     _activeOrganizationId = activeOrganizationId;
     _activeVaults = List.unmodifiable(activeVaults);
@@ -85,9 +108,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       activeOrganizationId: activeOrganizationId,
       activeVaults: activeVaults,
     );
+    final generation = _generation;
     final source = state.items;
     final resolved = _applyLocalResolutions(await _resolve(source));
-    if (identical(source, state.items)) emit(state.copyWith(items: resolved));
+    if (_current(generation) && identical(source, state.items)) {
+      emit(state.copyWith(items: resolved));
+    }
   }
 
   Future<List<InboxNotification>> _resolve(List<InboxNotification> items) {
@@ -126,6 +152,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   /// Clears user-specific notification titles and metadata on logout.
   void reset() {
+    _generation++;
+    _ownerAccountId = null;
+    _ownerOrganizationId = null;
     _markingOnView.clear();
     _locallyResolvedActionIds.clear();
     _awaitingRemoteResolutionIds.clear();
@@ -139,12 +168,21 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   /// Drops decrypted reason text and locally resolved names when Vault access
   /// is locked, while retaining the structural feed for badge accounting.
   void lock() {
+    _generation++;
     _activeAccountId = null;
     _activeOrganizationId = null;
     _activeVaults = const [];
     final presentationResolver = resolver;
-    if (presentationResolver == null || state.items.isEmpty) return;
-    emit(state.copyWith(items: presentationResolver.redact(state.items)));
+    emit(
+      state.copyWith(
+        items: presentationResolver?.redact(state.items) ?? const [],
+        status: state.status == NotificationCenterStatus.loading
+            ? NotificationCenterStatus.initial
+            : state.status,
+        isLoadingMore: false,
+        isMarkingAllRead: false,
+      ),
+    );
   }
 
   /// Marks a notification read because its card became visible in the list
@@ -165,12 +203,16 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> load() async {
+    final generation = _generation;
+    final feed = ++_feedGeneration;
+    final summaryGeneration = ++_summaryGeneration;
     final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
     final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     emit(
       state.copyWith(
         status: NotificationCenterStatus.loading,
         clearError: true,
+        isLoadingMore: false,
       ),
     );
     try {
@@ -178,27 +220,34 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         repository.list(),
         repository.summary(),
       ]);
+      if (!_current(generation) || feed != _feedGeneration) return;
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
       final remoteItems = await _resolve(page.items);
+      if (!_current(generation) || feed != _feedGeneration) return;
       final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: items,
-          unreadCount: summary.unreadCount,
-          pendingActionCount: _reconcilePendingActionCount(
-            remoteItems,
-            summary.pendingActionCount,
-            guardedActionIds: guardedActionIds,
-            resolvedActionIds: resolvedActionIds,
-            feedIsComplete: page.nextCursor == null,
-          ),
+          unreadCount: summaryGeneration == _summaryGeneration
+              ? summary.unreadCount
+              : state.unreadCount,
+          pendingActionCount: summaryGeneration == _summaryGeneration
+              ? _reconcilePendingActionCount(
+                  remoteItems,
+                  summary.pendingActionCount,
+                  guardedActionIds: guardedActionIds,
+                  resolvedActionIds: resolvedActionIds,
+                  feedIsComplete: page.nextCursor == null,
+                )
+              : state.pendingActionCount,
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
         ),
       );
     } on NotificationCenterException catch (error) {
+      if (!_current(generation) || feed != _feedGeneration) return;
       emit(
         state.copyWith(
           status: NotificationCenterStatus.error,
@@ -206,6 +255,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         ),
       );
     } catch (_) {
+      if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.e('Notifications', 'Inbox load failed unexpectedly');
       emit(
         state.copyWith(
@@ -217,6 +267,10 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> refresh() async {
+    final generation = _generation;
+    final feed = ++_feedGeneration;
+    final summaryGeneration = ++_summaryGeneration;
+    if (state.isLoadingMore) emit(state.copyWith(isLoadingMore: false));
     final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
     final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     try {
@@ -224,37 +278,49 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         repository.list(),
         repository.summary(),
       ]);
+      if (!_current(generation) || feed != _feedGeneration) return;
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
       final remoteItems = await _resolve(page.items);
+      if (!_current(generation) || feed != _feedGeneration) return;
       final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: items,
-          unreadCount: summary.unreadCount,
-          pendingActionCount: _reconcilePendingActionCount(
-            remoteItems,
-            summary.pendingActionCount,
-            guardedActionIds: guardedActionIds,
-            resolvedActionIds: resolvedActionIds,
-            feedIsComplete: page.nextCursor == null,
-          ),
+          unreadCount: summaryGeneration == _summaryGeneration
+              ? summary.unreadCount
+              : state.unreadCount,
+          pendingActionCount: summaryGeneration == _summaryGeneration
+              ? _reconcilePendingActionCount(
+                  remoteItems,
+                  summary.pendingActionCount,
+                  guardedActionIds: guardedActionIds,
+                  resolvedActionIds: resolvedActionIds,
+                  feedIsComplete: page.nextCursor == null,
+                )
+              : state.pendingActionCount,
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
           clearError: true,
         ),
       );
     } catch (_) {
+      if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.w('Notifications', 'Inbox refresh failed (quiet)');
     }
   }
 
   Future<void> refreshSummary() async {
+    final generation = _generation;
+    final summaryGeneration = ++_summaryGeneration;
     final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
     final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     try {
       final summary = await repository.summary();
+      if (!_current(generation) || summaryGeneration != _summaryGeneration) {
+        return;
+      }
       guardedActionIds.addAll(_awaitingRemoteResolutionIds);
       guardedActionIds.addAll(
         _locallyResolvedActionIds.difference(resolvedActionIds),
@@ -263,22 +329,29 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         state.copyWith(
           unreadCount: summary.unreadCount,
           pendingActionCount:
-              (summary.pendingActionCount - guardedActionIds.length)
-                  .clamp(0, 1 << 31),
+              (summary.pendingActionCount - guardedActionIds.length).clamp(
+                0,
+                1 << 31,
+              ),
         ),
       );
     } catch (_) {
+      if (!_current(generation)) return;
       AppLogger.w('Notifications', 'Summary refresh failed (quiet)');
     }
   }
 
   Future<void> loadMore() async {
+    final generation = _generation;
+    final feed = _feedGeneration;
     final cursor = state.nextCursor;
     if (cursor == null || state.isLoadingMore) return;
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await repository.list(cursor: cursor);
+      if (!_current(generation) || feed != _feedGeneration) return;
       final remoteItems = await _resolve(page.items);
+      if (!_current(generation) || feed != _feedGeneration) return;
       _reconcilePaginationResolutions(
         remoteItems,
         feedIsComplete: page.nextCursor == null,
@@ -293,12 +366,14 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         ),
       );
     } catch (_) {
+      if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.w('Notifications', 'Inbox pagination failed');
       emit(state.copyWith(isLoadingMore: false));
     }
   }
 
   Future<void> markRead(String id) async {
+    final generation = _generation;
     final index = state.items.indexWhere((item) => item.id == id);
     if (index < 0 || state.items[index].isRead) return;
     final previous = state;
@@ -310,10 +385,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         unreadCount: (state.unreadCount - 1).clamp(0, 1 << 31),
       ),
     );
+    final optimistic = state;
     try {
       await repository.markRead(id);
     } catch (_) {
-      emit(previous);
+      if (!_current(generation)) return;
+      if (identical(state, optimistic)) emit(previous);
       AppLogger.w('Notifications', 'Mark read failed');
     }
   }
@@ -408,6 +485,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> markAllRead() async {
+    final generation = _generation;
     if (state.unreadCount == 0 || state.isMarkingAllRead) return;
     final previous = state;
     emit(
@@ -417,11 +495,18 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         isMarkingAllRead: true,
       ),
     );
+    final optimistic = state;
     try {
       await repository.markAllRead();
+      if (!_current(generation)) return;
       emit(state.copyWith(isMarkingAllRead: false));
     } catch (_) {
-      emit(previous);
+      if (!_current(generation)) return;
+      emit(
+        identical(state, optimistic)
+            ? previous
+            : state.copyWith(isMarkingAllRead: false),
+      );
       AppLogger.w('Notifications', 'Mark all read failed');
     }
   }

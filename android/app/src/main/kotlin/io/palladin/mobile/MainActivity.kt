@@ -1,6 +1,8 @@
 package io.palladin.mobile
 
 import android.os.Build
+import android.os.Bundle
+import android.content.Intent
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -12,6 +14,7 @@ import io.palladin.mobile.autofill.AutoFillCacheStore
 import io.palladin.mobile.autofill.GeneratedPasswordHistory
 import io.palladin.mobile.autofill.StrongPasswordGenerator
 import io.palladin.mobile.export.ProtectedExportStore
+import io.palladin.mobile.sharing.EntryShareIngressBridge
 import java.util.concurrent.Executors
 import javax.crypto.Cipher
 
@@ -19,10 +22,33 @@ class MainActivity : FlutterFragmentActivity() {
     private val cacheExecutor = Executors.newSingleThreadExecutor()
     private val historyExecutor = Executors.newSingleThreadExecutor()
     private val exportExecutor = Executors.newSingleThreadExecutor()
+    private var sharingAttachment: Any? = null
     private var historyPromptActive = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        intent = sanitizeDirectIntent(intent)
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(sanitizeDirectIntent(intent))
+    }
+
+    private fun sanitizeDirectIntent(source: Intent): Intent {
+        val uri = source.data ?: return source
+        if (uri.scheme == "https" || uri.scheme == "http" ||
+            uri.fragment != null || uri.host == "share" || uri.path?.startsWith("/share") == true
+        ) {
+            // Sharing enters only through the no-history activity, before plugins.
+            EntryShareIngressBridge.offer(this, null)
+            return Intent(this, MainActivity::class.java)
+        }
+        return source
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        sharingAttachment = EntryShareIngressBridge.attach(flutterEngine.dartExecutor.binaryMessenger)
         val cacheStore = AutoFillCacheStore(applicationContext)
         val generatedHistory = GeneratedPasswordHistory(applicationContext)
         cacheExecutor.execute { runCatching { generatedHistory.revokeAll() } }
@@ -167,6 +193,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        EntryShareIngressBridge.detach(sharingAttachment)
         cacheExecutor.shutdownNow()
         historyExecutor.shutdownNow()
         exportExecutor.shutdownNow()

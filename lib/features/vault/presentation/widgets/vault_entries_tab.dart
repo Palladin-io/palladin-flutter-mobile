@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/permissions.dart';
+import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/member_index_entry.dart';
@@ -18,8 +19,8 @@ import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
 import '../pages/entry_archive_page.dart';
-import 'entry_field_row.dart';
-import 'entry_list_icon.dart';
+import '../pages/entry_share_creation_page.dart';
+import 'entry_list_card.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -234,7 +235,8 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
           itemCount: entries.length,
           separatorBuilder: (_, _) =>
               const SizedBox(height: AppSpacing.cardGap),
-          itemBuilder: (context, i) => _EntryCard(
+          itemBuilder: (context, i) => EntryListCard(
+            key: ValueKey(entries[i].id),
             entry: entries[i],
             isExpanded: _expanded.contains(entries[i].id),
             payload: revealedEntries[entries[i].id],
@@ -243,6 +245,9 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             onToggleFieldReveal: _toggleFieldReveal,
             onCopy: (value) => _copyToClipboard(value, l10n),
             onEdit: () => _onEditEntry(entries[i]),
+            onShare: _canShare
+                ? () => EntryShareCreationPage.push(context, entries[i])
+                : null,
           ),
         ),
       ),
@@ -258,6 +263,15 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
       EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
       EntryErrorKind.unknown => l10n.entryErrorUnknown,
     };
+  }
+
+  bool get _canShare {
+    final auth = context.read<AuthBloc?>()?.state;
+    return auth is AuthAuthenticated &&
+        !auth.isVaultLocked &&
+        auth.privateKey != null &&
+        auth.emailVerified &&
+        (auth.permissions & Permissions.vaultManage) != 0;
   }
 
   @override
@@ -351,63 +365,20 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 
 class _EmptyEntries extends StatelessWidget {
   const _EmptyEntries({required this.l10n, required this.onImport});
-
   final AppLocalizations l10n;
   final VoidCallback onImport;
-
   @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.xxxl,
-        horizontal: AppSpacing.screenH,
-      ),
-      child: Center(
-        child: Transform.translate(
-          offset: const Offset(0, -(AppSpacing.xxxl + AppSpacing.sm)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 56,
-                color: AppColors.onSurface(brightness),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                l10n.entryEmpty,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.chipGap),
-              Text(
-                l10n.entryEmptyAdd,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textTertiaryMobile,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: 240,
-                child: PrimaryButton(
-                  label: l10n.vaultActionImport,
-                  onPressed: onImport,
-                  leading: const Icon(Icons.file_upload_outlined, size: 17),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Transform.translate(
+    offset: const Offset(0, -(AppSpacing.xxxl + AppSpacing.sm)),
+    child: AppEmptyState(
+      icon: Icons.inbox_outlined,
+      title: l10n.entryEmpty,
+      hint: l10n.entryEmptyAdd,
+      actionLabel: l10n.vaultActionImport,
+      actionIcon: Icons.file_upload_outlined,
+      onAction: onImport,
+    ),
+  );
 }
 
 class _NoMatchingEntries extends StatelessWidget {
@@ -492,297 +463,6 @@ class _ErrorSliver extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ── Entry card + reveal panel ──────────────────────────────────────
-
-class _EntryCard extends StatelessWidget {
-  const _EntryCard({
-    required this.entry,
-    required this.isExpanded,
-    required this.payload,
-    required this.revealedFields,
-    required this.onToggleReveal,
-    required this.onToggleFieldReveal,
-    required this.onCopy,
-    required this.onEdit,
-  });
-
-  final EntryEntity entry;
-  final bool isExpanded;
-  final Map<String, dynamic>? payload;
-  final Set<String> revealedFields;
-  final VoidCallback onToggleReveal;
-  final void Function(String entryId, String field) onToggleFieldReveal;
-  final ValueChanged<String> onCopy;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final interactive =
-        entry.lifecycleState == MemberEntryState.active && !entry.corrupt;
-    final meta = entry.corrupt
-        ? l10n.entryCorruptProjection
-        : switch (entry.lifecycleState) {
-            MemberEntryState.active =>
-              entry.urlDomain ?? entry.description ?? '',
-            MemberEntryState.archived => l10n.entryArchivedRecoverability,
-            MemberEntryState.deleted => l10n.entryDeletedRecoverability,
-            MemberEntryState.unknown => l10n.responseUnknownValue,
-          };
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: interactive ? onEdit : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.cardBorder(brightness),
-              width: 1,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.cardPadding,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header row — icon + name/meta + action buttons.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  0,
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.cardGap,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    EntryListIcon(entry: entry),
-                    const SizedBox(width: AppSpacing.cardGap),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.onSurface(brightness),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (meta.isNotEmpty) ...[
-                            const SizedBox(height: AppSpacing.xxs),
-                            Text(
-                              meta,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppColors.onSurfaceSubtle(brightness),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.chipGap),
-                    if (interactive) ...[
-                      EntrySmallIconButton(
-                        icon: isExpanded
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        tooltip: l10n.vaultRevealEntry,
-                        onPressed: onToggleReveal,
-                      ),
-                      const SizedBox(width: AppSpacing.chipGap),
-                      EntrySmallIconButton(
-                        icon: Icons.arrow_forward,
-                        tooltip: l10n.vaultViewEntry,
-                        onPressed: onEdit,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              // Reveal panel — animates open/closed.
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                alignment: Alignment.topCenter,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 220),
-                  opacity: isExpanded ? 1.0 : 0.0,
-                  child: isExpanded
-                      ? Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: payload == null
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: AppSpacing.innerGap,
-                                  ),
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.5,
-                                        color: AppColors.brandRed,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : _RevealPanel(
-                                  entry: entry,
-                                  payload: payload!,
-                                  revealedFields: revealedFields,
-                                  onToggleFieldReveal: onToggleFieldReveal,
-                                  onCopy: onCopy,
-                                ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RevealPanel extends StatelessWidget {
-  const _RevealPanel({
-    required this.entry,
-    required this.payload,
-    required this.revealedFields,
-    required this.onToggleFieldReveal,
-    required this.onCopy,
-  });
-
-  final EntryEntity entry;
-  final Map<String, dynamic> payload;
-  final Set<String> revealedFields;
-  final void Function(String entryId, String field) onToggleFieldReveal;
-  final ValueChanged<String> onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final url = (payload['url'] as String?) ?? entry.urlDomain;
-    return Column(
-      children: [
-        if (url != null && url.isNotEmpty)
-          EntryFieldRow(
-            icon: Icons.link,
-            value: url,
-            isMasked: false,
-            revealed: true,
-            onToggleReveal: null,
-            valueFontSize: 10,
-            actionIconSize: 12,
-            extraTrailing: EntrySmallIconButton(
-              icon: Icons.open_in_new,
-              size: 12,
-              tooltip: l10n.vaultOpenLink,
-              onPressed: () {},
-            ),
-            onCopy: () => onCopy(url),
-          ),
-        if (entry.type == EntryType.key) ...[
-          if ((payload['value'] as String?)?.isNotEmpty ?? false)
-            EntryFieldRow(
-              icon: Icons.vpn_key,
-              value: payload['value'] as String,
-              isMasked: true,
-              revealed: revealedFields.contains('${entry.id}:value'),
-              onToggleReveal: () => onToggleFieldReveal(entry.id, 'value'),
-              valueFontSize: 10,
-              actionIconSize: 12,
-              onCopy: () => onCopy(payload['value'] as String),
-            ),
-        ] else if (entry.type == EntryType.script) ...[
-          if ((payload['script'] as String?)?.isNotEmpty ?? false)
-            EntryFieldRow(
-              icon: Icons.terminal,
-              value: payload['script'] as String,
-              isMasked: true,
-              revealed: revealedFields.contains('${entry.id}:script'),
-              onToggleReveal: () => onToggleFieldReveal(entry.id, 'script'),
-              valueFontSize: 10,
-              actionIconSize: 12,
-              onCopy: () => onCopy(payload['script'] as String),
-            ),
-        ] else if (entry.type == EntryType.creditCard) ...[
-          for (final cardField in <(String, IconData, bool)>[
-            ('cardholderName', Icons.person, false),
-            ('cardNumber', Icons.credit_card, true),
-            ('expiryMonth', Icons.calendar_month, false),
-            ('expiryYear', Icons.event, false),
-            ('billingAddress', Icons.home, false),
-          ])
-            if ((payload[cardField.$1] as String?)?.isNotEmpty ?? false)
-              EntryFieldRow(
-                icon: cardField.$2,
-                value: payload[cardField.$1] as String,
-                isMasked: cardField.$3,
-                revealed:
-                    !cardField.$3 ||
-                    revealedFields.contains('${entry.id}:${cardField.$1}'),
-                onToggleReveal: cardField.$3
-                    ? () => onToggleFieldReveal(entry.id, cardField.$1)
-                    : null,
-                valueFontSize: 10,
-                actionIconSize: 12,
-                onCopy: () => onCopy(payload[cardField.$1] as String),
-              ),
-        ] else ...[
-          if ((payload['username'] as String?)?.isNotEmpty ?? false)
-            EntryFieldRow(
-              icon: Icons.person,
-              value: payload['username'] as String,
-              isMasked: false,
-              revealed: true,
-              onToggleReveal: null,
-              valueFontSize: 10,
-              actionIconSize: 12,
-              onCopy: () => onCopy(payload['username'] as String),
-            ),
-          if ((payload['password'] as String?)?.isNotEmpty ?? false)
-            EntryFieldRow(
-              icon: Icons.lock,
-              value: payload['password'] as String,
-              isMasked: true,
-              revealed: revealedFields.contains('${entry.id}:password'),
-              onToggleReveal: () => onToggleFieldReveal(entry.id, 'password'),
-              valueFontSize: 10,
-              actionIconSize: 12,
-              onCopy: () => onCopy(payload['password'] as String),
-            ),
-        ],
-        if ((payload['notes'] as String?)?.isNotEmpty ?? false)
-          EntryFieldRow(
-            icon: Icons.sticky_note_2_outlined,
-            value: payload['notes'] as String,
-            isMasked: false,
-            revealed: true,
-            onToggleReveal: null,
-            valueFontSize: 10,
-            actionIconSize: 12,
-            onCopy: () => onCopy(payload['notes'] as String),
-          ),
-      ],
     );
   }
 }

@@ -242,53 +242,52 @@ class EntryV2CryptoService {
     final entryDek = existingEntryDek == null
         ? sodium.randombytes.buf(32)
         : Uint8List.fromList(existingEntryDek);
-    final suite = XChaChaVaultEnvelopeSuite(sodiumLoader: _sodiumLoader);
-    final scope = EnvelopeScope(
-      organizationId: EnvelopeId.parse(organizationId),
-      vaultId: EnvelopeId.parse(vaultId),
-      entryId: EnvelopeId.parse(entryId),
-    );
-    final entryKeyDescriptor = EnvelopeDescriptor(
-      purpose: EnvelopePurpose.entryDekByVk,
-      scope: scope,
-      resourceRevision: entryKeyRevision ?? revision,
-      keyVersion: entryKeyVersion,
-      memberKeyGeneration: memberKeyGeneration,
-      purposeData: WrappingPurposeData(
-        wrappingVaultKeyVersion: vaultKeyVersion,
-      ),
-    );
-    final indexDescriptor = EnvelopeDescriptor(
-      purpose: EnvelopePurpose.memberIndex,
-      scope: scope,
-      resourceRevision: memberIndexRevision ?? revision,
-      keyVersion: entryKeyVersion,
-      memberKeyGeneration: memberKeyGeneration,
-    );
-    final secretDescriptor = EnvelopeDescriptor(
-      purpose: EnvelopePurpose.memberSecret,
-      scope: scope,
-      resourceRevision: revision,
-      keyVersion: entryKeyVersion,
-      memberKeyGeneration: memberKeyGeneration,
-      purposeData: MemberSecretPurposeData(operation: operation),
-    );
-    final discoveryDescriptor = EnvelopeDescriptor(
-      purpose: EnvelopePurpose.agentDiscovery,
-      scope: scope,
-      resourceRevision: agentDiscoveryRevision ?? revision,
-      keyVersion: vdkVersion,
-      memberKeyGeneration: memberKeyGeneration,
-    );
-    final secretBytes = canonicalVaultJson(secret.toJson());
-    final indexBytes = canonicalVaultJson(
-      VaultPlaintextProjector.memberIndex(secret).toJson(),
-    );
-    final discovery = VaultPlaintextProjector.agentDiscovery(secret);
-    final discoveryBytes = discovery == null
-        ? null
-        : canonicalVaultJson(discovery);
+    Uint8List? secretBytes, indexBytes, discoveryBytes;
     try {
+      final suite = XChaChaVaultEnvelopeSuite(sodiumLoader: _sodiumLoader);
+      final scope = EnvelopeScope(
+        organizationId: EnvelopeId.parse(organizationId),
+        vaultId: EnvelopeId.parse(vaultId),
+        entryId: EnvelopeId.parse(entryId),
+      );
+      final entryKeyDescriptor = EnvelopeDescriptor(
+        purpose: EnvelopePurpose.entryDekByVk,
+        scope: scope,
+        resourceRevision: entryKeyRevision ?? revision,
+        keyVersion: entryKeyVersion,
+        memberKeyGeneration: memberKeyGeneration,
+        purposeData: WrappingPurposeData(
+          wrappingVaultKeyVersion: vaultKeyVersion,
+        ),
+      );
+      final indexDescriptor = EnvelopeDescriptor(
+        purpose: EnvelopePurpose.memberIndex,
+        scope: scope,
+        resourceRevision: memberIndexRevision ?? revision,
+        keyVersion: entryKeyVersion,
+        memberKeyGeneration: memberKeyGeneration,
+      );
+      final secretDescriptor = EnvelopeDescriptor(
+        purpose: EnvelopePurpose.memberSecret,
+        scope: scope,
+        resourceRevision: revision,
+        keyVersion: entryKeyVersion,
+        memberKeyGeneration: memberKeyGeneration,
+        purposeData: MemberSecretPurposeData(operation: operation),
+      );
+      final discoveryDescriptor = EnvelopeDescriptor(
+        purpose: EnvelopePurpose.agentDiscovery,
+        scope: scope,
+        resourceRevision: agentDiscoveryRevision ?? revision,
+        keyVersion: vdkVersion,
+        memberKeyGeneration: memberKeyGeneration,
+      );
+      secretBytes = canonicalVaultJson(secret.toJson());
+      indexBytes = canonicalVaultJson(
+        VaultPlaintextProjector.memberIndex(secret).toJson(),
+      );
+      final discovery = VaultPlaintextProjector.agentDiscovery(secret);
+      discoveryBytes = discovery == null ? null : canonicalVaultJson(discovery);
       return EntryEnvelopeBundleModel(
         entryKey: await _sealEnvelope(
           suite,
@@ -319,8 +318,8 @@ class EntryV2CryptoService {
       );
     } finally {
       entryDek.fillRange(0, entryDek.length, 0);
-      secretBytes.fillRange(0, secretBytes.length, 0);
-      indexBytes.fillRange(0, indexBytes.length, 0);
+      secretBytes?.fillRange(0, secretBytes.length, 0);
+      indexBytes?.fillRange(0, indexBytes.length, 0);
       discoveryBytes?.fillRange(0, discoveryBytes.length, 0);
     }
   }

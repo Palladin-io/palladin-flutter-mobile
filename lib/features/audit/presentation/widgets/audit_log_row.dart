@@ -67,8 +67,16 @@ class _AuditLogRowState extends State<AuditLogRow> {
                     if (sentence != null)
                       Text.rich(
                         _sentenceText(sentence, brightness),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines:
+                            entry.eventType.group ==
+                                AuditEventGroup.entrySharing
+                            ? null
+                            : 3,
+                        overflow:
+                            entry.eventType.group ==
+                                AuditEventGroup.entrySharing
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
                       )
                     else ...[
                       Text(
@@ -167,7 +175,12 @@ class _ExpandedDetail extends StatelessWidget {
         (l10n.auditDetailReason, entry.agentReason!),
       ...entry.metadata.entries
           .where((e) => e.value.isNotEmpty)
-          .map((e) => (e.key, e.value)),
+          .map(
+            (e) => (
+              e.key == 'shareId' ? l10n.auditDetailSharing : e.key,
+              auditMetadataValue(e.key, e.value),
+            ),
+          ),
     ];
 
     if (rows.isEmpty) {
