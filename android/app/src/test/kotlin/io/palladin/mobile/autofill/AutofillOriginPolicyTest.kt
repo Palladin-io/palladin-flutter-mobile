@@ -27,14 +27,14 @@ class AutofillOriginPolicyTest {
         assertFalse(origin?.requiresSelection ?: true)
     }
 
-    @Test fun browserWithoutWebHostAndUnavailableNativeAuthorityAreRejected() {
+    @Test fun browserWithoutWebHostIsRejectedButUnknownNativeAuthorityAllowsManualChoice() {
         assertNull(resolve(emptyList(), native = setOf("shop.pl"), browser = true))
-        assertNull(resolve(emptyList(), native = emptySet()))
-        assertNull(resolve(emptyList(), native = null))
+        assertEquals(AutofillOriginMode.MANUAL_NATIVE, resolve(emptyList(), native = emptySet())?.mode)
+        assertEquals(AutofillOriginMode.MANUAL_NATIVE, resolve(emptyList(), native = null)?.mode)
     }
 
     @Test fun nativeAuthorityCannotAuthorizeWildcardsOrMalformedHosts() {
-        assertNull(resolve(emptyList(), native = setOf("*.shop.pl", "invalid")))
+        assertEquals(emptySet<String>(), resolve(emptyList(), native = setOf("*.shop.pl", "invalid"))?.domains)
         assertEquals(setOf("shop.pl"), resolve(emptyList(), native = setOf("*.shop.pl", "shop.pl"))?.domains)
     }
 

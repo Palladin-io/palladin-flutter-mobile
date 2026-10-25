@@ -1,6 +1,10 @@
 package io.palladin.mobile.autofill
 
-internal data class AutofillOrigin(val domains: Set<String>, val requiresSelection: Boolean)
+internal enum class AutofillOriginMode { WEB, VERIFIED_NATIVE, MANUAL_NATIVE }
+
+internal data class AutofillOrigin(val domains: Set<String>, val mode: AutofillOriginMode) {
+    val requiresSelection: Boolean get() = mode != AutofillOriginMode.WEB
+}
 
 internal object AutofillOriginPolicy {
     fun canReleaseNative(
@@ -21,10 +25,13 @@ internal object AutofillOriginPolicy {
         if (reportedDomains.isEmpty()) {
             if (isBrowser) return null
             val native = verifiedNativeDomains()?.mapNotNull(normalize)?.toSet().orEmpty()
-            return native.takeIf { it.isNotEmpty() }?.let { AutofillOrigin(it, true) }
+            return AutofillOrigin(
+                native,
+                if (native.isEmpty()) AutofillOriginMode.MANUAL_NATIVE else AutofillOriginMode.VERIFIED_NATIVE,
+            )
         }
         val domains = reportedDomains.map { normalize(it) ?: return null }.toSet()
         val domain = domains.singleOrNull() ?: return null
-        return if (verifyWebDomain(domain)) AutofillOrigin(setOf(domain), false) else null
+        return if (verifyWebDomain(domain)) AutofillOrigin(setOf(domain), AutofillOriginMode.WEB) else null
     }
 }

@@ -35,6 +35,16 @@
   host set, and the current OS authority at handoff, under the cache-generation
   lock. Cancellation/backgrounding clears the chooser's in-memory records.
   This path does not generate passwords or save application associations.
+- If an otherwise eligible non-browser native request has no reported domain and
+  the OS provides no verified hosts, `MANUAL_NATIVE` is distinct from both `WEB`
+  and `VERIFIED_NATIVE`. After biometric authentication the user may search by
+  Entry label, username or domain. Selecting a result opens a separate warning
+  identifying the unverified request package and selected domain; **Fill once**
+  is required to release it. Confirmation binds the Entry/domain to that request
+  and is consumed once. It never converts the selected record's host into origin
+  authority. Browser exclusion and cache-generation/lease checks run again at
+  handoff. No association or search query is persisted; cancellation, background
+  and destruction clear in-memory selection. Password generation is unavailable.
 - A malformed or ambiguous reported domain never falls back to native hosts.
   Missing browser domains also fail closed: Chrome is explicitly excluded, and
   a package-scoped all-host HTTPS intent capability check excludes other browser
@@ -139,9 +149,9 @@ References: [Android provider activation](https://developer.android.com/identity
    with that authority; self-consistent substituted records are rejected.
    Cache v1 has no lease or independent authority and is purged, never migrated.
 5. Missing, corrupt, stale, expired or clock-rolled-back cache state fails
-   closed. Automatic matching also rejects ambiguous, mismatched or unverified
-   destinations; the explicit iOS empty-identifier manual-selection path above
-   authorizes only the user-confirmed operation. The durable generation fence includes an
+   closed. Automatic matching rejects ambiguous, mismatched or unverified
+   destinations. The explicit absent-domain manual paths on Android and iOS
+   authorize only the user-confirmed operation. The durable generation fence includes an
    authenticated maximum observed wall time; rollback over five minutes
    quarantines the generation. A process-lifetime monotonic clock anchor also
    rejects a frozen or slowly advancing wall clock once it trails elapsed time
@@ -299,7 +309,9 @@ presence, origin verification status, generation-session/cache availability and
 inline-request presence. `NOT_CHECKED` means the existing short circuit skipped
 that operation; diagnostics never read cache/history just to populate a field.
 `QUERY_UNAVAILABLE` also covers Android versions before App Link verification.
-`CHECKING` means the request did not reach a recorded terminal result. Inline
+`CHECKING` means the request did not reach a recorded terminal result. An offered
+response with an unverified/unavailable origin may open the explicit manual
+native confirmation flow; it does not assert verified origin. Inline
 request presence does not imply the response includes an inline presentation.
 
 Only one snapshot exists in service memory. Each request replaces it; service or
@@ -341,12 +353,16 @@ verification of this command and the actual rejection remains required.
 - Native Android application forms without `webDomain`: verify an OS-linked
   application with multiple exact verified hosts, deliberate Entry/domain
   selection, cancel/background, and revocation while the chooser is open.
-  Malformed/ambiguous reported domains, unverified packages and browsers without
-  a page domain must return none. Check package visibility from the provider UID.
+  Malformed/ambiguous/unverified reported domains and browsers without a page
+  domain must return none. A non-browser package with no domain or verified host
+  must require the separate manual warning and one-operation confirmation. Check package visibility from the provider UID.
 - JVM tests exercise origin resolution, exact selection bindings and existing
   cache/lease/revocation rules; Android API compilation checks native call sites.
   They do not instantiate the system AssistStructure, biometric UI or chooser,
-  and do not prove the actual Allegro device flow.
+  and do not prove the actual Allegro device flow. Manual-mode QA must additionally
+  verify search, explicit warning/Fill once, cancel, backgrounding, a lease or
+  generation change before confirmation, and that a repeated confirmation cannot
+  release again. A nonempty unverified web domain must never reach this mode.
 - Automated Flutter/native tests and simulator builds do not replace physical
   device QA. Record Chrome/Safari background and locked-app behavior,
   biometric-set changes, corrupt-cache recovery, and Vault v2 delta refresh on

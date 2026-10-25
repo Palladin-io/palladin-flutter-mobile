@@ -90,7 +90,7 @@ class PalladinAutofillService : AutofillService() {
                         lastRequest = lastRequest.copy(origin = it)
                     }
                 },
-                AutofillOriginVerifier.isKnownBrowserPackage(targetPackage),
+                domains.isEmpty() && verifier.isBrowser(targetPackage),
             )
         }
         val domain = origin?.takeUnless { it.requiresSelection }?.domains?.singleOrNull()
@@ -111,6 +111,7 @@ class PalladinAutofillService : AutofillService() {
 
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
+            putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, origin.mode.name)
             putStringArrayListExtra(
                 AutofillAuthenticationActivity.EXTRA_NATIVE_DOMAINS,
                 if (origin.requiresSelection) ArrayList(origin.domains) else null,

@@ -11,4 +11,8 @@
     <string name="autofill_generate_prompt">Wygeneruj silne hasło w Palladin</string>
     <string name="autofill_native_biometric_subtitle">Odblokuj, a następnie wybierz wpis dla tej aplikacji.</string>
     <string name="autofill_choose_credential">Wybierz dane logowania</string>
+    <string name="autofill_search_credentials">Szukaj wpisów lub domen</string>
+    <string name="autofill_manual_confirm_title">Uzupełnić w niezweryfikowanej aplikacji?</string>
+    <string name="autofill_manual_confirm_message">Palladin nie mógł zweryfikować witryny tej aplikacji.\n\nAplikacja: %1$s\nDomena wpisu: %2$s\n\nKontynuuj tylko, jeśli ufasz tej aplikacji. Ten wybór nie zostanie zapamiętany.</string>
+    <string name="autofill_fill_once">Uzupełnij raz</string>
 </resources>
