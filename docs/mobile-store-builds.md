@@ -14,6 +14,14 @@
 
 Select main. Non-main dispatches fail preflight. Test remains available for PR/push, manual execution and reusable invocation, without application builds. Mobile Release calls it for the exact source commit.
 
+iOS artifacts explicitly use Xcode 26.3 on `macos-15`. CredentialProvider uses
+[generated-password APIs introduced in iOS 26.2](https://developer.apple.com/documentation/authenticationservices/asgeneratepasswordsrequest);
+runtime availability annotations cannot make these types compile against an older SDK.
+The release job logs the selected toolchain and typechecks the API contract before
+loading signing inputs. The [runner image used by the first failed release](https://github.com/actions/runner-images/blob/macos-15-arm64/20260907.0337/images/macos/macos-15-arm64-Readme.md)
+provides Xcode 26.3/iOS 26.2, but defaults to Xcode 16.4/iOS 18.5. Keep this explicit
+selection compatible with the installed runner image when upgrading toolchains.
+
 | Environment | Flavor | Package / bundle | Protected GitHub environment |
 | --- | --- | --- | --- |
 | prod | production | io.palladin.mobile | mobile-store-production |
