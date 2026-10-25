@@ -13,6 +13,8 @@ import 'package:mobile_palladin/features/notifications/domain/repositories/notif
 import 'package:mobile_palladin/features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_member.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/vault_members_repository.dart';
 
 class _Repository extends Mock implements NotificationCenterRepository {}
 
@@ -22,14 +24,17 @@ class _Index extends Mock implements MemberIndexReader {}
 
 class _Agents extends Mock implements AgentsRepository {}
 
-Grant _grant(String id, {String? entryId}) => Grant(
+class _Members extends Mock implements VaultMembersRepository {}
+
+Grant _grant(String id, {String? entryId, String? reason}) => Grant(
   id: id,
   vaultId: 'vault',
   agentId: 'agent',
   status: GrantStatus.active,
   scope: entryId == null ? GrantScope.full : GrantScope.granular,
   entryId: entryId,
-  reason: 'Reason $id',
+  reason: reason ?? 'Reason $id',
+  createdBy: 'actor',
   createdAt: DateTime(2026),
 );
 
@@ -54,12 +59,15 @@ void main() {
   late _Grants grants;
   late _Agents agents;
   late _Index index;
+  late _Members members;
   late NotificationCenterCubit cubit;
   setUp(() {
     repository = _Repository();
     grants = _Grants();
     agents = _Agents();
     index = _Index();
+    members = _Members();
+    when(() => members.list(any())).thenAnswer((_) async => []);
     when(() => agents.listAgents()).thenAnswer((_) async => []);
     when(() => repository.summary()).thenAnswer(
       (_) async =>
@@ -71,6 +79,7 @@ void main() {
         index: index,
         agents: agents,
         grants: grants,
+        vaultMembers: members,
       ),
     );
     cubit.configureUnlockedResolution(
@@ -91,6 +100,124 @@ void main() {
     );
   });
   tearDown(() => cubit.close());
+
+  test(
+    'quiet refresh retains resolved rows until fresh presentation is ready',
+    () async {
+      when(
+        () => repository.list(),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('same')]));
+      when(
+        () => grants.getGrant('vault', 'same'),
+      ).thenAnswer((_) async => _grant('same', entryId: 'entry'));
+      when(() => members.list('vault')).thenAnswer(
+        (_) async => [
+          VaultMember(
+            id: 'actor',
+            name: 'Local Actor',
+            addedAt: DateTime(2026),
+            status: VaultMemberStatus.active,
+          ),
+        ],
+      );
+      when(() => agents.listAgents()).thenAnswer(
+        (_) async => [
+          Agent(
+            agentId: 'agent',
+            name: 'Local Agent',
+            status: AgentStatus.active,
+            publicKeySuffix: 'suffix',
+            createdAt: DateTime(2026),
+          ),
+        ],
+      );
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'entry',
+          entryType: 1,
+          memberLabel: 'Local Entry',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.active,
+        ),
+      ]);
+      await cubit.load();
+      final slow = Completer<Grant>();
+      when(
+        () => grants.getGrant('vault', 'same'),
+      ).thenAnswer((_) => slow.future);
+      final reasons = <Object?>[];
+      final subscription = cubit.stream.listen((state) {
+        reasons.add(state.items.single.metadata['reason']);
+      });
+      final refresh = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.items.single.metadata['reason'], 'Reason same');
+      expect(cubit.state.items.single.metadata['actorName'], 'Local Actor');
+      expect(cubit.state.items.single.metadata['agentName'], 'Local Agent');
+      expect(cubit.state.items.single.metadata['entryLabel'], 'Local Entry');
+      when(() => repository.markRead('same')).thenAnswer((_) async {});
+      await cubit.markRead('same');
+      slow.complete(_grant('same', reason: 'Updated reason'));
+      await refresh;
+      await subscription.cancel();
+      expect(cubit.state.items.single.metadata['reason'], 'Updated reason');
+      expect(cubit.state.items.single.metadata['entryLabel'], isNull);
+      expect(cubit.state.items.single.isRead, true);
+      expect(reasons, isNot(contains(null)));
+    },
+  );
+
+  for (final boundary in ['lock', 'reset', 'removed', 'vault removal']) {
+    test('quiet refresh drops stale presentation on $boundary', () async {
+      when(() => repository.list()).thenAnswer(
+        (_) async => NotificationPage(items: [_item('same'), _item('removed')]),
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer(
+        (call) async => _grant(call.positionalArguments[1] as String),
+      );
+      await cubit.load();
+      final slow = Completer<Grant>();
+      when(
+        () => repository.list(),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('same')]));
+      when(
+        () => grants.getGrant('vault', 'same'),
+      ).thenAnswer((_) => slow.future);
+      final refresh = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+      switch (boundary) {
+        case 'lock':
+          cubit.lock();
+        case 'reset':
+          cubit.reset();
+        case 'vault removal':
+          cubit.configureUnlockedResolution(
+            activeAccountId: 'account',
+            activeOrganizationId: 'org',
+            activeVaults: [],
+          );
+          expect(
+            cubit.state.items.every((item) => item.metadata['reason'] == null),
+            true,
+          );
+        case 'removed':
+          expect(cubit.state.items.map((item) => item.id), ['same']);
+          expect(cubit.state.items.single.metadata['reason'], 'Reason same');
+      }
+      final settled = cubit.state;
+      slow.complete(_grant('same', reason: 'Updated reason'));
+      await refresh;
+      if (boundary != 'removed') {
+        expect(identical(cubit.state, settled), true);
+        expect(
+          cubit.state.items.every((item) => item.metadata['reason'] == null),
+          true,
+        );
+      }
+    });
+  }
 
   test('publishes safe feed and ready metadata before a slow grant', () async {
     final slow = Completer<Grant>();
