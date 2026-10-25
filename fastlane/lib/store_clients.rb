@@ -97,7 +97,8 @@ module MobileDelivery
       return @intent.known? ? :uncertain : :absent unless build
       return :untrusted unless @intent.known?
       return :invalid if build.expired || ['FAILED','INVALID'].include?(build.processing_state)
-      return :processing unless build.processing_state == 'VALID' && build.ready_for_internal_testing?
+      internal_state = build.build_beta_detail&.internal_build_state
+      return :processing unless build.processing_state == 'VALID' && ['READY_FOR_BETA_TESTING','IN_BETA_TESTING'].include?(internal_state)
       @group.fetch_builds.any? { |b| b.id == build.id } ? :distributed : :processing
     end
     def upload

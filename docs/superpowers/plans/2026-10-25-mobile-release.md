@@ -53,7 +53,7 @@ Interfaces: test workflow_call has no secrets; artifacts workflow receives reser
 Files: docs/mobile-store-builds.md, AGENTS.md/CLAUDE.md, design checkpoint.
 - [x] Document inputs, provisioning, version encoding, trust boundaries, restart semantics, expiry and tester verification. Keep instruction mirrors identical.
 - [ ] Review entire diff; run actionlint/Python/Ruby checks and repository CI on PR (authorized). Flutter checks run on CI; no PR app builds.
-- [ ] Independent whole-branch review; fix demonstrated significant findings with RED→GREEN tests.
+- [x] Independent whole-branch review; fix demonstrated significant findings with RED→GREEN tests.
 - [ ] Open PR, report exact checks and external provisioning blockers; do not claim store delivery before real acceptance.
 
 ## Checkpoint
@@ -65,3 +65,5 @@ Design approved 2026-10-25; owner explicitly requested implementation. Isolated 
 - Reject build-job reruns after attempt one; resume only verified artifacts or dispatch a new release. Cost: even an early failed build consumes its reserved identity.
 
 Android resume promotion regression: test_android_promotes_verified_existing_bundle_without_upload observed RED then GREEN; 13 Ruby tests / 19 assertions pass. Fastlane lane loads on pinned dependencies.
+
+Final review: independent whole-branch reviewer identified two important findings; no deferred minor findings. Both fixed in one TDD pass: actual Spaceship IN_BETA_TESTING model now reconciles only with exact internal group membership; Google upload disables rescue_changes_not_sent_for_review. Both tests observed RED → GREEN; Ruby suite 15 tests / 25 assertions passes. PR CI is the next gate; external store acceptance remains blocked as above.

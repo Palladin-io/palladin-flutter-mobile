@@ -116,6 +116,34 @@ class StoreClientsTest < Minitest::Test
     end
   end
 
+  def test_apple_already_distributed_build_reconciles_with_real_models
+    ENV['TESTFLIGHT_INTERNAL_GROUP_ID']='group'
+    detail=Spaceship::ConnectAPI::BuildBetaDetail.new('detail', {'internalBuildState'=>'IN_BETA_TESTING'})
+    build=Spaceship::ConnectAPI::Build.new('build', {'processingState'=>'VALID','expired'=>false})
+    build.build_beta_detail=detail
+    group=OpenStruct.new(id:'group',is_internal_group:true,has_access_to_all_builds:true)
+    group.define_singleton_method(:fetch_builds) { [build] }
+    app=OpenStruct.new(id:'app')
+    app.define_singleton_method(:get_beta_groups) { [group] }
+    intent=Object.new
+    intent.define_singleton_method(:known?) { true }
+    MobileDelivery::UploadIntent.stub(:new,intent) do
+      Spaceship::ConnectAPI::App.stub(:find,app) do
+        Spaceship::ConnectAPI::Build.stub(:all,[build]) do
+          store=MobileDelivery::AppleStore.new(manifest,-> { flunk 'must not upload' })
+          assert_equal :distributed,store.state
+          detail.internal_build_state='MISSING_EXPORT_COMPLIANCE'
+          assert_equal :processing,store.state
+          detail.internal_build_state='READY_FOR_BETA_TESTING'
+          group.define_singleton_method(:fetch_builds) { [] }
+          assert_equal :processing,store.state
+        end
+      end
+    end
+  ensure
+    ENV.delete('TESTFLIGHT_INTERNAL_GROUP_ID')
+  end
+
   def test_apple_rejects_external_or_nonautomatic_group
     ENV['TESTFLIGHT_INTERNAL_GROUP_ID']='group'
     group=OpenStruct.new(id:'group',is_internal_group:false,has_access_to_all_builds:true)
@@ -128,5 +156,38 @@ class StoreClientsTest < Minitest::Test
     end
   ensure
     ENV.delete('TESTFLIGHT_INTERNAL_GROUP_ID')
+  end
+end
+
+require 'tmpdir'
+class LaneContractTest < Minitest::Test
+  class Harness
+    attr_reader :options
+    def lane(name, &block) = @lane = block
+    def run = instance_exec(&@lane)
+    def upload_to_play_store(**options) = @options = options
+  end
+  def test_play_upload_never_weakens_review_settings
+    keys=%w[RELEASE_MANIFEST RELEASE_ARTIFACT MOBILE_DISTRIBUTION_ENABLED DELIVERY_RESULT GOOGLE_APPLICATION_CREDENTIALS]
+    original=keys.to_h { |key| [key,ENV[key]] }
+    Dir.mktmpdir do |dir|
+      path=File.join(dir,'manifest.json')
+      File.write(path,JSON.generate({'artifact_platform'=>'android','bundle_id'=>'io.example.app','run_id'=>1,'marketing_version'=>'1.0.0'}))
+      ENV.update('RELEASE_MANIFEST'=>path,'RELEASE_ARTIFACT'=>File.join(dir,'app.aab'),
+        'MOBILE_DISTRIBUTION_ENABLED'=>'true','DELIVERY_RESULT'=>File.join(dir,'result.json'),
+        'GOOGLE_APPLICATION_CREDENTIALS'=>File.join(dir,'credentials.json'))
+      harness=Harness.new
+      lane_path=File.expand_path('../Fastfile',__dir__)
+      harness.instance_eval(File.read(lane_path),lane_path)
+      adapter=->(_manifest,upload) { upload.call; Object.new }
+      MobileDelivery::AndroidStore.stub(:new,adapter) do
+        MobileDelivery.stub(:deliver,'distributed') { harness.run }
+      end
+      assert_equal 'internal',harness.options[:track]
+      assert_equal 'completed',harness.options[:release_status]
+      assert_equal false,harness.options[:rescue_changes_not_sent_for_review]
+    end
+  ensure
+    original.each { |key,value| value ? ENV[key]=value : ENV.delete(key) }
   end
 end

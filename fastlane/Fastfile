@@ -10,7 +10,7 @@ lane :internal do
   if platform == 'android'
     store = MobileDelivery::AndroidStore.new(manifest, lambda do
       upload_to_play_store(package_name: manifest.fetch('bundle_id'), aab: artifact,
-        track: 'internal', release_status: 'completed',
+        track: 'internal', release_status: 'completed', rescue_changes_not_sent_for_review: false,
         json_key: ENV.fetch('GOOGLE_APPLICATION_CREDENTIALS'),
         skip_upload_metadata: true, skip_upload_images: true,
         skip_upload_screenshots: true, skip_upload_changelogs: true)
