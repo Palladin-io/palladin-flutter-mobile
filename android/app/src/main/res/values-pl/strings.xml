@@ -9,4 +9,6 @@
     <string name="autofill_generate_subtitle">Użyj biometrii, aby utworzyć hasło dla %1$s</string>
     <string name="autofill_generate_label">Użyj silnego hasła</string>
     <string name="autofill_generate_prompt">Wygeneruj silne hasło w Palladin</string>
+    <string name="autofill_native_biometric_subtitle">Odblokuj, a następnie wybierz wpis dla tej aplikacji.</string>
+    <string name="autofill_choose_credential">Wybierz dane logowania</string>
 </resources>

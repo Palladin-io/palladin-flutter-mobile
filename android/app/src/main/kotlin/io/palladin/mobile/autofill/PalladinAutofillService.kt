@@ -63,7 +63,6 @@ class PalladinAutofillService : AutofillService() {
 
         val fields = CredentialFieldIds.from(structure)
         val domains = CredentialFieldIds.domainsFrom(structure)
-        val domain = domains.singleOrNull()
         val requestingPackage = structure.activityComponent?.packageName
         lastRequest = lastRequest.copy(
             passwordCount = fields.passwordIds.size,
@@ -76,19 +75,31 @@ class PalladinAutofillService : AutofillService() {
         )
         val cacheStore = AutoFillCacheStore(this)
         val history = GeneratedPasswordHistory(this)
-        val originVerified = domain != null &&
-            requestingPackage != null &&
-            (AutofillOriginVerifier(this).status(requestingPackage, domain).also {
-                lastRequest = lastRequest.copy(origin = it)
-            } == OriginStatus.VERIFIED)
-        val generate = fields.newPasswordIds.isNotEmpty() &&
+        val verifier = AutofillOriginVerifier(this)
+        val origin = requestingPackage?.let { targetPackage ->
+            AutofillOriginPolicy.resolve(
+                domains,
+                AutoFillCacheStore::normalizeDomain,
+                { host ->
+                    verifier.status(targetPackage, host).also {
+                        lastRequest = lastRequest.copy(origin = it)
+                    } == OriginStatus.VERIFIED
+                },
+                {
+                    verifier.nativeDomains(targetPackage) {
+                        lastRequest = lastRequest.copy(origin = it)
+                    }
+                },
+                AutofillOriginVerifier.isKnownBrowserPackage(targetPackage),
+            )
+        }
+        val domain = origin?.takeUnless { it.requiresSelection }?.domains?.singleOrNull()
+        val generate = domain != null && fields.newPasswordIds.isNotEmpty() &&
             fields.currentPasswordIds.isEmpty() && history.hasActiveSession().also {
                 lastRequest = lastRequest.copy(generationSession = availability(it))
             }
         if ((fields.passwordIds.isEmpty() && !generate) ||
-            domain == null ||
-            requestingPackage == null ||
-            !originVerified ||
+            origin == null ||
             (!generate && !cacheStore.hasCache().also {
                 lastRequest = lastRequest.copy(cache = availability(it))
             })
@@ -100,6 +111,10 @@ class PalladinAutofillService : AutofillService() {
 
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
+            putStringArrayListExtra(
+                AutofillAuthenticationActivity.EXTRA_NATIVE_DOMAINS,
+                if (origin.requiresSelection) ArrayList(origin.domains) else null,
+            )
             putExtra(AutofillAuthenticationActivity.EXTRA_GENERATE, generate)
             putExtra(
                 AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME,
@@ -120,7 +135,7 @@ class PalladinAutofillService : AutofillService() {
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            domain.hashCode(),
+            requestingPackage.hashCode() xor origin.domains.hashCode(),
             launchIntent,
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -252,7 +267,7 @@ class PalladinAutofillService : AutofillService() {
                 node: AssistStructure.ViewNode,
                 domains: MutableSet<String>,
             ) {
-                AutoFillCacheStore.normalizeDomain(node.webDomain)?.let(domains::add)
+                node.webDomain?.let(domains::add)
                 for (index in 0 until node.childCount) {
                     collectDomains(node.getChildAt(index), domains)
                 }

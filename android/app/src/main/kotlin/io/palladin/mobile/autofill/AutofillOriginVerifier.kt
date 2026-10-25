@@ -1,6 +1,9 @@
 package io.palladin.mobile.autofill
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.content.pm.ApplicationInfo
 import android.content.pm.verify.domain.DomainVerificationManager
 import android.content.pm.verify.domain.DomainVerificationUserState
@@ -26,6 +29,43 @@ internal class AutofillOriginVerifier(private val context: Context) {
         } else {
             OriginStatus.UNVERIFIED
         }
+    }
+
+    fun nativeDomains(
+        packageName: String,
+        reportStatus: (OriginStatus) -> Unit = {},
+    ): Set<String>? {
+        fun reject(status: OriginStatus): Set<String>? {
+            reportStatus(status)
+            return null
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return reject(OriginStatus.QUERY_UNAVAILABLE)
+        if (isBrowser(packageName)) return reject(OriginStatus.UNVERIFIED)
+        val state = runCatching {
+            context.getSystemService(DomainVerificationManager::class.java)
+                .getDomainVerificationUserState(packageName)
+        }.getOrNull() ?: return reject(OriginStatus.QUERY_UNAVAILABLE)
+        if (!state.isLinkHandlingAllowed) return reject(OriginStatus.LINK_HANDLING_DISABLED)
+        val domains = state.hostToStateMap.filterValues {
+            it == DomainVerificationUserState.DOMAIN_STATE_VERIFIED
+        }.keys.mapNotNull(AutoFillCacheStore::normalizeDomain).toSet()
+        reportStatus(if (domains.isEmpty()) OriginStatus.UNVERIFIED else OriginStatus.VERIFIED)
+        return domains
+    }
+
+    fun isBrowser(packageName: String): Boolean {
+        if (isKnownBrowserPackage(packageName)) return true
+        // A package's own verified links do not identify a page inside a browser.
+        // Query only this package's all-host HTTPS capability; no URL is opened.
+        return runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://example.invalid"))
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .setPackage(packageName)
+            context.packageManager.queryIntentActivities(
+                intent,
+                PackageManager.MATCH_ALL,
+            ).isNotEmpty()
+        }.getOrDefault(true)
     }
 
     private fun isTrustedSystemBrowser(packageName: String): Boolean {

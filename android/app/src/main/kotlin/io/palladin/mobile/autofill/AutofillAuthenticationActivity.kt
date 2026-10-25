@@ -1,6 +1,7 @@
 package io.palladin.mobile.autofill
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.service.autofill.Dataset
@@ -15,9 +16,22 @@ import io.palladin.mobile.R
 
 class AutofillAuthenticationActivity : FragmentActivity() {
     private lateinit var cacheStore: AutoFillCacheStore
+    private var nativeRecords: MutableList<CachedCredential>? = null
+
+    override fun onDestroy() {
+        nativeRecords?.clear()
+        nativeRecords = null
+        super.onDestroy()
+    }
+
+    override fun onStop() {
+        if (nativeRecords != null) finishCanceled()
+        super.onStop()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         cacheStore = AutoFillCacheStore(this)
 
         val domain = AutoFillCacheStore.normalizeDomain(
@@ -25,6 +39,25 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         )
         val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
             ?.takeIf(String::isNotBlank)
+        val nativeDomains = intent.getStringArrayListExtra(EXTRA_NATIVE_DOMAINS).orEmpty()
+        if (nativeDomains.isNotEmpty()) {
+            if (intent.getStringExtra(EXTRA_DOMAIN) != null || packageName == null ||
+                intent.getBooleanExtra(EXTRA_GENERATE, false) ||
+                nativeDomains.any { AutoFillCacheStore.normalizeDomain(it) != it } ||
+                !nativeOriginStillVerified(packageName, nativeDomains.toSet()) ||
+                !cacheStore.hasCache()
+            ) {
+                finishCanceled()
+                return
+            }
+            val operation = runCatching(cacheStore::createUnwrapOperation).getOrElse {
+                cacheStore.clear()
+                finishCanceled()
+                return
+            }
+            showBiometricPrompt(operation, null, packageName, nativeDomains.toSet())
+            return
+        }
         val originVerified = domain != null &&
             packageName != null &&
             AutofillOriginVerifier(this).isVerified(packageName, domain)
@@ -130,8 +163,9 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
     private fun showBiometricPrompt(
         operation: AutoFillUnwrapOperation,
-        domain: String,
+        domain: String?,
         requestingPackage: String,
+        nativeDomains: Set<String> = emptySet(),
     ) {
         val prompt = BiometricPrompt(
             this,
@@ -145,11 +179,12 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                         finishCanceled()
                         return
                     }
-                    completeFill(
-                        AutoFillUnwrapOperation(operation.generation, authenticatedCipher),
-                        domain,
-                        requestingPackage,
-                    )
+                    val authenticated = AutoFillUnwrapOperation(operation.generation, authenticatedCipher)
+                    if (domain == null) {
+                        showNativeCredentialChooser(authenticated, requestingPackage, nativeDomains)
+                    } else {
+                        completeFill(authenticated, domain, requestingPackage)
+                    }
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -159,11 +194,97 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         )
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(getString(R.string.autofill_biometric_title))
-            .setSubtitle(getString(R.string.autofill_biometric_subtitle, domain))
+            .setSubtitle(
+                if (domain == null) getString(R.string.autofill_native_biometric_subtitle)
+                else getString(R.string.autofill_biometric_subtitle, domain),
+            )
             .setNegativeButtonText(getString(R.string.autofill_cancel))
             .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
         prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(operation.cipher))
+    }
+
+    private fun nativeOriginStillVerified(requestingPackage: String, domains: Set<String>): Boolean =
+        domains.isNotEmpty() && AutofillOriginVerifier(this)
+            .nativeDomains(requestingPackage)?.containsAll(domains) == true
+
+    private fun showNativeCredentialChooser(
+        operation: AutoFillUnwrapOperation,
+        requestingPackage: String,
+        domains: Set<String>,
+    ) {
+        if (!nativeOriginStillVerified(requestingPackage, domains)) {
+            finishCanceled()
+            return
+        }
+        val records = runCatching { cacheStore.decrypt(operation) }.getOrElse {
+            cacheStore.quarantine(operation.generation)
+            finishCanceled()
+            return
+        }
+        nativeRecords = records
+        val matches = records.flatMap { record ->
+            record.domains.filter { it in domains }.map { domain -> record to domain }
+        }
+        if (matches.isEmpty()) {
+            finishCanceled()
+            return
+        }
+        val labels = matches.map { (record, domain) ->
+            "${record.label} — $domain\n${record.username}"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.autofill_choose_credential)
+            .setItems(labels) { _, position ->
+                val (record, domain) = matches[position]
+                completeNativeSelection(operation, requestingPackage, record, domain, domains)
+            }
+            .setNegativeButton(R.string.autofill_cancel) { _, _ -> finishCanceled() }
+            .setOnCancelListener { finishCanceled() }
+            .show()
+    }
+
+    private fun completeNativeSelection(
+        operation: AutoFillUnwrapOperation,
+        requestingPackage: String,
+        record: CachedCredential,
+        domain: String,
+        requestDomains: Set<String>,
+    ) {
+        if (isFinishing || nativeRecords?.any { it === record } != true) return
+        fun stillAuthorized() = AutofillOriginPolicy.canReleaseNative(
+            domain,
+            record.domains,
+            requestDomains,
+            AutofillOriginVerifier(this).nativeDomains(requestingPackage),
+        )
+        val passwords = intent.autofillIds(EXTRA_PASSWORD_IDS)
+        if (passwords.isEmpty() || !stillAuthorized()) {
+            finishCanceled()
+            return
+        }
+        val presentation = autofillPresentation(this, "${record.label} — $domain")
+        val dataset = Dataset.Builder(presentation)
+        intent.autofillIds(EXTRA_USERNAME_IDS).forEach {
+            dataset.setValue(it, AutofillValue.forText(record.username), presentation)
+        }
+        passwords.forEach {
+            dataset.setValue(it, AutofillValue.forText(record.password), presentation)
+        }
+        val response = FillResponse.Builder().addDataset(dataset.build()).build()
+        val handedOff = runCatching {
+            cacheStore.withRevalidatedGeneration(operation.generation) {
+                require(stillAuthorized())
+                nativeRecords?.clear()
+                nativeRecords = null
+                setResult(
+                    Activity.RESULT_OK,
+                    Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response),
+                )
+                finish()
+            }
+        }.isSuccess
+        if (!handedOff) finishCanceled()
     }
 
     private fun completeFill(
@@ -247,11 +368,14 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         }
 
     private fun finishCanceled() {
+        nativeRecords?.clear()
+        nativeRecords = null
         setResult(Activity.RESULT_CANCELED)
         finish()
     }
 
     companion object {
+        const val EXTRA_NATIVE_DOMAINS = "palladin.autofill.native_domains"
         const val EXTRA_DOMAIN = "palladin.autofill.domain"
         const val EXTRA_PACKAGE_NAME = "palladin.autofill.package_name"
         const val EXTRA_USERNAME_IDS = "palladin.autofill.username_ids"

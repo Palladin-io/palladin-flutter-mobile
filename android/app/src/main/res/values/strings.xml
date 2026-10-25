@@ -9,4 +9,6 @@
     <string name="autofill_generate_subtitle">Use biometrics to create a password for %1$s</string>
     <string name="autofill_generate_label">Use strong password</string>
     <string name="autofill_generate_prompt">Generate a strong password with Palladin</string>
+    <string name="autofill_native_biometric_subtitle">Unlock, then choose an entry for this app.</string>
+    <string name="autofill_choose_credential">Choose a credential</string>
 </resources>

@@ -27,9 +27,24 @@
 - Android accepts `webDomain` only when Android 12+ reports an OS-verified App
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
-  identity. The manifest exposes only `com.android.chrome` to package queries
-  needed for that identity check; it does not request `QUERY_ALL_PACKAGES`.
-  Other native apps and sideloaded browser lookalikes fail closed.
+  identity. For a native form with no reported domain, the service instead
+  obtains that package's exact OS-verified App Link hosts. After biometric
+  authentication, a chooser displays each matching Entry and exact domain;
+  even one match requires a deliberate choice before one dataset is released.
+  The selected domain must belong to the Entry, the original request's verified
+  host set, and the current OS authority at handoff, under the cache-generation
+  lock. Cancellation/backgrounding clears the chooser's in-memory records.
+  This path does not generate passwords or save application associations.
+- A malformed or ambiguous reported domain never falls back to native hosts.
+  Missing browser domains also fail closed: Chrome is explicitly excluded, and
+  a package-scoped all-host HTTPS intent capability check excludes other browser
+  handlers. A host-specific App Link alone is not browser capability. The probe
+  uses a reserved `.invalid` host solely for local intent resolution, never a
+  network request; an unavailable capability check fails closed.
+- Manifest package visibility includes Chrome plus HTTPS/BROWSABLE handlers,
+  the capability needed to query App Link authority. It does not request
+  `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
+  (rather than OS-verified) links.
 
 ## iOS manual credential selection
 
@@ -280,7 +295,7 @@ adb shell dumpsys activity service io.palladin.mobile/io.palladin.mobile.autofil
 ```
 
 The service emits only fixed keys with enums, counts and booleans: request result,
-password count, normalized-domain cardinality (zero/one/ambiguous), package
+password count, reported-domain cardinality (zero/one/ambiguous), package
 presence, origin verification status, generation-session/cache availability and
 inline-request presence. `NOT_CHECKED` means the existing short circuit skipped
 that operation; diagnostics never read cache/history just to populate a field.
@@ -324,8 +339,15 @@ verification of this command and the actual rejection remains required.
   26.2+, verify generation requests with and without site rules and recovery
   after restart; on older iOS verify the explicit in-app Generate path. Verify
   manual Vault save and account switching on physical iPhones.
-- Native Android application forms return datasets only for exact hosts backed
-  by an OS-verified App Link on Android 12+; unverified packages return none.
+- Native Android application forms without `webDomain`: verify an OS-linked
+  application with multiple exact verified hosts, deliberate Entry/domain
+  selection, cancel/background, and revocation while the chooser is open.
+  Malformed/ambiguous reported domains, unverified packages and browsers without
+  a page domain must return none. Check package visibility from the provider UID.
+- JVM tests exercise origin resolution, exact selection bindings and existing
+  cache/lease/revocation rules; Android API compilation checks native call sites.
+  They do not instantiate the system AssistStructure, biometric UI or chooser,
+  and do not prove the actual Allegro device flow.
 - Automated Flutter/native tests and simulator builds do not replace physical
   device QA. Record Chrome/Safari background and locked-app behavior,
   biometric-set changes, corrupt-cache recovery, and Vault v2 delta refresh on
