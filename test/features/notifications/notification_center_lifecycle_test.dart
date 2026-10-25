@@ -205,7 +205,11 @@ void main() {
       resolving.complete();
       await pending;
       expect(identical(cubit.state, settled), true);
-      expect(cubit.state.items, isEmpty);
+      if (boundary == 'lock') {
+        expect(cubit.state.items.single.metadata, isEmpty);
+      } else {
+        expect(cubit.state.items, isEmpty);
+      }
     });
   }
 

@@ -116,7 +116,10 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     }
   }
 
-  Future<List<InboxNotification>> _resolve(List<InboxNotification> items) {
+  Future<List<InboxNotification>> _resolve(
+    List<InboxNotification> items, {
+    void Function(InboxNotification)? onResolved,
+  }) {
     final presentationResolver = resolver;
     final accountId = _activeAccountId;
     final organizationId = _activeOrganizationId;
@@ -138,6 +141,38 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       activeAccountId: accountId,
       activeOrganizationId: organizationId,
       activeVaults: _activeVaults,
+      onResolved: onResolved,
+    );
+  }
+
+  List<InboxNotification> _prepare(List<InboxNotification> items) {
+    final presentationResolver = resolver;
+    if (presentationResolver == null) return items;
+    if (_activeAccountId == null || _activeOrganizationId == null) {
+      return presentationResolver.redact(items);
+    }
+    return presentationResolver.prepare(
+      items: items,
+      activeVaults: _activeVaults,
+    );
+  }
+
+  Future<void> _hydrate(
+    List<InboxNotification> items,
+    int generation,
+    int feed,
+  ) async {
+    await _resolve(
+      items,
+      onResolved: (resolved) {
+        if (!_current(generation) || feed != _feedGeneration) return;
+        final index = state.items.indexWhere((item) => item.id == resolved.id);
+        if (index < 0) return;
+        final updated = [...state.items];
+        // Read/action mutations may have happened while presentation was loading.
+        updated[index] = updated[index].copyWith(metadata: resolved.metadata);
+        emit(state.copyWith(items: updated));
+      },
     );
   }
 
@@ -223,8 +258,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       if (!_current(generation) || feed != _feedGeneration) return;
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
-      final remoteItems = await _resolve(page.items);
-      if (!_current(generation) || feed != _feedGeneration) return;
+      final remoteItems = _prepare(page.items);
       final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
@@ -246,6 +280,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           clearCursor: page.nextCursor == null,
         ),
       );
+      await _hydrate(page.items, generation, feed);
     } on NotificationCenterException catch (error) {
       if (!_current(generation) || feed != _feedGeneration) return;
       emit(
@@ -281,8 +316,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       if (!_current(generation) || feed != _feedGeneration) return;
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
-      final remoteItems = await _resolve(page.items);
-      if (!_current(generation) || feed != _feedGeneration) return;
+      final remoteItems = _prepare(page.items);
       final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
@@ -305,6 +339,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           clearError: true,
         ),
       );
+      await _hydrate(page.items, generation, feed);
     } catch (_) {
       if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.w('Notifications', 'Inbox refresh failed (quiet)');
@@ -350,8 +385,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     try {
       final page = await repository.list(cursor: cursor);
       if (!_current(generation) || feed != _feedGeneration) return;
-      final remoteItems = await _resolve(page.items);
-      if (!_current(generation) || feed != _feedGeneration) return;
+      final remoteItems = _prepare(page.items);
       _reconcilePaginationResolutions(
         remoteItems,
         feedIsComplete: page.nextCursor == null,
@@ -365,6 +399,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           isLoadingMore: false,
         ),
       );
+      await _hydrate(page.items, generation, feed);
     } catch (_) {
       if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.w('Notifications', 'Inbox pagination failed');
