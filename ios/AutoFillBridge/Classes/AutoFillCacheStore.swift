@@ -427,12 +427,32 @@ enum AutoFillCredentialUseGuard {
         currentCounter: Int?,
         currentFence: AutoFillFence?
     ) throws {
+        try validateLease(credential, now: now, currentCounter: currentCounter, currentFence: currentFence)
+        guard credential.record.matches(serviceIdentifiers: serviceIdentifiers) else {
+            throw AutoFillCacheError.expiredLease
+        }
+    }
+
+    static func validateManualSelection(
+        _ selection: AutoFillManualSelection,
+        now: Date,
+        currentCounter: Int?,
+        currentFence: AutoFillFence?
+    ) throws {
+        try validateLease(selection.credential, now: now, currentCounter: currentCounter, currentFence: currentFence)
+    }
+
+    private static func validateLease(
+        _ credential: AutoFillCredentialLease,
+        now: Date,
+        currentCounter: Int?,
+        currentFence: AutoFillFence?
+    ) throws {
         _ = try AutoFillWallTimeGuard.maximumObservedWallTime(
             now: now,
             previous: credential.maximumObservedWallTime
         )
         guard credential.notAfter > now,
-              credential.record.matches(serviceIdentifiers: serviceIdentifiers),
               AutoFillFenceRules.isActive(
                 counter: currentCounter,
                 fence: currentFence,
@@ -958,11 +978,13 @@ final class AutoFillCacheStore {
     ) throws {
         try withStateProcessLock {
             try revalidateCredentialLocked(
-                credential,
-                serviceIdentifiers: serviceIdentifiers,
-                now: now,
-                systemUptime: systemUptime
-            )
+                credential, now: now, systemUptime: systemUptime
+            ) { counter, fence in
+                try AutoFillCredentialUseGuard.validate(
+                    credential, serviceIdentifiers: serviceIdentifiers, now: now,
+                    currentCounter: counter, currentFence: fence
+                )
+            }
         }
     }
 
@@ -975,11 +997,31 @@ final class AutoFillCacheStore {
     ) throws -> T {
         try withStateProcessLock {
             try revalidateCredentialLocked(
-                credential,
-                serviceIdentifiers: serviceIdentifiers,
-                now: now,
-                systemUptime: systemUptime
-            )
+                credential, now: now, systemUptime: systemUptime
+            ) { counter, fence in
+                try AutoFillCredentialUseGuard.validate(
+                    credential, serviceIdentifiers: serviceIdentifiers, now: now,
+                    currentCounter: counter, currentFence: fence
+                )
+            }
+            return try use()
+        }
+    }
+
+    func withRevalidatedManualSelection<T>(
+        _ selection: AutoFillManualSelection,
+        now: Date = Date(),
+        systemUptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
+        use: () throws -> T
+    ) throws -> T {
+        try withStateProcessLock {
+            try revalidateCredentialLocked(
+                selection.credential, now: now, systemUptime: systemUptime
+            ) { counter, fence in
+                try AutoFillCredentialUseGuard.validateManualSelection(
+                    selection, now: now, currentCounter: counter, currentFence: fence
+                )
+            }
             return try use()
         }
     }
@@ -1463,9 +1505,9 @@ final class AutoFillCacheStore {
 
     private func revalidateCredentialLocked(
         _ credential: AutoFillCredentialLease,
-        serviceIdentifiers: [ASCredentialServiceIdentifier],
         now: Date,
-        systemUptime: TimeInterval
+        systemUptime: TimeInterval,
+        validateUse: (Int?, AutoFillFence?) throws -> Void
     ) throws {
         try requireActiveLocked(
             generation: credential.generation,
@@ -1503,13 +1545,7 @@ final class AutoFillCacheStore {
             try? quarantineCurrentFenceLocked()
             throw error
         }
-        try AutoFillCredentialUseGuard.validate(
-            credential,
-            serviceIdentifiers: serviceIdentifiers,
-            now: now,
-            currentCounter: try? readCounterLocked(),
-            currentFence: try? readFenceLocked()
-        )
+        try validateUse(try? readCounterLocked(), try? readFenceLocked())
     }
 
     private func validateProcessWallTimeLocked(

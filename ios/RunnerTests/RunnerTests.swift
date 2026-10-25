@@ -41,6 +41,93 @@ final class RunnerTests: XCTestCase {
         ]))
     }
 
+    func testEmptyServiceListOffersSearchableManualCandidatesButRequiresConfirmation() throws {
+        let picker = AutoFillCredentialPicker(
+            credentials: [manualCredential()], serviceIdentifiers: []
+        )
+        XCTAssertEqual(picker.candidates(query: " EXAMPLE.COM ").count, 1)
+        XCTAssertEqual(picker.candidates(query: "test-only-password").count, 0)
+        XCTAssertNil(picker.confirmManualSelection())
+        XCTAssertNil(picker.select(recordID: "entry-1"))
+        XCTAssertEqual(picker.pendingConfirmation?.record.id, "entry-1")
+        let confirmed = try XCTUnwrap(picker.confirmManualSelection())
+        XCTAssertEqual(confirmed.credential.record.id, "entry-1")
+        XCTAssertNil(picker.confirmManualSelection())
+    }
+
+    func testManualSelectionCancellationAndClearNeverReleaseCredentials() {
+        let picker = AutoFillCredentialPicker(
+            credentials: [manualCredential()], serviceIdentifiers: []
+        )
+        _ = picker.select(recordID: "entry-1")
+        picker.cancelSelection()
+        XCTAssertNil(picker.confirmManualSelection())
+        _ = picker.select(recordID: "entry-1")
+        picker.clear()
+        XCTAssertTrue(picker.candidates(query: "").isEmpty)
+        XCTAssertNil(picker.confirmManualSelection())
+        XCTAssertNil(picker.select(recordID: "entry-1"))
+    }
+
+    func testEmptyCacheReadHasNoManualSelection() {
+        let picker = AutoFillCredentialPicker(credentials: [], serviceIdentifiers: [])
+        XCTAssertTrue(picker.candidates(query: "").isEmpty)
+        XCTAssertNil(picker.select(recordID: "entry-1"))
+        XCTAssertNil(picker.pendingConfirmation)
+        XCTAssertNil(picker.confirmManualSelection())
+    }
+
+    func testNonemptyServiceIdentifiersNeverFallBackToManualSelection() {
+        for domain in ["other.example.com", "invalid"] {
+            let picker = AutoFillCredentialPicker(
+                credentials: [manualCredential()],
+                serviceIdentifiers: [ASCredentialServiceIdentifier(identifier: domain, type: .domain)]
+            )
+            XCTAssertTrue(picker.candidates(query: "").isEmpty)
+            XCTAssertNil(picker.select(recordID: "entry-1"))
+            XCTAssertNil(picker.pendingConfirmation)
+            XCTAssertNil(picker.confirmManualSelection())
+        }
+        let matched = AutoFillCredentialPicker(
+            credentials: [manualCredential()],
+            serviceIdentifiers: [ASCredentialServiceIdentifier(identifier: "example.com", type: .domain)]
+        )
+        XCTAssertEqual(matched.select(recordID: "entry-1")?.record.id, "entry-1")
+        XCTAssertNil(matched.confirmManualSelection())
+    }
+
+    func testManualConfirmationStillRejectsExpiryRevocationAndClockRollback() throws {
+        let picker = AutoFillCredentialPicker(credentials: [manualCredential()], serviceIdentifiers: [])
+        _ = picker.select(recordID: "entry-1")
+        let selected = try XCTUnwrap(picker.confirmManualSelection())
+        let active = AutoFillFence(generation: 20, state: .active, cacheId: "cache-current")
+        try AutoFillCredentialUseGuard.validateManualSelection(
+            selected, now: now, currentCounter: 20, currentFence: active
+        )
+        XCTAssertThrowsError(try AutoFillCredentialUseGuard.validateManualSelection(
+            selected, now: now.addingTimeInterval(60), currentCounter: 20, currentFence: active
+        ))
+        XCTAssertThrowsError(try AutoFillCredentialUseGuard.validateManualSelection(
+            selected, now: now, currentCounter: 21,
+            currentFence: AutoFillFence(generation: 21, state: .revoked, cacheId: nil)
+        ))
+        XCTAssertThrowsError(try AutoFillCredentialUseGuard.validateManualSelection(
+            selected, now: now.addingTimeInterval(-301), currentCounter: 20, currentFence: active
+        ))
+    }
+
+    private func manualCredential() -> AutoFillCredentialLease {
+        AutoFillCredentialLease(
+            record: AutoFillCredentialRecord(
+                id: "entry-1", organizationId: "org-1", vaultId: "vault-1", revision: "41",
+                keyVersion: 7, label: "Example", username: "user@example.com",
+                password: "test-only-password", domains: ["example.com"]
+            ),
+            notAfter: now.addingTimeInterval(60), generation: 20, cacheId: "cache-current",
+            maximumObservedWallTime: now
+        )
+    }
+
     func testV2PayloadAcceptsCompleteIndependentAuthority() throws {
         let payload = try AutoFillPayloadValidator.validate(fixturePayload(), now: now)
 

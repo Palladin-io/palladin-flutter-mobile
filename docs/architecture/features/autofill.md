@@ -31,6 +31,33 @@
   needed for that identity check; it does not request `QUERY_ALL_PACKAGES`.
   Other native apps and sideloaded browser lookalikes fail closed.
 
+## iOS manual credential selection
+
+When iOS calls the credential-list extension with **no service identifiers**,
+Palladin first authenticates and reads the cache, then offers a searchable list
+of credentials. Search examines the in-memory label, username and saved domains;
+it never searches passwords or persists the query. Each row shows its domains.
+The list warns that the destination is unverified. Selecting a row opens a
+separate confirmation showing the selected label and domains; only **Fill once**
+releases that credential. Cancellation, an empty authenticated result, or a
+replaced request cannot complete a manual fill.
+
+This is a deliberate one-operation user authorization, not origin verification.
+A nonempty but invalid or mismatched OS identifier list does not enter this
+fallback. Existing exact-host matching and QuickType identity selection keep
+their domain checks. Manual handoff uses a separate entry point and checks the
+same current generation, revocation fence, lease and wall-clock authority under
+the same process lock through `completeRequest`. It never derives an expected
+destination from the selected credential.
+
+No destination association is remembered. This callback supplies no stable
+requesting-app identity when its service-identifier list is empty; a previous
+choice must not establish trust for the next unnamed app. Future remembered
+associations require an independently supplied stable identity and explicit
+user consent. Physical iPhone QA remains required for Safari, associated native
+apps, empty-identifier manual selection, cancellation and revocation while the
+confirmation is open.
+
 ## Provider activation and status
 
 The native provider registrations do not select Palladin for the user. On the
@@ -96,8 +123,10 @@ References: [Android provider activation](https://developer.android.com/identity
    lease, plus each Entry revision/key high-water. Every record is compared
    with that authority; self-consistent substituted records are rejected.
    Cache v1 has no lease or independent authority and is purged, never migrated.
-5. Missing, corrupt, stale, expired, clock-rolled-back, ambiguous, mismatched,
-   or unverified state fails closed. The durable generation fence includes an
+5. Missing, corrupt, stale, expired or clock-rolled-back cache state fails
+   closed. Automatic matching also rejects ambiguous, mismatched or unverified
+   destinations; the explicit iOS empty-identifier manual-selection path above
+   authorizes only the user-confirmed operation. The durable generation fence includes an
    authenticated maximum observed wall time; rollback over five minutes
    quarantines the generation. A process-lifetime monotonic clock anchor also
    rejects a frozen or slowly advancing wall clock once it trails elapsed time

@@ -137,16 +137,16 @@ Current implementation:
 - Runner and extension use the AutoFill entitlement and the per-flavor `APP_GROUP_IDENTIFIER` configured in Xcode/Apple Developer.
 - iOS reads the explicit per-flavor `APP_GROUP_IDENTIFIER` from signed build configuration, stores only encrypted provider records in that App Group, and protects the dedicated cache key with `biometryCurrentSet` in the same App Group keychain access group. Never derive this identifier from a bundle ID.
 - Android stores only encrypted provider records in `noBackupFilesDir` and protects the wrapping key with a biometric-bound Android Keystore key.
-- Both providers fail closed without a normalized service domain. Android accepts a `webDomain` only from an Android 12+ package with an OS-verified App Link for that exact host or from the explicitly allowlisted, platform-authenticated system Chrome package; all other native/browser forms fail closed.
+- Automatic matching fails closed without a normalized service domain. iOS additionally permits an authenticated manual picker only when the OS supplies no service identifiers, with a visible unverified-destination warning and a separate one-operation confirmation; it never records an inferred association. Android accepts a `webDomain` only from an Android 12+ package with an OS-verified App Link for that exact host or from the explicitly allowlisted, platform-authenticated system Chrome package; all other native/browser forms fail closed.
 - System AutoFill behavior is documented in `docs/architecture/features/autofill.md`.
 
 Security rules for all AutoFill work:
 1. Never persist MK, VK, private keys, decrypted vault payloads, plaintext passwords, or TOTP seeds in App Groups, shared preferences, files, logs, analytics, or extension caches. A dedicated native AutoFill cache may persist only authenticated ciphertext encrypted with a random key unrelated to MK/VK.
 2. AutoFill key sharing is limited to the explicit per-flavor App Group access group and requires biometric-set invalidation. Never reuse the app's normal keychain group or biometric-unlock key.
-3. Match credentials against normalized service identifiers/domains and fail closed on ambiguous or mismatched domains.
+3. Match credentials against normalized service identifiers/domains and fail closed on ambiguous or mismatched domains. The explicit iOS empty-identifier manual-selection exception above does not manufacture a verified domain and retains every cache/lease/revocation check.
 4. A locked app/provider must return `userInteractionRequired`; never weaken authentication to make background AutoFill succeed.
 5. Keep native provider code thin. Reuse the mobile crypto contract and wipe temporary plaintext/key buffers in `finally`/`defer` paths.
-6. Treat any plaintext logging, broad shared-container storage, missing domain verification, or authentication bypass as a Critical blocking finding.
+6. Treat any plaintext logging, broad shared-container storage, missing domain verification outside the explicit manual-selection exception, or authentication bypass as a Critical blocking finding.
 
 ## Tech Stack
 
