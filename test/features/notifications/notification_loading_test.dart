@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/features/agents/domain/entities/agent.dart';
+import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
 import 'package:mobile_palladin/features/notifications/data/services/notification_presentation_resolver.dart';
@@ -17,12 +20,15 @@ class _Grants extends Mock implements GrantsRepository {}
 
 class _Index extends Mock implements MemberIndexReader {}
 
-Grant _grant(String id) => Grant(
+class _Agents extends Mock implements AgentsRepository {}
+
+Grant _grant(String id, {String? entryId}) => Grant(
   id: id,
   vaultId: 'vault',
   agentId: 'agent',
   status: GrantStatus.active,
-  scope: GrantScope.full,
+  scope: entryId == null ? GrantScope.full : GrantScope.granular,
+  entryId: entryId,
   reason: 'Reason $id',
   createdAt: DateTime(2026),
 );
@@ -46,10 +52,15 @@ InboxNotification _item(String id, {String? grantId}) => InboxNotification(
 void main() {
   late _Repository repository;
   late _Grants grants;
+  late _Agents agents;
+  late _Index index;
   late NotificationCenterCubit cubit;
   setUp(() {
     repository = _Repository();
     grants = _Grants();
+    agents = _Agents();
+    index = _Index();
+    when(() => agents.listAgents()).thenAnswer((_) async => []);
     when(() => repository.summary()).thenAnswer(
       (_) async =>
           const NotificationSummary(unreadCount: 2, pendingActionCount: 0),
@@ -57,7 +68,8 @@ void main() {
     cubit = NotificationCenterCubit(
       repository: repository,
       resolver: NotificationPresentationResolver(
-        index: _Index(),
+        index: index,
+        agents: agents,
         grants: grants,
       ),
     );
@@ -100,6 +112,69 @@ void main() {
     await loading;
     expect(cubit.state.items.first.metadata['reason'], 'Reason slow');
   });
+
+  test(
+    'all Entry labels and reasons publish while Agent names are pending',
+    () async {
+      final response = Completer<List<Agent>>();
+      when(() => agents.listAgents()).thenAnswer((_) => response.future);
+      when(() => repository.list()).thenAnswer(
+        (_) async =>
+            NotificationPage(items: [for (var i = 0; i < 9; i++) _item('$i')]),
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer(
+        (invocation) async => _grant(
+          invocation.positionalArguments[1] as String,
+          entryId: 'entry',
+        ),
+      );
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'entry',
+          entryType: 1,
+          memberLabel: 'Local Entry',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.active,
+        ),
+      ]);
+      final loading = cubit.load();
+      await Future<void>.delayed(Duration.zero);
+      final beforeAgents = cubit.state.items;
+      response.complete([
+        Agent(
+          agentId: 'agent',
+          name: 'Local Agent',
+          status: AgentStatus.active,
+          publicKeySuffix: 'suffix',
+          createdAt: DateTime(2026),
+        ),
+      ]);
+      await loading;
+      expect(beforeAgents.map((item) => item.metadata['reason']), [
+        for (var i = 0; i < 9; i++) 'Reason $i',
+      ]);
+      expect(
+        beforeAgents.every(
+          (item) => item.metadata['entryLabel'] == 'Local Entry',
+        ),
+        true,
+      );
+      expect(
+        cubit.state.items.every(
+          (item) => item.metadata['agentName'] == 'Local Agent',
+        ),
+        true,
+      );
+      expect(
+        cubit.state.items.every(
+          (item) => item.metadata['entryLabel'] == 'Local Entry',
+        ),
+        true,
+      );
+    },
+  );
 
   test('shares duplicate grant requests within one page', () async {
     when(() => repository.list()).thenAnswer(

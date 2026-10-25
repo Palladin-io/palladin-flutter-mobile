@@ -38,7 +38,7 @@ final class NotificationPresentationResolver {
       return _generic(items);
     }
     final prepared = prepare(items: items, activeVaults: activeVaults);
-    final agentNames = _agentNames();
+    var agentNames = const <String, String>{};
     final memberNames = <String, Future<Map<String, String>>>{};
     final grants = <(String, String), Future<Grant?>>{};
     final output = List<InboxNotification>.of(prepared);
@@ -74,10 +74,8 @@ final class NotificationPresentationResolver {
               if (actorName != null) metadata['actorName'] = actorName;
             }
           }
-          // Publish ready Entry/reason/actor fields without waiting for Agents.
-          onResolved?.call(_withMetadata(item, Map.of(metadata)));
           final agentId = _string(metadata, 'agentId');
-          final agentName = (await agentNames)[agentId];
+          final agentName = agentNames[agentId];
           if (agentName != null) metadata['agentName'] = agentName;
         }
         final resolved = _withMetadata(item, metadata);
@@ -86,8 +84,26 @@ final class NotificationPresentationResolver {
       }
     }
 
-    // Bound per-row HTTP/crypto work instead of serializing the entire page.
-    await Future.wait(List.generate(items.length.clamp(0, 4), (_) => worker()));
+    Future<void> resolveAgentNames() async {
+      agentNames = await _agentNames();
+      for (var i = 0; i < output.length; i++) {
+        final item = output[i];
+        if (item.vaultId == null) continue;
+        final name = agentNames[item.agentId];
+        if (name == null) continue;
+        final resolved = item.copyWith(
+          metadata: {...item.metadata, 'agentName': name},
+        );
+        output[i] = resolved;
+        onResolved?.call(resolved);
+      }
+    }
+
+    // Agent names cannot occupy the bounded per-row HTTP/crypto workers.
+    await Future.wait([
+      resolveAgentNames(),
+      ...List.generate(items.length.clamp(0, 4), (_) => worker()),
+    ]);
     return output;
   }
 
@@ -246,26 +262,21 @@ final class NotificationPresentationResolver {
     final repository = _grants;
     final grantId = _string(metadata, 'grantId');
     if (repository == null || grantId == null) return null;
-    try {
-      final grant = await (grants[(vaultId, grantId)] ??= _readGrant(
-        repository,
-        vaultId,
-        grantId,
-      ));
-      if (grant == null) return null;
-      final entryId = _string(metadata, 'entryId');
-      final agentId = _string(metadata, 'agentId');
-      if (grant.id != grantId ||
-          grant.vaultId != vaultId ||
-          (entryId != null && grant.entryId != entryId) ||
-          (agentId != null && grant.agentId != agentId)) {
-        return null;
-      }
-      return grant;
-    } catch (_) {
-      AppLogger.w('Notifications', 'Grant presentation resolution failed');
+    final grant = await (grants[(vaultId, grantId)] ??= _readGrant(
+      repository,
+      vaultId,
+      grantId,
+    ));
+    if (grant == null) return null;
+    final entryId = _string(metadata, 'entryId');
+    final agentId = _string(metadata, 'agentId');
+    if (grant.id != grantId ||
+        grant.vaultId != vaultId ||
+        (entryId != null && grant.entryId != entryId) ||
+        (agentId != null && grant.agentId != agentId)) {
       return null;
     }
+    return grant;
   }
 
   Future<Grant?> _readGrant(
