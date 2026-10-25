@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
@@ -232,20 +233,7 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
           ),
         ),
         if (editable)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              AppSpacing.md,
-              AppSpacing.screenH,
-              AppSpacing.screenBottom,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.cardFill(brightness),
-              border: Border(
-                top: BorderSide(color: AppColors.navBorder(brightness)),
-              ),
-            ),
+          AppActionFooter(
             child: PrimaryButton(
               label: l10n.permissionsSave,
               isLoading: state.busyAction == PermissionsAction.update,

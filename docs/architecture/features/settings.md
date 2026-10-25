@@ -107,3 +107,7 @@ Optional privacy choices appear on first entry to the ready application, after r
 The Privacy drawer item is a sheet action over the current screen, preserving its
 route and unsaved state. Direct `/settings/privacy` links use Security behind the
 sheet and settle on `/settings/security` when dismissed.
+
+General Save, Team member/invitation Save and editable Permission Role Save use
+`AppActionFooter` for one shared bottom safe-area contract. Their hosts leave
+bottom inset ownership to the footer, so system navigation cannot cover actions.

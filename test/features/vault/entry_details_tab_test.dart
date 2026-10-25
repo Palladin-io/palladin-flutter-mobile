@@ -200,6 +200,31 @@ void main() {
     expect(find.text(secret), findsOneWidget);
   });
 
+  for (final bottomInset in [24.0, 48.0]) {
+    testWidgets('Edit and Save clear a $bottomInset px system navigation bar', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = FakeViewPadding(bottom: bottomInset);
+      tester.view.viewPadding = FakeViewPadding(bottom: bottomInset);
+      addTearDown(tester.view.reset);
+      await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      final edit = find.widgetWithText(ElevatedButton, l10n.entryEditAction);
+      expect(
+        tester.getBottomRight(edit).dy,
+        lessThanOrEqualTo(844 - bottomInset),
+      );
+      await enterEdit(tester);
+      final save = find.widgetWithText(ElevatedButton, l10n.entrySaveAction);
+      expect(
+        tester.getBottomRight(save).dy,
+        lessThanOrEqualTo(844 - bottomInset),
+      );
+    });
+  }
+
   testWidgets('Details opens read-only and Edit switches to the form', (
     tester,
   ) async {

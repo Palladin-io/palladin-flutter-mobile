@@ -10,6 +10,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/warning_zone.dart';
@@ -1224,20 +1225,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             ),
           ),
         ),
-        Container(
+        AppActionFooter(
           key: const ValueKey('entry-edit-footer'),
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            AppSpacing.md,
-            AppSpacing.screenH,
-            AppSpacing.screenBottom,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            border: Border(
-              top: BorderSide(color: AppColors.navBorder(brightness)),
-            ),
-          ),
           child: PrimaryButton(
             label: l10n.entryEditAction,
             onPressed: _enterEditMode,
@@ -1683,20 +1672,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             ),
           ),
         ),
-        Container(
+        AppActionFooter(
           key: const ValueKey('entry-save-footer'),
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            AppSpacing.md,
-            AppSpacing.screenH,
-            AppSpacing.screenBottom,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            border: Border(
-              top: BorderSide(color: AppColors.navBorder(brightness)),
-            ),
-          ),
           child: EntrySaveButton(
             isLoading: isLoading,
             onPressed: canSubmit ? _submit : null,

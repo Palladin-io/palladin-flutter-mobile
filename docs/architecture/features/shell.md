@@ -97,3 +97,23 @@ only in that navigation's `extra`, with no global tab-history state or timers.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
 Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.
+
+## Android launch resources
+
+Native startup uses the existing shield and `AppColors.darkBackground` before
+Flutter restores the saved theme. API 23–30 uses the centered 72dp logo copied
+byte-for-byte from `assets/images/logo.png`; API 31+ uses the existing transparent
+adaptive foreground in the OS splash slot. Both day and night launch themes
+explicitly use the dark startup background. The app-switcher `PrivacyCover`
+remains opaque and unchanged; the native splash does not expose application data.
+
+Launcher resources include adaptive icons in both `mipmap-anydpi-v26` and
+`mipmap-night-anydpi-v26`. Keep both: night-qualified legacy PNGs otherwise win
+resource selection before the unqualified adaptive icon, producing a square dark
+icon on launchers such as Samsung One UI. Android owns the adaptive mask; no
+rounded rectangle is baked into the foreground. Pre-26 devices retain the legacy
+icons. Native appearance still requires real-device verification after release.
+
+Pinned action bands use `AppActionFooter`. It consumes remaining bottom padding
+through `SafeArea`, with the existing 32dp minimum, instead of adding raw
+`viewPadding` to an already-safe parent. The Scaffold owns keyboard resizing.
