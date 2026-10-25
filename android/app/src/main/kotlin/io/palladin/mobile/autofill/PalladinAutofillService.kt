@@ -9,6 +9,9 @@ import android.content.Intent
 import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
+import android.service.autofill.InlinePresentation
+import androidx.autofill.inline.UiVersions
+import androidx.autofill.inline.v1.InlineSuggestionUi
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
@@ -17,6 +20,7 @@ import android.view.View
 import android.view.autofill.AutofillId
 import android.widget.RemoteViews
 import io.palladin.mobile.R
+import io.palladin.mobile.MainActivity
 
 /**
  * System Autofill entry point.
@@ -128,16 +132,51 @@ class PalladinAutofillService : AutofillService() {
                 getString(R.string.autofill_generate_prompt),
             )
         }
-        val response = FillResponse.Builder()
-            .setAuthentication(
-                fields.allIds.toTypedArray(),
-                pendingIntent.intentSender,
-                presentation,
+        val responseBuilder = FillResponse.Builder()
+        val inlinePresentation = inlineAuthenticationPresentation(request, generate)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
+            responseBuilder.setAuthentication(
+                fields.allIds.toTypedArray(), pendingIntent.intentSender,
+                presentation, inlinePresentation,
             )
-            .build()
+        } else {
+            responseBuilder.setAuthentication(
+                fields.allIds.toTypedArray(), pendingIntent.intentSender, presentation,
+            )
+        }
+        val response = responseBuilder.build()
 
         lastRequest = lastRequest.copy(result = RequestResult.RESPONSE_OFFERED)
         callback.onSuccess(response)
+    }
+
+    private fun inlineAuthenticationPresentation(
+        request: FillRequest,
+        generate: Boolean,
+    ): InlinePresentation? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val inlineRequest = request.inlineSuggestionsRequest ?: return null
+        val spec = inlineRequest.inlinePresentationSpecs.firstOrNull() ?: return null
+        if (!supportsInlineAuthentication(
+                Build.VERSION.SDK_INT,
+                inlineRequest.maxSuggestionCount,
+                UiVersions.getVersions(spec.style).contains(UiVersions.INLINE_UI_VERSION_1),
+            )
+        ) return null
+        val label = getString(
+            if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label,
+        )
+        // Fixed, value-free attribution intent is reused across requests. Long
+        // press opens Palladin; selecting the chip uses the authentication intent.
+        val attribution = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val content = InlineSuggestionUi.newContentBuilder(attribution)
+            .setTitle(label)
+            .setContentDescription(label)
+            .build()
+        return InlinePresentation(content.slice, spec, false)
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {

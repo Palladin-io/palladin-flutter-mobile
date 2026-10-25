@@ -199,6 +199,21 @@ References: [Android provider activation](https://developer.android.com/identity
    iOS identity cleanup; the next unlocked synchronization creates a fresh
    dedicated key and cache.
 
+## Android keyboard action
+
+On Android 11+, a compatible keyboard may show the localized unlock/generate
+action inline. The service uses AndroidX Autofill 1.3.0's standard v1 UI template
+with the first IME presentation spec (including its size/style). A missing request,
+zero suggestion capacity or unsupported template retains the dropdown. Selecting
+the chip invokes the same biometric authentication activity; long-press attribution
+opens Palladin through a fixed value-free PendingIntent. Origin/cache gates run
+before any presentation is constructed. No credential value enters this chip.
+
+Reference: [Android inline autofill guide](https://developer.android.com/identity/autofill/ime-autofill).
+Automated JVM tests cover compatibility selection; Android API compilation checks
+the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
+Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
+
 ## Android last-request diagnosis
 
 While the production service is alive, authorized adb users can inspect its last
