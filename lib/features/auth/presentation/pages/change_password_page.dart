@@ -1,3 +1,4 @@
+import '../../../../core/storage/biometric_key_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -305,6 +306,9 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
   }
 
   String _serverErrorMessage(AppLocalizations l10n, Object error) {
+    if (error is BiometricKeyCleanupException) {
+      return l10n.biometricCleanupFailed;
+    }
     if (error is PasswordAuthServerException) {
       return switch (error.kind) {
         PasswordAuthServerErrorKind.serverNotResponding =>

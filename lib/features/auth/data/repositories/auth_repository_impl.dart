@@ -2,10 +2,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../../../core/storage/biometric_key_storage.dart';
+import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/jwt_claims.dart';
@@ -25,7 +24,7 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.tokenStorage,
-    required this.secureStorage,
+    required this.biometricKeyStore,
     required this.autoFillCacheInvalidator,
     required String googleServerClientId,
     this.currentEntryCacheInvalidator,
@@ -48,7 +47,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthRemoteDatasource remoteDatasource;
   final SecureTokenStorage tokenStorage;
-  final FlutterSecureStorage secureStorage;
+  final BiometricKeyStore biometricKeyStore;
   final AutoFillCacheInvalidator autoFillCacheInvalidator;
   final GeneratedPasswordHistoryBridge _generatedPasswordHistory;
   final GoogleSignIn _googleSignIn;
@@ -198,10 +197,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
     // Critical local security cleanup — must always run so backend/native
     // availability can never keep a valid local session alive.
+    BiometricKeyCleanupException? biometricCleanupError;
     try {
       await tokenStorage.clearAll();
     } finally {
-      await BiometricKeyStorage.clear(secureStorage);
+      try {
+        await biometricKeyStore.clear();
+      } catch (_) {
+        biometricCleanupError = const BiometricKeyCleanupException();
+      }
     }
 
     // Best-effort, time-boxed remote revoke + Google sign-out. Never let these
@@ -227,6 +231,7 @@ class AuthRepositoryImpl implements AuthRepository {
         'Google sign-out failed (best-effort): ${e.runtimeType}',
       );
     }
+    if (biometricCleanupError != null) throw biometricCleanupError;
     AppLogger.i('Auth', 'Logout complete, tokens cleared');
   }
 

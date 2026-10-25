@@ -37,10 +37,13 @@ class BiometricAuthException implements Exception {
   String toString() => 'BiometricAuthException(${reason.name})';
 }
 
-/// Enclave-backed, biometric-gated store for the master key (MK). The MK is
-/// bound to biometric presence at the OS layer, so it cannot be read without a
-/// fresh biometric auth — even on a rooted device with the app sandbox bypassed.
+/// OS-protected master-key copy used only after biometric authorization.
+/// The key enters process memory after unlock; this is not protection against
+/// a compromised OS or a compromised running application.
 abstract interface class BiometricKeyStore {
+  /// Incremented synchronously whenever cleanup is requested.
+  int get generation;
+
   /// Whether the device can store/read a key behind biometric auth right now.
   Future<bool> canStore();
 
@@ -49,16 +52,26 @@ abstract interface class BiometricKeyStore {
 
   /// Enrolls [masterKey] behind biometric-gated storage. Throws
   /// [BiometricAuthException] if the user declines or the write fails.
-  Future<void> enroll(Uint8List masterKey, BiometricPromptCopy copy);
+  Future<void> enroll(
+    Uint8List masterKey,
+    BiometricPromptCopy copy, {
+    required int expectedGeneration,
+  });
 
   /// Reads the enrolled MK via the OS biometric prompt. `null` if none
   /// enrolled; throws [BiometricAuthException] on cancel/failure.
   Future<Uint8List?> unlockKey(BiometricPromptCopy copy);
 
-  /// Removes the enrolled key + marker. Best-effort — never throws/prompts.
+  /// Removes protected material and marker without requesting authentication.
+  /// Throws [BiometricKeyCleanupException] if protected deletion fails.
   Future<void> clear();
 
   /// Deletes any pre-hardening raw MK still on disk. Best-effort; must run even
   /// when [canStore] is false, else a non-biometric device keeps the raw MK.
   Future<void> purgeLegacyRawKey();
+}
+
+/// Protected material could not be confirmed deleted by the platform.
+class BiometricKeyCleanupException implements Exception {
+  const BiometricKeyCleanupException();
 }

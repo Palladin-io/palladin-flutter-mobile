@@ -46,3 +46,36 @@ clips page decoration to its own body so the light bloom cannot overpaint the
 sharing notice; the shared background's geometry inside that body is unchanged.
 These are client-composition/rendering tests, not real authentication, device
 lifecycle, biometric or deployed end-to-end evidence.
+
+## Biometric key lifecycle
+
+Biometric unlock retains a device-bound protected MK copy: iOS Keychain uses
+`biometryCurrentSet` and `WhenPasscodeSetThisDeviceOnly`; Android uses an
+AES-GCM ciphertext and an Android Keystore key requiring strong biometric
+authorization for each operation. This does not make a compromised OS or the
+unlocked process unable to access plaintext. The server never receives this key.
+
+`BiometricStorageKeyStore` serializes enrollment, reads and deletion so an
+in-flight enrollment cannot recreate material after a queued clear. Cleanup also
+increments a generation immediately; password unlock captures it before async
+work and stale operations cannot enroll after logout, disable or password change.
+Disposed or invalidated unlocks wipe their derived key buffers. Cleanup
+uses the fixed `biometric_storage` 5.x identifiers through a native deletion-only
+channel: iOS deletes the Keychain item without allowing authentication UI;
+Android deletes and checks the wrapping alias and removes its ciphertext file.
+The dependency's delete API discards native failure information, so it is not
+used as proof of cleanup. Missing items are idempotent success. The enrollment
+marker and legacy raw key are also removed; failures are typed and not logged
+with secret values.
+
+Logout calls the same cleanup, even when token deletion fails. When tokens were
+removed but protected cleanup fails, the app clears live keys and reports the
+cleanup error instead of restoring an unlocked session. Password change clears
+the old copy before the server mutation; failure leaves the password unchanged.
+`clearBiometricKey` uses the same boundary. A subsequent password unlock can
+create a fresh biometric enrollment.
+
+Dart channel-contract and lifecycle tests plus JVM deletion tests cover these
+branches. Actual Face ID/fingerprint, changed enrollment, cancellation, restart,
+and device logout/re-enrollment require device QA before claiming release
+acceptance. The fixed deletion identifiers must be reviewed on plugin upgrades.

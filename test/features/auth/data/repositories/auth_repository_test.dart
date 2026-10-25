@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:mobile_palladin/core/storage/biometric_storage_key_store.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -39,6 +41,9 @@ class MockCurrentEntryCacheInvalidator extends Mock
     implements CurrentEntryCacheInvalidator {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  var protectedKeyPresent = true;
+  var failBiometricDeletion = false;
   late MockAuthRemoteDatasource mockDatasource;
   late MockSecureTokenStorage mockStorage;
   late MockGoogleSignIn mockGoogleSignIn;
@@ -60,6 +65,19 @@ void main() {
   );
 
   setUp(() {
+    protectedKeyPresent = true;
+    failBiometricDeletion = false;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('io.palladin.mobile/biometric-key-cleanup'),
+          (call) async {
+            if (failBiometricDeletion) {
+              throw PlatformException(code: 'cleanup_failed');
+            }
+            protectedKeyPresent = false;
+            return null;
+          },
+        );
     mockDatasource = MockAuthRemoteDatasource();
     mockStorage = MockSecureTokenStorage();
     mockGoogleSignIn = MockGoogleSignIn();
@@ -87,7 +105,9 @@ void main() {
     repository = AuthRepositoryImpl(
       remoteDatasource: mockDatasource,
       tokenStorage: mockStorage,
-      secureStorage: mockSecureStorage,
+      biometricKeyStore: BiometricStorageKeyStore(
+        markerStorage: mockSecureStorage,
+      ),
       autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
       generatedPasswordHistory: mockGeneratedHistory,
       currentEntryCacheInvalidator: mockCurrentEntryCacheInvalidator,
@@ -104,7 +124,9 @@ void main() {
         final unconfigured = AuthRepositoryImpl(
           remoteDatasource: mockDatasource,
           tokenStorage: mockStorage,
-          secureStorage: mockSecureStorage,
+          biometricKeyStore: BiometricStorageKeyStore(
+            markerStorage: mockSecureStorage,
+          ),
           autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
           googleServerClientId: '',
           googleSignIn: mockGoogleSignIn,
@@ -191,6 +213,29 @@ void main() {
   });
 
   group('logout', () {
+    test(
+      'logout deletes the protected biometric key, not only its marker',
+      () async {
+        when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+        when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+        await repository.logout();
+        expect(protectedKeyPresent, isFalse);
+      },
+    );
+
+    test(
+      'failed biometric deletion never keeps session tokens or reports success',
+      () async {
+        failBiometricDeletion = true;
+        when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+        await expectLater(repository.logout(), throwsA(isA<Exception>()));
+        verify(() => mockStorage.clearAll()).called(1);
+        expect(protectedKeyPresent, isTrue);
+      },
+    );
+
     test('clears storage and signs out of Google', () async {
       when(
         () => mockStorage.refreshToken,

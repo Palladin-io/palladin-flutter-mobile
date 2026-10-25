@@ -218,7 +218,7 @@ void configureDependencies(EnvConfig config) {
     () => AuthRepositoryImpl(
       remoteDatasource: getIt<AuthRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
-      secureStorage: getIt<FlutterSecureStorage>(),
+      biometricKeyStore: getIt<BiometricKeyStore>(),
       autoFillCacheInvalidator: getIt<AutoFillCacheInvalidator>(),
       currentEntryCacheInvalidator: getIt<MemberSyncService>(),
       googleServerClientId: config.googleServerClientId,

@@ -1,4 +1,5 @@
 {
+  "biometricCleanupFailed": "Nie udało się usunąć chronionego klucza biometrycznego z tego urządzenia. Spróbuj ponownie.",
   "auditActorExternalRecipient": "Odbiorca zewnętrzny",
   "auditGroupEntrySharing": "Udostępnianie wpisów",
   "notifTitleEntryShareReceived": "Odebrano udostępnioną kopię",

@@ -106,3 +106,7 @@ has no provider-owned default. Missing configuration fails before Google Sign-In
 and does not fall back to the Firebase platform client. See
 [Firebase and OAuth build configuration](../../firebase-config.md) for the
 separate backend-audience and iOS-distribution inputs.
+
+Biometric cleanup on logout and before password changes is described in
+[unlock](unlock.md#biometric-key-lifecycle). A deletion failure is not silently
+reported as successful cleanup; revoked token sessions are not resurrected.

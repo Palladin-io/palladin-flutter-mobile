@@ -69,6 +69,10 @@ class ChangePasswordCubit extends Cubit<ChangePasswordState> {
         currentEncryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
+      // Revoke the old device copy before committing the new password. A
+      // cleanup error must not be swallowed after a successful server mutation.
+      await keyStore.clear();
+
       await datasource.changePassword(
         baseCredentialRevision: kdf.credentialRevision,
         basePrivateKeyWrapRevision: kdf.privateKeyWrapRevision,
@@ -77,18 +81,6 @@ class ChangePasswordCubit extends Cubit<ChangePasswordState> {
         newKdfSalt: material.kdfSalt,
         newEncryptedPrivateKey: material.encryptedPrivateKey,
       );
-
-      // The stashed biometric master key is now stale — drop it so a
-      // biometric unlock can't try to decrypt the new ciphertext with the
-      // old key. Best-effort; never blocks the change.
-      try {
-        await keyStore.clear();
-      } catch (e) {
-        AppLogger.w(
-          'ChangePassword',
-          'Biometric clear skipped: ${e.runtimeType}',
-        );
-      }
 
       AppLogger.i('ChangePassword', 'Master password changed');
       emit(

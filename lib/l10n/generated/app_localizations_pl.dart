@@ -9,6 +9,10 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get biometricCleanupFailed =>
+      'Nie udało się usunąć chronionego klucza biometrycznego z tego urządzenia. Spróbuj ponownie.';
+
+  @override
   String get auditActorExternalRecipient => 'Odbiorca zewnętrzny';
 
   @override
