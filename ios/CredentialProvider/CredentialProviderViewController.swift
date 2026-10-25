@@ -6,7 +6,12 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     private let credentialsStack = UIStackView()
     private let searchBar = UISearchBar()
     private var picker: AutoFillCredentialPicker?
-    private var requestGeneration = 0
+    private var requestActive = false
+    private lazy var requestLifecycle = AutoFillCredentialRequestLifecycle(
+        notificationCenter: .default,
+        hostBackgroundNotification: .NSExtensionHostDidEnterBackground,
+        onHostBackground: { [weak self] in self?.cancelForHostLoss() }
+    )
     private var visibleCredentials: [AutoFillCredentialLease] = []
     private var visibleServiceIdentifiers: [ASCredentialServiceIdentifier] = []
 
@@ -67,6 +72,22 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
             container.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
             container.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
         ])
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if isBeingDismissed || isMovingFromParent || parent?.isBeingDismissed == true {
+            cancelForHostLoss()
+        }
+    }
+
+    private func cancelForHostLoss() {
+        guard requestActive else { return }
+        clearCredentials()
+        presentedViewController?.dismiss(animated: false)
+        extensionContext.cancelRequest(withError: NSError(
+            domain: ASExtensionErrorDomain, code: ASExtensionError.userCanceled.rawValue
+        ))
     }
 
     override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
@@ -218,7 +239,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     private func unlockRecords(completion: @escaping (AutoFillCacheReadResult) -> Void) {
         loadViewIfNeeded()
         clearCredentials()
-        let generation = requestGeneration
+        let generation = requestLifecycle.generation
+        requestActive = true
         statusLabel.text = NSLocalizedString(
             "credential_provider_unlocking",
             comment: "Shown while the provider waits for biometric authentication."
@@ -238,7 +260,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
                     )
                 )
                 DispatchQueue.main.async { [weak self] in
-                    guard self?.requestGeneration == generation else { return }
+                    guard self?.requestLifecycle.generation == generation else { return }
                     completion(result)
                 }
             } catch {
@@ -253,7 +275,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
                     ) { _ in }
                 }
                 DispatchQueue.main.async { [weak self] in
-                    guard self?.requestGeneration == generation else { return }
+                    guard self?.requestLifecycle.generation == generation else { return }
                     self?.showUnavailableMessage()
                 }
             }
@@ -305,13 +327,15 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     @objc private func selectCredential(_ sender: UIButton) {
-        guard visibleCredentials.indices.contains(sender.tag), let picker else { return }
+        guard presentedViewController == nil, requestActive,
+              visibleCredentials.indices.contains(sender.tag), let picker else { return }
         if let credential = picker.select(recordID: visibleCredentials[sender.tag].record.id) {
             complete(credential, serviceIdentifiers: visibleServiceIdentifiers)
             return
         }
-        guard let pending = picker.pendingConfirmation else { return }
-        let generation = requestGeneration
+        guard let pending = picker.pendingConfirmation,
+              let confirmationID = picker.pendingConfirmationID else { return }
+        let generation = requestLifecycle.generation
         let alert = UIAlertController(
             title: NSLocalizedString("credential_provider_manual_confirm_title", comment: "Manual fill confirmation"),
             message: String(format: NSLocalizedString(
@@ -326,8 +350,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
             title: NSLocalizedString("credential_provider_manual_fill", comment: "Confirm one manual fill"), style: .default
         ) { [weak self, weak picker] _ in
             guard let self, let picker, self.picker === picker,
-                  self.requestGeneration == generation,
-                  let selection = picker.confirmManualSelection() else { return }
+                  self.requestActive, self.requestLifecycle.generation == generation,
+                  let selection = picker.confirmManualSelection(confirmationID: confirmationID) else { return }
             self.completeManualSelection(selection)
         })
         present(alert, animated: true)
@@ -337,6 +361,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         do {
             let store = try AutoFillCacheStore()
             try store.withRevalidatedManualSelection(selection) {
+                requestActive = false
                 extensionContext.completeRequest(withSelectedCredential: ASPasswordCredential(
                     user: selection.credential.record.username,
                     password: selection.credential.record.password
@@ -355,7 +380,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     private func clearCredentials() {
-        requestGeneration += 1
+        requestActive = false
+        requestLifecycle.invalidate()
         picker?.clear()
         picker = nil
         visibleCredentials.removeAll(keepingCapacity: false)
@@ -379,6 +405,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
                     user: credential.record.username,
                     password: credential.record.password
                 )
+                requestActive = false
                 extensionContext.completeRequest(
                     withSelectedCredential: passwordCredential,
                     completionHandler: nil

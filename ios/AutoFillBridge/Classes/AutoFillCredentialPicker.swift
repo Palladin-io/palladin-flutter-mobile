@@ -11,6 +11,7 @@ final class AutoFillCredentialPicker {
     let requiresManualConfirmation: Bool
     private var credentials: [AutoFillCredentialLease]
     private(set) var pendingConfirmation: AutoFillCredentialLease?
+    private(set) var pendingConfirmationID: UUID?
 
     init(credentials: [AutoFillCredentialLease], serviceIdentifiers: [ASCredentialServiceIdentifier]) {
         requiresManualConfirmation = serviceIdentifiers.isEmpty
@@ -29,25 +30,58 @@ final class AutoFillCredentialPicker {
     }
 
     func select(recordID: String) -> AutoFillCredentialLease? {
-        pendingConfirmation = nil
+        cancelSelection()
         guard let credential = credentials.first(where: { $0.record.id == recordID }) else { return nil }
         if requiresManualConfirmation {
             pendingConfirmation = credential
+            pendingConfirmationID = UUID()
             return nil
         }
         return credential
     }
 
-    func confirmManualSelection() -> AutoFillManualSelection? {
-        guard requiresManualConfirmation, let pendingConfirmation else { return nil }
-        self.pendingConfirmation = nil
+    func confirmManualSelection(confirmationID: UUID) -> AutoFillManualSelection? {
+        guard requiresManualConfirmation, pendingConfirmationID == confirmationID,
+              let pendingConfirmation else { return nil }
+        cancelSelection()
         return AutoFillManualSelection(credential: pendingConfirmation)
     }
 
-    func cancelSelection() { pendingConfirmation = nil }
+    func cancelSelection() {
+        pendingConfirmation = nil
+        pendingConfirmationID = nil
+    }
 
     func clear() {
-        pendingConfirmation = nil
+        cancelSelection()
         credentials.removeAll(keepingCapacity: false)
     }
+}
+
+/// Tracks request validity independently of temporary biometric focus changes.
+final class AutoFillCredentialRequestLifecycle {
+    private(set) var generation = 0
+    private let notificationCenter: NotificationCenter
+    private var observer: NSObjectProtocol?
+
+    init(
+        notificationCenter: NotificationCenter,
+        hostBackgroundNotification: Notification.Name,
+        onHostBackground: @escaping () -> Void
+    ) {
+        self.notificationCenter = notificationCenter
+        observer = notificationCenter.addObserver(
+            forName: hostBackgroundNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.invalidate()
+            onHostBackground()
+        }
+    }
+
+    deinit {
+        if let observer { notificationCenter.removeObserver(observer) }
+    }
+
+    func invalidate() { generation += 1 }
 }

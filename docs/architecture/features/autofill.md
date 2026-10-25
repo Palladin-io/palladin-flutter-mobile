@@ -65,7 +65,12 @@ it never searches passwords or persists the query. Each row shows its domains.
 The list warns that the destination is unverified. Selecting a row opens a
 separate confirmation showing the selected label and domains; only **Fill once**
 releases that credential. Cancellation, an empty authenticated result, or a
-replaced request cannot complete a manual fill.
+replaced request cannot complete a manual fill. Confirmation is bound to a fresh
+selection token captured with the displayed credential; replacing a selection
+invalidates the earlier confirmation. Host backgrounding (not a temporary
+biometric focus change) and genuine controller dismissal invalidate pending
+requests, clear the picker, dismiss its confirmation and cancel the extension
+request. A later use requires a fresh authenticated request.
 
 This is a deliberate one-operation user authorization, not origin verification.
 A nonempty but invalid or mismatched OS identifier list does not enter this
