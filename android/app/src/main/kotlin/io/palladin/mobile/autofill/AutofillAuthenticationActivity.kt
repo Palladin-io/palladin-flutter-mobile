@@ -366,7 +366,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
     private fun selectionResponse(record: CachedCredential, domain: String): FillResponse? {
         val passwords = intent.autofillIds(EXTRA_PASSWORD_IDS)
         if (passwords.isEmpty()) return null
-        val presentation = autofillPresentation(this, "${record.label} — $domain")
+        val presentation = autofillCredentialPresentation(this, record.username, record.label, domain)
         val dataset = Dataset.Builder(presentation)
         intent.autofillIds(EXTRA_USERNAME_IDS).forEach {
             dataset.setValue(it, AutofillValue.forText(record.username), presentation)
