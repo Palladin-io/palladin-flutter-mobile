@@ -54,6 +54,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   AuditPresentationNames _recentActivityNames = const AuditPresentationNames();
   final Set<String> _pendingEntryNameVaults = {};
   var _loadGeneration = 0;
+  ({String? userId, bool canViewAudit})? _loadScope;
   var _recentActivityGeneration = 0;
   var _refreshingEntryNames = false;
 
@@ -105,16 +106,27 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// matching per-user flag.
   Future<void> load({bool canViewAudit = false, String? userId}) async {
     final loadGeneration = ++_loadGeneration;
-    emit(const DashboardLoading());
+    final scope = (userId: userId, canViewAudit: canViewAudit);
+    final sameScope = _loadScope == scope;
+    _loadScope = scope;
+    if (!sameScope) _clearRecentActivitySource();
+    final hasContent =
+        state is DashboardLoaded ||
+        state is DashboardUnknownAgent ||
+        state is DashboardOnboarding;
+    if (!sameScope || !hasContent) emit(const DashboardLoading());
     try {
       // Prefs holds only best-effort UI flags — a plugin/platform-channel
       // hiccup must never blank the whole home, so read defensively and fall
       // back to "not skipped".
       final prefs = await _tryPrefs();
       await _dropLegacyFlags(prefs);
+      if (loadGeneration != _loadGeneration || isClosed) return;
 
       final recentEntries = await _loadRecentEntriesOrEmpty();
+      if (loadGeneration != _loadGeneration || isClosed) return;
       await _loadRecentActivityOrEmpty(canViewAudit, loadGeneration);
+      if (loadGeneration != _loadGeneration || isClosed) return;
 
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
@@ -463,6 +475,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// after the vault has been locked or the session has ended.
   void lock() {
     _loadGeneration++;
+    _loadScope = null;
     _clearRecentActivitySource();
     emit(const DashboardInitial());
   }

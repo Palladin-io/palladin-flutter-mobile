@@ -137,6 +137,157 @@ void main() {
         recentActivityEntryNameUpdates: entryNameUpdates,
       );
 
+  group('returning to Home', () {
+    setUp(() {
+      when(
+        () => auditRepository.listOrgLogs(pageSize: 6),
+      ).thenAnswer((_) async => AuditLogPage(entries: []));
+    });
+    test(
+      'keeps ready content while refreshing and publishes the new result',
+      () async {
+        final cubit = buildCubit();
+        addTearDown(cubit.close);
+        await cubit.load(userId: 'user-a');
+        final ready = cubit.state;
+        expect(ready, isA<DashboardOnboarding>());
+
+        final response = Completer<OnboardingStatus>();
+        when(
+          () => repository.getOnboardingStatus(),
+        ).thenAnswer((_) => response.future);
+        final refresh = cubit.load(userId: 'user-a');
+        await untilCalled(() => repository.getOnboardingStatus());
+        expect(cubit.state, same(ready));
+
+        response.complete(
+          const OnboardingStatus(
+            isOnboarded: true,
+            entryCreated: true,
+            apiKeyCreated: true,
+            agentEnrolled: true,
+          ),
+        );
+        await refresh;
+        expect(cubit.state, isA<DashboardLoaded>());
+      },
+    );
+
+    test(
+      'keeps recent activity visible until the refreshed feed arrives',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'onboarding_skipped:user-a': true,
+        });
+        AuditLogPage page(String id) => AuditLogPage(
+          entries: [
+            AuditLogEntry(
+              id: id,
+              eventType: AuditEventType.entryCreated,
+              rawEventType: 'entry.created',
+              actorType: AuditActorType.user,
+              createdAt: DateTime.utc(2026),
+            ),
+          ],
+        );
+        when(
+          () => auditRepository.listOrgLogs(pageSize: 6),
+        ).thenAnswer((_) async => page('before'));
+        final cubit = buildCubit();
+        addTearDown(cubit.close);
+        await cubit.load(userId: 'user-a', canViewAudit: true);
+        final response = Completer<AuditLogPage>();
+        when(
+          () => auditRepository.listOrgLogs(pageSize: 6),
+        ).thenAnswer((_) => response.future);
+        final refresh = cubit.load(userId: 'user-a', canViewAudit: true);
+        await untilCalled(() => auditRepository.listOrgLogs(pageSize: 6));
+        expect(
+          (cubit.state as DashboardLoaded).recentActivity.single.id,
+          'before',
+        );
+        response.complete(page('after'));
+        await refresh;
+        expect(
+          (cubit.state as DashboardLoaded).recentActivity.single.id,
+          'after',
+        );
+      },
+    );
+
+    test('a revoked audit permission fences an older refresh', () async {
+      SharedPreferences.setMockInitialValues({
+        'onboarding_skipped:user-a': true,
+      });
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      await cubit.load(userId: 'user-a', canViewAudit: true);
+      final response = Completer<AuditLogPage>();
+      final started = Completer<void>();
+      when(() => auditRepository.listOrgLogs(pageSize: 6)).thenAnswer((_) {
+        started.complete();
+        return response.future;
+      });
+      final oldRefresh = cubit.load(userId: 'user-a', canViewAudit: true);
+      await started.future;
+      await cubit.load(userId: 'user-a');
+      final withoutAudit = cubit.state;
+      response.complete(
+        AuditLogPage(
+          entries: [
+            AuditLogEntry(
+              id: 'revoked',
+              eventType: AuditEventType.entryCreated,
+              rawEventType: 'entry.created',
+              actorType: AuditActorType.user,
+              createdAt: DateTime.utc(2026),
+            ),
+          ],
+        ),
+      );
+      await oldRefresh;
+      expect(cubit.state, same(withoutAudit));
+      expect((cubit.state as DashboardLoaded).recentActivity, isEmpty);
+    });
+
+    test('lock clears ready content and fences a pending refresh', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      await cubit.load(userId: 'user-a');
+      final response = Completer<OnboardingStatus>();
+      when(
+        () => repository.getOnboardingStatus(),
+      ).thenAnswer((_) => response.future);
+      final refresh = cubit.load(userId: 'user-a');
+      await untilCalled(() => repository.getOnboardingStatus());
+      cubit.lock();
+      expect(cubit.state, isA<DashboardInitial>());
+      response.complete(_incompleteStatus);
+      await refresh;
+      expect(cubit.state, isA<DashboardInitial>());
+      final reload = cubit.load(userId: 'user-a');
+      expect(cubit.state, isA<DashboardLoading>());
+      await reload;
+    });
+
+    for (final changedScope in [
+      (userId: 'user-b', canViewAudit: false),
+      (userId: 'user-a', canViewAudit: true),
+    ]) {
+      test('clears ready content for changed scope $changedScope', () async {
+        final cubit = buildCubit();
+        addTearDown(cubit.close);
+        await cubit.load(userId: 'user-a');
+        final refresh = cubit.load(
+          userId: changedScope.userId,
+          canViewAudit: changedScope.canViewAudit,
+        );
+        expect(cubit.state, isA<DashboardLoading>());
+        await refresh;
+      });
+    }
+  });
+
   // ── load() ──────────────────────────────────
 
   group('load() — Recent Activity presentation', () {
