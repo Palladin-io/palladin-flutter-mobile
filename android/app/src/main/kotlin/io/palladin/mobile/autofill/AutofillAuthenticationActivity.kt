@@ -8,7 +8,6 @@ import android.service.autofill.FillResponse
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
-import android.widget.RemoteViews
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -106,9 +105,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             return
         }
         val password = StrongPasswordGenerator.generate()
-        val presentation = RemoteViews(packageName, android.R.layout.simple_list_item_1).apply {
-            setTextViewText(android.R.id.text1, getString(R.string.autofill_generate_label))
-        }
+        val presentation = autofillPresentation(this, getString(R.string.autofill_generate_label))
         val dataset = Dataset.Builder(presentation)
         ids.forEach { dataset.setValue(it, AutofillValue.forText(password), presentation) }
         val response = FillResponse.Builder().addDataset(dataset.build()).build()
@@ -202,9 +199,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
             val response = FillResponse.Builder()
             for (record in matches) {
-                val presentation = RemoteViews(packageName, android.R.layout.simple_list_item_1).apply {
-                    setTextViewText(android.R.id.text1, "${record.label} - ${record.username}")
-                }
+                val presentation = autofillPresentation(this, "${record.label} - ${record.username}")
                 val dataset = Dataset.Builder(presentation)
                 usernameIds.forEach { id ->
                     dataset.setValue(id, AutofillValue.forText(record.username), presentation)

@@ -4,4 +4,5 @@
     <color name="launch_background">#15171B</color>
     <color name="ic_launcher_background">#FFFFFF</color>
     <color name="autofill_prompt_text">#15171B</color>
+    <color name="autofill_prompt_background">#DCDEE2</color>
 </resources>

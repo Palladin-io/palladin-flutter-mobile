@@ -199,6 +199,16 @@ References: [Android provider activation](https://developer.android.com/identity
    iOS identity cleanup; the next unlocked synchronization creates a fresh
    dedicated key and cache.
 
+## Android dropdown presentation
+
+Unlock, generated-password and authenticated credential choices share an
+app-owned RemoteViews row: minimum 48dp height, 24dp icon, up to two ellipsized
+text lines and explicit matching day/night foreground/background colors. This
+avoids intrinsic launcher-icon sizing and host-dependent system list text styles.
+Credential labels/usernames remain visible only in the authenticated picker.
+Verify readable rows and password as well as username filling on the device;
+resource compilation does not establish actual Chrome/keyboard rendering.
+
 ## Android keyboard action
 
 On Android 11+, a compatible keyboard may show the localized unlock/generate

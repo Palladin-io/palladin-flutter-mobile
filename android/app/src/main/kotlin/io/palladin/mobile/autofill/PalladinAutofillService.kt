@@ -18,7 +18,6 @@ import android.service.autofill.SaveRequest
 import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillId
-import android.widget.RemoteViews
 import io.palladin.mobile.R
 import io.palladin.mobile.MainActivity
 
@@ -125,13 +124,10 @@ class PalladinAutofillService : AutofillService() {
             launchIntent,
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val presentation = RemoteViews(packageName, R.layout.autofill_unlock_prompt)
-        if (generate) {
-            presentation.setTextViewText(
-                R.id.autofill_unlock_label,
-                getString(R.string.autofill_generate_prompt),
-            )
-        }
+        val presentation = autofillPresentation(
+            this,
+            getString(if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label),
+        )
         val responseBuilder = FillResponse.Builder()
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
