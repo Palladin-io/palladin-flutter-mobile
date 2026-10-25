@@ -1,6 +1,6 @@
 # Mobile releases on demand
 
-Status: proposed design, awaiting owner review. No workflow implementation or store upload yet.
+Status: approved by owner 2026-10-25; implementation authorized. No store upload yet.
 
 ## Objective and accepted decisions
 
