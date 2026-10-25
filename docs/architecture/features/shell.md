@@ -108,11 +108,12 @@ explicitly use the dark startup background. The app-switcher `PrivacyCover`
 remains opaque and unchanged; the native splash does not expose application data.
 
 Launcher resources include adaptive icons in both `mipmap-anydpi-v26` and
-`mipmap-night-anydpi-v26`. Keep both: night-qualified legacy PNGs otherwise win
-resource selection before the unqualified adaptive icon, producing a square dark
-icon on launchers such as Samsung One UI. Android owns the adaptive mask; no
-rounded rectangle is baked into the foreground. Pre-26 devices retain the legacy
-icons. Native appearance still requires real-device verification after release.
+`mipmap-night-anydpi-v26`, sharing the white background without a night override.
+The old opaque night PNGs are removed; pre-26 launchers use transparent legacy
+PNGs. Android owns the adaptive mask and themed-icon colors; no rounded rectangle
+is baked into the foreground. This removes Palladin's black launcher background,
+but does not promise wallpaper transparency from an adaptive launcher. Native
+appearance still requires real-device verification after release.
 
 Pinned action bands use `AppActionFooter`. It consumes remaining bottom padding
 through `SafeArea`, with the existing 32dp minimum, instead of adding raw

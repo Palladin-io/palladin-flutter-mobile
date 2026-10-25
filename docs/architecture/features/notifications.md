@@ -2,6 +2,13 @@
 
 Inbox (notification center) + preferences + push/real-time transport.
 
+Android background FCM and foreground/local banners explicitly use
+`@drawable/ic_notification`: the approved shield's white alpha silhouette with
+transparent margins and hex border. The full-color/adaptive launcher icon is
+never the small-icon fallback. The manifest reference also keeps the drawable
+reachable for Android resource shrinking. Local initialization and each banner
+select the same resource; Android controls its displayed tint.
+
 ## Entry sharing receipts (CVT-644, feature branch)
 
 `entry_share_received` has localized EN/PL title, filter, subtitle and receipt
