@@ -62,7 +62,9 @@ and onboarding requests finish. Initial loads, retries after an error, and
 changes of user or audit permission show skeletons. The app's lock/logout
 boundary clears Home's memory-only projections and invalidates pending loads;
 no Home content is persisted. Superseded loads cannot replace the current
-activity source or publish an old result. Refresh errors retain the existing
+activity source or publish an old result. Local checklist dismissal and
+notification-step actions also invalidate pending loads so an older response
+cannot undo the user's choice. Refresh errors retain the existing
 explicit error/retry behavior. Loads after grant mutations remain independent
 so a return-tab refresh cannot absorb a required post-mutation refresh.
 

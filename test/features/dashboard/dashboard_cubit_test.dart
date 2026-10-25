@@ -173,6 +173,65 @@ void main() {
       },
     );
 
+    test('Skip Setup wins over an in-flight onboarding refresh', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      await cubit.load(userId: 'user-a');
+      final response = Completer<OnboardingStatus>();
+      final started = Completer<void>();
+      when(() => repository.getOnboardingStatus()).thenAnswer((_) {
+        started.complete();
+        return response.future;
+      });
+      final refresh = cubit.load(userId: 'user-a');
+      await started.future;
+      await cubit.skipSetup('user-a');
+      expect(cubit.state, isA<DashboardLoaded>());
+      response.complete(_incompleteStatus);
+      await refresh;
+      expect(cubit.state, isA<DashboardLoaded>());
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('onboarding_skipped:user-a'), isTrue);
+    });
+
+    for (final action in ['skip', 'enable', 'settings']) {
+      test(
+        'notification $action wins over an in-flight permission check',
+        () async {
+          final cubit = buildCubit();
+          addTearDown(cubit.close);
+          await cubit.load(userId: 'user-a');
+          final response = Completer<NotificationPermissionStatus>();
+          final started = Completer<void>();
+          when(() => permissionService.checkStatus()).thenAnswer((_) {
+            started.complete();
+            return response.future;
+          });
+          when(() => permissionService.requestPermission()).thenAnswer(
+            (_) async => action == 'settings'
+                ? NotificationPermissionStatus.denied
+                : NotificationPermissionStatus.authorized,
+          );
+          when(() => permissionService.openSettings()).thenAnswer((_) async {});
+          final refresh = cubit.load(userId: 'user-a');
+          await started.future;
+          if (action == 'skip') {
+            await cubit.skipNotificationStep('user-a');
+          } else {
+            await cubit.enableNotifications('user-a');
+          }
+          final updated = cubit.state as DashboardOnboarding;
+          expect(updated.notificationStepDone, action != 'settings');
+          expect(updated.notificationPermissionDenied, action == 'settings');
+          response.complete(NotificationPermissionStatus.notDetermined);
+          await refresh;
+          final settled = cubit.state as DashboardOnboarding;
+          expect(settled.notificationStepDone, action != 'settings');
+          expect(settled.notificationPermissionDenied, action == 'settings');
+        },
+      );
+    }
+
     test(
       'keeps recent activity visible until the refreshed feed arrives',
       () async {

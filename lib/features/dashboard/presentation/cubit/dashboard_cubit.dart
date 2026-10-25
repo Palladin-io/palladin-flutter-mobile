@@ -458,6 +458,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       await prefs?.setBool(_scopedKey(_kOnboardingSkipped, userId), true);
     }
     unawaited(analytics.capture('dashboard', 'onboarding-skipped'));
+    _loadGeneration++;
     emit(const DashboardLoaded());
   }
 
@@ -492,6 +493,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   void _markNotificationStepDone() {
     final current = state;
     if (current is DashboardOnboarding) {
+      _loadGeneration++;
       emit(
         DashboardOnboarding(status: current.status, notificationStepDone: true),
       );
@@ -504,6 +506,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   void _markNotificationDenied() {
     final current = state;
     if (current is DashboardOnboarding) {
+      _loadGeneration++;
       emit(
         DashboardOnboarding(
           status: current.status,
