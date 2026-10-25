@@ -4,9 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/storage/biometric_key_store.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/compact_primary_button.dart';
+import '../../../../core/widgets/setup_card.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../cubit/biometric_setup_cubit.dart';
@@ -80,66 +79,39 @@ class _BiometricSetupCardState extends State<BiometricSetupCard> {
     bool enabled,
   ) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.cardPadding),
-        decoration: BoxDecoration(
-          color: AppColors.cardFill(brightness),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder(brightness)),
+    return SetupCard(
+      title: l10n.biometricSetupTitle,
+      descriptions: [
+        state.failed
+            ? l10n.biometricSetupFailed
+            : enabled
+            ? l10n.biometricSetupEnabled
+            : l10n.biometricSetupHint,
+      ],
+      actions: [
+        CompactPrimaryButton(
+          label: enabled
+              ? l10n.biometricSetupDisable
+              : l10n.biometricSetupEnable,
+          onPressed: state.busy
+              ? null
+              : () => enabled
+                    ? cubit.disable()
+                    : cubit.enable(
+                        BiometricPromptCopy(
+                          promptTitle: l10n.unlockBiometricPromptTitle,
+                          enrollTitle: l10n.unlockBiometricEnrollPrompt,
+                          accessTitle: l10n.unlockBiometricPrompt,
+                          cancelLabel: l10n.vaultCancel,
+                        ),
+                      ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.biometricSetupTitle,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              state.failed
-                  ? l10n.biometricSetupFailed
-                  : enabled
-                  ? l10n.biometricSetupEnabled
-                  : l10n.biometricSetupHint,
-              style: TextStyle(
-                color: AppColors.onSurfaceMuted(brightness),
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            CompactPrimaryButton(
-              label: enabled
-                  ? l10n.biometricSetupDisable
-                  : l10n.biometricSetupEnable,
-              onPressed: state.busy
-                  ? null
-                  : () => enabled
-                        ? cubit.disable()
-                        : cubit.enable(
-                            BiometricPromptCopy(
-                              promptTitle: l10n.unlockBiometricPromptTitle,
-                              enrollTitle: l10n.unlockBiometricEnrollPrompt,
-                              accessTitle: l10n.unlockBiometricPrompt,
-                              cancelLabel: l10n.vaultCancel,
-                            ),
-                          ),
-            ),
-            if (widget.hideWhenHandled && !enabled)
-              TextButton(
-                onPressed: state.busy ? null : cubit.dismiss,
-                child: Text(l10n.biometricSetupNotNow),
-              ),
-          ],
-        ),
-      ),
+        if (widget.hideWhenHandled && !enabled)
+          TextButton(
+            onPressed: state.busy ? null : cubit.dismiss,
+            child: Text(l10n.biometricSetupNotNow),
+          ),
+      ],
     );
   }
 }

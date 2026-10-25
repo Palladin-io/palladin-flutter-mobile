@@ -77,7 +77,10 @@ the old copy before the server mutation; failure leaves the password unchanged.
 Password login and password unlock never enroll automatically. Home offers an
 optional biometric setup card after login; Enable alone requests OS authentication.
 Not now records only a per-account/device dismissal flag in SharedPreferences.
-Security always exposes setup/disable later. Full logout removes the protected
+Security always exposes setup/disable later. The card reuses core `SetupCard`
+for its surface, description and action layout; biometric state and enrollment
+remain feature-owned. Returning from a covered route refreshes enrollment status,
+including after password changes clear the old copy. Full logout removes the protected
 copy, while the first-device dismissal preference survives logout. Enrollment
 copies the authenticated in-memory MK, retains the cleanup generation fence and
 wipes its temporary buffer on every outcome. Cancellation does not change auth

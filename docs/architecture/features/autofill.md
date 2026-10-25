@@ -36,7 +36,10 @@
 The native provider registrations do not select Palladin for the user. On the
 first ready Home screen after setup/unlock, `AutoFillSetupCard` checks the OS and
 shows a persistent setup warning until the OS confirms selection. There is no
-dismissal flag. Settings → Security exposes the same card and retains enabled
+dismissal flag. Its surface, title, description paragraphs and actions reuse
+core `SetupCard`, shared with biometric setup; the warning border, platform
+guidance and OS activation lifecycle remain owned by AutoFill.
+Settings → Security exposes the same card and retains enabled
 status. Both refresh on mount and app resume, including returning from system
 settings. Opening settings or cancelling the picker never marks setup complete.
 Status is selection only, not a promise that a credential cache or biometric
