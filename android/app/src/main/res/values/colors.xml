@@ -5,4 +5,6 @@
     <color name="ic_launcher_background">#FFFFFF</color>
     <color name="autofill_prompt_text">#15171B</color>
     <color name="autofill_prompt_background">#DCDEE2</color>
+    <color name="autofill_secondary_text">#3D4E66</color>
+    <color name="autofill_row_border">#1415171B</color>
 </resources>

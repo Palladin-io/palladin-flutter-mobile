@@ -446,7 +446,12 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
             val response = FillResponse.Builder()
             for (record in matches) {
-                val presentation = autofillPresentation(this, "${record.label} - ${record.username}")
+                val presentation = autofillCredentialPresentation(
+                    context = this,
+                    username = record.username,
+                    label = record.label,
+                    domain = domain,
+                )
                 val dataset = Dataset.Builder(presentation)
                 usernameIds.forEach { id ->
                     dataset.setValue(id, AutofillValue.forText(record.username), presentation)

@@ -272,10 +272,15 @@ References: [Android provider activation](https://developer.android.com/identity
 
 ## Android dropdown presentation
 
-Unlock, generated-password and authenticated credential choices share an
-app-owned RemoteViews row: minimum 48dp height, 24dp icon, up to two ellipsized
-text lines and explicit matching day/night foreground/background colors. This
-avoids intrinsic launcher-icon sizing and host-dependent system list text styles.
+Unlock and generated-password actions use a branded RemoteViews row with a
+24dp shield and a localized bold label. Authenticated credential choices follow
+the extension hierarchy: username first (14sp bold), optional Entry label (12sp,
+omitted when redundant with username/host), exact selected host (11sp). They use
+no per-credential icon and add no Vault name because the cache has none. Rows have
+65dp minimum height, 9dp vertical/10dp horizontal padding, an 11dp corner radius
+and a subtle border; each line ellipsizes independently. Explicit paired day/night
+colors avoid host-dependent system text styles. Native AutoFill owns the popup
+container and spacing. This is a fill-only action, without automatic submission.
 Credential labels/usernames remain visible only in the authenticated picker.
 Verify readable rows and password as well as username filling on the device;
 resource compilation does not establish actual Chrome/keyboard rendering.

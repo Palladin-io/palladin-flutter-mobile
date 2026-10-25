@@ -5,14 +5,14 @@
     android:minHeight="48dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="10dp"
+    android:paddingHorizontal="14dp"
+    android:paddingVertical="12dp"
     android:background="@color/autofill_prompt_background">
 
     <ImageView
         android:layout_width="24dp"
         android:layout_height="24dp"
-        android:layout_marginEnd="10dp"
+        android:layout_marginEnd="9dp"
         android:src="@drawable/launch_logo_image"
         android:scaleType="fitCenter"
         android:importantForAccessibility="no" />
@@ -26,5 +26,6 @@
         android:ellipsize="end"
         android:text="@string/autofill_unlock_label"
         android:textColor="@color/autofill_prompt_text"
-        android:textSize="14sp" />
+        android:textStyle="bold"
+        android:textSize="13sp" />
 </LinearLayout>
