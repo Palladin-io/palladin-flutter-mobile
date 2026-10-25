@@ -12,6 +12,11 @@
 - iOS embeds a signed `ASCredentialProviderExtension`, publishes credential
   identities to `ASCredentialIdentityStore`, and releases credentials only
   after Keychain biometric authorization.
+  Its `NSExtensionPointIdentifier` is Apple's registered
+  `com.apple.authentication-services-credential-provider-ui` value; a shortened
+  value can compile and sign but is rejected during App Store validation.
+  The parsed plist contract is covered by `tool/tests/test_ios_extension_registration.py`.
+  [Apple extension-point identifiers](https://developer.apple.com/documentation/bundleresources/information-property-list/nsextension/nsextensionpointidentifier)
 - Android registers `PalladinAutofillService` and releases domain-matched
   datasets only after a Keystore-bound `BiometricPrompt` operation.
 - On registration forms, Android offers a 20-character password only for
