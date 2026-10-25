@@ -120,15 +120,16 @@ class _LoginViewState extends State<_LoginView> {
                     },
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    AppSpacing.md,
-                    AppSpacing.screenH,
-                    AppSpacing.xxl,
+                if (MediaQuery.viewInsetsOf(context).bottom == 0)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      AppSpacing.md,
+                      AppSpacing.screenH,
+                      AppSpacing.xxl,
+                    ),
+                    child: AuthContentWidth(child: AuthLegalFooter()),
                   ),
-                  child: AuthContentWidth(child: AuthLegalFooter()),
-                ),
               ],
             ),
           ),

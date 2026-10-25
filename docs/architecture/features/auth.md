@@ -33,6 +33,10 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
   separates email from providers,
   `OAuthButton` renders the app-standard glass provider controls, and the
   shared core `AuthLegalFooter` stays pinned below the scrollable auth content.
+  Login hides the whole padded legal-footer row while the software keyboard is
+  visible and restores it when the keyboard closes. The form still resizes and
+  scrolls, keeping fields and the submit action reachable without lifting legal
+  links above the keyboard.
   The method picker uses the existing brand-red `PrimaryButton` for e-mail and
   the shared subtle radial brand glow. The e-mail login and registration forms
   share the same vertical rhythm; the denser registration form starts one
