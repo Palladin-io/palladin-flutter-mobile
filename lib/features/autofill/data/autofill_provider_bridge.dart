@@ -9,6 +9,8 @@ enum AutoFillProviderStatus {
   unsupported,
 }
 
+enum ChromeAutoFillStatus { enabled, disabled, unavailable, unknown }
+
 class AutoFillProviderBridge {
   const AutoFillProviderBridge();
 
@@ -25,6 +27,27 @@ class AutoFillProviderBridge {
       _ => throw PlatformException(code: 'AUTOFILL_STATUS_UNAVAILABLE'),
     };
   }
+
+  Future<ChromeAutoFillStatus> chromeStatus() async {
+    try {
+      final status = await _channel.invokeMethod<String>(
+        'getChromeAutofillStatus',
+      );
+      return switch (status) {
+        'enabled' => ChromeAutoFillStatus.enabled,
+        'disabled' => ChromeAutoFillStatus.disabled,
+        'unavailable' => ChromeAutoFillStatus.unavailable,
+        _ => ChromeAutoFillStatus.unknown,
+      };
+    } on PlatformException {
+      return ChromeAutoFillStatus.unknown;
+    } on MissingPluginException {
+      return ChromeAutoFillStatus.unavailable;
+    }
+  }
+
+  Future<void> openChromeSettings() =>
+      _channel.invokeMethod<void>('openChromeAutofillSettings');
 
   Future<void> openSettings() =>
       _channel.invokeMethod<void>('openProviderSettings');

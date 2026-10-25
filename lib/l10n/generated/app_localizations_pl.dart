@@ -5017,4 +5017,19 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get autofillChromeHint =>
       'W Chrome może być też konieczne wybranie Ustawienia → Usługi autouzupełniania → Autouzupełnianie przy użyciu innej usługi, a następnie ponowne uruchomienie Chrome.';
+
+  @override
+  String get autofillChromeSetupTitle =>
+      'Skonfiguruj autouzupełnianie w Chrome';
+
+  @override
+  String get autofillChromeSetupHint =>
+      'Palladin jest wybrany w Androidzie. W Chrome wybierz Autouzupełnianie przy użyciu innej usługi, a następnie potwierdź i uruchom Chrome ponownie.';
+
+  @override
+  String get autofillOpenChromeSettings => 'Otwórz ustawienia Chrome';
+
+  @override
+  String get autofillChromeSettingsError =>
+      'Nie udało się otworzyć ustawień Chrome. W Chrome otwórz Ustawienia → Usługi autouzupełniania.';
 }

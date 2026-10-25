@@ -35,7 +35,9 @@
 
 The native provider registrations do not select Palladin for the user. On the
 first ready Home screen after setup/unlock, `AutoFillSetupCard` checks the OS and
-shows a persistent setup warning until the OS confirms selection. There is no
+shows a persistent setup warning until the OS confirms selection. On Android,
+it also retains Chrome setup guidance when Chrome explicitly reports that its
+third-party AutoFill setting is disabled. There is no
 dismissal flag. Its surface, title, description paragraphs and actions reuse
 core `SetupCard`, shared with biometric setup; the warning border, platform
 guidance and OS activation lifecycle remain owned by AutoFill.
@@ -43,14 +45,27 @@ Settings → Security exposes the same card and retains enabled
 status. Both refresh on mount and app resume, including returning from system
 settings. Opening settings or cancelling the picker never marks setup complete.
 Status is selection only, not a promise that a credential cache or biometric
-hardware is ready. Errors remain visible with retry; no secrets or selection
+hardware is ready. OS status errors remain visible with retry; no secrets or selection
 state are persisted by this flow.
 
 - Android 8+: `AutofillManager.hasEnabledAutofillServices()` checks this app's
   service; a button launches `ACTION_REQUEST_SET_AUTOFILL_SERVICE` with the
-  current flavor's package URI. The OS owns selection/consent. Chrome may also
-  require its separate "Autofill using another service" preference and restart;
-  the card explains this. OEM wording (including Samsung One UI) may vary.
+  current flavor's package URI. The OS owns selection/consent. Chrome Stable's
+  separate readiness is read from its documented
+  `AutofillThirdPartyModeContentProvider/autofill_third_party_mode` provider,
+  projecting only `autofill_third_party_state`: `0` needs configuration, `1`
+  is enabled. Once the OS provider is selected, Home's remaining Chrome card
+  offers an explicit `ACTION_APPLICATION_PREFERENCES` intent restricted to
+  `com.android.chrome`, with `DEFAULT`, `APP_BROWSER` and `PREFERENCE`
+  categories. The user chooses "Autofill using another service" and confirms
+  Chrome's restart. Cancelling leaves the warning; mount/resume rechecks the
+  reported state. A missing provider, unknown value or failed query never
+  claims Chrome readiness or requires users to install Chrome; Settings keeps
+  manual guidance. Launch failure keeps the manual route and retry action.
+  Existing package visibility is sufficient: the Chrome manifest exports this
+  provider without a read permission, so no `READ_USER_DICTIONARY` or broad
+  package permission is requested. No browser preference is persisted or
+  changed by Palladin. OEM wording (including Samsung One UI) may vary.
 - iOS: `ASCredentialIdentityStore.getState` reports whether this provider is
   enabled. On iOS 17+, the button uses the public
   `ASSettingsHelper.openCredentialProviderAppSettings`. On iOS 14–16, manual
@@ -62,7 +77,9 @@ state are persisted by this flow.
   or touches credential encryption, cache activation, or provider authentication.
 
 References: [Android provider activation](https://developer.android.com/identity/autofill/autofill-services#request-permission),
-[Apple settings helper](https://developer.apple.com/documentation/authenticationservices/assettingshelper).
+[Apple settings helper](https://developer.apple.com/documentation/authenticationservices/assettingshelper),
+[Chromium AutoFill integration](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/android_autofill/README.md),
+[Chromium provider declaration](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/android/java/AndroidManifest.xml).
 
 ## Security contract
 
@@ -259,10 +276,13 @@ verification of this command and the actual rejection remains required.
 
 - Android (include Samsung Galaxy S22 Ultra): on a fresh install, verify the
   Home warning and Security status, cancel the system picker and confirm the
-  warning remains, then select Palladin and return to confirm it disappears.
-  Disable Palladin in OS settings and resume to confirm it returns. On Chrome versions
-  that expose their own `Autofill services` preference, also select `Autofill
-  using another service` and restart Chrome before testing the login form.
+  warning remains, then select Palladin and return to confirm the Chrome step
+  remains when its third-party mode is disabled. Open Chrome settings from that step, cancel
+  and verify it remains, then enable the setting and restart Chrome; resume
+  Palladin and verify the warning disappears.
+  Disable Palladin in OS settings and resume to confirm the OS setup step returns.
+  Verify unsupported Chrome versions and query failures do not falsely claim
+  Chrome readiness or block users of other supported applications.
   Then verify biometric success/cancel/failure, stale-cache mutation, logout
   wipe, and biometric enrollment change. Also verify registration forms with
   new-password and confirmation hints, unrelated current-password forms,
