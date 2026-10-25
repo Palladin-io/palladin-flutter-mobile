@@ -69,7 +69,7 @@ void main() {
   });
 
   /// Default enrollment stubs: device supports biometric storage and nothing
-  /// is enrolled yet, so the first password unlock enrolls the MK.
+  /// is enrolled yet. Password unlock must not request enrollment.
   void stubEnrollmentReady() {
     when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
     when(() => keyStore.canStore()).thenAnswer((_) async => true);
@@ -106,62 +106,49 @@ void main() {
   );
 
   for (final closeCubit in [true, false]) {
-    for (final waitAtKdf in [true, false]) {
-      test(
-        '${closeCubit ? 'disposed' : 'cleared'} unlock never enrolls after delayed ${waitAtKdf ? 'KDF' : 'canStore'}',
-        () async {
-          stubPasswordUnlockSuccess();
-          stubEnrollmentReady();
-          final entered = Completer<void>();
-          final release = Completer<void>();
-          final mk = Uint8List.fromList(List.filled(32, 42));
-          final pk = Uint8List.fromList(List.filled(32, 43));
-          when(
-            () => crypto.deriveAndDecrypt(
-              masterPassword: any(named: 'masterPassword'),
-              accountId: any(named: 'accountId'),
-              kdf: any(named: 'kdf'),
-              encryptedPrivateKeyBase64: any(
-                named: 'encryptedPrivateKeyBase64',
-              ),
-            ),
-          ).thenAnswer((_) async {
-            if (waitAtKdf) {
-              entered.complete();
-              await release.future;
-            }
-            return UnlockResult(masterKey: mk, privateKey: pk);
-          });
-          if (!waitAtKdf) {
-            when(() => keyStore.canStore()).thenAnswer((_) async {
-              entered.complete();
-              await release.future;
-              return true;
-            });
-          }
-          final cubit = buildCubit();
-          final unlocking = cubit.unlock('dummy', biometricCopy: copy);
-          await entered.future;
-          if (closeCubit) {
-            await cubit.close();
-          } else {
-            when(() => keyStore.generation).thenReturn(1);
-          }
-          release.complete();
-          await unlocking;
-          verifyNever(
-            () => keyStore.enroll(
-              any(),
-              any(),
-              expectedGeneration: any(named: 'expectedGeneration'),
-            ),
-          );
-          expect(mk, everyElement(0));
-          expect(pk, everyElement(0));
-          if (!closeCubit) await cubit.close();
-        },
-      );
-    }
+    test(
+      '${closeCubit ? 'disposed' : 'cleared'} unlock wipes keys after delayed KDF',
+      () async {
+        stubPasswordUnlockSuccess();
+        stubEnrollmentReady();
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        final mk = Uint8List.fromList(List.filled(32, 42));
+        final pk = Uint8List.fromList(List.filled(32, 43));
+        when(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          entered.complete();
+          await release.future;
+          return UnlockResult(masterKey: mk, privateKey: pk);
+        });
+        final cubit = buildCubit();
+        final unlocking = cubit.unlock('dummy');
+        await entered.future;
+        if (closeCubit) {
+          await cubit.close();
+        } else {
+          when(() => keyStore.generation).thenReturn(1);
+        }
+        release.complete();
+        await unlocking;
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
+        expect(mk, everyElement(0));
+        expect(pk, everyElement(0));
+        if (!closeCubit) await cubit.close();
+      },
+    );
   }
   group('UnlockCubit', () {
     test('initial state is UnlockInitial', () {
@@ -200,14 +187,13 @@ void main() {
     );
 
     blocTest<UnlockCubit, UnlockState>(
-      'unlock emits [Loading, Success] and enrolls MK on correct password',
+      'password unlock succeeds without starting biometric enrollment',
       build: () {
         stubEnrollmentReady();
         stubPasswordUnlockSuccess();
         return buildCubit();
       },
-      act: (cubit) =>
-          cubit.unlock('Correct Horse Battery 9!', biometricCopy: copy),
+      act: (cubit) => cubit.unlock('Correct Horse Battery 9!'),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockSuccess>()
@@ -216,9 +202,13 @@ void main() {
             .having((s) => s.privateKey, 'privateKey', privateKey),
       ],
       verify: (_) {
-        verify(
-          () => keyStore.enroll(masterKey, copy, expectedGeneration: 0),
-        ).called(1);
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
       },
     );
 
@@ -291,47 +281,6 @@ void main() {
     );
 
     blocTest<UnlockCubit, UnlockState>(
-      'unlock skips enrollment when MK is already enrolled',
-      build: () {
-        when(() => keyStore.isEnrolled()).thenAnswer((_) async => true);
-        stubPasswordUnlockSuccess();
-        return buildCubit();
-      },
-      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
-      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
-      verify: (_) {
-        verifyNever(
-          () => keyStore.enroll(
-            any(),
-            any(),
-            expectedGeneration: any(named: 'expectedGeneration'),
-          ),
-        );
-      },
-    );
-
-    blocTest<UnlockCubit, UnlockState>(
-      'unlock skips enrollment when device cannot store a biometric key',
-      build: () {
-        when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
-        when(() => keyStore.canStore()).thenAnswer((_) async => false);
-        stubPasswordUnlockSuccess();
-        return buildCubit();
-      },
-      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
-      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
-      verify: (_) {
-        verifyNever(
-          () => keyStore.enroll(
-            any(),
-            any(),
-            expectedGeneration: any(named: 'expectedGeneration'),
-          ),
-        );
-      },
-    );
-
-    blocTest<UnlockCubit, UnlockState>(
       'unlock purges the legacy raw MK even when the device cannot store a '
       'biometric key during the upgrade path',
       build: () {
@@ -340,11 +289,9 @@ void main() {
         stubPasswordUnlockSuccess();
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
+      act: (cubit) => cubit.unlock('pw'),
       expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
       verify: (_) {
-        // Purge must run before the canStore() guard bails out; enrollment
-        // itself is correctly skipped on a non-biometric device.
         verify(() => keyStore.purgeLegacyRawKey()).called(1);
         verifyNever(
           () => keyStore.enroll(
@@ -354,27 +301,6 @@ void main() {
           ),
         );
       },
-    );
-
-    blocTest<UnlockCubit, UnlockState>(
-      'unlock still succeeds when biometric enrollment throws',
-      build: () {
-        when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
-        when(() => keyStore.canStore()).thenAnswer((_) async => true);
-        when(
-          () => keyStore.enroll(
-            any(),
-            any(),
-            expectedGeneration: any(named: 'expectedGeneration'),
-          ),
-        ).thenThrow(
-          const BiometricAuthException(BiometricAuthFailureReason.canceled),
-        );
-        stubPasswordUnlockSuccess();
-        return buildCubit();
-      },
-      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
-      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
     );
 
     blocTest<UnlockCubit, UnlockState>(
@@ -393,7 +319,7 @@ void main() {
         ).thenThrow(const WrongMasterPasswordException());
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('wrong', biometricCopy: copy),
+      act: (cubit) => cubit.unlock('wrong'),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockFailed>().having(
@@ -427,7 +353,7 @@ void main() {
         );
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
+      act: (cubit) => cubit.unlock('pw'),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockFailed>().having(

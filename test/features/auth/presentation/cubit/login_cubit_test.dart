@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'package:mobile_palladin/features/auth/data/models/password_session_model.dart';
@@ -119,15 +118,9 @@ void main() {
     keyStore: keys,
   );
 
-  for (final mode in [
-    'password',
-    'totp',
-    'declined',
-    'unavailable',
-    'closed',
-    'cleared',
-  ]) {
-    test('$mode login handles optional biometric enrollment', () async {
+  test(
+    'password login completes without requesting biometric enrollment',
+    () async {
       when(
         () => datasource.login(
           email: any(named: 'email'),
@@ -168,53 +161,6 @@ void main() {
       ).thenAnswer(
         (_) async => UnlockResult(masterKey: mk, privateKey: Uint8List(32)),
       );
-      final entered = Completer<void>();
-      final release = Completer<void>();
-      if (mode == 'totp') {
-        when(
-          () => datasource.login(
-            email: any(named: 'email'),
-            authCredential: any(named: 'authCredential'),
-          ),
-        ).thenAnswer(
-          (_) async => const LoginTotpRequired(challengeToken: 'dummy'),
-        );
-        when(
-          () => datasource.loginTotp(
-            challengeToken: any(named: 'challengeToken'),
-            code: any(named: 'code'),
-          ),
-        ).thenAnswer(
-          (_) async => const PasswordSessionModel(
-            accessToken: 'dummy',
-            refreshToken: 'dummy',
-            userId: accountId,
-            isOnboarded: true,
-            emailVerified: true,
-          ),
-        );
-      }
-      if (mode == 'declined') {
-        when(
-          () => keys.enroll(
-            any(),
-            any(),
-            expectedGeneration: any(named: 'expectedGeneration'),
-          ),
-        ).thenThrow(
-          const BiometricAuthException(BiometricAuthFailureReason.canceled),
-        );
-      }
-      if (mode == 'unavailable') {
-        when(() => keys.canStore()).thenAnswer((_) async => false);
-      }
-      if (mode == 'closed' || mode == 'cleared') {
-        when(() => keys.canStore()).thenAnswer((_) async {
-          entered.complete();
-          await release.future;
-          return true;
-        });
-      }
       final cubit = buildCubit();
       addTearDown(() async {
         if (!cubit.isClosed) await cubit.close();
@@ -222,53 +168,18 @@ void main() {
       final loggingIn = cubit.login(
         email: 'member@example.com',
         password: 'dummy',
-        biometricCopy: const BiometricPromptCopy(
-          promptTitle: 'dummy',
-          enrollTitle: 'dummy',
-          accessTitle: 'dummy',
-          cancelLabel: 'dummy',
+      );
+      await loggingIn;
+      expect(cubit.state, isA<LoginSuccess>());
+      verifyNever(
+        () => keys.enroll(
+          any(),
+          any(),
+          expectedGeneration: any(named: 'expectedGeneration'),
         ),
       );
-      if (mode == 'closed' || mode == 'cleared') {
-        await entered.future;
-        if (mode == 'closed') {
-          await cubit.close();
-        } else {
-          when(() => keys.generation).thenReturn(1);
-        }
-        release.complete();
-      }
-      await loggingIn;
-      if (mode == 'totp') {
-        verifyNever(
-          () => keys.enroll(
-            any(),
-            any(),
-            expectedGeneration: any(named: 'expectedGeneration'),
-          ),
-        );
-        await cubit.submitTotp('123456');
-      }
-      if (mode == 'closed' || mode == 'cleared') {
-        expect(cubit.state, isNot(isA<LoginSuccess>()));
-        expect(mk, everyElement(0));
-      } else {
-        expect(cubit.state, isA<LoginSuccess>());
-        expect(mk, everyElement(9));
-      }
-      if (mode == 'unavailable' || mode == 'closed' || mode == 'cleared') {
-        verifyNever(
-          () => keys.enroll(
-            any(),
-            any(),
-            expectedGeneration: any(named: 'expectedGeneration'),
-          ),
-        );
-      } else {
-        verify(() => keys.enroll(mk, any(), expectedGeneration: 0)).called(1);
-      }
-    });
-  }
+    },
+  );
   blocTest<LoginCubit, LoginState>(
     'keeps the in-memory TOTP challenge retryable after a 429',
     build: buildCubit,

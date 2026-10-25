@@ -1,4 +1,11 @@
 {
+  "biometricSetupTitle": "Odblokowanie biometrią",
+  "biometricSetupEnable": "Włącz odblokowanie biometrią",
+  "biometricSetupNotNow": "Nie teraz",
+  "biometricSetupHint": "Odblokowuj sejf biometrią na tym urządzeniu. Możesz też włączyć tę opcję później w ustawieniach bezpieczeństwa.",
+  "biometricSetupEnabled": "Odblokowanie biometrią jest włączone na tym urządzeniu.",
+  "biometricSetupDisable": "Wyłącz odblokowanie biometrią",
+  "biometricSetupFailed": "Nie udało się zmienić odblokowania biometrią. Nadal jesteś zalogowany. Spróbuj ponownie.",
   "biometricCleanupFailed": "Nie udało się usunąć chronionego klucza biometrycznego z tego urządzenia. Spróbuj ponownie.",
   "auditActorExternalRecipient": "Odbiorca zewnętrzny",
   "auditGroupEntrySharing": "Udostępnianie wpisów",

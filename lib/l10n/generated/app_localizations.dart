@@ -98,6 +98,48 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @biometricSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock'**
+  String get biometricSetupTitle;
+
+  /// No description provided for @biometricSetupEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable biometric unlock'**
+  String get biometricSetupEnable;
+
+  /// No description provided for @biometricSetupNotNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get biometricSetupNotNow;
+
+  /// No description provided for @biometricSetupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock your vault using biometrics on this device. You can also enable this later in Security settings.'**
+  String get biometricSetupHint;
+
+  /// No description provided for @biometricSetupEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock is enabled on this device.'**
+  String get biometricSetupEnabled;
+
+  /// No description provided for @biometricSetupDisable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable biometric unlock'**
+  String get biometricSetupDisable;
+
+  /// No description provided for @biometricSetupFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update biometric unlock. Your session is still signed in. Please try again.'**
+  String get biometricSetupFailed;
+
   /// No description provided for @biometricCleanupFailed.
   ///
   /// In en, this message translates to:

@@ -1,3 +1,4 @@
+import '../../../unlock/presentation/widgets/biometric_setup_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -551,7 +552,12 @@ class _DashboardViewState extends State<_DashboardView> {
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-                  child: AutoFillSetupCard(hideWhenEnabled: true),
+                  child: Column(
+                    children: [
+                      BiometricSetupCard(hideWhenHandled: true),
+                      AutoFillSetupCard(hideWhenEnabled: true),
+                    ],
+                  ),
                 ),
               ),
               // Dashboard content always renders underneath — the search

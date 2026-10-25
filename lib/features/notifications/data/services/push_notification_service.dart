@@ -244,7 +244,7 @@ class PushNotificationService {
   }
 
   Future<void> _initLocalNotifications() async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('ic_notification');
     const iosInit = DarwinInitializationSettings(
       // We request permission via FirebaseMessaging.requestPermission,
       // so don't prompt again here.
@@ -314,6 +314,7 @@ class PushNotificationService {
           _androidChannel.id,
           _androidChannel.name,
           channelDescription: _androidChannel.description,
+          icon: 'ic_notification',
           importance: Importance.high,
           priority: Priority.high,
         ),

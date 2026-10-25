@@ -248,7 +248,6 @@ class _UnlockViewState extends State<_UnlockView> {
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlock(
       _passwordController.text,
-      biometricCopy: _biometricCopy(l10n),
       defaultVaultName: l10n.defaultVaultName,
     );
   }

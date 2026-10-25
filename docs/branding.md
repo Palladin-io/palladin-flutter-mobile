@@ -39,14 +39,25 @@ a way that implies an official release.
 The owner-approved 2026-09-09 mark is the T02 stepped shield without stripe gaps and the centered
 negative-space hex (radius 34, border 15), R04 raster texture and `#E54645`.
 `assets/images/logo.png` uses tight 96%-height framing and a transparent hex border.
-`icon_light.png` and `icon_with_bg.png` are opaque white/dark launcher sources;
+`icon_light.png` and `icon_with_bg.png` are opaque white/dark artwork sources;
 iOS and macOS derivatives preserve their platform dimensions. iOS icons are RGB.
+Android uses the separate transparent `icon_android.png` legacy source and the
+existing transparent adaptive foreground. Its adaptive background is white in
+both day and night configurations; Android still controls the launcher mask and
+may recolor themed icons. A wallpaper-transparent adaptive icon is not guaranteed.
 
 Android adaptive foregrounds place the complete shield in the 66dp safe circle
 within the 108dp layer. Legacy Android icons use 80% height for circular masks.
 PWA maskable exports fit the central 40%-radius safe circle. Favicon and launcher
 outputs at every size retain the same geometry and R04 grain.
-The web manifest and Android light/dark background resources match these assets.
+The Android legacy exports have transparent margins and a transparent hex border.
+Notification small icons use the same mark's alpha silhouette, with white RGB
+and no raster grain colors, rather than the full-color launcher artwork.
+
+Run `dart run tool/generate_android_icons.dart` to reproduce Android legacy and
+notification PNGs from the approved `logo.png`, plus the separate opaque white
+512px Play store artwork at `assets/store/google-play-icon.png` from
+`icon_light.png`. No store artwork is used as a notification small icon.
 
 All platform derivatives are committed. The coordinated source inventory is in
 `assets/brand/` in the Palladin root repository; standalone forks can continue

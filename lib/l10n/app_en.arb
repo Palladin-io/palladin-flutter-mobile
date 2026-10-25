@@ -1,4 +1,11 @@
 {
+  "biometricSetupTitle": "Biometric unlock",
+  "biometricSetupEnable": "Enable biometric unlock",
+  "biometricSetupNotNow": "Not now",
+  "biometricSetupHint": "Unlock your vault using biometrics on this device. You can also enable this later in Security settings.",
+  "biometricSetupEnabled": "Biometric unlock is enabled on this device.",
+  "biometricSetupDisable": "Disable biometric unlock",
+  "biometricSetupFailed": "Could not update biometric unlock. Your session is still signed in. Please try again.",
   "biometricCleanupFailed": "Could not remove the protected biometric key from this device. Please retry.",
   "auditActorExternalRecipient": "External recipient",
   "auditGroupEntrySharing": "Entry sharing",

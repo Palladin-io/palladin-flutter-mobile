@@ -543,7 +543,6 @@ void main() {
         () => login.login(
           email: any(named: 'email'),
           password: any(named: 'password'),
-          biometricCopy: any(named: 'biometricCopy'),
         ),
       ).thenAnswer((_) async {
         logins++;
