@@ -169,6 +169,67 @@ void main() {
     },
   );
 
+  test(
+    'pagination waits for quiet replacement then uses its new cursor',
+    () async {
+      when(() => repository.list()).thenAnswer(
+        (_) async =>
+            NotificationPage(items: [_item('first')], nextCursor: 'old-cursor'),
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer(
+        (call) async => _grant(call.positionalArguments[1] as String),
+      );
+      await cubit.load();
+      when(() => repository.list()).thenAnswer(
+        (_) async =>
+            NotificationPage(items: [_item('first')], nextCursor: 'new-cursor'),
+      );
+      when(
+        () => repository.list(cursor: 'old-cursor'),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('old-page')]));
+      when(
+        () => repository.list(cursor: 'new-cursor'),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('next-page')]));
+      final slow = Completer<Grant>();
+      when(
+        () => grants.getGrant('vault', 'first'),
+      ).thenAnswer((_) => slow.future);
+      final refresh = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+      await cubit.loadMore();
+      expect(cubit.state.items.map((item) => item.id), ['first']);
+      expect(cubit.state.isLoadingMore, false);
+      expect(cubit.state.nextCursor, 'new-cursor');
+      slow.complete(_grant('first'));
+      await refresh;
+      await cubit.loadMore();
+      expect(cubit.state.items.map((item) => item.id), ['first', 'next-page']);
+      expect(cubit.state.items.last.metadata['reason'], 'Reason next-page');
+      expect(cubit.state.nextCursor, isNull);
+      expect(cubit.state.isLoadingMore, false);
+    },
+  );
+
+  test('failed quiet refresh releases pagination for retry', () async {
+    when(() => repository.list()).thenAnswer(
+      (_) async =>
+          NotificationPage(items: [_item('first')], nextCursor: 'cursor'),
+    );
+    when(
+      () => grants.getGrant('vault', any()),
+    ).thenAnswer((call) async => _grant(call.positionalArguments[1] as String));
+    await cubit.load();
+    when(() => repository.list()).thenThrow(StateError('Unavailable'));
+    await cubit.refresh();
+    when(
+      () => repository.list(cursor: 'cursor'),
+    ).thenAnswer((_) async => NotificationPage(items: [_item('next-page')]));
+    await cubit.loadMore();
+    expect(cubit.state.items.map((item) => item.id), ['first', 'next-page']);
+    expect(cubit.state.nextCursor, isNull);
+    expect(cubit.state.isLoadingMore, false);
+  });
+
   for (final markAll in [false, true]) {
     for (final succeeds in [false, true]) {
       test('quiet refresh preserves ${markAll ? "all" : "single"} read '

@@ -69,6 +69,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   String? _ownerOrganizationId;
   int _generation = 0;
   int _feedGeneration = 0;
+  int? _refreshingFeed;
   int _summaryGeneration = 0;
 
   int get presentationGeneration => _generation;
@@ -321,6 +322,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   Future<void> refresh() async {
     final generation = _generation;
     final feed = ++_feedGeneration;
+    _refreshingFeed = feed;
     final summaryGeneration = ++_summaryGeneration;
     if (state.isLoadingMore) emit(state.copyWith(isLoadingMore: false));
     final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
@@ -357,6 +359,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       emit(
         state.copyWith(
           items: _applyLocalResolutions(visibleItems),
+          nextCursor: page.nextCursor,
+          clearCursor: page.nextCursor == null,
           unreadCount: summaryGeneration == _summaryGeneration
               ? summary.unreadCount
               : state.unreadCount,
@@ -395,6 +399,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     } catch (_) {
       if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.w('Notifications', 'Inbox refresh failed (quiet)');
+    } finally {
+      if (_refreshingFeed == feed) _refreshingFeed = null;
     }
   }
 
@@ -432,7 +438,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     final generation = _generation;
     final feed = _feedGeneration;
     final cursor = state.nextCursor;
-    if (cursor == null || state.isLoadingMore) return;
+    if (cursor == null || state.isLoadingMore || _refreshingFeed == feed) {
+      return;
+    }
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await repository.list(cursor: cursor);

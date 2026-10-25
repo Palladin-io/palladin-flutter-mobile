@@ -71,6 +71,8 @@ identity-changed and remotely collapsed records leave the previous snapshot as
 soon as the feed arrives; new records publish their sanitized structural rows.
 The unread summary publishes at that point, before hydration, so subsequent
 single/all-read mutations include new arrivals and retain their updated count.
+The matching cursor publishes with the structural page; pagination waits until
+that quiet refresh finishes, so appended rows cannot be lost to its replacement.
 Vault access removal redacts affected rows immediately.
 Lock, reset and newer refresh generations discard late replacement results.
 Initial loading and pagination retain progressive hydration and bounded workers.
