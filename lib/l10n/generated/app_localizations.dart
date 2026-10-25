@@ -8785,6 +8785,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome.'**
   String get autofillChromeHint;
+
+  /// No description provided for @autofillChromeSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up AutoFill in Chrome'**
+  String get autofillChromeSetupTitle;
+
+  /// No description provided for @autofillChromeSetupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin is selected in Android. In Chrome, choose Autofill using another service, then confirm and restart Chrome.'**
+  String get autofillChromeSetupHint;
+
+  /// No description provided for @autofillOpenChromeSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Chrome settings'**
+  String get autofillOpenChromeSettings;
+
+  /// No description provided for @autofillChromeSettingsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open Chrome settings. In Chrome, open Settings → Autofill services.'**
+  String get autofillChromeSettingsError;
 }
 
 class _AppLocalizationsDelegate

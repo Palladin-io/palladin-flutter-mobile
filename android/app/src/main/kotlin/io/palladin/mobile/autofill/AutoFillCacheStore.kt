@@ -34,6 +34,7 @@ internal data class CachedCredential(
     val username: String,
     val password: String,
     val domains: List<String>,
+    val notAfterMillis: Long,
 )
 
 internal data class AutoFillUnwrapOperation(
@@ -131,6 +132,21 @@ internal object AutoFillMutationLock {
 }
 
 internal object AutoFillHandoffGate {
+    fun <T> runWithCredentials(
+        credentials: List<CachedCredential>,
+        nowMillis: () -> Long,
+        validate: () -> Unit,
+        handoff: () -> T,
+    ): T = run(
+        validate = {
+            validate()
+            val observed = nowMillis()
+            require(credentials.isNotEmpty())
+            require(credentials.all { observed < it.notAfterMillis })
+        },
+        handoff = handoff,
+    )
+
     fun <T> run(
         validate: () -> Unit,
         handoff: () -> T,
@@ -272,7 +288,9 @@ internal object AutoFillCachePayloadValidator {
             val id = raw.requiredString("id")
             require(raw.requiredString("organizationId") == organizationId)
             val vaultId = raw.requiredString("vaultId")
-            val authority = vaults[vaultId]?.entries?.get(id)
+            val vaultAuthority = vaults[vaultId]
+                ?: throw IllegalArgumentException("Missing Vault authority")
+            val authority = vaultAuthority.entries[id]
                 ?: throw IllegalArgumentException("Missing Entry authority")
             require(raw.requiredString("revision") == authority.revision)
             require(raw.positiveInt("keyVersion") == authority.keyVersion)
@@ -294,6 +312,7 @@ internal object AutoFillCachePayloadValidator {
                 username = raw.getString("username"),
                 password = raw.requiredString("password"),
                 domains = domains,
+                notAfterMillis = vaultAuthority.notAfterMillis,
             )
         }
         require(identities == expectedIdentities)
@@ -595,10 +614,13 @@ internal class AutoFillCacheStore(
         }
     }
 
-    fun <T> withRevalidatedGeneration(
+    fun <T> withRevalidatedCredentials(
         generation: Long,
+        credentials: List<CachedCredential>,
         handoff: () -> T,
-    ): T = AutoFillHandoffGate.run(
+    ): T = AutoFillHandoffGate.runWithCredentials(
+        credentials = credentials,
+        nowMillis = nowMillis,
         validate = {
             requireActiveFenceLocked(generation)
             observeWallTimeLocked(generation)

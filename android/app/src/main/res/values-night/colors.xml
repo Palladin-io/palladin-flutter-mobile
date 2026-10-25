@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="autofill_prompt_text">#FFFFFF</color>
+    <color name="autofill_prompt_background">#20242C</color>
+    <color name="autofill_secondary_text">#B4B8C0</color>
+    <color name="autofill_row_border">#14E8EAED</color>
 </resources>

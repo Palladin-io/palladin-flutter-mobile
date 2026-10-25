@@ -13,6 +13,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.palladin.mobile.autofill.ChromeAutofillSetup
 import io.palladin.mobile.autofill.AutoFillCacheStore
 import io.palladin.mobile.autofill.GeneratedPasswordHistory
 import io.palladin.mobile.autofill.StrongPasswordGenerator
@@ -76,6 +77,22 @@ class MainActivity : FlutterFragmentActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             AUTOFILL_CHANNEL,
         ).setMethodCallHandler { call, result ->
+            if (call.method == "getChromeAutofillStatus") {
+                cacheExecutor.execute {
+                    val status = ChromeAutofillSetup(applicationContext).status()
+                    runOnUiThread { result.success(status) }
+                }
+                return@setMethodCallHandler
+            }
+            if (call.method == "openChromeAutofillSettings") {
+                try {
+                    startActivity(ChromeAutofillSetup.settingsIntent())
+                    result.success(null)
+                } catch (_: Exception) {
+                    result.error("CHROME_SETTINGS_UNAVAILABLE", "Chrome settings are unavailable", null)
+                }
+                return@setMethodCallHandler
+            }
             if (call.method == "getProviderStatus" || call.method == "openProviderSettings") {
                 try {
                     val manager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

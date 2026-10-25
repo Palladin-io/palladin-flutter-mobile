@@ -98,6 +98,12 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Scope visibility to apps that declare HTTPS links for OS origin verification. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
         <!-- AutofillOriginVerifier must inspect the exact allowlisted Chrome
              package flags. Keep this narrow; never request QUERY_ALL_PACKAGES. -->
         <package android:name="com.android.chrome" />

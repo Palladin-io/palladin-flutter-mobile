@@ -3777,5 +3777,9 @@
   "autofillCheckAgain": "Check again",
   "autofillStatusError": "Could not check AutoFill. Try again.",
   "autofillManualIos": "Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.",
-  "autofillChromeHint": "In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome."
+  "autofillChromeHint": "In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome.",
+  "autofillChromeSetupTitle": "Set up AutoFill in Chrome",
+  "autofillChromeSetupHint": "Palladin is selected in Android. In Chrome, choose Autofill using another service, then confirm and restart Chrome.",
+  "autofillOpenChromeSettings": "Open Chrome settings",
+  "autofillChromeSettingsError": "Could not open Chrome settings. In Chrome, open Settings → Autofill services."
 }
