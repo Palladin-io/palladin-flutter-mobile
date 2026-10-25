@@ -50,9 +50,13 @@ class _AutoFillSetupCardState extends State<AutoFillSetupCard>
           final enabled =
               status == AutoFillProviderStatus.enabled ||
               status == AutoFillProviderStatus.enabledManual;
+          final chromeSetup =
+              enabled &&
+              state is AutoFillSetupLoaded &&
+              state.chromeStatus == ChromeAutoFillStatus.disabled;
           if (state is AutoFillSetupLoading ||
               status == AutoFillProviderStatus.unsupported ||
-              (widget.hideWhenEnabled && enabled)) {
+              (widget.hideWhenEnabled && enabled && !chromeSetup)) {
             return const SizedBox.shrink();
           }
           final manual =
@@ -64,6 +68,9 @@ class _AutoFillSetupCardState extends State<AutoFillSetupCard>
             enabled: enabled,
             manual: manual,
             error: error,
+            chromeSetup: chromeSetup,
+            chromeSettingsFailed:
+                state is AutoFillSetupLoaded && state.chromeSettingsFailed,
           );
         },
       );
@@ -73,28 +80,45 @@ class _AutoFillSetupCardState extends State<AutoFillSetupCard>
     required bool enabled,
     required bool manual,
     required bool error,
+    required bool chromeSetup,
+    required bool chromeSettingsFailed,
   }) {
     final l10n = AppLocalizations.of(context)!;
     return SetupCard(
-      title: enabled ? l10n.autofillEnabled : l10n.autofillSetupTitle,
-      borderColor: enabled ? null : AppColors.vaultPeach,
+      title: chromeSetup
+          ? l10n.autofillChromeSetupTitle
+          : enabled
+          ? l10n.autofillEnabled
+          : l10n.autofillSetupTitle,
+      borderColor: enabled && !chromeSetup ? null : AppColors.vaultPeach,
       descriptions: [
-        error
+        chromeSettingsFailed
+            ? l10n.autofillChromeSettingsError
+            : chromeSetup
+            ? l10n.autofillChromeSetupHint
+            : error
             ? l10n.autofillStatusError
             : manual
             ? l10n.autofillManualIos
             : enabled
             ? l10n.autofillEnabledHint
             : l10n.autofillSetupHint,
-        if (defaultTargetPlatform == TargetPlatform.android)
+        if (chromeSettingsFailed) l10n.autofillChromeSetupHint,
+        if (defaultTargetPlatform == TargetPlatform.android && !chromeSetup)
           l10n.autofillChromeHint,
       ],
       actions: [
         CompactPrimaryButton(
-          label: manual || error
+          label: chromeSetup
+              ? l10n.autofillOpenChromeSettings
+              : manual || error
               ? l10n.autofillCheckAgain
               : l10n.autofillOpenSettings,
-          onPressed: manual || error ? _cubit.refresh : _cubit.openSettings,
+          onPressed: chromeSetup
+              ? _cubit.openChromeSettings
+              : manual || error
+              ? _cubit.refresh
+              : _cubit.openSettings,
         ),
       ],
     );

@@ -7,3 +7,8 @@
 "credential_provider_generate_action" = "Generate and fill";
 "credential_provider_generate_biometric" = "Authenticate to save this generated password in Palladin";
 "credential_provider_cancel" = "Cancel";
+"credential_provider_search" = "Search name, username or domain";
+"credential_provider_manual_warning" = "This app or website did not provide a verified domain. Choose a credential only if you trust the destination. Your choice will not be remembered.";
+"credential_provider_manual_confirm_title" = "Fill this credential?";
+"credential_provider_manual_confirm_message" = "Credential: %@\nSaved domains: %@\n\nPalladin cannot verify that this app or website belongs to these domains. Fill only if you trust it.";
+"credential_provider_manual_fill" = "Fill once";

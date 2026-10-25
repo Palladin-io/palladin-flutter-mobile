@@ -27,15 +27,74 @@
 - Android accepts `webDomain` only when Android 12+ reports an OS-verified App
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
-  identity. The manifest exposes only `com.android.chrome` to package queries
-  needed for that identity check; it does not request `QUERY_ALL_PACKAGES`.
-  Other native apps and sideloaded browser lookalikes fail closed.
+  identity. For a native form with no reported domain, the service instead
+  obtains that package's exact OS-verified App Link hosts. After biometric
+  authentication, a chooser displays each matching Entry and exact domain;
+  even one match requires a deliberate choice before one dataset is released.
+  The selected domain must belong to the Entry, the original request's verified
+  host set, and the current OS authority at handoff, under the cache-generation
+  lock. Cancellation/backgrounding clears the chooser's in-memory records.
+  This path does not generate passwords or save application associations.
+- If an otherwise eligible non-browser native request has no reported domain and
+  the OS provides no verified hosts, `MANUAL_NATIVE` is distinct from both `WEB`
+  and `VERIFIED_NATIVE`. After biometric authentication the user may search by
+  Entry label, username or domain. Selecting a result opens a separate warning
+  identifying the unverified request package and selected domain; **Fill once**
+  is required to release it. Confirmation binds the Entry/domain to that request
+  and is consumed once. It never converts the selected record's host into origin
+  authority. Browser exclusion and cache-generation/lease checks run again at
+  handoff. No association or search query is persisted; cancellation, background
+  and destruction clear in-memory selection. Password generation is unavailable.
+- A malformed or ambiguous reported domain never falls back to native hosts.
+  Missing browser domains also fail closed: Chrome is explicitly excluded, and
+  a package-scoped all-host HTTPS intent capability check excludes other browser
+  handlers. A host-specific App Link alone is not browser capability. The probe
+  uses a reserved `.invalid` host solely for local intent resolution, never a
+  network request; an unavailable capability check fails closed.
+- Manifest package visibility includes Chrome plus HTTPS/BROWSABLE handlers,
+  the capability needed to query App Link authority. It does not request
+  `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
+  (rather than OS-verified) links.
+
+## iOS manual credential selection
+
+When iOS calls the credential-list extension with **no service identifiers**,
+Palladin first authenticates and reads the cache, then offers a searchable list
+of credentials. Search examines the in-memory label, username and saved domains;
+it never searches passwords or persists the query. Each row shows its domains.
+The list warns that the destination is unverified. Selecting a row opens a
+separate confirmation showing the selected label and domains; only **Fill once**
+releases that credential. Cancellation, an empty authenticated result, or a
+replaced request cannot complete a manual fill. Confirmation is bound to a fresh
+selection token captured with the displayed credential; replacing a selection
+invalidates the earlier confirmation. Host backgrounding (not a temporary
+biometric focus change) and genuine controller dismissal invalidate pending
+requests, clear the picker, dismiss its confirmation and cancel the extension
+request. A later use requires a fresh authenticated request.
+
+This is a deliberate one-operation user authorization, not origin verification.
+A nonempty but invalid or mismatched OS identifier list does not enter this
+fallback. Existing exact-host matching and QuickType identity selection keep
+their domain checks. Manual handoff uses a separate entry point and checks the
+same current generation, revocation fence, lease and wall-clock authority under
+the same process lock through `completeRequest`. It never derives an expected
+destination from the selected credential.
+
+No destination association is remembered. This callback supplies no stable
+requesting-app identity when its service-identifier list is empty; a previous
+choice must not establish trust for the next unnamed app. Future remembered
+associations require an independently supplied stable identity and explicit
+user consent. Physical iPhone QA remains required for Safari, associated native
+apps, empty-identifier manual selection, cancellation and revocation while the
+confirmation is open.
 
 ## Provider activation and status
 
 The native provider registrations do not select Palladin for the user. On the
 first ready Home screen after setup/unlock, `AutoFillSetupCard` checks the OS and
-shows a persistent setup warning until the OS confirms selection. There is no
+shows a persistent setup warning until the OS confirms selection. On Android,
+it also retains Chrome setup guidance when Chrome explicitly reports that its
+third-party AutoFill setting is disabled. There is no
 dismissal flag. Its surface, title, description paragraphs and actions reuse
 core `SetupCard`, shared with biometric setup; the warning border, platform
 guidance and OS activation lifecycle remain owned by AutoFill.
@@ -43,14 +102,27 @@ Settings → Security exposes the same card and retains enabled
 status. Both refresh on mount and app resume, including returning from system
 settings. Opening settings or cancelling the picker never marks setup complete.
 Status is selection only, not a promise that a credential cache or biometric
-hardware is ready. Errors remain visible with retry; no secrets or selection
+hardware is ready. OS status errors remain visible with retry; no secrets or selection
 state are persisted by this flow.
 
 - Android 8+: `AutofillManager.hasEnabledAutofillServices()` checks this app's
   service; a button launches `ACTION_REQUEST_SET_AUTOFILL_SERVICE` with the
-  current flavor's package URI. The OS owns selection/consent. Chrome may also
-  require its separate "Autofill using another service" preference and restart;
-  the card explains this. OEM wording (including Samsung One UI) may vary.
+  current flavor's package URI. The OS owns selection/consent. Chrome Stable's
+  separate readiness is read from its documented
+  `AutofillThirdPartyModeContentProvider/autofill_third_party_mode` provider,
+  projecting only `autofill_third_party_state`: `0` needs configuration, `1`
+  is enabled. Once the OS provider is selected, Home's remaining Chrome card
+  offers an explicit `ACTION_APPLICATION_PREFERENCES` intent restricted to
+  `com.android.chrome`, with `DEFAULT`, `APP_BROWSER` and `PREFERENCE`
+  categories. The user chooses "Autofill using another service" and confirms
+  Chrome's restart. Cancelling leaves the warning; mount/resume rechecks the
+  reported state. A missing provider, unknown value or failed query never
+  claims Chrome readiness or requires users to install Chrome; Settings keeps
+  manual guidance. Launch failure keeps the manual route and retry action.
+  Existing package visibility is sufficient: the Chrome manifest exports this
+  provider without a read permission, so no `READ_USER_DICTIONARY` or broad
+  package permission is requested. No browser preference is persisted or
+  changed by Palladin. OEM wording (including Samsung One UI) may vary.
 - iOS: `ASCredentialIdentityStore.getState` reports whether this provider is
   enabled. On iOS 17+, the button uses the public
   `ASSettingsHelper.openCredentialProviderAppSettings`. On iOS 14–16, manual
@@ -62,7 +134,9 @@ state are persisted by this flow.
   or touches credential encryption, cache activation, or provider authentication.
 
 References: [Android provider activation](https://developer.android.com/identity/autofill/autofill-services#request-permission),
-[Apple settings helper](https://developer.apple.com/documentation/authenticationservices/assettingshelper).
+[Apple settings helper](https://developer.apple.com/documentation/authenticationservices/assettingshelper),
+[Chromium AutoFill integration](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/android_autofill/README.md),
+[Chromium provider declaration](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/android/java/AndroidManifest.xml).
 
 ## Security contract
 
@@ -79,8 +153,10 @@ References: [Android provider activation](https://developer.android.com/identity
    lease, plus each Entry revision/key high-water. Every record is compared
    with that authority; self-consistent substituted records are rejected.
    Cache v1 has no lease or independent authority and is purged, never migrated.
-5. Missing, corrupt, stale, expired, clock-rolled-back, ambiguous, mismatched,
-   or unverified state fails closed. The durable generation fence includes an
+5. Missing, corrupt, stale, expired or clock-rolled-back cache state fails
+   closed. Automatic matching rejects ambiguous, mismatched or unverified
+   destinations. The explicit absent-domain manual paths on Android and iOS
+   authorize only the user-confirmed operation. The durable generation fence includes an
    authenticated maximum observed wall time; rollback over five minutes
    quarantines the generation. A process-lifetime monotonic clock anchor also
    rejects a frozen or slowly advancing wall clock once it trails elapsed time
@@ -199,14 +275,79 @@ References: [Android provider activation](https://developer.android.com/identity
    iOS identity cleanup; the next unlocked synchronization creates a fresh
    dedicated key and cache.
 
+## Android dropdown presentation
+
+Unlock and generated-password actions use a branded RemoteViews row with a
+24dp shield and a localized bold label. Authenticated credential choices follow
+the extension hierarchy: username first (14sp bold), optional Entry label (12sp,
+omitted when redundant with username/host), exact selected host (11sp). They use
+no per-credential icon and add no Vault name because the cache has none. Rows have
+65dp minimum height, 9dp vertical/10dp horizontal padding, an 11dp corner radius
+and a subtle border; each line ellipsizes independently. Explicit paired day/night
+colors avoid host-dependent system text styles. Native AutoFill owns the popup
+container and spacing. This is a fill-only action, without automatic submission.
+Credential labels/usernames remain visible only in the authenticated picker.
+Verify readable rows and password as well as username filling on the device;
+resource compilation does not establish actual Chrome/keyboard rendering.
+
+## Android keyboard action
+
+On Android 11+, a compatible keyboard may show the localized unlock/generate
+action inline. The service uses AndroidX Autofill 1.3.0's standard v1 UI template
+with the first IME presentation spec (including its size/style). A missing request,
+zero suggestion capacity or unsupported template retains the dropdown. Selecting
+the chip invokes the same biometric authentication activity; long-press attribution
+opens Palladin through a fixed value-free PendingIntent. Origin/cache gates run
+before any presentation is constructed. No credential value enters this chip.
+
+Reference: [Android inline autofill guide](https://developer.android.com/identity/autofill/ime-autofill).
+Android API compilation checks the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
+Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
+
+## Android last-request diagnosis
+
+While the production service is alive, authorized adb users can inspect its last
+request without collecting credential or form values:
+
+```sh
+adb shell dumpsys activity service io.palladin.mobile/io.palladin.mobile.autofill.PalladinAutofillService
+```
+
+The service emits only fixed keys with enums, counts and booleans: request result,
+password count, reported-domain cardinality (zero/one/ambiguous), package
+presence, origin verification status, generation-session/cache availability and
+inline-request presence. `NOT_CHECKED` means the existing short circuit skipped
+that operation; diagnostics never read cache/history just to populate a field.
+`QUERY_UNAVAILABLE` also covers Android versions before App Link verification.
+`CHECKING` means the request did not reach a recorded terminal result. An offered
+response with an unverified/unavailable origin may open the explicit manual
+native confirmation flow; it does not assert verified origin. Inline
+request presence does not imply the response includes an inline presentation.
+
+Only one snapshot exists in service memory. Each request replaces it; service or
+process destruction discards it. No package/domain strings, field identifiers,
+credentials, structures, exception messages or history are retained or logged.
+The surrounding system `dumpsys` output is owned by Android, not this snapshot.
+
+Access uses the existing Android framework boundary, with no new exported IPC:
+[Android 16 ActivityManagerService.doDump](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/am/ActivityManagerService.java)
+checks `DumpUtils.checkDumpAndUsageStatsPermission` before service dispatch.
+[ActivityThread](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/core/java/android/app/ActivityThread.java)
+posts the protected service dump to the app main thread, so Binder caller identity
+must not be reinterpreted there as the original shell caller. Physical-device
+verification of this command and the actual rejection remains required.
+
 ## Required device QA
 
 - Android (include Samsung Galaxy S22 Ultra): on a fresh install, verify the
   Home warning and Security status, cancel the system picker and confirm the
-  warning remains, then select Palladin and return to confirm it disappears.
-  Disable Palladin in OS settings and resume to confirm it returns. On Chrome versions
-  that expose their own `Autofill services` preference, also select `Autofill
-  using another service` and restart Chrome before testing the login form.
+  warning remains, then select Palladin and return to confirm the Chrome step
+  remains when its third-party mode is disabled. Open Chrome settings from that step, cancel
+  and verify it remains, then enable the setting and restart Chrome; resume
+  Palladin and verify the warning disappears.
+  Disable Palladin in OS settings and resume to confirm the OS setup step returns.
+  Verify unsupported Chrome versions and query failures do not falsely claim
+  Chrome readiness or block users of other supported applications.
   Then verify biometric success/cancel/failure, stale-cache mutation, logout
   wipe, and biometric enrollment change. Also verify registration forms with
   new-password and confirmation hints, unrelated current-password forms,
@@ -219,8 +360,19 @@ References: [Android provider activation](https://developer.android.com/identity
   26.2+, verify generation requests with and without site rules and recovery
   after restart; on older iOS verify the explicit in-app Generate path. Verify
   manual Vault save and account switching on physical iPhones.
-- Native Android application forms return datasets only for exact hosts backed
-  by an OS-verified App Link on Android 12+; unverified packages return none.
+- Native Android application forms without `webDomain`: verify an OS-linked
+  application with multiple exact verified hosts, deliberate Entry/domain
+  selection, cancel/background, and revocation while the chooser is open.
+  Malformed/ambiguous/unverified reported domains and browsers without a page
+  domain must return none. A non-browser package with no domain or verified host
+  must require the separate manual warning and one-operation confirmation. Check package visibility from the provider UID.
+- JVM tests exercise origin resolution, exact selection bindings and existing
+  cache/lease/revocation rules; Android API compilation checks native call sites.
+  They do not instantiate the system AssistStructure, biometric UI or chooser,
+  and do not prove the actual Allegro device flow. Manual-mode QA must additionally
+  verify search, explicit warning/Fill once, cancel, backgrounding, a lease or
+  generation change before confirmation, and that a repeated confirmation cannot
+  release again. A nonempty unverified web domain must never reach this mode.
 - Automated Flutter/native tests and simulator builds do not replace physical
   device QA. Record Chrome/Safari background and locked-app behavior,
   biometric-set changes, corrupt-cache recovery, and Vault v2 delta refresh on

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/autofill_provider_bridge.dart';
@@ -11,8 +12,14 @@ final class AutoFillSetupLoading extends AutoFillSetupState {
 }
 
 final class AutoFillSetupLoaded extends AutoFillSetupState {
-  const AutoFillSetupLoaded(this.status);
+  const AutoFillSetupLoaded(
+    this.status, {
+    this.chromeStatus = ChromeAutoFillStatus.unavailable,
+    this.chromeSettingsFailed = false,
+  });
   final AutoFillProviderStatus status;
+  final ChromeAutoFillStatus chromeStatus;
+  final bool chromeSettingsFailed;
 }
 
 final class AutoFillSetupError extends AutoFillSetupState {
@@ -29,9 +36,36 @@ class AutoFillSetupCubit extends Cubit<AutoFillSetupState> {
     final revision = ++_revision;
     try {
       final status = await _bridge.status();
-      if (!isClosed && revision == _revision) emit(AutoFillSetupLoaded(status));
+      final chromeStatus = defaultTargetPlatform == TargetPlatform.android
+          ? await _bridge.chromeStatus()
+          : ChromeAutoFillStatus.unavailable;
+      if (!isClosed && revision == _revision) {
+        emit(AutoFillSetupLoaded(status, chromeStatus: chromeStatus));
+      }
     } catch (_) {
       if (!isClosed && revision == _revision) emit(const AutoFillSetupError());
+    }
+  }
+
+  Future<void> openChromeSettings() async {
+    if (_opening) return;
+    _opening = true;
+    try {
+      await _bridge.openChromeSettings();
+      await refresh();
+    } catch (_) {
+      final current = state;
+      if (!isClosed && current is AutoFillSetupLoaded) {
+        emit(
+          AutoFillSetupLoaded(
+            current.status,
+            chromeStatus: current.chromeStatus,
+            chromeSettingsFailed: true,
+          ),
+        );
+      }
+    } finally {
+      _opening = false;
     }
   }
 

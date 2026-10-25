@@ -269,6 +269,49 @@ class AutoFillCacheStoreTest {
     }
 
     @Test
+    fun credentialHandoffUsesManifestDeadlineAfterDelayedSelection() {
+        val records = AutoFillCachePayloadValidator.validate(validPayload(), 1_787_990_400_000)
+        val deadline = java.time.Instant.parse("2026-08-30T08:00:00Z").toEpochMilli()
+        assertEquals(deadline, records.single().notAfterMillis)
+        var handedOff = false
+        AutoFillHandoffGate.runWithCredentials(
+            records, { deadline - 1 }, {},
+        ) { handedOff = true }
+        assertTrue(handedOff)
+
+        for (delayedConfirmationTime in listOf(deadline, deadline + 60_000)) {
+            handedOff = false
+            assertThrows(IllegalArgumentException::class.java) {
+                AutoFillHandoffGate.runWithCredentials(
+                    records, { delayedConfirmationTime }, {},
+                ) { handedOff = true }
+            }
+            assertFalse(handedOff)
+        }
+    }
+
+    @Test
+    fun credentialHandoffChecksEveryReleasedRecordAndKeepsRevocationGuard() {
+        val records = AutoFillCachePayloadValidator.validate(validPayload(), 1_787_990_400_000)
+        val deadline = records.single().notAfterMillis
+        var handedOff = false
+        assertThrows(IllegalArgumentException::class.java) {
+            AutoFillHandoffGate.runWithCredentials(
+                listOf(records.single().copy(notAfterMillis = deadline + 60_000), records.single()),
+                { deadline }, {},
+            ) { handedOff = true }
+        }
+        assertFalse(handedOff)
+        assertThrows(IllegalArgumentException::class.java) {
+            AutoFillHandoffGate.runWithCredentials(
+                records, { deadline - 1 },
+                { AutoFillFencePolicy.requireActive(AutoFillFence(2, "revoked", 1), 2) },
+            ) { handedOff = true }
+        }
+        assertFalse(handedOff)
+    }
+
+    @Test
     fun v1PayloadWithoutLeaseIsRejected() {
         val payload = JSONObject()
             .put("version", 1)

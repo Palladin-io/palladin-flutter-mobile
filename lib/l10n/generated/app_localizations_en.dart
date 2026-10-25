@@ -4968,4 +4968,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autofillChromeHint =>
       'In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome.';
+
+  @override
+  String get autofillChromeSetupTitle => 'Set up AutoFill in Chrome';
+
+  @override
+  String get autofillChromeSetupHint =>
+      'Palladin is selected in Android. In Chrome, choose Autofill using another service, then confirm and restart Chrome.';
+
+  @override
+  String get autofillOpenChromeSettings => 'Open Chrome settings';
+
+  @override
+  String get autofillChromeSettingsError =>
+      'Could not open Chrome settings. In Chrome, open Settings → Autofill services.';
 }

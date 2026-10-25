@@ -9,4 +9,10 @@
     <string name="autofill_generate_subtitle">Use biometrics to create a password for %1$s</string>
     <string name="autofill_generate_label">Use strong password</string>
     <string name="autofill_generate_prompt">Generate a strong password with Palladin</string>
+    <string name="autofill_native_biometric_subtitle">Unlock, then choose an entry for this app.</string>
+    <string name="autofill_choose_credential">Choose a credential</string>
+    <string name="autofill_search_credentials">Search entries or domains</string>
+    <string name="autofill_manual_confirm_title">Fill in an unverified app?</string>
+    <string name="autofill_manual_confirm_message">Palladin could not verify this app’s website.\n\nApp: %1$s\nEntry domain: %2$s\n\nContinue only if you trust this app. This choice will not be remembered.</string>
+    <string name="autofill_fill_once">Fill once</string>
 </resources>

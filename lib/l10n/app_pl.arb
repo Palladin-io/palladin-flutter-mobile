@@ -1558,5 +1558,9 @@
   "autofillCheckAgain": "Sprawdź ponownie",
   "autofillStatusError": "Nie udało się sprawdzić autouzupełniania. Spróbuj ponownie.",
   "autofillManualIos": "Otwórz Ustawienia → Hasła → Opcje haseł (Autowypełnianie haseł w starszym iOS), włącz autouzupełnianie i wybierz Palladin.",
-  "autofillChromeHint": "W Chrome może być też konieczne wybranie Ustawienia → Usługi autouzupełniania → Autouzupełnianie przy użyciu innej usługi, a następnie ponowne uruchomienie Chrome."
+  "autofillChromeHint": "W Chrome może być też konieczne wybranie Ustawienia → Usługi autouzupełniania → Autouzupełnianie przy użyciu innej usługi, a następnie ponowne uruchomienie Chrome.",
+  "autofillChromeSetupTitle": "Skonfiguruj autouzupełnianie w Chrome",
+  "autofillChromeSetupHint": "Palladin jest wybrany w Androidzie. W Chrome wybierz Autouzupełnianie przy użyciu innej usługi, a następnie potwierdź i uruchom Chrome ponownie.",
+  "autofillOpenChromeSettings": "Otwórz ustawienia Chrome",
+  "autofillChromeSettingsError": "Nie udało się otworzyć ustawień Chrome. W Chrome otwórz Ustawienia → Usługi autouzupełniania."
 }
