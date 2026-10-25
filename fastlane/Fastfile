@@ -1,0 +1,33 @@
+require 'json'
+require_relative 'lib/mobile_delivery'
+require_relative 'lib/store_clients'
+
+lane :internal do
+  manifest = JSON.parse(File.read(ENV.fetch('RELEASE_MANIFEST')))
+  artifact = ENV.fetch('RELEASE_ARTIFACT')
+  platform = manifest.fetch('artifact_platform')
+  UI.user_error!('Distribution remains disabled until release blockers are resolved') unless ENV['MOBILE_DISTRIBUTION_ENABLED'] == 'true'
+  if platform == 'android'
+    store = MobileDelivery::AndroidStore.new(manifest, lambda do
+      upload_to_play_store(package_name: manifest.fetch('bundle_id'), aab: artifact,
+        track: 'internal', release_status: 'completed',
+        json_key: ENV.fetch('GOOGLE_APPLICATION_CREDENTIALS'),
+        skip_upload_metadata: true, skip_upload_images: true,
+        skip_upload_screenshots: true, skip_upload_changelogs: true)
+    end)
+  elsif platform == 'ios'
+    key = app_store_connect_api_key(key_id: ENV.fetch('ASC_KEY_ID'), issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+      key_content: ENV.fetch('ASC_PRIVATE_KEY_BASE64'), is_key_content_base64: true, duration: 1200)
+    store = MobileDelivery::AppleStore.new(manifest, lambda do
+      upload_to_testflight(api_key: key, ipa: artifact, app_identifier: manifest.fetch('bundle_id'),
+        distribute_external: false, skip_submission: true, skip_waiting_for_build_processing: true)
+    end)
+  else
+    UI.user_error!('Unsupported artifact platform')
+  end
+  status = MobileDelivery.deliver(store)
+  File.write(ENV.fetch('DELIVERY_RESULT'), JSON.generate({platform: platform, status: status,
+    run_id: manifest.fetch('run_id'), version: manifest.fetch('marketing_version')}))
+rescue StandardError
+  UI.user_error!('Internal delivery did not complete. Check provisioning or resume the original release after reconciling store state.')
+end

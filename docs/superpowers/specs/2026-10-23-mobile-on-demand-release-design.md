@@ -56,7 +56,7 @@ CredentialProvider keeps the existing corresponding suffix. Retain separate Fire
 
 Design choice: prod selects the configured production backend, stg the configured staging backend. Remove the independent backend override from this release entry point to keep these two products predictable. This supersedes the old store-testing production-flavor/staging-backend recipe. The production DNS alias currently pointing to staging remains an external operational fact; this workflow does not migrate data or DNS.
 
-stg fails preflight unless explicitly enabled by environment configuration. Missing configuration fails closed, before signing or upload. Preserve existing environment reviewer protections and main-only restrictions. One authorization at the release boundary covers automatic downstream upload; no extra handoff per platform.
+stg fails preflight unless explicitly enabled by environment configuration. Missing configuration fails closed, before signing or upload. Preserve existing environment reviewer protections and main-only restrictions. Store distribution is automatic after protected-environment approval. Existing GitHub environment reviewers remain enforced separately on build/upload jobs; these gates are not bypassed.
 
 ## Source validation
 
@@ -118,7 +118,7 @@ Validate YAML with actionlint and run script/Ruby tests with stubbed store respo
 
 Accepted: environment split, automatic internal distribution, version modes, immutable upload retries, GitHub Actions + Fastlane. Worktree: .worktrees/mobile-release-20261023; branch: feat/mobile-on-demand-release. Original mobile checkout contains unrelated changes and remains untouched.
 
-Completed: repository/workflow inspection, this design, and independent builder check (no important unanswered questions). Next: owner review, implementation plan, implementation/PR/CI, provisioning, end-to-end release. Known blockers: previous iOS profile lacks Associated Domains; master-key persistence remains release-blocking until resolved; store upload credentials/group configuration are not yet verified. No release success is claimed.
+Completed: repository/workflow inspection, this design, and independent builder check (no important unanswered questions). Design and implementation plan approved. Implementation and local script checks complete; independent review and PR/CI in progress, followed by provisioning and end-to-end release. Known blockers: previous iOS profile lacks Associated Domains; master-key persistence remains release-blocking until resolved; store upload credentials/group configuration are not yet verified. No release success is claimed.
 
 ## References
 

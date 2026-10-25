@@ -64,3 +64,9 @@ android/upload-keystore.jks
 # Explicit Firebase client files (preserve outside Git)
 /android/app/src/*/google-services.json
 /ios/config/*/GoogleService-Info.plist
+
+# Local Ruby tooling and release working files
+/.bundle/
+/vendor/bundle/
+/release-record.json
+/release-download/

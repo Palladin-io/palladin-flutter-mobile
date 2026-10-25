@@ -111,11 +111,12 @@ distribution-environment variables according to the selected backend environment
 
 Config class: `lib/config/env_config.dart` — `EnvConfig.local()` / `EnvConfig.staging()` / `EnvConfig.production()`.
 
-Store testing is the one intentional exception to flavor/API matching: build
-the `production` flavor with `PALLADIN_BACKEND_ENVIRONMENT=staging`. This keeps
-the immutable store identity (`io.palladin.mobile`), production Firebase, and
-production signing while targeting the staging API. Never upload the
-`io.palladin.mobile.staging` package as the app that will later go to production.
+On-demand store releases use matching app/backend environments: `prod` maps to
+`production` and `stg` maps to `staging`, with separate store identities.
+Staging releases remain disabled until explicitly provisioned. Use `Mobile Release`
+for build/upload and `resume-upload` for the original verified artifacts; see
+`docs/mobile-store-builds.md`. Never upload `io.palladin.mobile.staging` as the
+production application.
 
 ### Android
 - Product flavors in `android/app/build.gradle.kts` (`staging`, `production`)
