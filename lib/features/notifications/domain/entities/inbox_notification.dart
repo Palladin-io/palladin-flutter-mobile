@@ -125,6 +125,7 @@ class InboxNotification {
     NotificationActionState? actionState,
     DateTime? readAt,
     bool markRead = false,
+    Map<String, dynamic>? metadata,
   }) {
     return InboxNotification(
       id: id,
@@ -132,7 +133,7 @@ class InboxNotification {
       type: type,
       category: category,
       titleKey: titleKey,
-      metadata: metadata,
+      metadata: metadata ?? this.metadata,
       actionState: actionState ?? this.actionState,
       occurredAt: occurredAt,
       readAt: markRead ? (readAt ?? DateTime.now()) : (readAt ?? this.readAt),

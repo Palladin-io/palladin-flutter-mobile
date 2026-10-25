@@ -75,6 +75,16 @@ the old copy before the server mutation; failure leaves the password unchanged.
 `clearBiometricKey` uses the same boundary. A subsequent password unlock can
 create a fresh biometric enrollment.
 
+Password login and unlock share `enrollBiometricKeyIfAvailable`. Enrollment is
+optional, uses the existing strong biometric-only storage options, and never
+falls back to a device PIN. The fingerprint shortcut appears on a locked session
+after the OS enrollment prompt succeeds. Full logout deletes that local copy;
+the next password login can enroll it again. Android's required biometric
+permissions are supplied by the merged `biometric_storage` plugin manifest, and
+MainActivity extends FlutterFragmentActivity. The password-login regression tests
+cover direct login, TOTP, declined/unavailable biometrics and canceled/stale flows;
+an actual device prompt remains a tester acceptance check.
+
 Dart channel-contract and lifecycle tests plus JVM deletion tests cover these
 branches. Actual Face ID/fingerprint, changed enrollment, cancellation, restart,
 and device logout/re-enrollment require device QA before claiming release

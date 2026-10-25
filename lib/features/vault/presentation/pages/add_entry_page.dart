@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_toggle.dart';
@@ -964,20 +965,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   ),
                 ),
               ),
-              Container(
+              AppActionFooter(
                 key: const ValueKey('create-entry-save-footer'),
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.screenH,
-                  AppSpacing.md,
-                  AppSpacing.screenH,
-                  AppSpacing.screenBottom,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.cardFill(brightness),
-                  border: Border(
-                    top: BorderSide(color: AppColors.navBorder(brightness)),
-                  ),
-                ),
                 child: EntrySaveButton(
                   isLoading: isLoading,
                   onPressed: canSubmit ? _submit : null,

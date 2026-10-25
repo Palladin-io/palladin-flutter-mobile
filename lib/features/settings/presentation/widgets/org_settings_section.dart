@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -118,7 +119,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
                 ),
               ),
             ),
-            if (showFooter) _buildSaveFooter(brightness, state),
+            if (showFooter) _buildSaveFooter(state),
           ],
         );
       },
@@ -172,21 +173,10 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
     );
   }
 
-  Widget _buildSaveFooter(Brightness brightness, SettingsState state) {
+  Widget _buildSaveFooter(SettingsState state) {
     final l10n = AppLocalizations.of(context)!;
-    return Container(
+    return AppActionFooter(
       key: const ValueKey('organization-save-footer'),
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.md,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        border: Border(top: BorderSide(color: AppColors.navBorder(brightness))),
-      ),
       child: PrimaryButton(
         label: l10n.settingsSave,
         isLoading: state.isSavingOrg,

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/biometric_key_store.dart';
+import '../../../../core/storage/biometric_enrollment.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
@@ -81,10 +82,12 @@ class UnlockCubit extends Cubit<UnlockState> {
 
       if (canceled()) return;
       if (biometricCopy != null) {
-        await _maybeEnrollBiometric(
-          result.masterKey,
-          biometricCopy,
-          generation,
+        await enrollBiometricKeyIfAvailable(
+          keyStore: keyStore,
+          masterKey: result.masterKey,
+          copy: biometricCopy,
+          generation: generation,
+          isCanceled: canceled,
         );
         if (canceled()) return;
       }
@@ -122,35 +125,6 @@ class UnlockCubit extends Cubit<UnlockState> {
         result.masterKey.fillRange(0, result.masterKey.length, 0);
         result.privateKey.fillRange(0, result.privateKey.length, 0);
       }
-    }
-  }
-
-  /// Enrolls [masterKey] into the biometric-gated store on first unlock only.
-  ///
-  /// Best-effort: an enrollment failure (device can't do biometric-bound
-  /// storage, or the user declines the one-time Android confirm) must never
-  /// block the current unlock.
-  Future<void> _maybeEnrollBiometric(
-    Uint8List masterKey,
-    BiometricPromptCopy copy,
-    int generation,
-  ) async {
-    // Purge the pre-hardening raw MK FIRST, unconditionally — before the
-    // isEnrolled()/canStore() guards. On a non-biometric device canStore()
-    // returns false and we bail out before enrollment; if the purge lived only
-    // inside enroll(), an upgrading user on such a device would keep the raw MK
-    // on disk until logout, partially undoing the security migration.
-    // Best-effort; never blocks unlock.
-    await keyStore.purgeLegacyRawKey();
-    try {
-      if (await keyStore.isEnrolled()) return;
-      if (!await keyStore.canStore()) return;
-      if (isClosed || generation != keyStore.generation) return;
-      await keyStore.enroll(masterKey, copy, expectedGeneration: generation);
-      AppLogger.i('Unlock', 'MK enrolled for biometric unlock');
-    } catch (e) {
-      // Never log the key or the raw error payload — just the type.
-      AppLogger.w('Unlock', 'Biometric enrollment skipped: ${e.runtimeType}');
     }
   }
 

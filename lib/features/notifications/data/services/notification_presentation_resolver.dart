@@ -32,54 +32,100 @@ final class NotificationPresentationResolver {
     required String activeAccountId,
     required String activeOrganizationId,
     required List<VaultEntity> activeVaults,
+    void Function(InboxNotification)? onResolved,
   }) async {
     if (!unlocked || activeAccountId.isEmpty || activeOrganizationId.isEmpty) {
       return _generic(items);
     }
-    final vaults = {for (final vault in activeVaults) vault.id: vault};
-    final agentNames = await _agentNames();
-    final memberNames = <String, Map<String, String>>{};
-    final output = <InboxNotification>[];
-    for (final item in items) {
-      final metadata = _structural(item.metadata);
-      final vaultId = _string(metadata, 'vaultId');
-      final vault = vaultId == null ? null : vaults[vaultId];
-      if (vault != null) {
-        metadata['vaultName'] = vault.name;
-        final grant = await _grantFor(item, metadata, vault.id);
-        if (grant != null) {
-          metadata['grantType'] = grant.scope.name;
-          metadata['entryId'] = grant.entryId;
-        }
-        final entryId = _string(metadata, 'entryId');
-        if (entryId != null) {
-          final label = await _entryLabel(vault.id, entryId);
-          if (label != null) metadata['entryLabel'] = label;
-        }
-        final agentId = _string(metadata, 'agentId');
-        final agentName = agentId == null ? null : agentNames[agentId];
-        if (agentName != null) metadata['agentName'] = agentName;
-
-        if (grant != null) {
-          final reason = grant.reason?.trim();
-          if (reason != null && reason.isNotEmpty) metadata['reason'] = reason;
-          final actorId = _actorId(item.type, grant);
-          if (actorId != null) {
-            final names = memberNames[vault.id] ??= await _memberNames(
-              vault.id,
-            );
-            final actorName = names[actorId];
-            if (actorName != null) metadata['actorName'] = actorName;
+    final prepared = prepare(items: items, activeVaults: activeVaults);
+    var agentNames = const <String, String>{};
+    final memberNames = <String, Future<Map<String, String>>>{};
+    final grants = <(String, String), Future<Grant?>>{};
+    final output = List<InboxNotification>.of(prepared);
+    var next = 0;
+    Future<void> worker() async {
+      while (next < prepared.length) {
+        final position = next++;
+        final item = prepared[position];
+        final metadata = Map<String, dynamic>.from(item.metadata);
+        final vaultId = _string(metadata, 'vaultId');
+        if (vaultId != null) {
+          final grant = await _grantFor(item, metadata, vaultId, grants);
+          if (grant != null) {
+            metadata['grantType'] = grant.scope.name;
+            metadata['entryId'] = grant.entryId;
           }
+          final entryId = _string(metadata, 'entryId');
+          if (entryId != null) {
+            final label = await _entryLabel(vaultId, entryId);
+            if (label != null) metadata['entryLabel'] = label;
+          }
+          if (grant != null) {
+            final reason = grant.reason?.trim();
+            if (reason != null && reason.isNotEmpty) {
+              metadata['reason'] = reason;
+            }
+            final actorId = _actorId(item.type, grant);
+            if (actorId != null) {
+              final names = await (memberNames[vaultId] ??= _memberNames(
+                vaultId,
+              ));
+              final actorName = names[actorId];
+              if (actorName != null) metadata['actorName'] = actorName;
+            }
+          }
+          final agentId = _string(metadata, 'agentId');
+          final agentName = agentNames[agentId];
+          if (agentName != null) metadata['agentName'] = agentName;
         }
-      } else {
-        metadata.remove('vaultId');
-        metadata.remove('entryId');
-        metadata.remove('grantId');
+        final resolved = _withMetadata(item, metadata);
+        output[position] = resolved;
+        onResolved?.call(resolved);
       }
-      output.add(_withMetadata(item, metadata));
     }
+
+    Future<void> resolveAgentNames() async {
+      agentNames = await _agentNames();
+      for (var i = 0; i < output.length; i++) {
+        final item = output[i];
+        if (item.vaultId == null) continue;
+        final name = agentNames[item.agentId];
+        if (name == null) continue;
+        final resolved = item.copyWith(
+          metadata: {...item.metadata, 'agentName': name},
+        );
+        output[i] = resolved;
+        onResolved?.call(resolved);
+      }
+    }
+
+    // Agent names cannot occupy the bounded per-row HTTP/crypto workers.
+    await Future.wait([
+      resolveAgentNames(),
+      ...List.generate(items.length.clamp(0, 4), (_) => worker()),
+    ]);
     return output;
+  }
+
+  List<InboxNotification> prepare({
+    required List<InboxNotification> items,
+    required List<VaultEntity> activeVaults,
+  }) {
+    final vaults = {for (final vault in activeVaults) vault.id: vault};
+    return items
+        .map((item) {
+          final metadata = _structural(item.metadata);
+          final vault = vaults[_string(metadata, 'vaultId')];
+          if (vault == null) {
+            metadata.remove('vaultId');
+            metadata.remove('entryId');
+            metadata.remove('grantId');
+          } else {
+            metadata['vaultName'] = vault.name;
+          }
+          return _withMetadata(item, metadata);
+        })
+        .toList(growable: false);
   }
 
   /// Removes locally resolved names and decrypted free text on lock/logout.
@@ -203,6 +249,7 @@ final class NotificationPresentationResolver {
     InboxNotification item,
     Map<String, dynamic> metadata,
     String vaultId,
+    Map<(String, String), Future<Grant?>> grants,
   ) async {
     if (!const {
       'grant_pending',
@@ -215,17 +262,30 @@ final class NotificationPresentationResolver {
     final repository = _grants;
     final grantId = _string(metadata, 'grantId');
     if (repository == null || grantId == null) return null;
+    final grant = await (grants[(vaultId, grantId)] ??= _readGrant(
+      repository,
+      vaultId,
+      grantId,
+    ));
+    if (grant == null) return null;
+    final entryId = _string(metadata, 'entryId');
+    final agentId = _string(metadata, 'agentId');
+    if (grant.id != grantId ||
+        grant.vaultId != vaultId ||
+        (entryId != null && grant.entryId != entryId) ||
+        (agentId != null && grant.agentId != agentId)) {
+      return null;
+    }
+    return grant;
+  }
+
+  Future<Grant?> _readGrant(
+    GrantsRepository repository,
+    String vaultId,
+    String grantId,
+  ) async {
     try {
-      final grant = await repository.getGrant(vaultId, grantId);
-      final entryId = _string(metadata, 'entryId');
-      final agentId = _string(metadata, 'agentId');
-      if (grant.id != grantId ||
-          grant.vaultId != vaultId ||
-          (entryId != null && grant.entryId != entryId) ||
-          (agentId != null && grant.agentId != agentId)) {
-        return null;
-      }
-      return grant;
+      return await repository.getGrant(vaultId, grantId);
     } catch (_) {
       AppLogger.w('Notifications', 'Grant presentation resolution failed');
       return null;

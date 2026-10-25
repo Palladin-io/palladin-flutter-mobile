@@ -260,6 +260,7 @@ void configureDependencies(EnvConfig config) {
       accountDatasource: getIt<AccountRemoteDatasource>(),
       unlockCryptoService: getIt<UnlockCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
+      keyStore: getIt<BiometricKeyStore>(),
     ),
   );
   getIt.registerFactory<VerifyEmailCubit>(

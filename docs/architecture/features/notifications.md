@@ -43,6 +43,24 @@ these are not real backend/device delivery tests.
 
 ## Foreground repair and session fencing
 
+Inbox first-page and pagination results publish their sanitized structural rows
+before optional presentation hydration. Existing localized generic Entry labels
+and empty-value placeholders remain until local metadata is ready; server names,
+reason text and deep links never become interim presentation. Up to four rows
+resolve concurrently, with grant reads keyed by Vault/grant and member-directory
+reads keyed by Vault shared only within that resolution. Ready rows publish
+independently, including Entry/reason/actor fields before the Agent-name read
+finishes. Agent-name loading runs independently and cannot occupy a row worker;
+its completion merges into the latest row metadata. There is no new persistent
+or cross-refresh cache. Hydration merges
+metadata only, retaining read/action changes, and checks both session and feed
+generation before every publication. Approval still refreshes the pending source
+and performs the existing authenticated review in its sheet.
+
+Controlled delayed-repository tests cover prompt structural publication, bounded
+concurrency, duplicate reads, read mutations and stale hydration after lock,
+reset or a newer refresh. They establish ordering, not Android device timings.
+
 `PalladinApp` owns `NotificationForegroundRepair`. It refreshes immediately when
 foreground account/Vault context becomes ready, then every 30 seconds. Only a
 verified, onboarded, unlocked account with a loaded Vault list can repair. The

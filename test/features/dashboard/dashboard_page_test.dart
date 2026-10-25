@@ -256,6 +256,26 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('first ready Home exposes provider setup before other content', (
+    tester,
+  ) async {
+    const channel = MethodChannel('io.palladin.mobile/autofill');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (call) async => call.method == 'getProviderStatus' ? 'disabled' : null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await pumpDashboard(tester, state: const DashboardLoaded(), permissions: 0);
+    await tester.pumpAndSettle();
+    expect(find.text('Set up AutoFill').hitTestable(), findsOneWidget);
+    expect(find.text('Open AutoFill settings').hitTestable(), findsOneWidget);
+  });
+
   group('Recently added / modified gating', () {
     testWidgets('shows the section when the user has NO AuditView permission', (
       tester,

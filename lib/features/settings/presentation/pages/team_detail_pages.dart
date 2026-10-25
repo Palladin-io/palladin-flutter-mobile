@@ -8,6 +8,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_action_footer.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../core/widgets/app_screen.dart';
@@ -260,7 +261,7 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
           ),
         ),
         if (canEdit)
-          _PinnedFooter(
+          AppActionFooter(
             child: PrimaryButton(
               label: l10n.teamSaveRoles,
               isLoading: busy,
@@ -505,7 +506,7 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
             ],
           ),
         ),
-        _PinnedFooter(
+        AppActionFooter(
           key: const ValueKey('team-invitation-save-footer'),
           child: PrimaryButton(
             label: l10n.settingsSave,
@@ -625,31 +626,6 @@ class _DetailMessage extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PinnedFooter extends StatelessWidget {
-  const _PinnedFooter({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.md,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        border: Border(top: BorderSide(color: AppColors.navBorder(brightness))),
-      ),
-      child: child,
     );
   }
 }

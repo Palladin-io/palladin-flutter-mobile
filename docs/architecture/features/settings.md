@@ -70,7 +70,9 @@ cutover state is explained; unrelated HTTP 409 responses stay generic.
 
 ## Account
 
-`SecurityPage` groups the existing password-change and TOTP surfaces. OAuth-only
+`SecurityPage` groups the existing password-change and TOTP surfaces. It also
+shows the OS-confirmed AutoFill provider status and user-initiated setup action
+shared with Home; see [AutoFill activation](autofill.md#provider-activation-and-status). OAuth-only
 accounts receive an explanatory read-only state. `DataImportPage` hands off to
 the existing `ImportVaultPickerPage`; file parsing, validation, encryption, and
 upload stay in the established import flow and no plaintext is persisted by
@@ -107,3 +109,7 @@ Optional privacy choices appear on first entry to the ready application, after r
 The Privacy drawer item is a sheet action over the current screen, preserving its
 route and unsaved state. Direct `/settings/privacy` links use Security behind the
 sheet and settle on `/settings/security` when dismissed.
+
+General Save, Team member/invitation Save and editable Permission Role Save use
+`AppActionFooter` for one shared bottom safe-area contract. Their hosts leave
+bottom inset ownership to the footer, so system navigation cannot cover actions.

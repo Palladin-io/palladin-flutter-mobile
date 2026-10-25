@@ -1542,5 +1542,14 @@
   "generatedPasswordGenerated": "Silne hasło wygenerowano i zapisano w historii",
   "generatedPasswordEnterWebsite": "Podaj adres witryny HTTPS przed wygenerowaniem hasła.",
   "generatedPasswordReplaceTitle": "Zastąpić to hasło?",
-  "generatedPasswordReplaceBody": "Nowe hasło zastąpi wartość w formularzu i zostanie zapisane w historii wygenerowanych haseł."
+  "generatedPasswordReplaceBody": "Nowe hasło zastąpi wartość w formularzu i zostanie zapisane w historii wygenerowanych haseł.",
+  "autofillSetupTitle": "Skonfiguruj autouzupełnianie",
+  "autofillSetupHint": "Palladin nie jest włączony jako systemowy menedżer haseł. Wybierz Palladin w ustawieniach autouzupełniania, aby wypełniać zapisane hasła.",
+  "autofillEnabled": "Palladin jest włączony do autouzupełniania",
+  "autofillEnabledHint": "Dostawca jest wybrany. Użycie pasujących zapisanych danych nadal wymaga autoryzacji biometrycznej.",
+  "autofillOpenSettings": "Ustawienia autouzupełniania",
+  "autofillCheckAgain": "Sprawdź ponownie",
+  "autofillStatusError": "Nie udało się sprawdzić autouzupełniania. Spróbuj ponownie.",
+  "autofillManualIos": "Otwórz Ustawienia → Hasła → Opcje haseł (Autowypełnianie haseł w starszym iOS), włącz autouzupełnianie i wybierz Palladin.",
+  "autofillChromeHint": "W Chrome może być też konieczne wybranie Ustawienia → Usługi autouzupełniania → Autouzupełnianie przy użyciu innej usługi, a następnie ponowne uruchomienie Chrome."
 }

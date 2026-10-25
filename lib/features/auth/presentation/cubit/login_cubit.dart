@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/secure_token_storage.dart';
+import '../../../../core/storage/biometric_key_store.dart';
+import '../../../../core/storage/biometric_enrollment.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../unlock/data/datasources/account_remote_datasource.dart';
 import '../../../unlock/data/services/unlock_crypto_service.dart';
@@ -40,6 +42,7 @@ class LoginCubit extends Cubit<LoginState> {
     required this.accountDatasource,
     required this.unlockCryptoService,
     required this.tokenStorage,
+    required this.keyStore,
   }) : super(const LoginInitial());
 
   final PasswordAuthRemoteDatasource datasource;
@@ -47,14 +50,23 @@ class LoginCubit extends Cubit<LoginState> {
   final AccountRemoteDatasource accountDatasource;
   final UnlockCryptoService unlockCryptoService;
   final SecureTokenStorage tokenStorage;
+  final BiometricKeyStore keyStore;
+  BiometricPromptCopy? _biometricCopy;
+  int? _biometricGeneration;
 
   String? _challengeToken;
   Uint8List? _masterKey;
   String? _accountId;
 
   /// Runs the salt → authHash → login pipeline.
-  Future<void> login({required String email, required String password}) async {
-    if (email.isEmpty || password.isEmpty) return;
+  Future<void> login({
+    required String email,
+    required String password,
+    BiometricPromptCopy? biometricCopy,
+  }) async {
+    if (email.isEmpty || password.isEmpty || isClosed) return;
+    _biometricCopy = biometricCopy;
+    _biometricGeneration = keyStore.generation;
     AppLogger.d('Login', 'Password login requested');
     emit(const LoginLoading());
 
@@ -86,6 +98,11 @@ class LoginCubit extends Cubit<LoginState> {
       } finally {
         salt.fillRange(0, salt.length, 0);
       }
+      if (_isCanceled) {
+        outputs.masterKey.fillRange(0, outputs.masterKey.length, 0);
+        outputs.authCredential.fillRange(0, outputs.authCredential.length, 0);
+        return;
+      }
       _masterKey?.fillRange(0, _masterKey!.length, 0);
       _masterKey = outputs.masterKey;
       _accountId = bootstrap.accountId;
@@ -98,6 +115,10 @@ class LoginCubit extends Cubit<LoginState> {
         authCredential: authCredential,
       );
 
+      if (_isCanceled) {
+        _clearSecrets();
+        return;
+      }
       switch (response) {
         case LoginSession(:final session):
           await _establishSession(session);
@@ -109,14 +130,14 @@ class LoginCubit extends Cubit<LoginState> {
     } catch (e, s) {
       AppLogger.w('Login', 'Login failed: ${e.runtimeType}');
       _clearSecrets();
-      emit(LoginFailure(_normalize(e, s)));
+      if (!isClosed) emit(LoginFailure(_normalize(e, s)));
     }
   }
 
   /// Submits the TOTP (or recovery) code for the pending challenge.
   Future<void> submitTotp(String code) async {
     final challengeToken = _challengeToken;
-    if (challengeToken == null || code.isEmpty) return;
+    if (challengeToken == null || code.isEmpty || _isCanceled) return;
     AppLogger.d('Login', 'Submitting TOTP challenge');
     emit(const LoginTotpVerifying());
 
@@ -128,20 +149,26 @@ class LoginCubit extends Cubit<LoginState> {
       await _establishSession(session);
     } on TotpInvalidException {
       AppLogger.w('Login', 'TOTP code rejected');
-      emit(const LoginTotpChallenge(error: TotpInvalidException()));
+      if (!isClosed) {
+        emit(const LoginTotpChallenge(error: TotpInvalidException()));
+      }
     } on LoginRateLimitedException catch (error) {
       AppLogger.w('Login', 'TOTP verification rate-limited');
-      emit(LoginTotpChallenge(error: error));
+      if (!isClosed) emit(LoginTotpChallenge(error: error));
     } catch (e, s) {
       AppLogger.w('Login', 'TOTP verification failed: ${e.runtimeType}');
       _clearSecrets();
-      emit(LoginFailure(_normalize(e, s)));
+      if (!isClosed) emit(LoginFailure(_normalize(e, s)));
     }
   }
 
   /// Persists the session, derives the master key from the held password,
   /// and emits [LoginSuccess].
   Future<void> _establishSession(PasswordSessionModel session) async {
+    if (_isCanceled) {
+      _clearSecrets();
+      return;
+    }
     await tokenStorage.saveTokens(
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
@@ -151,6 +178,10 @@ class LoginCubit extends Cubit<LoginState> {
     await tokenStorage.setAuthProvider(AuthProviderId.password);
 
     final account = await accountDatasource.getAccount();
+    if (_isCanceled) {
+      _clearSecrets();
+      return;
+    }
     final masterKey = _masterKey;
     if (masterKey == null || account.userId != _accountId) {
       throw const UnsupportedIdentityKdfException('account-context-mismatch');
@@ -165,16 +196,45 @@ class LoginCubit extends Cubit<LoginState> {
       masterKey: masterKey,
       encryptedPrivateKeyBase64: encryptedPrivateKey,
     );
-    _clearSecrets();
-    AppLogger.i('Login', 'Login succeeded, master key derived');
-    emit(
-      LoginSuccess(masterKey: result.masterKey, privateKey: result.privateKey),
-    );
+    var handedOff = false;
+    try {
+      if (_isCanceled) return;
+      final copy = _biometricCopy;
+      final generation = _biometricGeneration;
+      if (copy != null && generation != null) {
+        await enrollBiometricKeyIfAvailable(
+          keyStore: keyStore,
+          masterKey: result.masterKey,
+          copy: copy,
+          generation: generation,
+          isCanceled: () => _isCanceled,
+        );
+      }
+      if (_isCanceled) return;
+      emit(
+        LoginSuccess(
+          masterKey: result.masterKey,
+          privateKey: result.privateKey,
+        ),
+      );
+      handedOff = true;
+    } finally {
+      _clearSecrets();
+      if (!handedOff) {
+        result.masterKey.fillRange(0, result.masterKey.length, 0);
+        result.privateKey.fillRange(0, result.privateKey.length, 0);
+      }
+    }
   }
+
+  bool get _isCanceled =>
+      isClosed || _biometricGeneration != keyStore.generation;
 
   /// Drops the in-memory password / challenge token. Strings can't be
   /// zeroed, but dropping every reference lets them be collected.
   void _clearSecrets() {
+    _biometricCopy = null;
+    _biometricGeneration = null;
     _challengeToken = null;
     _accountId = null;
     _masterKey?.fillRange(0, _masterKey!.length, 0);

@@ -3,6 +3,9 @@ package io.palladin.mobile
 import android.os.Build
 import android.os.Bundle
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.view.autofill.AutofillManager
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -73,6 +76,31 @@ class MainActivity : FlutterFragmentActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             AUTOFILL_CHANNEL,
         ).setMethodCallHandler { call, result ->
+            if (call.method == "getProviderStatus" || call.method == "openProviderSettings") {
+                try {
+                    val manager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        getSystemService(AutofillManager::class.java)
+                    } else null
+                    if (call.method == "getProviderStatus") {
+                        result.success(when {
+                            manager == null || !manager.isAutofillSupported -> "unsupported"
+                            manager.hasEnabledAutofillServices() -> "enabled"
+                            else -> "disabled"
+                        })
+                    } else if (manager != null && manager.isAutofillSupported) {
+                        // The OS owns consent. Launching this screen does not imply selection.
+                        startActivity(Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+                            data = Uri.parse("package:$packageName")
+                        })
+                        result.success(null)
+                    } else {
+                        result.error("AUTOFILL_UNSUPPORTED", "AutoFill is unavailable", null)
+                    }
+                } catch (_: Exception) {
+                    result.error("AUTOFILL_SETTINGS_ERROR", "AutoFill settings are unavailable", null)
+                }
+                return@setMethodCallHandler
+            }
             if (call.method in AUTHENTICATED_HISTORY_METHODS) {
                 authenticateGeneratedHistory(call, result, generatedHistory)
                 return@setMethodCallHandler

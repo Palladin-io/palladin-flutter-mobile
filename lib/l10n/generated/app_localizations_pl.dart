@@ -4961,4 +4961,36 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get generatedPasswordReplaceBody =>
       'Nowe hasło zastąpi wartość w formularzu i zostanie zapisane w historii wygenerowanych haseł.';
+
+  @override
+  String get autofillSetupTitle => 'Skonfiguruj autouzupełnianie';
+
+  @override
+  String get autofillSetupHint =>
+      'Palladin nie jest włączony jako systemowy menedżer haseł. Wybierz Palladin w ustawieniach autouzupełniania, aby wypełniać zapisane hasła.';
+
+  @override
+  String get autofillEnabled => 'Palladin jest włączony do autouzupełniania';
+
+  @override
+  String get autofillEnabledHint =>
+      'Dostawca jest wybrany. Użycie pasujących zapisanych danych nadal wymaga autoryzacji biometrycznej.';
+
+  @override
+  String get autofillOpenSettings => 'Ustawienia autouzupełniania';
+
+  @override
+  String get autofillCheckAgain => 'Sprawdź ponownie';
+
+  @override
+  String get autofillStatusError =>
+      'Nie udało się sprawdzić autouzupełniania. Spróbuj ponownie.';
+
+  @override
+  String get autofillManualIos =>
+      'Otwórz Ustawienia → Hasła → Opcje haseł (Autowypełnianie haseł w starszym iOS), włącz autouzupełnianie i wybierz Palladin.';
+
+  @override
+  String get autofillChromeHint =>
+      'W Chrome może być też konieczne wybranie Ustawienia → Usługi autouzupełniania → Autouzupełnianie przy użyciu innej usługi, a następnie ponowne uruchomienie Chrome.';
 }
