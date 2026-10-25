@@ -20,10 +20,21 @@ class BiometricSetupCard extends StatefulWidget {
 
 class _BiometricSetupCardState extends State<BiometricSetupCard> {
   BiometricSetupCubit? _cubit;
+  bool _wasCurrent = true;
   @override
   void initState() {
     super.initState();
     _initialize();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    if (isCurrent && !_wasCurrent) {
+      _cubit?.refresh();
+    }
+    _wasCurrent = isCurrent;
   }
 
   Future<void> _initialize() async {

@@ -76,4 +76,56 @@ void main() {
       await getIt.reset();
     },
   );
+  for (final passwordChangeSucceeded in [true, false]) {
+    testWidgets(
+      'return after password change ($passwordChangeSucceeded) refreshes cleared enrollment',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        await getIt.reset();
+        final keys = _Keys();
+        final auth = _Auth();
+        var enrolled = true;
+        when(() => auth.state).thenReturn(
+          AuthAuthenticated(
+            userId: 'dummy',
+            isOnboarded: true,
+            isVaultLocked: false,
+            masterKey: Uint8List(32),
+          ),
+        );
+        when(() => keys.isEnrolled()).thenAnswer((_) async => enrolled);
+        when(() => keys.canStore()).thenAnswer((_) async => true);
+        getIt.registerSingleton<BiometricKeyStore>(keys);
+        final navigator = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          BlocProvider<AuthBloc>.value(
+            value: auth,
+            child: MaterialApp(
+              navigatorKey: navigator,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const Scaffold(body: BiometricSetupCard()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Disable biometric unlock'), findsOneWidget);
+        navigator.currentState!.push(
+          MaterialPageRoute<bool>(
+            builder: (_) => const Scaffold(body: Text('Password change')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Production password change clears enrollment before the server request,
+        // so both a successful request and a failed request invalidate this status.
+        enrolled = false;
+        navigator.currentState!.pop(passwordChangeSucceeded);
+        await tester.pumpAndSettle();
+        expect(find.text('Enable biometric unlock'), findsOneWidget);
+        expect(find.text('Disable biometric unlock'), findsNothing);
+        await tester.pumpWidget(const SizedBox());
+        await getIt.reset();
+      },
+    );
+  }
 }
