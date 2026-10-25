@@ -351,7 +351,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             return
         }
         val handedOff = runCatching {
-            cacheStore.withRevalidatedGeneration(operation.generation) {
+            cacheStore.withRevalidatedCredentials(operation.generation, listOf(record)) {
                 require(!AutofillOriginVerifier(this).isBrowser(requestingPackage))
                 require(manualSelection?.confirm(record.id, domain, requestingPackage) == true)
                 clearNativeSelection()
@@ -400,7 +400,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             return
         }
         val handedOff = runCatching {
-            cacheStore.withRevalidatedGeneration(operation.generation) {
+            cacheStore.withRevalidatedCredentials(operation.generation, listOf(record)) {
                 require(stillAuthorized())
                 clearNativeSelection()
                 setResult(
@@ -471,7 +471,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             // checks through setResult so a committed revoke cannot race into
             // the gap after validation and still release stale plaintext.
             val handedOff = runCatching {
-                cacheStore.withRevalidatedGeneration(operation.generation) {
+                cacheStore.withRevalidatedCredentials(operation.generation, matches) {
                     require(
                         AutofillOriginVerifier(this)
                             .isVerified(requestingPackage, domain),
