@@ -115,6 +115,8 @@ is baked into the foreground. This removes Palladin's black launcher background,
 but does not promise wallpaper transparency from an adaptive launcher. Native
 appearance still requires real-device verification after release.
 
-Pinned action bands use `AppActionFooter`. It consumes remaining bottom padding
-through `SafeArea`, with the existing 32dp minimum, instead of adding raw
-`viewPadding` to an already-safe parent. The Scaffold owns keyboard resizing.
+Pinned action bands use `AppActionFooter`, with equal `AppSpacing.md` (12dp)
+padding above and below the action inside `SafeArea`. The remaining bottom
+system inset is added once, outside that visual padding; an outer SafeArea
+already consuming it must not add a second inset. The Scaffold owns keyboard
+resizing, leaving the same 12dp gap above the keyboard.

@@ -13,11 +13,6 @@ class AppActionFooter extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(
-        left: AppSpacing.screenH,
-        top: AppSpacing.md,
-        right: AppSpacing.screenH,
-      ),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         border: Border(top: BorderSide(color: AppColors.navBorder(brightness))),
@@ -26,8 +21,13 @@ class AppActionFooter extends StatelessWidget {
         top: false,
         left: false,
         right: false,
-        minimum: const EdgeInsets.only(bottom: AppSpacing.screenBottom),
-        child: child,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenH,
+            vertical: AppSpacing.md,
+          ),
+          child: child,
+        ),
       ),
     );
   }

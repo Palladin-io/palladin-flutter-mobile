@@ -215,7 +215,7 @@ lib/
 | `SkeletonBox` | `lib/core/widgets/skeleton_box.dart` | The only skeleton primitive — never reimplement the opacity loop. Params: `height`, `borderRadius` (default 12), `delay` (stagger) |
 | `SetupCard` | `lib/core/widgets/setup_card.dart` | Shared device-setup card surface, title, description paragraphs and action column. AutoFill/biometric owners supply copy, actions and optional warning border; no lifecycle logic |
 | `SheetSurface` | `lib/core/widgets/sheet_surface.dart` | Titled surface used by the shared startup/settings consent bottom sheet; fills a bounded host height, expands its body below the header; max width 640, optional close; host owns height and modal semantics. Params: `title`, `child`, `showClose`, `onClose` |
-| `AppActionFooter` | `lib/core/widgets/app_action_footer.dart` | Pinned full-width action band; consumes remaining bottom SafeArea with the 32dp minimum. Host owns keyboard resizing; do not add a second navigation inset |
+| `AppActionFooter` | `lib/core/widgets/app_action_footer.dart` | Pinned full-width action band; symmetric 12dp action padding plus remaining bottom SafeArea. Host owns keyboard resizing; do not add a second navigation inset |
 | `SheetActionButtons` | `lib/core/widgets/sheet_action_buttons.dart` | Cancel (1×) + Confirm (2×) footer band for modal sheets. Params: `onCancel`, `onConfirm`, `confirmLabel`, `confirmColor`, `cancelLabel`, `busy`, `equalActions` (equal widths and natural equal heights, minimum 44; Confirm stays primary) |
 | `AppMenuSheet` | `lib/core/widgets/app_menu_sheet.dart` | `showAppMenuSheet<T>({title, items})` — native bottom-sheet action menu (the mobile "⋯" popover). `AppMenuItem<T>(value, icon, label, trailing?, danger, dividerBefore)`. Use for row/overflow menus instead of hand-rolling a sheet |
 | `WarningZone` | `lib/core/widgets/warning_zone.dart` | Amber-bordered security warning box. Params: `title` (uppercase), `message` |
@@ -291,7 +291,7 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 Create and edit forms use the same pinned action-footer pattern. The form fields scroll independently in an `Expanded` scroll view; the primary Save/Create action stays in a separate footer at the bottom of the screen.
 
 - The footer must span the full available width and remain visible while the form scrolls or the keyboard changes the viewport.
-- Use `AppSpacing.screenH` horizontally, `AppSpacing.md` above the action, and `AppSpacing.screenBottom` below it so the action clears the device safe area.
+- Use `AppActionFooter`: `AppSpacing.screenH` horizontally and equal `AppSpacing.md` padding above and below the action, plus the remaining bottom safe-area inset exactly once. The system inset must not consume the visual padding; the host owns keyboard resizing.
 - Use `AppColors.cardFill(brightness)` with a top border in `AppColors.navBorder(brightness)`.
 - Reuse the same feature action widget (for Entry forms: `EntrySaveButton`) in both create and update flows. Do not place a second Save/Create button inside the scrollable form body.
 - Create and update screens for the same resource must have visually and structurally identical footers unless a product requirement explicitly says otherwise.
