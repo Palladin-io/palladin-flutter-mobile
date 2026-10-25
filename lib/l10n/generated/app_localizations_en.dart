@@ -4913,4 +4913,35 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get generatedPasswordReplaceBody =>
       'A new password will replace the value in this form. The new password will also be saved to generated password history.';
+
+  @override
+  String get autofillSetupTitle => 'Set up AutoFill';
+
+  @override
+  String get autofillSetupHint =>
+      'Palladin is not enabled as a system password manager. Choose Palladin in AutoFill settings to fill saved passwords.';
+
+  @override
+  String get autofillEnabled => 'Palladin is enabled for AutoFill';
+
+  @override
+  String get autofillEnabledHint =>
+      'Provider selection is enabled. Matching saved credentials still require biometric authorization.';
+
+  @override
+  String get autofillOpenSettings => 'Open AutoFill settings';
+
+  @override
+  String get autofillCheckAgain => 'Check again';
+
+  @override
+  String get autofillStatusError => 'Could not check AutoFill. Try again.';
+
+  @override
+  String get autofillManualIos =>
+      'Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.';
+
+  @override
+  String get autofillChromeHint =>
+      'In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome.';
 }

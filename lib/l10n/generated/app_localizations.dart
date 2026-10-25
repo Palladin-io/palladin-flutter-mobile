@@ -8689,6 +8689,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A new password will replace the value in this form. The new password will also be saved to generated password history.'**
   String get generatedPasswordReplaceBody;
+
+  /// No description provided for @autofillSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up AutoFill'**
+  String get autofillSetupTitle;
+
+  /// No description provided for @autofillSetupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin is not enabled as a system password manager. Choose Palladin in AutoFill settings to fill saved passwords.'**
+  String get autofillSetupHint;
+
+  /// No description provided for @autofillEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin is enabled for AutoFill'**
+  String get autofillEnabled;
+
+  /// No description provided for @autofillEnabledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider selection is enabled. Matching saved credentials still require biometric authorization.'**
+  String get autofillEnabledHint;
+
+  /// No description provided for @autofillOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open AutoFill settings'**
+  String get autofillOpenSettings;
+
+  /// No description provided for @autofillCheckAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get autofillCheckAgain;
+
+  /// No description provided for @autofillStatusError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not check AutoFill. Try again.'**
+  String get autofillStatusError;
+
+  /// No description provided for @autofillManualIos.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.'**
+  String get autofillManualIos;
+
+  /// No description provided for @autofillChromeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome.'**
+  String get autofillChromeHint;
 }
 
 class _AppLocalizationsDelegate

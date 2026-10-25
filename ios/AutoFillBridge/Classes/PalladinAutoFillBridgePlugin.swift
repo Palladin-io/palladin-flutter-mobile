@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Flutter
 import Foundation
 
@@ -32,6 +33,36 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        if call.method == "getProviderStatus" {
+            ASCredentialIdentityStore.shared.getState { state in
+                DispatchQueue.main.async {
+                    if #available(iOS 17.0, *) {
+                        result(state.isEnabled ? "enabled" : "disabled")
+                    } else {
+                        result(state.isEnabled ? "enabledManual" : "manual")
+                    }
+                }
+            }
+            return
+        }
+        if call.method == "openProviderSettings" {
+            if #available(iOS 17.0, *) {
+                ASSettingsHelper.openCredentialProviderAppSettings { error in
+                    DispatchQueue.main.async {
+                        if error == nil {
+                            result(nil)
+                        } else {
+                            result(FlutterError(code: "AUTOFILL_SETTINGS_ERROR",
+                                message: "AutoFill settings are unavailable", details: nil))
+                        }
+                    }
+                }
+            } else {
+                result(FlutterError(code: "AUTOFILL_MANUAL_SETUP",
+                    message: "Open AutoFill settings manually", details: nil))
+            }
+            return
+        }
         let action = {
             do {
                 let store = try AutoFillCacheStore()

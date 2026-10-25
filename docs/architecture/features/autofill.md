@@ -26,6 +26,36 @@
   needed for that identity check; it does not request `QUERY_ALL_PACKAGES`.
   Other native apps and sideloaded browser lookalikes fail closed.
 
+## Provider activation and status
+
+The native provider registrations do not select Palladin for the user. On the
+first ready Home screen after setup/unlock, `AutoFillSetupCard` checks the OS and
+shows a persistent setup warning until the OS confirms selection. There is no
+dismissal flag. Settings → Security exposes the same card and retains enabled
+status. Both refresh on mount and app resume, including returning from system
+settings. Opening settings or cancelling the picker never marks setup complete.
+Status is selection only, not a promise that a credential cache or biometric
+hardware is ready. Errors remain visible with retry; no secrets or selection
+state are persisted by this flow.
+
+- Android 8+: `AutofillManager.hasEnabledAutofillServices()` checks this app's
+  service; a button launches `ACTION_REQUEST_SET_AUTOFILL_SERVICE` with the
+  current flavor's package URI. The OS owns selection/consent. Chrome may also
+  require its separate "Autofill using another service" preference and restart;
+  the card explains this. OEM wording (including Samsung One UI) may vary.
+- iOS: `ASCredentialIdentityStore.getState` reports whether this provider is
+  enabled. On iOS 17+, the button uses the public
+  `ASSettingsHelper.openCredentialProviderAppSettings`. On iOS 14–16, manual
+  Settings → Passwords → Password Options / AutoFill Passwords instructions and
+  a Check again action replace the unavailable public settings shortcut.
+  iOS permits multiple enabled providers; the UI intentionally says enabled,
+  not that Palladin has become an exclusive default.
+- The flow never opens settings automatically, changes the OS default silently,
+  or touches credential encryption, cache activation, or provider authentication.
+
+References: [Android provider activation](https://developer.android.com/identity/autofill/autofill-services#request-permission),
+[Apple settings helper](https://developer.apple.com/documentation/authenticationservices/assettingshelper).
+
 ## Security contract
 
 1. MK, VK, the user's private key, decrypted vault payloads, plaintext
@@ -163,7 +193,10 @@
 
 ## Required device QA
 
-- Android: select Palladin as the system AutoFill provider. On Chrome versions
+- Android (include Samsung Galaxy S22 Ultra): on a fresh install, verify the
+  Home warning and Security status, cancel the system picker and confirm the
+  warning remains, then select Palladin and return to confirm it disappears.
+  Disable Palladin in OS settings and resume to confirm it returns. On Chrome versions
   that expose their own `Autofill services` preference, also select `Autofill
   using another service` and restart Chrome before testing the login form.
   Then verify biometric success/cancel/failure, stale-cache mutation, logout
@@ -171,7 +204,9 @@
   new-password and confirmation hints, unrelated current-password forms,
   unverified native packages, interrupted sign-up recovery after restart,
   history capacity, explicit Vault save, and session/account switching.
-- iOS: Safari login form, identity selection, biometric success/cancel/failure,
+- iOS: verify setup status, settings navigation on iOS 17+, manual instructions
+  on iOS 14–16, cancel/enable/disable and resume. Verify Safari login form,
+  identity selection, biometric success/cancel/failure,
   stale-cache mutation test, logout wipe, biometric enrollment change. On iOS
   26.2+, verify generation requests with and without site rules and recovery
   after restart; on older iOS verify the explicit in-app Generate path. Verify

@@ -3761,5 +3761,14 @@
   "generatedPasswordGenerated": "Strong password generated and saved to history",
   "generatedPasswordEnterWebsite": "Enter an HTTPS website before generating a password.",
   "generatedPasswordReplaceTitle": "Replace this password?",
-  "generatedPasswordReplaceBody": "A new password will replace the value in this form. The new password will also be saved to generated password history."
+  "generatedPasswordReplaceBody": "A new password will replace the value in this form. The new password will also be saved to generated password history.",
+  "autofillSetupTitle": "Set up AutoFill",
+  "autofillSetupHint": "Palladin is not enabled as a system password manager. Choose Palladin in AutoFill settings to fill saved passwords.",
+  "autofillEnabled": "Palladin is enabled for AutoFill",
+  "autofillEnabledHint": "Provider selection is enabled. Matching saved credentials still require biometric authorization.",
+  "autofillOpenSettings": "Open AutoFill settings",
+  "autofillCheckAgain": "Check again",
+  "autofillStatusError": "Could not check AutoFill. Try again.",
+  "autofillManualIos": "Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.",
+  "autofillChromeHint": "In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome."
 }
