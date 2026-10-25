@@ -21,18 +21,18 @@ export 'unlock_state.dart';
 /// 2. Run Argon2id to derive MK, open `crypto_secretbox_easy` to
 ///    recover the private key.
 /// 3. On the FIRST successful password unlock, enroll the MK into the
-///    enclave-bound, biometric-gated [BiometricKeyStore] so the biometric
+///    OS-protected, biometric-gated [BiometricKeyStore] so the biometric
 ///    shortcut can recover it next session — the MK is never persisted in a
 ///    form that can be read without a fresh biometric authentication.
 ///
 /// Biometric flow (shortcut):
 /// 1. [BiometricKeyStore.unlockKey] triggers the OS biometric prompt; the
-///    enclave releases the MK only on a successful authentication.
+///    OS releases the MK only on a successful authentication.
 /// 2. Decrypt the private key with the recovered MK (fresh
 ///    `GET /api/account` each time so key rotations propagate).
 ///
-/// The password path never touches [BiometricKeyStore], so a device without
-/// biometrics — or any enclave failure — leaves password unlock fully working.
+/// Biometric enrollment is optional, so a device without
+/// biometrics — or any protected-storage failure — leaves password unlock fully working.
 class UnlockCubit extends Cubit<UnlockState> {
   UnlockCubit({
     required this.datasource,
@@ -56,7 +56,9 @@ class UnlockCubit extends Cubit<UnlockState> {
     BiometricPromptCopy? biometricCopy,
     String? defaultVaultName,
   }) async {
-    if (password.isEmpty) return;
+    if (password.isEmpty || isClosed) return;
+    final generation = keyStore.generation;
+    bool canceled() => isClosed || generation != keyStore.generation;
     AppLogger.d('Unlock', 'Password unlock requested');
     emit(const UnlockLoading());
 
@@ -64,6 +66,7 @@ class UnlockCubit extends Cubit<UnlockState> {
     var keysHandedOff = false;
     try {
       final account = await datasource.getAccount();
+      if (canceled()) return;
       final kdf = account.kdf;
       final encryptedPrivateKey = account.encryptedPrivateKey;
       if (kdf == null || encryptedPrivateKey == null) {
@@ -76,8 +79,14 @@ class UnlockCubit extends Cubit<UnlockState> {
         encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
+      if (canceled()) return;
       if (biometricCopy != null) {
-        await _maybeEnrollBiometric(result.masterKey, biometricCopy);
+        await _maybeEnrollBiometric(
+          result.masterKey,
+          biometricCopy,
+          generation,
+        );
+        if (canceled()) return;
       }
 
       await _provisionDefaultVault(
@@ -85,6 +94,7 @@ class UnlockCubit extends Cubit<UnlockState> {
         name: defaultVaultName,
       );
 
+      if (canceled()) return;
       AppLogger.i('Unlock', 'Password unlock succeeded');
       emit(
         UnlockSuccess(
@@ -95,7 +105,7 @@ class UnlockCubit extends Cubit<UnlockState> {
       keysHandedOff = true;
     } on WrongMasterPasswordException catch (e) {
       AppLogger.w('Unlock', 'Wrong master password');
-      emit(UnlockFailed(e));
+      if (!isClosed) emit(UnlockFailed(e));
     } on DioException catch (e, s) {
       if (e.response?.statusCode == 401) {
         AppLogger.w('Unlock', 'Session expired — routing to sign-in');
@@ -103,10 +113,10 @@ class UnlockCubit extends Cubit<UnlockState> {
         return;
       }
       AppLogger.e('Unlock', 'Unlock failed', error: e, stackTrace: s);
-      emit(UnlockFailed(e));
+      if (!isClosed) emit(UnlockFailed(e));
     } catch (e, s) {
       AppLogger.e('Unlock', 'Unlock failed', error: e, stackTrace: s);
-      emit(UnlockFailed(e));
+      if (!isClosed) emit(UnlockFailed(e));
     } finally {
       if (!keysHandedOff && result != null) {
         result.masterKey.fillRange(0, result.masterKey.length, 0);
@@ -123,6 +133,7 @@ class UnlockCubit extends Cubit<UnlockState> {
   Future<void> _maybeEnrollBiometric(
     Uint8List masterKey,
     BiometricPromptCopy copy,
+    int generation,
   ) async {
     // Purge the pre-hardening raw MK FIRST, unconditionally — before the
     // isEnrolled()/canStore() guards. On a non-biometric device canStore()
@@ -134,7 +145,8 @@ class UnlockCubit extends Cubit<UnlockState> {
     try {
       if (await keyStore.isEnrolled()) return;
       if (!await keyStore.canStore()) return;
-      await keyStore.enroll(masterKey, copy);
+      if (isClosed || generation != keyStore.generation) return;
+      await keyStore.enroll(masterKey, copy, expectedGeneration: generation);
       AppLogger.i('Unlock', 'MK enrolled for biometric unlock');
     } catch (e) {
       // Never log the key or the raw error payload — just the type.
@@ -146,7 +158,7 @@ class UnlockCubit extends Cubit<UnlockState> {
   ///
   /// Assumes [isBiometricAvailable] returned true. [BiometricKeyStore.unlockKey]
   /// surfaces the OS Face ID / fingerprint prompt and only returns the MK on a
-  /// successful, enclave-enforced authentication.
+  /// successful OS-enforced authentication.
   ///
   /// On any failure emits [UnlockFailed] with a typed exception — the
   /// presentation layer surfaces a short error and leaves the password
@@ -207,10 +219,10 @@ class UnlockCubit extends Cubit<UnlockState> {
         return;
       }
       AppLogger.e('Unlock', 'Biometric unlock failed', error: e, stackTrace: s);
-      emit(UnlockFailed(e));
+      if (!isClosed) emit(UnlockFailed(e));
     } catch (e, s) {
       AppLogger.e('Unlock', 'Biometric unlock failed', error: e, stackTrace: s);
-      emit(UnlockFailed(e));
+      if (!isClosed) emit(UnlockFailed(e));
     } finally {
       if (!keysHandedOff && result != null) {
         result.masterKey.fillRange(0, result.masterKey.length, 0);

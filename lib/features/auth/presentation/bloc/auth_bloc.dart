@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/crypto/vault_session_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../data/repositories/auth_repository_impl.dart';
@@ -113,6 +114,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
     try {
       await authRepository.logout();
+    } on BiometricKeyCleanupException catch (e) {
+      // Tokens are already revoked. Never resurrect the unlocked session just
+      // because the platform could not confirm deletion of protected material.
+      _vaultSessionStore?.clear();
+      if (stateBeforeLogout is AuthAuthenticated) {
+        final masterKey = stateBeforeLogout.masterKey;
+        final privateKey = stateBeforeLogout.privateKey;
+        masterKey?.fillRange(0, masterKey.length, 0);
+        privateKey?.fillRange(0, privateKey.length, 0);
+      }
+      emit(AuthError(e));
+      return;
     } catch (e) {
       // Security-critical local revocation/storage cleanup failed. We cannot
       // claim the session ended until AutoFill access, tokens, and the

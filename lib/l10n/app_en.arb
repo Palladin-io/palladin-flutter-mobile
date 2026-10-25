@@ -1,4 +1,5 @@
 {
+  "biometricCleanupFailed": "Could not remove the protected biometric key from this device. Please retry.",
   "auditActorExternalRecipient": "External recipient",
   "auditGroupEntrySharing": "Entry sharing",
   "notifTitleEntryShareReceived": "Shared copy received",

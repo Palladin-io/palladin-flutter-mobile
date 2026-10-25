@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -157,6 +158,24 @@ void main() {
           throwsA(isA<StateError>()),
         );
       },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'clears session memory and exposes failed biometric cleanup after token revocation',
+      build: () {
+        when(
+          () => mockRepo.logout(),
+        ).thenThrow(const BiometricKeyCleanupException());
+        return AuthBloc(
+          authRepository: mockRepo,
+          vaultSessionStore: vaultSessionStore,
+        );
+      },
+      seed: () => const AuthAuthenticated(userId: 'user', isOnboarded: true),
+      act: (bloc) => bloc.add(const AuthLogoutRequested()),
+      expect: () => [isA<AuthLoading>(), isA<AuthError>()],
+      verify: (_) =>
+          expect(vaultSessionStore.copyMemberPrivateKey, throwsStateError),
     );
 
     blocTest<AuthBloc, AuthState>(

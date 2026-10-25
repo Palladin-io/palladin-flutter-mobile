@@ -48,7 +48,7 @@ Repository variables:
 - `MOBILE_STAGING_ENABLED`: absent/false initially.
 
 For each protected environment configure:
-- `MOBILE_DISTRIBUTION_ENABLED`: keep absent/false until the app's release-blocking biometric master-key persistence is remediated and reviewed, and the prerequisites below are verified. This flag is not a waiver.
+- `MOBILE_DISTRIBUTION_ENABLED`: keep absent/false until device-bound biometric protection and actual key deletion pass review and automated checks, and the prerequisites below are verified. Internal distribution supplies builds for device acceptance; physical-device acceptance is required before broad/public release. This flag is not a waiver.
 - `PRODUCTION_API_BASE_URL` / `STAGING_API_BASE_URL` as appropriate: explicit HTTPS URL.
 - corresponding `PRODUCTION_GOOGLE_SERVER_CLIENT_ID` / `STAGING_GOOGLE_SERVER_CLIENT_ID`.
 - `GOOGLE_IOS_CLIENT_ID`, `FIREBASE_ANDROID_CONFIG`, `FIREBASE_IOS_CONFIG` for that app identity.
@@ -72,4 +72,4 @@ Apple profiles must be App Store distribution profiles for the app and Credentia
 
 Local: `python3 -m unittest discover -s tool/tests`, `bundle exec ruby fastlane/tests/mobile_delivery_test.rb`, `actionlint .github/workflows/*.yml`. The reusable Test workflow also runs Flutter checks, secret scan and existing budgets.
 
-Real acceptance remains required after merge and provisioning: install both internal builds on devices, then resume the same run without new binaries. The historical iOS profile lacking Associated Domains and the biometric master-key persistence blocker are not solved by release automation. No real store success can be inferred from the script tests.
+Real acceptance remains required after merge and provisioning: install both internal builds on devices, then resume the same run without new binaries. The historical iOS profile lacking Associated Domains and the biometric cleanup and physical-device validation gates are not solved by release automation. No real store success can be inferred from the script tests.

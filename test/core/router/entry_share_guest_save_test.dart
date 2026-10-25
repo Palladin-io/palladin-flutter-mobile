@@ -498,6 +498,7 @@ void main() {
       ),
     );
     biometrics = _Biometrics();
+    when(() => biometrics.generation).thenReturn(0);
     when(() => biometrics.isEnrolled()).thenAnswer((_) async => false);
     when(() => biometrics.canStore()).thenAnswer((_) async => false);
     when(() => biometrics.purgeLegacyRawKey()).thenAnswer((_) async {});
@@ -920,7 +921,13 @@ void main() {
           for (final request in requests) {
             expect(request.body, isNot(contains(recoveryWords.join(' '))));
           }
-          verifyNever(() => biometrics.enroll(any(), any()));
+          verifyNever(
+            () => biometrics.enroll(
+              any(),
+              any(),
+              expectedGeneration: any(named: 'expectedGeneration'),
+            ),
+          );
           verifyNever(() => biometrics.unlockKey(any()));
         } else if (unlocking) {
           await tap(tester, 'Unlock to save');
@@ -958,7 +965,13 @@ void main() {
             await tap(tester, 'Unlock');
           }
           expect(defaultProvisioned, true);
-          verifyNever(() => biometrics.enroll(any(), any()));
+          verifyNever(
+            () => biometrics.enroll(
+              any(),
+              any(),
+              expectedGeneration: any(named: 'expectedGeneration'),
+            ),
+          );
           verifyNever(() => biometrics.unlockKey(any()));
         } else if (registering) {
           await tap(tester, 'Create account');

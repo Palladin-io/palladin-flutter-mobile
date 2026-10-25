@@ -1,6 +1,7 @@
 import Flutter
 import PalladinAutoFillBridge
 import UIKit
+import Security
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -67,6 +68,33 @@ import UIKit
       EntryShareIngressPlugin.register(with: registrar)
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let cleanupRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "PalladinBiometricCleanup") {
+      let cleanupChannel = FlutterMethodChannel(
+        name: "io.palladin.mobile/biometric-key-cleanup",
+        binaryMessenger: cleanupRegistrar.messenger()
+      )
+      cleanupChannel.setMethodCallHandler { call, result in
+        guard call.method == "deleteKey" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        // Fixed service/account match biometric_storage 5.x; never read the item.
+        let query: [String: Any] = [
+          kSecClass as String: kSecClassGenericPassword,
+          kSecAttrService as String: "flutter_biometric_storage",
+          kSecAttrAccount as String: "palladin_vault_mk_v2",
+          kSecUseDataProtectionKeychain as String: true,
+          kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        if status == errSecSuccess || status == errSecItemNotFound {
+          result(nil)
+        } else {
+          result(FlutterError(code: "cleanup_failed", message: "Biometric material deletion failed", details: nil))
+        }
+      }
+    }
+
     guard let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "PalladinAutoFillBridge"
     ) else { return }

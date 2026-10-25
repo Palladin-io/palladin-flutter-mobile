@@ -1,51 +1,65 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:biometric_storage/biometric_storage.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 
 import '../utils/app_logger.dart';
 import 'biometric_key_store.dart';
 import 'biometric_key_storage.dart';
 
-/// [BiometricKeyStore] backed by the `biometric_storage` plugin (enclave
-/// wrapping key, biometric-only, invalidated on biometric-set change).
+/// OS-protected biometric storage, with biometric-only access and
+/// invalidation when the enrolled biometric set changes.
 /// [FlutterSecureStorage] holds only the non-secret marker + legacy cleanup.
 class BiometricStorageKeyStore implements BiometricKeyStore {
   BiometricStorageKeyStore({
     required FlutterSecureStorage markerStorage,
     BiometricStorage? biometric,
-  })  : _markerStorage = markerStorage,
-        _biometric = biometric ?? BiometricStorage();
+  }) : _markerStorage = markerStorage,
+       _biometric = biometric ?? BiometricStorage();
 
   final FlutterSecureStorage _markerStorage;
   final BiometricStorage _biometric;
+  @override
+  int get generation => _generation;
+  int _generation = 0;
 
-  /// Enclave-file name. `_v2` distinguishes it from the pre-hardening raw key.
+  Future<void> _operation = Future<void>.value();
+
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _operation.then((_) => operation());
+    _operation = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  /// Protected store name. `_v2` distinguishes it from the pre-hardening raw key.
   static const _fileName = 'palladin_vault_mk_v2';
 
   StorageFileInitOptions _initOptions() => StorageFileInitOptions(
-        authenticationRequired: true,
-        // Per-operation auth (no time window) — the strongest posture.
-        authenticationValidityDurationSeconds: -1,
-        androidBiometricOnly: true,
-        darwinBiometricOnly: true,
-      );
+    authenticationRequired: true,
+    // Per-operation auth (no time window) — the strongest posture.
+    authenticationValidityDurationSeconds: -1,
+    androidBiometricOnly: true,
+    darwinBiometricOnly: true,
+  );
 
   PromptInfo _promptInfo(BiometricPromptCopy copy) => PromptInfo(
-        androidPromptInfo: AndroidPromptInfo(
-          title: copy.promptTitle,
-          negativeButton: copy.cancelLabel,
-        ),
-        iosPromptInfo: IosPromptInfo(
-          saveTitle: copy.enrollTitle,
-          accessTitle: copy.accessTitle,
-        ),
-        macOsPromptInfo: IosPromptInfo(
-          saveTitle: copy.enrollTitle,
-          accessTitle: copy.accessTitle,
-        ),
-      );
+    androidPromptInfo: AndroidPromptInfo(
+      title: copy.promptTitle,
+      negativeButton: copy.cancelLabel,
+    ),
+    iosPromptInfo: IosPromptInfo(
+      saveTitle: copy.enrollTitle,
+      accessTitle: copy.accessTitle,
+    ),
+    macOsPromptInfo: IosPromptInfo(
+      saveTitle: copy.enrollTitle,
+      accessTitle: copy.accessTitle,
+    ),
+  );
 
   @override
   Future<bool> canStore() async {
@@ -74,7 +88,16 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
   }
 
   @override
-  Future<void> enroll(Uint8List masterKey, BiometricPromptCopy copy) async {
+  Future<void> enroll(
+    Uint8List masterKey,
+    BiometricPromptCopy copy, {
+    required int expectedGeneration,
+  }) => _serialize(() async {
+    if (expectedGeneration != _generation) return;
+    await _enroll(masterKey, copy);
+  });
+
+  Future<void> _enroll(Uint8List masterKey, BiometricPromptCopy copy) async {
     final base64Mk = base64.encode(masterKey);
     try {
       final file = await _biometric.getStorage(
@@ -87,7 +110,9 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
       throw BiometricAuthException(_mapAuthError(e.code));
     } on BiometricStorageException catch (e) {
       AppLogger.w('BiometricKey', 'enroll storage error: ${e.message}');
-      throw const BiometricAuthException(BiometricAuthFailureReason.unavailable);
+      throw const BiometricAuthException(
+        BiometricAuthFailureReason.unavailable,
+      );
     }
 
     // Mark enrolled + delete any legacy raw MK from a pre-hardening install.
@@ -101,7 +126,10 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
   }
 
   @override
-  Future<Uint8List?> unlockKey(BiometricPromptCopy copy) async {
+  Future<Uint8List?> unlockKey(BiometricPromptCopy copy) =>
+      _serialize(() => _unlockKey(copy));
+
+  Future<Uint8List?> _unlockKey(BiometricPromptCopy copy) async {
     if (!await isEnrolled()) return null;
     try {
       final file = await _biometric.getStorage(
@@ -119,19 +147,29 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
       // file is gone — treat as "not usable" and let the caller fall back to
       // the password path. Drop the now-stale marker so we re-enroll cleanly.
       AppLogger.w('BiometricKey', 'unlock storage error: ${e.message}');
-      await clear();
-      throw const BiometricAuthException(BiometricAuthFailureReason.unavailable);
+      await _clear();
+      throw const BiometricAuthException(
+        BiometricAuthFailureReason.unavailable,
+      );
     }
   }
 
   @override
-  Future<void> clear() async {
-    // Clear the enrollment marker (+ any legacy raw key). We deliberately do
-    // NOT delete the enclave blob: deleting can surface a biometric prompt on
-    // some platforms, and an orphaned blob is harmless — it stays biometric-
-    // gated and is overwritten on the next enroll. With the marker gone,
-    // isEnrolled() reports false, so the app never tries to read it.
-    await BiometricKeyStorage.clear(_markerStorage);
+  Future<void> clear() {
+    _generation++;
+    return _serialize(_clear);
+  }
+
+  Future<void> _clear() async {
+    try {
+      await const MethodChannel(
+        'io.palladin.mobile/biometric-key-cleanup',
+      ).invokeMethod<void>('deleteKey');
+    } catch (_) {
+      throw const BiometricKeyCleanupException();
+    } finally {
+      await BiometricKeyStorage.clear(_markerStorage);
+    }
   }
 
   @override
@@ -150,8 +188,7 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
   BiometricAuthFailureReason _mapAuthError(AuthExceptionCode code) {
     return switch (code) {
       AuthExceptionCode.userCanceled ||
-      AuthExceptionCode.canceled =>
-        BiometricAuthFailureReason.canceled,
+      AuthExceptionCode.canceled => BiometricAuthFailureReason.canceled,
       AuthExceptionCode.timeout => BiometricAuthFailureReason.failed,
       // Catch-all fails closed to `unavailable`. `biometric_storage` is an
       // external plugin, so a minor bump adding a new AuthExceptionCode must

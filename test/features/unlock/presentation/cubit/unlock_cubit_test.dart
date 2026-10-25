@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -61,6 +62,7 @@ void main() {
     datasource = _MockAccountDatasource();
     crypto = _MockCryptoService();
     keyStore = _MockKeyStore();
+    when(() => keyStore.generation).thenReturn(0);
     defaultVaultProvisioner = _MockDefaultVaultProvisioner();
     // Legacy-key purge runs on every password unlock — default it to a no-op.
     when(() => keyStore.purgeLegacyRawKey()).thenAnswer((_) async {});
@@ -71,7 +73,13 @@ void main() {
   void stubEnrollmentReady() {
     when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
     when(() => keyStore.canStore()).thenAnswer((_) async => true);
-    when(() => keyStore.enroll(any(), any())).thenAnswer((_) async {});
+    when(
+      () => keyStore.enroll(
+        any(),
+        any(),
+        expectedGeneration: any(named: 'expectedGeneration'),
+      ),
+    ).thenAnswer((_) async {});
   }
 
   void stubPasswordUnlockSuccess() {
@@ -97,6 +105,64 @@ void main() {
     defaultVaultProvisioner: defaultVaultProvisioner,
   );
 
+  for (final closeCubit in [true, false]) {
+    for (final waitAtKdf in [true, false]) {
+      test(
+        '${closeCubit ? 'disposed' : 'cleared'} unlock never enrolls after delayed ${waitAtKdf ? 'KDF' : 'canStore'}',
+        () async {
+          stubPasswordUnlockSuccess();
+          stubEnrollmentReady();
+          final entered = Completer<void>();
+          final release = Completer<void>();
+          final mk = Uint8List.fromList(List.filled(32, 42));
+          final pk = Uint8List.fromList(List.filled(32, 43));
+          when(
+            () => crypto.deriveAndDecrypt(
+              masterPassword: any(named: 'masterPassword'),
+              accountId: any(named: 'accountId'),
+              kdf: any(named: 'kdf'),
+              encryptedPrivateKeyBase64: any(
+                named: 'encryptedPrivateKeyBase64',
+              ),
+            ),
+          ).thenAnswer((_) async {
+            if (waitAtKdf) {
+              entered.complete();
+              await release.future;
+            }
+            return UnlockResult(masterKey: mk, privateKey: pk);
+          });
+          if (!waitAtKdf) {
+            when(() => keyStore.canStore()).thenAnswer((_) async {
+              entered.complete();
+              await release.future;
+              return true;
+            });
+          }
+          final cubit = buildCubit();
+          final unlocking = cubit.unlock('dummy', biometricCopy: copy);
+          await entered.future;
+          if (closeCubit) {
+            await cubit.close();
+          } else {
+            when(() => keyStore.generation).thenReturn(1);
+          }
+          release.complete();
+          await unlocking;
+          verifyNever(
+            () => keyStore.enroll(
+              any(),
+              any(),
+              expectedGeneration: any(named: 'expectedGeneration'),
+            ),
+          );
+          expect(mk, everyElement(0));
+          expect(pk, everyElement(0));
+          if (!closeCubit) await cubit.close();
+        },
+      );
+    }
+  }
   group('UnlockCubit', () {
     test('initial state is UnlockInitial', () {
       final cubit = buildCubit();
@@ -150,7 +216,9 @@ void main() {
             .having((s) => s.privateKey, 'privateKey', privateKey),
       ],
       verify: (_) {
-        verify(() => keyStore.enroll(masterKey, copy)).called(1);
+        verify(
+          () => keyStore.enroll(masterKey, copy, expectedGeneration: 0),
+        ).called(1);
       },
     );
 
@@ -232,7 +300,13 @@ void main() {
       act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
       expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
       verify: (_) {
-        verifyNever(() => keyStore.enroll(any(), any()));
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
       },
     );
 
@@ -247,7 +321,13 @@ void main() {
       act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
       expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
       verify: (_) {
-        verifyNever(() => keyStore.enroll(any(), any()));
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
       },
     );
 
@@ -266,7 +346,13 @@ void main() {
         // Purge must run before the canStore() guard bails out; enrollment
         // itself is correctly skipped on a non-biometric device.
         verify(() => keyStore.purgeLegacyRawKey()).called(1);
-        verifyNever(() => keyStore.enroll(any(), any()));
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
       },
     );
 
@@ -275,7 +361,13 @@ void main() {
       build: () {
         when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
         when(() => keyStore.canStore()).thenAnswer((_) async => true);
-        when(() => keyStore.enroll(any(), any())).thenThrow(
+        when(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        ).thenThrow(
           const BiometricAuthException(BiometricAuthFailureReason.canceled),
         );
         stubPasswordUnlockSuccess();
@@ -311,7 +403,13 @@ void main() {
         ),
       ],
       verify: (_) {
-        verifyNever(() => keyStore.enroll(any(), any()));
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
       },
     );
 
@@ -339,7 +437,13 @@ void main() {
         ),
       ],
       verify: (_) {
-        verifyNever(() => keyStore.enroll(any(), any()));
+        verifyNever(
+          () => keyStore.enroll(
+            any(),
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        );
       },
     );
 

@@ -17,6 +17,8 @@ import io.palladin.mobile.export.ProtectedExportStore
 import io.palladin.mobile.sharing.EntryShareIngressBridge
 import java.util.concurrent.Executors
 import javax.crypto.Cipher
+import java.security.KeyStore
+import io.palladin.mobile.security.BiometricKeyCleanup
 
 class MainActivity : FlutterFragmentActivity() {
     private val cacheExecutor = Executors.newSingleThreadExecutor()
@@ -48,6 +50,21 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+            "io.palladin.mobile/biometric-key-cleanup").setMethodCallHandler { call, result ->
+            if (call.method != "deleteKey") {
+                result.notImplemented()
+            } else {
+                try {
+                    val keys = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                    BiometricKeyCleanup(filesDir, { keys.deleteEntry(it) }, { keys.containsAlias(it) }).clear()
+                    result.success(null)
+                } catch (_: Exception) {
+                    result.error("cleanup_failed", "Biometric material deletion failed", null)
+                }
+            }
+        }
+
         sharingAttachment = EntryShareIngressBridge.attach(flutterEngine.dartExecutor.binaryMessenger)
         val cacheStore = AutoFillCacheStore(applicationContext)
         val generatedHistory = GeneratedPasswordHistory(applicationContext)

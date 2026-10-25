@@ -9,6 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get biometricCleanupFailed =>
+      'Could not remove the protected biometric key from this device. Please retry.';
+
+  @override
   String get auditActorExternalRecipient => 'External recipient';
 
   @override

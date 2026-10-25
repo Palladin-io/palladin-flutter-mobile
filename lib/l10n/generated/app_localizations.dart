@@ -98,6 +98,12 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @biometricCleanupFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not remove the protected biometric key from this device. Please retry.'**
+  String get biometricCleanupFailed;
+
   /// No description provided for @auditActorExternalRecipient.
   ///
   /// In en, this message translates to:

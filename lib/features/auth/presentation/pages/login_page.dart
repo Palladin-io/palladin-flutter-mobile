@@ -1,3 +1,4 @@
+import '../../../../core/storage/biometric_key_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -58,6 +59,13 @@ class _LoginViewState extends State<_LoginView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = context.read<AuthBloc>().state;
+      if (auth is AuthError && auth.error is BiometricKeyCleanupException) {
+        _handleOAuthState(context, auth);
+      }
+    });
     _emailController.addListener(_onChanged);
     _passwordController.addListener(_onChanged);
     _codeController.addListener(_onChanged);
@@ -480,6 +488,9 @@ class _LoginViewState extends State<_LoginView> {
 
   String _oauthErrorMessage(BuildContext context, Object error) {
     final l10n = AppLocalizations.of(context)!;
+    if (error is BiometricKeyCleanupException) {
+      return l10n.biometricCleanupFailed;
+    }
     if (error is AuthServerException) {
       return switch (error.kind) {
         AuthServerErrorKind.serverNotResponding =>

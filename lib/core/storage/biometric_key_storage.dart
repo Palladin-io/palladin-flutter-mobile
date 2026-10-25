@@ -1,9 +1,10 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../utils/app_logger.dart';
+import 'biometric_key_store.dart';
 
 /// Marker constants + logout cleanup for the biometric master key. The MK
-/// itself lives in the enclave-bound store ([BiometricStorageKeyStore]); this
+/// itself lives in the OS-protected store ([BiometricStorageKeyStore]); this
 /// class only owns the non-secret enrollment marker and the legacy-key purge.
 abstract final class BiometricKeyStorage {
   /// Pre-hardening key: raw MK once persisted directly to secure storage.
@@ -22,9 +23,9 @@ abstract final class BiometricKeyStorage {
     encryptedSharedPreferences: true,
   );
 
-  /// Clears the enrollment marker and any legacy raw MK. Best-effort — never
-  /// throws, never prompts (does not touch the enclave-protected key).
+  /// Attempts both deletions and reports failure without reading key values.
   static Future<void> clear(FlutterSecureStorage storage) async {
+    var failed = false;
     for (final key in const [legacyRawKey, enrolledMarkerKey]) {
       try {
         await storage.delete(
@@ -33,8 +34,10 @@ abstract final class BiometricKeyStorage {
           aOptions: androidOptions,
         );
       } catch (e) {
+        failed = true;
         AppLogger.w('BiometricKey', 'Failed to clear $key: ${e.runtimeType}');
       }
     }
+    if (failed) throw const BiometricKeyCleanupException();
   }
 }
