@@ -181,4 +181,53 @@ void main() {
     expect(auth, isA<AuthAuthenticated>());
     await cubit.close();
   });
+  for (final interruption in ['dispose', 'lock', 'new-generation']) {
+    test(
+      'partial write then error after $interruption revokes only its generation',
+      () async {
+        final written = Completer<void>();
+        final finish = Completer<void>();
+        var protectedCopyExists = false;
+        Uint8List? supplied;
+        when(() => keys.clear()).thenAnswer((_) async {
+          protectedCopyExists = false;
+        });
+        when(() => keys.enroll(any(), any(), expectedGeneration: 0)).thenAnswer(
+          (call) async {
+            supplied = call.positionalArguments[0] as Uint8List;
+            protectedCopyExists = true;
+            written.complete();
+            await finish.future;
+            throw StateError('dummy marker write failed');
+          },
+        );
+        final cubit = build();
+        await cubit.refresh();
+        final operation = cubit.enable(copy);
+        await written.future;
+        if (interruption == 'dispose') {
+          await cubit.close();
+        } else {
+          auth = (auth as AuthAuthenticated).copyWith(
+            isVaultLocked: true,
+            clearKeys: true,
+          );
+        }
+        if (interruption == 'new-generation') {
+          when(() => keys.generation).thenReturn(1);
+        }
+        finish.complete();
+        await operation;
+        expect(protectedCopyExists, interruption == 'new-generation');
+        expect(supplied, everyElement(0));
+        expect(sourceKey, everyElement(7));
+        if (interruption == 'new-generation') {
+          verifyNever(() => keys.clear());
+        } else {
+          verify(() => keys.clear()).called(1);
+        }
+        if (!cubit.isClosed) await cubit.close();
+      },
+    );
+  }
 }

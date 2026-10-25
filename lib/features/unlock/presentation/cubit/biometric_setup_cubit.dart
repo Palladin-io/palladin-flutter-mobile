@@ -118,7 +118,12 @@ class BiometricSetupCubit extends Cubit<BiometricSetupState> {
         ),
       );
     } catch (error) {
-      if (valid()) {
+      if (error is BiometricKeyCleanupException) rethrow;
+      if (!valid() && _keys.generation == generation) {
+        // The protected write can succeed before its enrollment marker fails.
+        // A stale flow must revoke that partial copy, but never a newer one.
+        await _keys.clear();
+      } else if (valid()) {
         emit(
           BiometricSetupState(
             status: BiometricSetupStatus.available,
