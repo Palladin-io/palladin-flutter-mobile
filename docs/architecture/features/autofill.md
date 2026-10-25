@@ -199,6 +199,37 @@ References: [Android provider activation](https://developer.android.com/identity
    iOS identity cleanup; the next unlocked synchronization creates a fresh
    dedicated key and cache.
 
+## Android last-request diagnosis
+
+While the production service is alive, authorized adb users can inspect its last
+request without collecting credential or form values:
+
+```sh
+adb shell dumpsys activity service io.palladin.mobile/io.palladin.mobile.autofill.PalladinAutofillService
+```
+
+The service emits only fixed keys with enums, counts and booleans: request result,
+password count, normalized-domain cardinality (zero/one/ambiguous), package
+presence, origin verification status, generation-session/cache availability and
+inline-request presence. `NOT_CHECKED` means the existing short circuit skipped
+that operation; diagnostics never read cache/history just to populate a field.
+`QUERY_UNAVAILABLE` also covers Android versions before App Link verification.
+`CHECKING` means the request did not reach a recorded terminal result. Inline
+request presence does not imply the response includes an inline presentation.
+
+Only one snapshot exists in service memory. Each request replaces it; service or
+process destruction discards it. No package/domain strings, field identifiers,
+credentials, structures, exception messages or history are retained or logged.
+The surrounding system `dumpsys` output is owned by Android, not this snapshot.
+
+Access uses the existing Android framework boundary, with no new exported IPC:
+[Android 16 ActivityManagerService.doDump](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/am/ActivityManagerService.java)
+checks `DumpUtils.checkDumpAndUsageStatsPermission` before service dispatch.
+[ActivityThread](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/core/java/android/app/ActivityThread.java)
+posts the protected service dump to the app main thread, so Binder caller identity
+must not be reinterpreted there as the original shell caller. Physical-device
+verification of this command and the actual rejection remains required.
+
 ## Required device QA
 
 - Android (include Samsung Galaxy S22 Ultra): on a fresh install, verify the

@@ -9,15 +9,23 @@ import android.os.Build
 /** Verifies that a requesting Android package is authorized for a web domain. */
 internal class AutofillOriginVerifier(private val context: Context) {
     fun isVerified(packageName: String, domain: String): Boolean {
-        if (isTrustedSystemBrowser(packageName)) return true
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        return status(packageName, domain) == OriginStatus.VERIFIED
+    }
+
+    fun status(packageName: String, domain: String): OriginStatus {
+        if (isTrustedSystemBrowser(packageName)) return OriginStatus.VERIFIED
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return OriginStatus.QUERY_UNAVAILABLE
 
         val manager = context.getSystemService(DomainVerificationManager::class.java)
         val state = runCatching {
             manager.getDomainVerificationUserState(packageName)
-        }.getOrNull() ?: return false
-        return state.isLinkHandlingAllowed &&
-            state.hostToStateMap[domain] == DomainVerificationUserState.DOMAIN_STATE_VERIFIED
+        }.getOrNull() ?: return OriginStatus.QUERY_UNAVAILABLE
+        if (!state.isLinkHandlingAllowed) return OriginStatus.LINK_HANDLING_DISABLED
+        return if (state.hostToStateMap[domain] == DomainVerificationUserState.DOMAIN_STATE_VERIFIED) {
+            OriginStatus.VERIFIED
+        } else {
+            OriginStatus.UNVERIFIED
+        }
     }
 
     private fun isTrustedSystemBrowser(packageName: String): Boolean {

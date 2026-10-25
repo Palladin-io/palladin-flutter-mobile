@@ -1,5 +1,8 @@
 package io.palladin.mobile.autofill
 
+import android.os.Build
+import java.io.FileDescriptor
+import java.io.PrintWriter
 import android.app.PendingIntent
 import android.app.assist.AssistStructure
 import android.content.Intent
@@ -24,38 +27,70 @@ import io.palladin.mobile.R
  * operation and returns domain-matched datasets.
  */
 class PalladinAutofillService : AutofillService() {
+    private var lastRequest = AutofillRequestDiagnosis()
+
+    // ActivityManagerService enforces DUMP/usage access before dispatching this
+    // on the application main thread; Binder caller identity is not retained here.
+    override fun dump(fd: FileDescriptor, writer: PrintWriter, args: Array<out String>?) {
+        lastRequest.dump(writer)
+    }
+
     override fun onFillRequest(
         request: FillRequest,
         cancellationSignal: android.os.CancellationSignal,
         callback: FillCallback,
     ) {
+        lastRequest = AutofillRequestDiagnosis(
+            result = RequestResult.CHECKING,
+            inlineRequestPresent = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                request.inlineSuggestionsRequest != null,
+        )
         if (cancellationSignal.isCanceled) {
+            lastRequest = lastRequest.copy(result = RequestResult.CANCELED)
             callback.onSuccess(null)
             return
         }
 
         val structure = request.fillContexts.lastOrNull()?.structure
         if (structure == null) {
+            lastRequest = lastRequest.copy(result = RequestResult.NO_STRUCTURE)
             callback.onSuccess(null)
             return
         }
 
         val fields = CredentialFieldIds.from(structure)
-        val domain = CredentialFieldIds.domainFrom(structure)
+        val domains = CredentialFieldIds.domainsFrom(structure)
+        val domain = domains.singleOrNull()
         val requestingPackage = structure.activityComponent?.packageName
+        lastRequest = lastRequest.copy(
+            passwordCount = fields.passwordIds.size,
+            domains = when (domains.size) {
+                0 -> DomainCount.ZERO
+                1 -> DomainCount.ONE
+                else -> DomainCount.AMBIGUOUS
+            },
+            requestingPackagePresent = requestingPackage != null,
+        )
         val cacheStore = AutoFillCacheStore(this)
         val history = GeneratedPasswordHistory(this)
         val originVerified = domain != null &&
             requestingPackage != null &&
-            AutofillOriginVerifier(this).isVerified(requestingPackage, domain)
+            (AutofillOriginVerifier(this).status(requestingPackage, domain).also {
+                lastRequest = lastRequest.copy(origin = it)
+            } == OriginStatus.VERIFIED)
         val generate = fields.newPasswordIds.isNotEmpty() &&
-            fields.currentPasswordIds.isEmpty() && history.hasActiveSession()
+            fields.currentPasswordIds.isEmpty() && history.hasActiveSession().also {
+                lastRequest = lastRequest.copy(generationSession = availability(it))
+            }
         if ((fields.passwordIds.isEmpty() && !generate) ||
             domain == null ||
             requestingPackage == null ||
             !originVerified ||
-            (!generate && !cacheStore.hasCache())
+            (!generate && !cacheStore.hasCache().also {
+                lastRequest = lastRequest.copy(cache = availability(it))
+            })
         ) {
+            lastRequest = lastRequest.copy(result = RequestResult.REJECTED)
             callback.onSuccess(null)
             return
         }
@@ -101,6 +136,7 @@ class PalladinAutofillService : AutofillService() {
             )
             .build()
 
+        lastRequest = lastRequest.copy(result = RequestResult.RESPONSE_OFFERED)
         callback.onSuccess(response)
     }
 
@@ -109,6 +145,9 @@ class PalladinAutofillService : AutofillService() {
         // is intentionally outside the current MVP implementation.
         callback.onSuccess()
     }
+
+    private fun availability(available: Boolean): CheckAvailability =
+        if (available) CheckAvailability.AVAILABLE else CheckAvailability.UNAVAILABLE
 
     private data class CredentialFieldIds(
         val usernameIds: List<AutofillId>,
@@ -137,7 +176,7 @@ class PalladinAutofillService : AutofillService() {
                 return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords)
             }
 
-            fun domainFrom(structure: AssistStructure): String? {
+            fun domainsFrom(structure: AssistStructure): Set<String> {
                 val domains = mutableSetOf<String>()
                 for (index in 0 until structure.windowNodeCount) {
                     collectDomains(
@@ -145,7 +184,7 @@ class PalladinAutofillService : AutofillService() {
                         domains,
                     )
                 }
-                return domains.singleOrNull()
+                return domains
             }
 
             private fun collect(
