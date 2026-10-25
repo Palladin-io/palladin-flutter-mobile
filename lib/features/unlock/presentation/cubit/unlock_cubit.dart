@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/biometric_key_store.dart';
-import '../../../../core/storage/biometric_enrollment.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
@@ -21,10 +20,7 @@ export 'unlock_state.dart';
 /// 1. `GET /api/account` — fetch salt + encrypted private key.
 /// 2. Run Argon2id to derive MK, open `crypto_secretbox_easy` to
 ///    recover the private key.
-/// 3. On the FIRST successful password unlock, enroll the MK into the
-///    OS-protected, biometric-gated [BiometricKeyStore] so the biometric
-///    shortcut can recover it next session — the MK is never persisted in a
-///    form that can be read without a fresh biometric authentication.
+/// 3. Transfer keys to the authenticated session without an enrollment prompt.
 ///
 /// Biometric flow (shortcut):
 /// 1. [BiometricKeyStore.unlockKey] triggers the OS biometric prompt; the
@@ -49,14 +45,8 @@ class UnlockCubit extends Cubit<UnlockState> {
 
   /// Runs the master-password unlock pipeline.
   ///
-  /// [biometricCopy] carries localized OS-prompt strings for the one-time
-  /// biometric enrollment. When `null`, enrollment is skipped (the unlock
-  /// itself still succeeds).
-  Future<void> unlock(
-    String password, {
-    BiometricPromptCopy? biometricCopy,
-    String? defaultVaultName,
-  }) async {
+  /// Biometric enrollment is a separate explicit action after unlock.
+  Future<void> unlock(String password, {String? defaultVaultName}) async {
     if (password.isEmpty || isClosed) return;
     final generation = keyStore.generation;
     bool canceled() => isClosed || generation != keyStore.generation;
@@ -81,16 +71,8 @@ class UnlockCubit extends Cubit<UnlockState> {
       );
 
       if (canceled()) return;
-      if (biometricCopy != null) {
-        await enrollBiometricKeyIfAvailable(
-          keyStore: keyStore,
-          masterKey: result.masterKey,
-          copy: biometricCopy,
-          generation: generation,
-          isCanceled: canceled,
-        );
-        if (canceled()) return;
-      }
+      await keyStore.purgeLegacyRawKey();
+      if (canceled()) return;
 
       await _provisionDefaultVault(
         privateKey: result.privateKey,
@@ -237,7 +219,7 @@ class UnlockCubit extends Cubit<UnlockState> {
   }
 
   /// Returns `true` if the device can perform a biometric-bound read AND a
-  /// master key has been enrolled from a prior password unlock.
+  /// master key has been enrolled through explicit setup.
   ///
   /// Called from `initState` so the UI can decide whether to show the
   /// biometric button. Never throws — on any platform error returns `false`

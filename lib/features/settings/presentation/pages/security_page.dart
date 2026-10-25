@@ -1,3 +1,4 @@
+import '../../../unlock/presentation/widgets/biometric_setup_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +46,7 @@ class SecurityPage extends StatelessWidget {
           AppSpacing.screenBottom,
         ),
         children: [
+          const BiometricSetupCard(),
           const AutoFillSetupCard(),
           _SecurityAction(
             icon: Icons.key_outlined,

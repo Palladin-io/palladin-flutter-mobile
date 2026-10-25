@@ -9,6 +9,30 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get biometricSetupTitle => 'Odblokowanie biometrią';
+
+  @override
+  String get biometricSetupEnable => 'Włącz odblokowanie biometrią';
+
+  @override
+  String get biometricSetupNotNow => 'Nie teraz';
+
+  @override
+  String get biometricSetupHint =>
+      'Odblokowuj sejf biometrią na tym urządzeniu. Możesz też włączyć tę opcję później w ustawieniach bezpieczeństwa.';
+
+  @override
+  String get biometricSetupEnabled =>
+      'Odblokowanie biometrią jest włączone na tym urządzeniu.';
+
+  @override
+  String get biometricSetupDisable => 'Wyłącz odblokowanie biometrią';
+
+  @override
+  String get biometricSetupFailed =>
+      'Nie udało się zmienić odblokowania biometrią. Nadal jesteś zalogowany. Spróbuj ponownie.';
+
+  @override
   String get biometricCleanupFailed =>
       'Nie udało się usunąć chronionego klucza biometrycznego z tego urządzenia. Spróbuj ponownie.';
 

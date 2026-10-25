@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/storage/biometric_key_store.dart';
-import '../../../../core/storage/biometric_enrollment.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../unlock/data/datasources/account_remote_datasource.dart';
 import '../../../unlock/data/services/unlock_crypto_service.dart';
@@ -51,7 +50,6 @@ class LoginCubit extends Cubit<LoginState> {
   final UnlockCryptoService unlockCryptoService;
   final SecureTokenStorage tokenStorage;
   final BiometricKeyStore keyStore;
-  BiometricPromptCopy? _biometricCopy;
   int? _biometricGeneration;
 
   String? _challengeToken;
@@ -59,13 +57,8 @@ class LoginCubit extends Cubit<LoginState> {
   String? _accountId;
 
   /// Runs the salt → authHash → login pipeline.
-  Future<void> login({
-    required String email,
-    required String password,
-    BiometricPromptCopy? biometricCopy,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     if (email.isEmpty || password.isEmpty || isClosed) return;
-    _biometricCopy = biometricCopy;
     _biometricGeneration = keyStore.generation;
     AppLogger.d('Login', 'Password login requested');
     emit(const LoginLoading());
@@ -199,17 +192,7 @@ class LoginCubit extends Cubit<LoginState> {
     var handedOff = false;
     try {
       if (_isCanceled) return;
-      final copy = _biometricCopy;
-      final generation = _biometricGeneration;
-      if (copy != null && generation != null) {
-        await enrollBiometricKeyIfAvailable(
-          keyStore: keyStore,
-          masterKey: result.masterKey,
-          copy: copy,
-          generation: generation,
-          isCanceled: () => _isCanceled,
-        );
-      }
+      await keyStore.purgeLegacyRawKey();
       if (_isCanceled) return;
       emit(
         LoginSuccess(
@@ -233,7 +216,6 @@ class LoginCubit extends Cubit<LoginState> {
   /// Drops the in-memory password / challenge token. Strings can't be
   /// zeroed, but dropping every reference lets them be collected.
   void _clearSecrets() {
-    _biometricCopy = null;
     _biometricGeneration = null;
     _challengeToken = null;
     _accountId = null;

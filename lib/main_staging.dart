@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'core/storage/device_secure_storage.dart';
 
 import 'app.dart';
 import 'config/env_config.dart';
@@ -26,7 +26,7 @@ void main() async {
   await bootstrapPush();
   configureDependencies(config);
 
-  final prefs = UserPreferences(const FlutterSecureStorage());
+  final prefs = UserPreferences(deviceSecureStorage);
   final themeMode = await prefs.themeMode;
   final locale = await prefs.locale;
 

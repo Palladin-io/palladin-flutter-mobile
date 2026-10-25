@@ -434,16 +434,9 @@ class _LoginViewState extends State<_LoginView> {
 
   void _submitLogin() {
     FocusScope.of(context).unfocus();
-    final l10n = AppLocalizations.of(context)!;
     context.read<LoginCubit>().login(
       email: _emailController.text.trim(),
       password: _passwordController.text,
-      biometricCopy: BiometricPromptCopy(
-        promptTitle: l10n.unlockBiometricPromptTitle,
-        enrollTitle: l10n.unlockBiometricEnrollPrompt,
-        accessTitle: l10n.unlockBiometricPrompt,
-        cancelLabel: l10n.vaultCancel,
-      ),
     );
   }
 

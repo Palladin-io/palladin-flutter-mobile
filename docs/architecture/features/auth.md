@@ -115,10 +115,5 @@ Biometric cleanup on logout and before password changes is described in
 [unlock](unlock.md#biometric-key-lifecycle). A deletion failure is not silently
 reported as successful cleanup; revoked token sessions are not resurrected.
 
-Successful password login now offers the same optional OS-protected biometric
-enrollment as password unlock, after any required TOTP verification and private-key
-decryption. Login previously handed keys directly to AuthBloc and bypassed the
-only enrollment path, leaving the next locked session without a biometric shortcut.
-Localized prompt copy is retained across the TOTP step; rejection/unavailability
-does not reject a valid login. Closing the flow or invalidating its cleanup
-generation prevents late enrollment and wipes untransferred result keys.
+Password login establishes the session without biometric enrollment. Home and
+Security offer an explicit opt-in after login; see [unlock](unlock.md#biometric-key-lifecycle).

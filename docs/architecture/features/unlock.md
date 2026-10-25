@@ -72,18 +72,27 @@ Logout calls the same cleanup, even when token deletion fails. When tokens were
 removed but protected cleanup fails, the app clears live keys and reports the
 cleanup error instead of restoring an unlocked session. Password change clears
 the old copy before the server mutation; failure leaves the password unchanged.
-`clearBiometricKey` uses the same boundary. A subsequent password unlock can
-create a fresh biometric enrollment.
+`clearBiometricKey` uses the same boundary. After password unlock, explicit setup can create a fresh biometric enrollment.
 
-Password login and unlock share `enrollBiometricKeyIfAvailable`. Enrollment is
-optional, uses the existing strong biometric-only storage options, and never
-falls back to a device PIN. The fingerprint shortcut appears on a locked session
-after the OS enrollment prompt succeeds. Full logout deletes that local copy;
-the next password login can enroll it again. Android's required biometric
-permissions are supplied by the merged `biometric_storage` plugin manifest, and
-MainActivity extends FlutterFragmentActivity. The password-login regression tests
-cover direct login, TOTP, declined/unavailable biometrics and canceled/stale flows;
-an actual device prompt remains a tester acceptance check.
+Password login and password unlock never enroll automatically. Home offers an
+optional biometric setup card after login; Enable alone requests OS authentication.
+Not now records only a per-account/device dismissal flag in SharedPreferences.
+Security always exposes setup/disable later. Full logout removes the protected
+copy, while the first-device dismissal preference survives logout. Enrollment
+copies the authenticated in-memory MK, retains the cleanup generation fence and
+wipes its temporary buffer on every outcome. Cancellation does not change auth
+state. Disposing setup or changing the session revokes a late enrollment.
+
+All FlutterSecureStorage consumers use `deviceSecureStorage` with Android
+`encryptedSharedPreferences: true` at construction. In pinned version 9.2.4,
+opening the encrypted backend migrates and removes legacy entries. Mixing a
+per-operation encrypted marker write with default unencrypted session reads
+therefore made tokens/user ID disappear and redirected users to login. The
+[plugin documentation](https://pub.dev/packages/flutter_secure_storage/versions/9.2.4)
+explicitly requires setting this option on the constructor. Startup migrates
+existing legacy session/metadata without a biometric prompt or session deletion.
+The Android contract test models this source-verified migration; host Flutter
+tests do not execute Android's native storage implementation.
 
 Dart channel-contract and lifecycle tests plus JVM deletion tests cover these
 branches. Actual Face ID/fingerprint, changed enrollment, cancellation, restart,

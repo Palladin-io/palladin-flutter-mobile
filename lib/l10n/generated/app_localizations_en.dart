@@ -9,6 +9,30 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get biometricSetupTitle => 'Biometric unlock';
+
+  @override
+  String get biometricSetupEnable => 'Enable biometric unlock';
+
+  @override
+  String get biometricSetupNotNow => 'Not now';
+
+  @override
+  String get biometricSetupHint =>
+      'Unlock your vault using biometrics on this device. You can also enable this later in Security settings.';
+
+  @override
+  String get biometricSetupEnabled =>
+      'Biometric unlock is enabled on this device.';
+
+  @override
+  String get biometricSetupDisable => 'Disable biometric unlock';
+
+  @override
+  String get biometricSetupFailed =>
+      'Could not update biometric unlock. Your session is still signed in. Please try again.';
+
+  @override
   String get biometricCleanupFailed =>
       'Could not remove the protected biometric key from this device. Please retry.';
 

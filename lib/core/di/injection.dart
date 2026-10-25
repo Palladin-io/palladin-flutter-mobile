@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../storage/device_secure_storage.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
@@ -170,7 +171,7 @@ void configureDependencies(EnvConfig config) {
 
   // Storage
   getIt.registerLazySingleton<FlutterSecureStorage>(
-    () => const FlutterSecureStorage(),
+    () => deviceSecureStorage,
   );
   getIt.registerLazySingleton<SecureTokenStorage>(
     () => SecureTokenStorage(getIt<FlutterSecureStorage>()),
