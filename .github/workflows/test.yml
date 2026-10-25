@@ -1,6 +1,8 @@
 name: Test
 
 on:
+  workflow_dispatch:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
@@ -10,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: test-${{ github.event.pull_request.number || github.ref }}
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -48,6 +50,12 @@ jobs:
       - name: Verify cloud configuration installers
         id: verify_cloud_configuration_installers
         run: python3 -m unittest discover -s tool/tests
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+      - name: Verify mobile delivery logic
+        run: bundle exec ruby fastlane/tests/mobile_delivery_test.rb
       - name: flutter pub get
         id: flutter_pub_get
         run: flutter pub get

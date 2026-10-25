@@ -1,0 +1,115 @@
+---
+name: Mobile internal upload
+'on':
+  workflow_call:
+    inputs:
+      record:
+        type: string
+        required: true
+      platform:
+        type: string
+        required: true
+      resume:
+        type: boolean
+        required: true
+permissions:
+  contents: read
+jobs:
+  upload:
+    name: Upload ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+        - android
+        - ios
+    runs-on: "${{ matrix.platform == 'ios' && 'macos-15' || 'ubuntu-latest' }}"
+    timeout-minutes: 60
+    environment:
+      name: mobile-store-${{ fromJSON(inputs.record).flavor }}
+    permissions:
+      contents: write
+      actions: read
+      attestations: read
+      id-token: write
+    steps:
+    - name: Select platform
+      id: select
+      env:
+        PLATFORM: "${{ inputs.platform }}"
+        MATRIX_PLATFORM: "${{ matrix.platform }}"
+      run: if [ "$PLATFORM" = both ] || [ "$PLATFORM" = "$MATRIX_PLATFORM" ]; then
+        echo "selected=true" >> "$GITHUB_OUTPUT"; fi
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+      if: "${{ steps.select.outputs.selected == 'true' }}"
+    - name: Require distribution enablement
+      env:
+        ENABLED: "${{ vars.MOBILE_DISTRIBUTION_ENABLED }}"
+      run: 'test "$ENABLED" = true || { echo "Distribution disabled: resolve and review
+        release blockers before enabling"; exit 1; }'
+      if: "${{ steps.select.outputs.selected == 'true' }}"
+    - name: Download original platform release
+      env:
+        GH_TOKEN: "${{ github.token }}"
+        SOURCE_RUN_ID: "${{ fromJSON(inputs.record).run_id }}"
+        PLATFORM: "${{ matrix.platform }}"
+      run: gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "mobile-$SOURCE_RUN_ID-$PLATFORM"
+        --dir release-download
+      if: "${{ steps.select.outputs.selected == 'true' }}"
+    - name: Verify original provenance and bytes
+      id: verify
+      env:
+        GH_TOKEN: "${{ github.token }}"
+        RELEASE_RECORD: "${{ inputs.record }}"
+        PLATFORM: "${{ matrix.platform }}"
+        SOURCE_SHA: "${{ fromJSON(inputs.record).source_sha }}"
+      run: |
+        gh attestation verify release-download/release-manifest.json --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/mobile-store-artifacts.yml" --source-digest "$SOURCE_SHA"
+        python3 tool/mobile_release.py verify --platform "$PLATFORM" --directory release-download
+        artifact=$(python3 -c 'import json; print("release-download/"+json.load(open("release-download/release-manifest.json"))["artifact"]["name"])')
+        gh attestation verify "$artifact" --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/mobile-store-artifacts.yml" --source-digest "$SOURCE_SHA"
+      if: "${{ steps.select.outputs.selected == 'true' }}"
+    - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+      with:
+        ruby-version: '4.0'
+        bundler-cache: true
+      if: "${{ steps.select.outputs.selected == 'true' }}"
+    - name: Authenticate Google upload
+      if: "${{ steps.select.outputs.selected == 'true' && matrix.platform == 'android'
+        }}"
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        workload_identity_provider: "${{ vars.GOOGLE_PLAY_WORKLOAD_IDENTITY_PROVIDER
+          }}"
+        service_account: "${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}"
+        create_credentials_file: true
+    - name: Distribute to internal testers
+      env:
+        GH_TOKEN: "${{ github.token }}"
+        MOBILE_DISTRIBUTION_ENABLED: "${{ vars.MOBILE_DISTRIBUTION_ENABLED }}"
+        RELEASE_MANIFEST: "${{ github.workspace }}/release-download/release-manifest.json"
+        RELEASE_ARTIFACT: "${{ github.workspace }}/${{ steps.verify.outputs.artifact }}"
+        DELIVERY_RESULT: "${{ runner.temp }}/delivery-result.json"
+        RESUME_UPLOAD: "${{ inputs.resume }}"
+        ASC_KEY_ID: "${{ matrix.platform == 'ios' && secrets.ASC_KEY_ID || '' }}"
+        ASC_ISSUER_ID: "${{ matrix.platform == 'ios' && secrets.ASC_ISSUER_ID || '' }}"
+        ASC_PRIVATE_KEY_BASE64: "${{ matrix.platform == 'ios' && secrets.ASC_PRIVATE_KEY_BASE64 || '' }}"
+        TESTFLIGHT_INTERNAL_GROUP_ID: "${{ vars.TESTFLIGHT_INTERNAL_GROUP_ID }}"
+        FASTLANE_SKIP_UPDATE_CHECK: '1'
+        FASTLANE_HIDE_CHANGELOG: '1'
+        FASTLANE_OPT_OUT_USAGE: '1'
+      run: bundle exec fastlane internal
+      if: "${{ steps.select.outputs.selected == 'true' }}"
+    - name: Publish platform result
+      if: "${{ always() && steps.select.outputs.selected == 'true' }}"
+      env:
+        PLATFORM: "${{ matrix.platform }}"
+      run: |-
+        python3 - <<'PYCODE'
+        import os,json,pathlib
+        p=pathlib.Path(os.environ['RUNNER_TEMP'])/'delivery-result.json'
+        result=json.loads(p.read_text()) if p.exists() else {'status':'not-confirmed'}
+        with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write('## '+os.environ['PLATFORM']+'\n\nInternal availability: '+result['status']+'\n')
+        PYCODE
