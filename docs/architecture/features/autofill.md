@@ -281,8 +281,7 @@ opens Palladin through a fixed value-free PendingIntent. Origin/cache gates run
 before any presentation is constructed. No credential value enters this chip.
 
 Reference: [Android inline autofill guide](https://developer.android.com/identity/autofill/ime-autofill).
-Automated JVM tests cover compatibility selection; Android API compilation checks
-the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
+Android API compilation checks the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
 
 ## Android last-request diagnosis

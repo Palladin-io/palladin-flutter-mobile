@@ -168,11 +168,8 @@ class PalladinAutofillService : AutofillService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         val inlineRequest = request.inlineSuggestionsRequest ?: return null
         val spec = inlineRequest.inlinePresentationSpecs.firstOrNull() ?: return null
-        if (!supportsInlineAuthentication(
-                Build.VERSION.SDK_INT,
-                inlineRequest.maxSuggestionCount,
-                UiVersions.getVersions(spec.style).contains(UiVersions.INLINE_UI_VERSION_1),
-            )
+        if (inlineRequest.maxSuggestionCount <= 0 ||
+            !UiVersions.getVersions(spec.style).contains(UiVersions.INLINE_UI_VERSION_1)
         ) return null
         val label = getString(
             if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label,
