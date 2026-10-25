@@ -334,25 +334,34 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
       final remoteItems = _prepare(page.items);
-      final remoteById = {for (final item in remoteItems) item.id: item};
-      final retained = state.items
-          .where((item) {
-            final remote = remoteById[item.id];
-            return remote != null &&
-                remote.type == item.type &&
-                remote.subjectId == item.subjectId &&
-                remote.vaultId == item.vaultId &&
-                remote.grantId == item.grantId &&
-                remote.agentId == item.agentId &&
-                (remote.entryId == null || remote.entryId == item.entryId) &&
-                (!remote.isCollapsedPending || item.isCollapsedPending);
+      final previousById = {for (final item in state.items) item.id: item};
+      final visibleItems = remoteItems
+          .map((remote) {
+            final previous = previousById[remote.id];
+            if (previous != null &&
+                remote.type == previous.type &&
+                remote.subjectId == previous.subjectId &&
+                remote.vaultId == previous.vaultId &&
+                remote.grantId == previous.grantId &&
+                remote.agentId == previous.agentId &&
+                (remote.entryId == null ||
+                    remote.entryId == previous.entryId) &&
+                (!remote.isCollapsedPending || previous.isCollapsedPending)) {
+              return previous;
+            }
+            return remote;
           })
           .toList(growable: false);
-      // Remove unavailable records immediately, without flashing unresolved
-      // replacements over the still-authorized presentation.
-      if (retained.length != state.items.length) {
-        emit(state.copyWith(items: retained));
-      }
+      // Publish the unread snapshot before hydration so later read mutations
+      // cover new arrivals and are not overwritten by this older summary.
+      emit(
+        state.copyWith(
+          items: _applyLocalResolutions(visibleItems),
+          unreadCount: summaryGeneration == _summaryGeneration
+              ? summary.unreadCount
+              : state.unreadCount,
+        ),
+      );
       final beforeResolution = {for (final item in state.items) item.id: item};
       final resolved = await _resolve(page.items);
       if (!_current(generation) || feed != _feedGeneration) return;
@@ -369,9 +378,6 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: items,
-          unreadCount: summaryGeneration == _summaryGeneration
-              ? summary.unreadCount
-              : state.unreadCount,
           pendingActionCount: summaryGeneration == _summaryGeneration
               ? _reconcilePendingActionCount(
                   remoteItems,

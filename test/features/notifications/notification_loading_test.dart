@@ -169,6 +169,57 @@ void main() {
     },
   );
 
+  for (final markAll in [false, true]) {
+    for (final succeeds in [false, true]) {
+      test('quiet refresh preserves ${markAll ? "all" : "single"} read '
+          '${succeeds ? "success" : "failure"} with new arrivals', () async {
+        when(() => repository.list()).thenAnswer(
+          (_) async =>
+              NotificationPage(items: [_item('first'), _item('second')]),
+        );
+        when(() => grants.getGrant('vault', any())).thenAnswer(
+          (call) async => _grant(call.positionalArguments[1] as String),
+        );
+        await cubit.load();
+        when(() => repository.list()).thenAnswer(
+          (_) async => NotificationPage(
+            items: [_item('first'), _item('second'), _item('new')],
+          ),
+        );
+        when(() => repository.summary()).thenAnswer(
+          (_) async =>
+              const NotificationSummary(unreadCount: 3, pendingActionCount: 0),
+        );
+        final slow = Completer<Grant>();
+        when(
+          () => grants.getGrant('vault', 'first'),
+        ).thenAnswer((_) => slow.future);
+        final refresh = cubit.refresh();
+        await Future<void>.delayed(Duration.zero);
+        if (markAll) {
+          when(() => repository.markAllRead()).thenAnswer((_) async {
+            if (!succeeds) throw StateError('Unavailable');
+          });
+          await cubit.markAllRead();
+        } else {
+          when(() => repository.markRead('first')).thenAnswer((_) async {
+            if (!succeeds) throw StateError('Unavailable');
+          });
+          await cubit.markRead('first');
+        }
+        slow.complete(_grant('first'));
+        await refresh;
+        expect(cubit.state.unreadCount, succeeds ? (markAll ? 0 : 2) : 3);
+        expect(
+          cubit.state.items.map((item) => item.isRead),
+          succeeds
+              ? (markAll ? [true, true, true] : [true, false, false])
+              : [false, false, false],
+        );
+      });
+    }
+  }
+
   for (final boundary in ['lock', 'reset', 'removed', 'vault removal']) {
     test('quiet refresh drops stale presentation on $boundary', () async {
       when(() => repository.list()).thenAnswer(

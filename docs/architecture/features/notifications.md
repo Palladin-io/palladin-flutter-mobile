@@ -67,8 +67,11 @@ and performs the existing authenticated review in its sheet.
 Quiet refresh keeps the previous same-record presentation visible until freshly
 resolved replacements are ready, then publishes the replacement atomically.
 It never merges old decrypted reasons or labels into the new payload. Missing,
-identity-changed and remotely collapsed records leave the visible snapshot as
-soon as the feed arrives; Vault access removal redacts affected rows immediately.
+identity-changed and remotely collapsed records leave the previous snapshot as
+soon as the feed arrives; new records publish their sanitized structural rows.
+The unread summary publishes at that point, before hydration, so subsequent
+single/all-read mutations include new arrivals and retain their updated count.
+Vault access removal redacts affected rows immediately.
 Lock, reset and newer refresh generations discard late replacement results.
 Initial loading and pagination retain progressive hydration and bounded workers.
 
