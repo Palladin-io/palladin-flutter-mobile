@@ -170,6 +170,53 @@ void main() {
   );
 
   test(
+    'quiet refresh applies remote read state before deferred hydration',
+    () async {
+      when(() => repository.list()).thenAnswer(
+        (_) async => NotificationPage(items: [_item('first'), _item('second')]),
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer(
+        (call) async => _grant(call.positionalArguments[1] as String),
+      );
+      await cubit.load();
+      final readAt = DateTime.utc(2026, 10, 26);
+      when(() => repository.list()).thenAnswer(
+        (_) async => NotificationPage(
+          items: [
+            _item('first').copyWith(readAt: readAt),
+            _item('second'),
+          ],
+        ),
+      );
+      when(() => repository.summary()).thenAnswer(
+        (_) async =>
+            const NotificationSummary(unreadCount: 1, pendingActionCount: 0),
+      );
+      when(() => repository.markRead('first')).thenAnswer((_) async {});
+      final slow = Completer<Grant>();
+      when(
+        () => grants.getGrant('vault', 'first'),
+      ).thenAnswer((_) => slow.future);
+      final refresh = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+      final beforeHydration = cubit.state.items.first;
+      cubit.markReadOnView('first');
+      final countAfterView = cubit.state.unreadCount;
+      slow.complete(_grant('first', reason: 'Fresh reason'));
+      await refresh;
+
+      expect(countAfterView, 1);
+      expect(beforeHydration.readAt, readAt);
+      expect(beforeHydration.metadata['reason'], 'Reason first');
+      expect(cubit.state.unreadCount, 1);
+      expect(cubit.state.items.first.readAt, readAt);
+      expect(cubit.state.items.first.metadata['reason'], 'Fresh reason');
+      expect(cubit.state.items.last.isRead, false);
+      verifyNever(() => repository.markRead('first'));
+    },
+  );
+
+  test(
     'pagination waits for quiet replacement then uses its new cursor',
     () async {
       when(() => repository.list()).thenAnswer(

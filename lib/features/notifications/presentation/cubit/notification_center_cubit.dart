@@ -349,7 +349,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
                 (remote.entryId == null ||
                     remote.entryId == previous.entryId) &&
                 (!remote.isCollapsedPending || previous.isCollapsedPending)) {
-              return previous;
+              return remote.copyWith(metadata: previous.metadata);
             }
             return remote;
           })
