@@ -54,6 +54,20 @@ to `/` through normal guards. Native interception is wired on both platforms;
 device/domain acceptance and account/save continuation remain pending;
 see [Entry sharing](entry-sharing.md).
 
+## Home refresh lifetime
+
+The singleton `DashboardCubit` refreshes on each Home page mount. Returning
+from another tab keeps its resolved content visible while audit, pending-grant
+and onboarding requests finish. Initial loads, retries after an error, and
+changes of user or audit permission show skeletons. The app's lock/logout
+boundary clears Home's memory-only projections and invalidates pending loads;
+no Home content is persisted. Superseded loads cannot replace the current
+activity source or publish an old result. Local checklist dismissal and
+notification-step actions also invalidate pending loads so an older response
+cannot undo the user's choice. Refresh errors retain the existing
+explicit error/retry behavior. Loads after grant mutations remain independent
+so a return-tab refresh cannot absorb a required post-mutation refresh.
+
 ## Brand surfaces
 
 `AppScreen` and the shell share the background renderer with authentication,
@@ -115,6 +129,8 @@ is baked into the foreground. This removes Palladin's black launcher background,
 but does not promise wallpaper transparency from an adaptive launcher. Native
 appearance still requires real-device verification after release.
 
-Pinned action bands use `AppActionFooter`. It consumes remaining bottom padding
-through `SafeArea`, with the existing 32dp minimum, instead of adding raw
-`viewPadding` to an already-safe parent. The Scaffold owns keyboard resizing.
+Pinned action bands use `AppActionFooter`, with equal `AppSpacing.md` (12dp)
+padding above and below the action inside `SafeArea`. The remaining bottom
+system inset is added once, outside that visual padding; an outer SafeArea
+already consuming it must not add a second inset. The Scaffold owns keyboard
+resizing, leaving the same 12dp gap above the keyboard.

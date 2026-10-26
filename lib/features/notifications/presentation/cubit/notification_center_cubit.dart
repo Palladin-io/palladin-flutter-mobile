@@ -69,6 +69,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   String? _ownerOrganizationId;
   int _generation = 0;
   int _feedGeneration = 0;
+  int? _refreshingFeed;
   int _summaryGeneration = 0;
 
   int get presentationGeneration => _generation;
@@ -96,6 +97,23 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     _activeAccountId = activeAccountId;
     _activeOrganizationId = activeOrganizationId;
     _activeVaults = List.unmodifiable(activeVaults);
+    final allowedVaultIds = activeVaults.map((vault) => vault.id).toSet();
+    if (state.items.any(
+      (item) => item.vaultId != null && !allowedVaultIds.contains(item.vaultId),
+    )) {
+      emit(
+        state.copyWith(
+          items: [
+            for (final item in state.items)
+              if (item.vaultId != null &&
+                  !allowedVaultIds.contains(item.vaultId))
+                ...?resolver?.redact([item])
+              else
+                item,
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> resolveAfterUnlock({
@@ -304,6 +322,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   Future<void> refresh() async {
     final generation = _generation;
     final feed = ++_feedGeneration;
+    _refreshingFeed = feed;
     final summaryGeneration = ++_summaryGeneration;
     if (state.isLoadingMore) emit(state.copyWith(isLoadingMore: false));
     final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
@@ -317,14 +336,52 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
       final remoteItems = _prepare(page.items);
-      final items = _applyLocalResolutions(remoteItems);
+      final previousById = {for (final item in state.items) item.id: item};
+      final visibleItems = remoteItems
+          .map((remote) {
+            final previous = previousById[remote.id];
+            if (previous != null &&
+                remote.type == previous.type &&
+                remote.subjectId == previous.subjectId &&
+                remote.vaultId == previous.vaultId &&
+                remote.grantId == previous.grantId &&
+                remote.agentId == previous.agentId &&
+                (remote.entryId == null ||
+                    remote.entryId == previous.entryId) &&
+                (!remote.isCollapsedPending || previous.isCollapsedPending)) {
+              return remote.copyWith(metadata: previous.metadata);
+            }
+            return remote;
+          })
+          .toList(growable: false);
+      // Publish the unread snapshot before hydration so later read mutations
+      // cover new arrivals and are not overwritten by this older summary.
+      emit(
+        state.copyWith(
+          items: _applyLocalResolutions(visibleItems),
+          nextCursor: page.nextCursor,
+          clearCursor: page.nextCursor == null,
+          unreadCount: summaryGeneration == _summaryGeneration
+              ? summary.unreadCount
+              : state.unreadCount,
+        ),
+      );
+      final beforeResolution = {for (final item in state.items) item.id: item};
+      final resolved = await _resolve(page.items);
+      if (!_current(generation) || feed != _feedGeneration) return;
+      final currentById = {for (final item in state.items) item.id: item};
+      final items = _applyLocalResolutions([
+        for (final item in resolved)
+          if (currentById[item.id]?.isRead == true &&
+              beforeResolution[item.id]?.isRead == false)
+            item.copyWith(markRead: true)
+          else
+            item,
+      ]);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: items,
-          unreadCount: summaryGeneration == _summaryGeneration
-              ? summary.unreadCount
-              : state.unreadCount,
           pendingActionCount: summaryGeneration == _summaryGeneration
               ? _reconcilePendingActionCount(
                   remoteItems,
@@ -339,10 +396,11 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           clearError: true,
         ),
       );
-      await _hydrate(page.items, generation, feed);
     } catch (_) {
       if (!_current(generation) || feed != _feedGeneration) return;
       AppLogger.w('Notifications', 'Inbox refresh failed (quiet)');
+    } finally {
+      if (_refreshingFeed == feed) _refreshingFeed = null;
     }
   }
 
@@ -380,7 +438,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     final generation = _generation;
     final feed = _feedGeneration;
     final cursor = state.nextCursor;
-    if (cursor == null || state.isLoadingMore) return;
+    if (cursor == null || state.isLoadingMore || _refreshingFeed == feed) {
+      return;
+    }
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await repository.list(cursor: cursor);

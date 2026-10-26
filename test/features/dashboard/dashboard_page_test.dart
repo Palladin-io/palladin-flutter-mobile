@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -5,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
+import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'package:mobile_palladin/core/utils/secure_clipboard.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
@@ -20,6 +24,7 @@ import 'package:mobile_palladin/features/audit/presentation/widgets/audit_log_ro
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:mobile_palladin/features/dashboard/domain/repositories/local_search_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cubit.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_session_controller.dart';
@@ -51,6 +56,11 @@ class _MockNotificationPermissionService extends Mock
     implements NotificationPermissionService {}
 
 class _MockAnalyticsService extends Mock implements AnalyticsService {}
+
+class _MockLocalSearchRepository extends Mock
+    implements LocalSearchRepository {}
+
+class _MockBiometricKeyStore extends Mock implements BiometricKeyStore {}
 
 class _MockAuthBloc extends MockBloc<AuthEvent, AuthState>
     implements AuthBloc {}
@@ -161,9 +171,15 @@ void main() {
     registerFallbackValue(Uint8List(0));
     registerFallbackValue(CancelToken());
     registerFallbackValue(_grant());
+    registerFallbackValue(const AuditPresentationNames());
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    final biometricKeys = _MockBiometricKeyStore();
+    when(() => biometricKeys.isEnrolled()).thenAnswer((_) async => false);
+    when(() => biometricKeys.canStore()).thenAnswer((_) async => false);
+    getIt.registerSingleton<BiometricKeyStore>(biometricKeys);
     dashboardRepository = _MockDashboardRepository();
     auditRepository = _MockAuditRepository();
     auditPresentationResolver = _MockAuditPresentationResolver();
@@ -212,6 +228,7 @@ void main() {
     required DashboardState state,
     required int permissions,
     Uint8List? privateKey,
+    DashboardCubit? dashboard,
   }) async {
     whenListen(
       authBloc,
@@ -226,15 +243,17 @@ void main() {
     );
 
     getIt.registerFactory<DashboardCubit>(
-      () => lastDashboardCubit = _FakeDashboardCubit(
-        state,
-        repository: dashboardRepository,
-        auditRepository: auditRepository,
-        auditPresentationResolver: auditPresentationResolver,
-        pendingGrantsCubit: pendingGrantsCubit,
-        analytics: analytics,
-        notificationPermissionService: permissionService,
-      ),
+      () =>
+          dashboard ??
+          (lastDashboardCubit = _FakeDashboardCubit(
+            state,
+            repository: dashboardRepository,
+            auditRepository: auditRepository,
+            auditPresentationResolver: auditPresentationResolver,
+            pendingGrantsCubit: pendingGrantsCubit,
+            analytics: analytics,
+            notificationPermissionService: permissionService,
+          )),
     );
 
     await tester.pumpWidget(
@@ -255,6 +274,47 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets('returning to Home keeps its content during a slow refresh', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'onboarding_skipped:u1': true});
+    final localSearch = _MockLocalSearchRepository();
+    when(() => localSearch.recentEntries(limit: 5)).thenReturn([_recent()]);
+    when(() => pendingGrantsCubit.refresh()).thenAnswer((_) async {});
+    when(() => pendingGrantsCubit.state).thenReturn(const PendingGrantsState());
+    when(
+      () => auditPresentationResolver.applyNames(any(), any()),
+    ).thenReturn([]);
+    final dashboard = DashboardCubit(
+      repository: dashboardRepository,
+      localSearchRepository: localSearch,
+      auditRepository: auditRepository,
+      auditPresentationResolver: auditPresentationResolver,
+      pendingGrantsCubit: pendingGrantsCubit,
+      analytics: analytics,
+      notificationPermissionService: permissionService,
+    );
+    addTearDown(dashboard.close);
+    await pumpDashboard(
+      tester,
+      state: const DashboardInitial(),
+      permissions: 0,
+      dashboard: dashboard,
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('GitHub token'), findsOneWidget);
+    final home = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    await tester.pumpWidget(const SizedBox.shrink());
+    final response = Completer<void>();
+    when(() => pendingGrantsCubit.refresh()).thenAnswer((_) => response.future);
+    await tester.pumpWidget(home);
+    await tester.pump();
+    expect(find.text('GitHub token'), findsOneWidget);
+    response.complete();
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('first ready Home exposes provider setup before other content', (
     tester,

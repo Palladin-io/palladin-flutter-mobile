@@ -90,6 +90,8 @@ confirmation is open.
 
 ## Provider activation and status
 
+The system provider display name is `Palladin` on Android (all locales) and iOS.
+
 The native provider registrations do not select Palladin for the user. On the
 first ready Home screen after setup/unlock, `AutoFillSetupCard` checks the OS and
 shows a persistent setup warning until the OS confirms selection. On Android,

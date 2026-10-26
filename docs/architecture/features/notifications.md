@@ -50,7 +50,7 @@ these are not real backend/device delivery tests.
 
 ## Foreground repair and session fencing
 
-Inbox first-page and pagination results publish their sanitized structural rows
+Initial Inbox loads and pagination results publish their sanitized structural rows
 before optional presentation hydration. Existing localized generic Entry labels
 and empty-value placeholders remain until local metadata is ready; server names,
 reason text and deep links never become interim presentation. Up to four rows
@@ -63,6 +63,19 @@ or cross-refresh cache. Hydration merges
 metadata only, retaining read/action changes, and checks both session and feed
 generation before every publication. Approval still refreshes the pending source
 and performs the existing authenticated review in its sheet.
+
+Quiet refresh keeps the previous same-record presentation visible until freshly
+resolved replacements are ready, then publishes the replacement atomically.
+It never merges old decrypted reasons or labels into the new payload. Missing,
+identity-changed and remotely collapsed records leave the previous snapshot as
+soon as the feed arrives; new records publish their sanitized structural rows.
+The unread summary publishes at that point, before hydration, so subsequent
+single/all-read mutations include new arrivals and retain their updated count.
+The matching cursor publishes with the structural page; pagination waits until
+that quiet refresh finishes, so appended rows cannot be lost to its replacement.
+Vault access removal redacts affected rows immediately.
+Lock, reset and newer refresh generations discard late replacement results.
+Initial loading and pagination retain progressive hydration and bounded workers.
 
 Controlled delayed-repository tests cover prompt structural publication, bounded
 concurrency, duplicate reads, read mutations and stale hydration after lock,
