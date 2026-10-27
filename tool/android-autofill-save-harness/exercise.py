@@ -93,6 +93,8 @@ def main():
         android('shell', 'settings', 'put', 'secure', 'autofill_service', SERVICE)
         android('shell', 'pm', 'set-app-links', '--package', FORM, '2', 'fixture.invalid')
         android('shell', 'am', 'start', '-n', MAIN)
+        wait_text('saveColdStartEmpty=true')
+        tap('Arm save')
         wait_text('saveHarnessReady=true')
         save_form()
         wait_text('saveHandoffVerified=true')
@@ -118,9 +120,7 @@ def main():
         wait_text('savePendingVerified=true')
         android('shell', 'am', 'force-stop', PROVIDER)
         android('shell', 'am', 'start', '-n', MAIN)
-        wait_text('saveHarnessReady=true')
-        tap('Check pending')
-        wait_text('savePendingVerified=false')
+        wait_text('saveColdStartEmpty=true')
         report['cases'].append({'case': 'process-death-discards-held-pending-save', 'passed': True})
         if (subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip() or
                 subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip() != commit):

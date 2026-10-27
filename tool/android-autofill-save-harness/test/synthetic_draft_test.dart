@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_save_controller.dart';
 import '../main.dart';
@@ -33,4 +35,27 @@ void main() {
     final cancelled = draft()..clear();
     expect(matchesSyntheticDraft(cancelled), isFalse);
   });
+  testWidgets(
+    'cold startup observes pending before changing native authority',
+    (tester) async {
+      const channel = MethodChannel('io.palladin.mobile/autofill-save');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            if (call.method == 'pending') return 'old-persisted-capture';
+            if (call.method == 'activate') return 'synthetic-session';
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      await tester.pumpWidget(const MaterialApp(home: SaveHarness()));
+      await tester.pumpAndSettle();
+      expect(find.text('saveColdStartEmpty=false'), findsOneWidget);
+      expect(calls, ['pending']);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

@@ -36,7 +36,12 @@ class _SaveHarnessState extends State<SaveHarness> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller.onDraft = verifyHandoff;
-    arm();
+    observeColdStart();
+  }
+
+  Future<void> observeColdStart() async {
+    final pending = await channel.invokeMethod<String>('pending');
+    update('saveColdStartEmpty=${pending == null}');
   }
 
   Future<void> arm({bool hold = false}) async {

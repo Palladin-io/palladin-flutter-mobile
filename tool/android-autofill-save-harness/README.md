@@ -93,7 +93,9 @@ provider, installs the test host authority, and runs three cases:
    real pending OS save unconsumed; explicit revoke removes it, and unlocking a
    new synthetic session cannot recover it.
 3. The same held pending state is observed before force-stopping the provider;
-   a fresh MainActivity/controller process cannot recover it.
+   a fresh MainActivity/controller process probes native pending state before
+   any cancel/revoke/activate call and must observe an empty slot. Explicit Arm
+   is a later action, so initialization cannot erase evidence of persistence.
 
 Temporary UI XML is deleted after each read and never printed or uploaded. The
 result is boolean-only `build/validation.json`, bound to the source commit and
