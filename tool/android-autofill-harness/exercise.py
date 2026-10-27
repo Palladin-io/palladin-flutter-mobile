@@ -97,9 +97,24 @@ def focus_field(required=True):
         raise AssertionError('Synthetic focus field not exposed by accessibility')
 
 
+def request_snapshot(diagnosis):
+    allowed = {
+        'domains': {'NOT_CHECKED', 'ZERO', 'ONE', 'AMBIGUOUS'},
+        'origin': {'NOT_CHECKED', 'QUERY_UNAVAILABLE', 'LINK_HANDLING_DISABLED', 'UNVERIFIED', 'VERIFIED'},
+        'result': {'NO_REQUEST', 'CHECKING', 'CANCELED', 'NO_STRUCTURE', 'REJECTED', 'RESPONSE_OFFERED'},
+    }
+    snapshot = {}
+    for line in diagnosis.splitlines():
+        key, separator, value = line.strip().partition('=')
+        if separator and value in allowed.get(key, set()):
+            snapshot[key] = value
+    return snapshot
+
+
 def assert_web_origin(diagnosis):
-    assert (re.search(r'^domains=ONE$', diagnosis, re.M) and
-            re.search(r'^origin=VERIFIED$', diagnosis, re.M)), 'Web fixture did not report one verified domain'
+    snapshot = request_snapshot(diagnosis)
+    assert (snapshot.get('domains') == 'ONE' and
+            snapshot.get('origin') == 'VERIFIED'), 'Web fixture did not report one verified domain'
 
 
 def authenticate():
@@ -121,16 +136,7 @@ def record_failure():
     destination.mkdir(parents=True, exist_ok=True)
     try:
         diagnosis = command('shell', 'dumpsys', 'activity', 'service', service)
-        allowed = {
-            'domains': {'NOT_CHECKED', 'ZERO', 'ONE', 'AMBIGUOUS'},
-            'origin': {'NOT_CHECKED', 'QUERY_UNAVAILABLE', 'LINK_HANDLING_DISABLED', 'UNVERIFIED', 'VERIFIED'},
-            'result': {'NO_REQUEST', 'CHECKING', 'CANCELED', 'NO_STRUCTURE', 'REJECTED', 'RESPONSE_OFFERED'},
-        }
-        snapshot = {}
-        for line in diagnosis.splitlines():
-            key, separator, value = line.strip().partition('=')
-            if separator and value in allowed.get(key, set()):
-                snapshot[key] = value
+        snapshot = request_snapshot(diagnosis)
         (destination / 'request.json').write_text(json.dumps(snapshot, indent=2) + '\n')
     except Exception:
         pass

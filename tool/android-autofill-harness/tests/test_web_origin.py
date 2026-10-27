@@ -13,6 +13,7 @@ class WebOriginGateTests(unittest.TestCase):
         self.assertIn('assert_web_origin', namespace)
         gate = namespace['assert_web_origin']
         gate('domains=ONE\norigin=VERIFIED\n')
+        gate('  domains=ONE\r\n  origin=VERIFIED\r\n')
         for snapshot in ('domains=ZERO\norigin=VERIFIED\n', 'domains=AMBIGUOUS\norigin=VERIFIED\n', 'domains=ONE\norigin=UNVERIFIED\n', ''):
             with self.subTest(snapshot=snapshot), self.assertRaisesRegex(AssertionError, 'Web fixture did not report one verified domain'):
                 gate(snapshot)
