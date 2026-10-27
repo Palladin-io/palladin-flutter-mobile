@@ -58,4 +58,5 @@ class DriverChecks(unittest.TestCase):
   with patch.object(sys,'argv',['prepare_ci.py','--serial','emulator-5554']),patch.dict('os.environ',{'GITHUB_ACTIONS':'true'}),patch.object(subprocess,'check_output',side_effect=output),patch('time.sleep'),patch.object(pathlib.Path,'write_text'),patch.object(pathlib.Path,'write_bytes'):
    runpy.run_path(str(root/'prepare_ci.py'),run_name='__main__')
   self.assertEqual(state['touches'],2)
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()
