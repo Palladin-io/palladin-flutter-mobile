@@ -15,7 +15,8 @@ App Link verification state. Never use this app with real credentials.
 ## Build and set up
 
 Requirements: JDK 17+, Gradle 8.14, Android SDK platform 36/build tools, Python 3,
-and an Android 12+ emulator with a biometric sensor and Gboard. Build plugins are
+and an Android 12+ emulator with a biometric sensor. A keyboard without inline
+suggestions can exercise the standard dropdown fallback. Build plugins are
 pinned to AGP 8.11.1 and Kotlin 2.4.10; AndroidX Biometric 1.1.0 and Autofill 1.3.0
 match the application. Set `JAVA_HOME`, `ANDROID_HOME` and put `adb` on PATH.
 
@@ -60,11 +61,11 @@ This is synthetic OS authority supplied by the test, not a claim of public domai
 ownership. The provider build imports `<queries>` directly from the production manifest,
 so package visibility cannot silently diverge from the application; there is no fixture-specific package allowlist.
 
-The UI driver was verified on Pixel 10 Pro XL, 1344×2992, English Gboard. Its inline
-chip is first sought by accessible text; on this AVD Gboard excludes its inline
-surface from uiautomator XML, so the fallback coordinate is x=670/y=2050; adjust `--inline-y` for a different IME
-layout. The fixture's focus coordinate also assumes that screen geometry. The
-script is a focused emulator regression, not a device-independent UI framework.
+The UI driver focuses the synthetic app's enabled EditText accessibility nodes
+and taps suggestions by their observed bounds. It has no hardcoded screen or
+keyboard coordinates. When an inline surface is inaccessible or ignored, the
+fixture's explicit Request Autofill button can expose the standard dropdown.
+Absence of a usable suggestion fails the test instead of guessing a tap location.
 For callback-only RED checks use `--expected REJECTED` without `--fill`.
 
 ## Recorded evidence — 2026-10-27
@@ -195,3 +196,20 @@ real data is used. This verifies content/layout independently of keyboard policy
 it does not prove Gboard or Samsung Keyboard will display an inline suggestion.
 Physical-device QA must still check both keyboards, light/dark modes, EN/PL,
 TalkBack, large fonts, and dropdown fallback when inline is unavailable or ignored.
+
+## Opt-in CI runtime gate
+
+The normal PR job does not build APKs. With explicit CI/emulator authorization,
+dispatch `test.yml` on the intended feature branch with `autofill_presentations=true`.
+This opt-in job uses an isolated API 35 x86_64 AVD with KVM and the default IME.
+It runs six UI-driver regressions, creates a synthetic PIN, enrolls fingerprint 1
+through the real Android Settings flow, and invokes `validate.py` on the clean
+committed checkout. The validator compiles only the synthetic provider/form APKs,
+runs native JVM tests, four localized presentation checks and all 24 response/OS
+cases. No Flutter APK, account, real credential or production signing is involved.
+
+Artifacts retain the commit identity, emulator startup diagnostics, synthetic
+enrollment/presentation screenshots and successful `validation.json` including APK
+hashes and observed case outcomes. A failed or partial run never creates a
+successful validation report. This CI gate does not establish physical Gboard,
+Samsung Keyboard or third-party application compatibility.

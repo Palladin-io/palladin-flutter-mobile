@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       autofill_presentations:
-        description: Run four synthetic Android AutoFill presentation previews
+        description: Run synthetic Android AutoFill runtime and presentation checks
         type: boolean
         default: false
   workflow_call:
@@ -111,7 +111,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   autofill-presentations:
-    name: Synthetic Android AutoFill presentations
+    name: Synthetic Android AutoFill runtime
     if: github.event_name == 'workflow_dispatch' && inputs.autofill_presentations
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -128,6 +128,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libpulse0
           test -e /dev/kvm
           sudo chown "$(id -u):$(id -g)" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
@@ -138,15 +140,10 @@ jobs:
             --output "$RUNNER_TEMP/gradle.zip"
           printf '%s  %s\n' '61ad310d3c7d3e5da131b76bbf22b5a4c0786e9d892dae8c1658d4b484de3caa' "$RUNNER_TEMP/gradle.zip" | sha256sum --check
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
-      - name: Build synthetic provider and run native JVM tests
-        timeout-minutes: 10
-        shell: bash
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/gradle-8.14/bin/gradle" --no-daemon \
-            -p tool/android-autofill-harness :provider:testDebugUnitTest :provider:assembleDebug
-      - name: Render four synthetic presentations
-        timeout-minutes: 8
+      - name: Verify synthetic UI driver regressions
+        run: python3 -m unittest discover -s tool/android-autofill-harness/tests
+      - name: Validate committed synthetic AutoFill runtime
+        timeout-minutes: 20
         shell: bash
         run: |
           set -euo pipefail
@@ -166,17 +163,20 @@ jobs:
           # shellcheck disable=SC2016
           timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do kill -0 "$emulator_pid" 2>/dev/null || exit 1; sleep 2; done'
           timeout 10 adb -s emulator-5554 shell input keyevent 82
-          apk=tool/android-autofill-harness/provider/build/outputs/apk/debug/provider-debug.apk
-          timeout 45 adb -s emulator-5554 install -r "$apk"
-          sha256sum "$apk" > "$evidence/provider-apk-sha256.txt"
-          timeout 180 python3 -u tool/android-autofill-harness/presentation.py \
-            --serial emulator-5554 | tee "$evidence/outcomes.txt"
-          test "$(wc -l < "$evidence/outcomes.txt")" -eq 4
-      - name: Upload synthetic presentation evidence
+          for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
+            timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
+          done
+          timeout 240 python3 -u tool/android-autofill-harness/prepare_ci.py --serial emulator-5554
+          timeout 900 python3 -u tool/android-autofill-harness/validate.py \
+            --serial emulator-5554 --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle"
+      - name: Upload synthetic runtime evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: autofill-presentations-${{ github.sha }}
-          path: tool/android-autofill-harness/build/presentation/
+          name: autofill-runtime-${{ github.sha }}
+          path: |
+            tool/android-autofill-harness/build/presentation/
+            tool/android-autofill-harness/build/enrollment/
+            tool/android-autofill-harness/build/validation.json
           if-no-files-found: ignore
           retention-days: 7
