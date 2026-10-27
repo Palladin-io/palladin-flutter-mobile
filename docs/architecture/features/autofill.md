@@ -234,7 +234,10 @@ References: [Android provider activation](https://developer.android.com/identity
    `autofillDomains` MemberIndex policy remain unavailable until re-projected.
    AutoFill and Dashboard search use the same `MemberIndexPreparationService`
    single-flight operation, so simultaneous unlock listeners cannot start a
-   second Vault-list request or a second snapshot chain. AutoFill awaits that
+   second Vault-list request or a second snapshot chain. Native activation
+   has its own session epoch: a foreground/reconnect rebuild queued while
+   activation is pending cannot discard the new token. A replacement session
+   or revocation still invalidates older activation callbacks. AutoFill awaits that
    complete operation before reading the runtime index, preventing an empty-cache
    race while the first sync is still starting. Offline restart reopens the
    complete persisted policy-2 generation without a network call; an expired
