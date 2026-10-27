@@ -485,3 +485,11 @@ are displayed remain controlled by the IME.
 
 References: [Android inline integration](https://developer.android.com/identity/autofill/ime-autofill)
 and [InlineSuggestionUi](https://developer.android.com/reference/androidx/autofill/inline/v1/InlineSuggestionUi).
+
+Dropdown unlock and credential rows share the existing rounded native surface,
+light/dark color resources and Palladin logo. Credential content keeps username,
+optional distinct label, and exact host in that order; each remains its original
+value with visual end-ellipsis only. Logos are decorative for accessibility.
+The pre-authentication prompt remains value-free. The debug harness includes
+rendered EN/PL and light/dark presentation assertions at increased font scale;
+actual keyboard behavior and TalkBack still require physical-device QA.

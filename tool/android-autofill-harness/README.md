@@ -171,3 +171,25 @@ service rejected an HTTP AssistStructure. The actual activity HTTP/missing-schem
 negative response tests and native scheme-policy JVM regressions cover the
 application boundary. HTTPS metadata observed in the real framework had
 `webScheme=https`, text Autofill type, enabled state and visible state.
+
+## Presentation regression preview
+
+The debug-only `PresentationPreviewActivity` applies the production RemoteViews
+and constructs the production AndroidX inline content without opening the cache
+or asking for biometric authentication. Run each combination of `language` (`en`,
+`pl`) and `night` (`false`, `true`):
+
+```sh
+adb -s emulator-5556 shell am start -S -n io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity --es language pl --ez night true
+```
+
+The activity checks localized inline title and accessibility description, icon
+presence, exact synthetic username/label/host values, single-line ellipsis,
+duplicate-label suppression, and a decorative credential logo excluded from
+accessibility. It renders the real dropdown layouts at 130% font scale, including
+long synthetic strings, and displays `presentationVerified=true` only after every
+assertion passes. Capture the rendered screen for light/dark visual review; no
+real data is used. This verifies content/layout independently of keyboard policy;
+it does not prove Gboard or Samsung Keyboard will display an inline suggestion.
+Physical-device QA must still check both keyboards, light/dark modes, EN/PL,
+TalkBack, large fonts, and dropdown fallback when inline is unavailable or ignored.

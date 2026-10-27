@@ -6,14 +6,11 @@ import java.io.PrintWriter
 import android.app.PendingIntent
 import android.app.assist.AssistStructure
 import android.content.Intent
-import android.graphics.BlendMode
-import android.graphics.drawable.Icon
 import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.InlinePresentation
 import androidx.autofill.inline.UiVersions
-import androidx.autofill.inline.v1.InlineSuggestionUi
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
@@ -179,22 +176,13 @@ class PalladinAutofillService : AutofillService() {
         if (inlineRequest.maxSuggestionCount <= 0 ||
             !UiVersions.getVersions(spec.style).contains(UiVersions.INLINE_UI_VERSION_1)
         ) return null
-        val label = getString(
-            if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label,
-        )
         // Fixed, value-free attribution intent is reused across requests. Long
         // press opens Palladin; selecting the chip uses the authentication intent.
         val attribution = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val content = InlineSuggestionUi.newContentBuilder(attribution)
-            .setTitle(label)
-            .setStartIcon(Icon.createWithResource(this, R.drawable.launch_logo_image).apply {
-                setTintBlendMode(BlendMode.DST)
-            })
-            .setContentDescription(label)
-            .build()
+        val content = autofillInlineContent(this, generate, attribution)
         return InlinePresentation(content.slice, spec, false)
     }
 
