@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 parser = argparse.ArgumentParser()
 parser.add_argument('--serial', required=True)
 parser.add_argument('--gradle', default='gradle')
+parser.add_argument('--prepare-ci', action='store_true', help='Enroll synthetic biometrics after visual checks on a fresh CI emulator')
 args = parser.parse_args()
 if not args.serial.startswith('emulator-'):
     raise RuntimeError('Validation is restricted to an explicitly selected emulator')
@@ -50,10 +51,12 @@ if prior_hidden_policy not in ('null', '2'):
 try:
     android('shell', 'settings', 'put', 'secure', 'autofill_service', 'io.palladin.autofill.harness.provider/io.palladin.mobile.autofill.PalladinAutofillService')
     android('shell', 'settings', 'put', 'secure', 'show_ime_with_hard_keyboard', '1')
-    android('shell', 'am', 'start', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.MainActivity')
     presentation = subprocess.check_output([sys.executable, '-u', str(harness / 'presentation.py'), '--serial', args.serial], cwd=root, text=True, timeout=240)
     print(presentation, end='', flush=True)
     report['presentations'] = presentation.strip().splitlines()
+    if args.prepare_ci:
+        subprocess.run([sys.executable, '-u', str(harness / 'prepare_ci.py'), '--serial', args.serial], cwd=root, check=True, timeout=240)
+    android('shell', 'am', 'start', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.MainActivity')
     positive = ('native-login', 'native-username', 'web-login', 'web-username')
     negative = ('native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'web-http')
     cases = [(mode, '--inspect-response') for mode in (*positive, 'web-empty', 'native-empty', 'web-http', 'web-missing')]

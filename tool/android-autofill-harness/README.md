@@ -33,7 +33,8 @@ adb -s emulator-5554 shell am start -n io.palladin.autofill.harness.provider/io.
 
 The launcher must show `Synthetic encrypted cache ready`. Enroll the emulator
 fingerprint through Android Settings first, using `adb -s emulator-5554 emu finger
-touch 1` for enrollment touches. The harness does not create or change a PIN.
+touch 1` for enrollment touches. Local validation assumes an already enrolled
+emulator; only the explicitly selected CI preparation changes a synthetic PIN.
 
 ## Exercise the real system flow
 
@@ -94,9 +95,9 @@ This proves real Android callbacks, IME presentation, Keystore biometric auth,
 selection and field handoff for these fixtures. It does not prove physical Samsung
 behavior, third-party applications, Chrome's separate provider setting, app
 unlock/cache publication from Flutter, or OEM biometric implementations. Existing
-JVM and Flutter tests cover complementary boundaries. No emulator CI workflow is
-added: deterministic CI would additionally need a provisioned emulator, enrolled
-test biometric and fixed IME/display configuration.
+JVM and Flutter tests cover complementary boundaries. The opt-in CI gate below
+provisions a separate synthetic emulator; its results must be reported for the
+exact tested commit.
 
 ## Cleanup
 
@@ -202,14 +203,16 @@ TalkBack, large fonts, and dropdown fallback when inline is unavailable or ignor
 The normal PR job does not build APKs. With explicit CI/emulator authorization,
 dispatch `test.yml` on the intended feature branch with `autofill_presentations=true`.
 This opt-in job uses an isolated API 35 x86_64 AVD with KVM and the default IME.
-It runs UI-driver regressions, creates a synthetic PIN, enrolls fingerprint 1
-through the real Android Settings flow, and invokes `validate.py` on the clean
+It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clean
 committed checkout. The validator compiles only the synthetic provider/form APKs,
-runs native JVM tests, four localized presentation checks and all 24 response/OS
-cases. No Flutter APK, account, real credential or production signing is involved.
+runs native JVM tests and four localized presentation checks, then creates a
+synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
+Only after enrollment does it seed the biometric-bound cache and run all 24
+response/OS cases. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
-enrollment/presentation screenshots and successful `validation.json` including APK
+enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
+and successful `validation.json` including APK
 hashes and observed case outcomes. A failed or partial run never creates a
 successful validation report. This CI gate does not establish physical Gboard,
 Samsung Keyboard or third-party application compatibility.

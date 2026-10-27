@@ -170,9 +170,8 @@ jobs:
           for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
             timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
           done
-          timeout 240 python3 -u tool/android-autofill-harness/prepare_ci.py --serial emulator-5554
           timeout 900 python3 -u tool/android-autofill-harness/validate.py \
-            --serial emulator-5554 --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle"
+            --serial emulator-5554 --prepare-ci --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle"
       - name: Upload synthetic runtime evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
