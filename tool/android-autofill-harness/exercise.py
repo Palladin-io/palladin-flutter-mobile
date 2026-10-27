@@ -65,20 +65,22 @@ def tap_text(pattern):
     return False
 
 
-def focus_field():
+def focus_field(required=True):
     # Native EditText and WebView's virtual input accessibility nodes share this
     # public class name. The source package prevents targeting system UI fields.
-    for _ in range(6):
+    for _ in range(6 if required else 1):
         for node in nodes():
             if (node.get('package') == form and
                     node.get('class') == 'android.widget.EditText' and tap_node(node)):
                 return
         time.sleep(.3)
-    raise AssertionError('Synthetic focus field not exposed by accessibility')
+    if required:
+        raise AssertionError('Synthetic focus field not exposed by accessibility')
 
 
 def authenticate():
-    wait_for(lambda tree: any('Unlock Palladin' in n.get('text', '') for n in tree),
+    wait_for(lambda tree: any(n.get('text') == 'Unlock Palladin' and
+                             n.get('package') == 'com.android.systemui' for n in tree),
              'Real biometric prompt not shown')
     command('emu', 'finger', 'touch', '1')
     command('emu', 'finger', 'remove')
@@ -114,8 +116,9 @@ if args.inspect_response:
 
 else:
     command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode)
-    focus_field()
-    if args.mode not in ('native-login', 'native-username', 'web-login', 'web-username'):
+    positive = args.mode in ('native-login', 'native-username', 'web-login', 'web-username')
+    focus_field(required=positive)
+    if not positive:
         assert tap_text('Request Autofill'), 'Manual request control missing'
     diagnosis = ''
     for _ in range(30):

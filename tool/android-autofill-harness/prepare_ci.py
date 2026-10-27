@@ -48,7 +48,7 @@ if command('shell', 'getprop', 'ro.build.version.sdk').strip() != '35':
 # This public shell command succeeds only on the fresh, uncredentialed CI AVD.
 # It cannot replace an existing PIN without the old credential.
 result = command('shell', 'locksettings', 'set-pin', '246813')
-if 'successfully' not in result.lower():
+if result.strip() != "Pin set to '246813'":
     raise RuntimeError('Fresh disposable emulator PIN setup failed')
 command('shell', 'input', 'keyevent', 'KEYCODE_HOME')
 command('shell', 'am', 'start', '-a', 'android.settings.FINGERPRINT_ENROLL')
