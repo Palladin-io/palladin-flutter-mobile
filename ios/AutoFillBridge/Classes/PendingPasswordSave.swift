@@ -116,7 +116,7 @@ final class PendingPasswordSave {
 
     func discard(id: String) throws {
         try locked {
-            guard var authority = try readAuthority(), authority.pending?.id == id else { return }
+            guard var authority = try readAuthority(), authority.captureID == id else { return }
             authority.pending = nil
             authority.captureID = nil
             try writeAuthority(authority)

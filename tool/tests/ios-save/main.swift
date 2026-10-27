@@ -33,6 +33,9 @@ expect(payload.username == "synthetic-user" && payload.password == "synthetic-pa
 expect(try store.take(id: id, session: session, prompt: "Test") == nil, "one-time consume")
 expect(try store.validate(payload.authority, session: session, domain: "login.example.test"), "valid consumed lease")
 expect(!(try store.validate(payload.authority, session: session, domain: "other.example.test")), "origin mismatch")
+try store.discard(id: id)
+expect(!(try store.validate(payload.authority, session: session, domain: "login.example.test")),
+       "discard revokes matching consumed lease")
 try stage()
 expect(!(try store.validate(payload.authority, session: session, domain: "login.example.test")), "replacement invalidates old consumed lease")
 let wrongSession = try store.take(id: store.pending()!, session: "wrong", prompt: "Test")
