@@ -208,7 +208,8 @@ try:
             command('shell', 'settings', 'put', 'global', 'hidden_api_policy', '1')
             command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode)
             if args.mode in ('web-http', 'web-missing'):
-                assert any(n.get('text') == 'responseRejected=true' for n in nodes()), 'Invalid scheme released a FillResponse'
+                wait_for(lambda tree: any(n.get('text') == 'responseRejected=true' for n in tree),
+                         'Invalid scheme rejection result not observed')
                 print(args.mode + ': no authentication result PASS')
             else:
                 authenticate()
