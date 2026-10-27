@@ -69,18 +69,19 @@ internal object AutofillSaveCoordinator {
     }
 
     fun save(context: Context, save: SaveRequest, callback: SaveCallback) {
-        if (Build.VERSION.SDK_INT < 28) { reject(context, callback); return }
-        val current = current(save.clientState?.getString(EXTRA_REQUEST))
+        val requestId = save.clientState?.getString(EXTRA_REQUEST)
+        if (Build.VERSION.SDK_INT < 28) { reject(context, callback, requestId); return }
+        val current = current(requestId)
         val structure = save.fillContexts.lastOrNull()?.structure
         val latest = structure?.let { source(context, it) }
         if (current == null || structure == null || latest == null || !current.source.matches(latest)) {
-            reject(context, callback); return
+            reject(context, callback, requestId); return
         }
-        if (!current.fields.isBoundTo(structure, latest)) { reject(context, callback); return }
+        if (!current.fields.isBoundTo(structure, latest)) { reject(context, callback, requestId); return }
         val values = current.fields.read(structure)
-        if (values == null) { reject(context, callback); return }
+        if (values == null) { reject(context, callback, requestId); return }
         val id = mailbox.offer(current.id, values.username, values.password)
-        if (id == null) { reject(context, callback); return }
+        if (id == null) { reject(context, callback, requestId); return }
         pending = id
         val launch = Intent(context, MainActivity::class.java).apply {
             action = "io.palladin.mobile.AUTOFILL_SAVE.$id"
@@ -92,8 +93,8 @@ internal object AutofillSaveCoordinator {
         callback.onSuccess(sender)
     }
 
-    private fun reject(context: Context, callback: SaveCallback) {
-        clear()
+    private fun reject(context: Context, callback: SaveCallback, requestId: String?) {
+        if (requestId != null && request?.id == requestId) clear()
         callback.onFailure(context.getString(R.string.autofill_save_unavailable))
     }
 
