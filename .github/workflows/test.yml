@@ -166,6 +166,10 @@ jobs:
           # Expansion must happen inside the bounded boot-wait subprocess.
           # shellcheck disable=SC2016
           timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do kill -0 "$emulator_pid" 2>/dev/null || exit 1; sleep 2; done'
+          for property in ro.build.version.sdk ro.product.cpu.abilist ro.dalvik.vm.native.bridge; do
+            printf '%s=' "$property" >> "$evidence/platform.txt"
+            timeout 10 adb -s emulator-5554 shell getprop "$property" >> "$evidence/platform.txt"
+          done
           timeout 10 adb -s emulator-5554 shell input keyevent 82
           for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
             timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
