@@ -365,10 +365,11 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
     private fun selectionResponse(record: CachedCredential, domain: String): FillResponse? {
         val passwords = intent.autofillIds(EXTRA_PASSWORD_IDS)
-        if (passwords.isEmpty()) return null
+        val usernames = intent.autofillIds(EXTRA_USERNAME_IDS)
+        if (passwords.isEmpty() && usernames.isEmpty()) return null
         val presentation = autofillCredentialPresentation(this, record.username, record.label, domain)
         val dataset = Dataset.Builder(presentation)
-        intent.autofillIds(EXTRA_USERNAME_IDS).forEach {
+        usernames.forEach {
             dataset.setValue(it, AutofillValue.forText(record.username), presentation)
         }
         passwords.forEach {
@@ -439,7 +440,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
             val usernameIds = intent.autofillIds(EXTRA_USERNAME_IDS)
             val passwordIds = intent.autofillIds(EXTRA_PASSWORD_IDS)
-            if (passwordIds.isEmpty()) {
+            if (passwordIds.isEmpty() && usernameIds.isEmpty()) {
                 finishCanceled()
                 return
             }

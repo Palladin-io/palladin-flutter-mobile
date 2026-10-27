@@ -103,5 +103,6 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.autofill:autofill:1.3.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.20.0")
     testImplementation("org.json:json:20240303")
 }

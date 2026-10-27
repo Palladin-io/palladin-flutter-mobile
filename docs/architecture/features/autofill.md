@@ -280,6 +280,37 @@ References: [Android provider activation](https://developer.android.com/identity
    iOS identity cleanup; the next unlocked synchronization creates a fresh
    dedicated key and cache.
 
+## Android form recognition
+
+Login requests may contain a username, a password, or both. Username-first steps
+still require the same origin, cache and biometric checks; their response contains
+only the recognized username targets. A later password step is a fresh request.
+Neither the service nor either authenticated response path requires a password
+field on the username step.
+
+The parser reads Android autofill hints/input variations and HTML `input`
+`autocomplete` tokens and `type`. Explicit username identifiers (`username`,
+`user_name`, `email`, `email_address`, `login`) are supported as native text-field
+resource names or HTML text-input `name`/`id`. It does not guess that an arbitrary
+text field, search field or preceding sibling is a username. `new-password`
+remains a generation-only target; explicit OTP hints take precedence over a masked
+password input type so an account password cannot be sent to an OTP field.
+
+The October 2026 audit compared primary implementations at pinned commits:
+[Bitwarden field classification](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/util/ViewNodeExtensions.kt)
+and [login partition selection](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/parser/AutofillParserImpl.kt)
+use HTML/native metadata and permit a username login partition.
+[KeePassDX's parser](https://github.com/Kunzisoft/KeePassDX/blob/25493ea30139adab14d937602f28d5243d3f9ecc/app/src/main/java/com/kunzisoft/keepass/credentialprovider/autofill/StructureParser.kt)
+also reads HTML semantics and prioritizes OTP, but its login result still requires
+a password. Both use broader username heuristics than Palladin. This comparison
+informed independent changes; no competitor implementation was copied.
+
+JVM parser regressions mock framework input nodes, exercise the production
+traversal and assert resulting target IDs. They establish recognition, not OS
+presentation or biometric completion. The Android emulator harness separately
+exercises system callbacks; Samsung/Chrome/Allegro release behavior remains a
+physical-device acceptance check.
+
 ## Android dropdown presentation
 
 Unlock and generated-password actions use a branded RemoteViews row with a
