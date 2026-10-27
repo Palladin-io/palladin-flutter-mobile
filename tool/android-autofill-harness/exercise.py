@@ -63,9 +63,24 @@ def wait_for(predicate, message):
 def tap_text(pattern):
     for _ in range(4):
         for node in nodes():
-            if re.search(pattern, node.get('text', ''), re.I) and tap_node(node):
+            if any(re.search(pattern, node.get(key, ''), re.I)
+                   for key in ('text', 'content-desc')) and tap_node(node):
                 return True
         time.sleep(.3)
+    if pattern in ('Unlock Palladin to autofill', '^synthetic-user$'):
+        ime = command('shell', 'settings', 'get', 'secure', 'default_input_method').strip().split('/')[0]
+        candidates = []
+        for container in nodes():
+            if (container.get('package') != ime or container.get('resource-id') !=
+                    ime + ':id/key_pos_proactive_suggestions'):
+                continue
+            # The recorded API 35 IME exposes the chip container but omits its
+            # embedded title. Use its actual accessible bounds, only if unique.
+            candidates.extend(node for node in container.iter('node') if
+                node.get('package') == ime and node.get('class') == 'android.view.ViewGroup' and
+                all(node.get(key) == 'true' for key in ('enabled', 'clickable', 'focusable')))
+        if len(candidates) == 1:
+            return tap_node(candidates[0])
     return False
 
 
@@ -121,7 +136,7 @@ def record_failure():
             item = {key: node.get(key) for key in (
                 'package', 'class', 'resource-id', 'bounds', 'enabled', 'focused',
                 'focusable', 'clickable', 'password')}
-            item['role'] = roles.get(node.get('text'), 'other')
+            item['role'] = roles.get(node.get('text'), roles.get(node.get('content-desc'), 'other'))
             metadata.append(item)
         (destination / 'nodes.json').write_text(json.dumps(metadata, indent=2) + '\n')
     except Exception:

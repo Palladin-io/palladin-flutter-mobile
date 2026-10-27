@@ -63,6 +63,25 @@ class DriverChecks(unittest.TestCase):
    raw=(pathlib.Path(directory)/'build/exercise/native-login-handoff/nodes.json').read_text()
    self.assertNotIn('arbitrary-',raw)
    self.assertEqual(json.loads(raw)[1]['role'],'unlock-suggestion')
+ def test_textless_inline_chip_uses_unique_observed_suggestion_bounds(self):
+  root_node=ET.fromstring('<node package="ime.test" resource-id="ime.test:id/key_pos_proactive_suggestions"><node package="ime.test" class="android.view.ViewGroup" clickable="true" focusable="true" enabled="true" bounds="[265,1051][815,1161]"/></node>')
+  self.ns['nodes']=lambda:list(root_node.iter('node'))
+  def command(*parts):
+   self.calls.append(parts)
+   return 'ime.test/.Keyboard' if parts[:3]==('shell','settings','get') else ''
+  self.ns['command']=command
+  self.assertTrue(self.ns['tap_text']('Unlock Palladin to autofill'))
+  self.assertIn(('shell','input','tap','540','1106'),self.calls)
+ def test_textless_inline_chip_rejects_ambiguous_or_unrelated_nodes(self):
+  for container in ('ime.test:id/key_pos_proactive_suggestions','ime.test:id/keyboard_header_view_holder'):
+   root_node=ET.fromstring(f'<node package="ime.test" resource-id="{container}"><node package="ime.test" class="android.view.ViewGroup" clickable="true" focusable="true" enabled="true" bounds="[0,10][30,40]"/><node package="ime.test" class="android.view.ViewGroup" clickable="true" focusable="true" enabled="true" bounds="[40,10][60,40]"/></node>')
+   self.ns['nodes']=lambda:list(root_node.iter('node'))
+   def command(*parts):
+    self.calls.append(parts)
+    return 'ime.test/.Keyboard'
+   self.ns['command']=command
+   self.assertFalse(self.ns['tap_text']('Unlock Palladin to autofill'))
+  self.assertFalse(any(c[:3]==('shell','input','tap') for c in self.calls))
  def test_null_root_transition_retries_without_reading_missing_xml(self):
   for filename in ('exercise.py','prepare_ci.py'):
    with self.subTest(driver=filename):
