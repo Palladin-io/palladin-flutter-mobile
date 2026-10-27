@@ -41,6 +41,22 @@ def matches_label(node, pattern):
         for attribute in ('text', 'content-desc'))
 
 
+def launcher_anr_close(nodes):
+    titles = [node for node in nodes if "isn't responding" in node.get('text', '')]
+    if (len(titles) != 1 or titles[0].get('text') != "Pixel Launcher isn't responding"
+            or titles[0].get('package') != 'android'):
+        return None
+    controls = [node for node in nodes if node.get('text') == 'Close app']
+    if len(controls) != 1:
+        return None
+    control = controls[0]
+    if (control.get('package') != 'android' or control.get('class') != 'android.widget.Button'
+            or control.get('enabled') != 'true'
+            or not re.fullmatch(r'\[\d+,\d+\]\[\d+,\d+\]', control.get('bounds', ''))):
+        return None
+    return control
+
+
 def hierarchy_metadata(nodes):
     roles = {'android.view.View', 'android.widget.TextView', 'android.widget.Button',
              'android.widget.EditText', 'android.widget.FrameLayout', 'android.widget.LinearLayout'}
@@ -93,17 +109,32 @@ def main():
     def android(*parts):
         return subprocess.check_output([adb, '-s', args.serial, *parts], text=True, timeout=15).strip()
 
-    def wait_text(pattern, tap=False):
+    dismissed_launcher_anr = False
+
+    def tap_node(node):
+        bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
+        if len(bounds) != 4:
+            raise RuntimeError('UI target has no bounds')
+        x1, y1, x2, y2 = bounds
+        if x2 <= x1 or y2 <= y1:
+            raise RuntimeError('UI target has empty bounds')
+        android('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
+
+    def wait_text(pattern, tap=False, allow_launcher_dismiss=False):
+        nonlocal dismissed_launcher_anr
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
-            for node in read_nodes(android):
+            nodes = read_nodes(android)
+            if allow_launcher_dismiss and not dismissed_launcher_anr:
+                close = launcher_anr_close(nodes)
+                if close is not None:
+                    tap_node(close)
+                    dismissed_launcher_anr = True
+                    continue
+            for node in nodes:
                 if matches_label(node, pattern):
                     if tap:
-                        bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
-                        if len(bounds) != 4:
-                            raise RuntimeError('UI target has no bounds')
-                        x1, y1, x2, y2 = bounds
-                        android('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
+                        tap_node(node)
                     return
             time.sleep(.2)
         raise RuntimeError('Expected synthetic UI state was not observed: ' + pattern)
@@ -149,7 +180,7 @@ def main():
         android('shell', 'settings', 'put', 'secure', 'autofill_service', SERVICE)
         android('shell', 'pm', 'set-app-links', '--package', FORM, '2', 'fixture.invalid')
         android('shell', 'am', 'start', '-n', MAIN)
-        wait_text('saveColdStartEmpty=true')
+        wait_text('saveColdStartEmpty=true', allow_launcher_dismiss=True)
         tap('Arm save')
         wait_text('saveHarnessReady=true')
         stage = 'positive-save'
@@ -184,12 +215,14 @@ def main():
         if (subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip() or
                 subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip() != commit):
             raise RuntimeError('Checkout changed during runtime validation')
+        report['dismissedLauncherAnr'] = dismissed_launcher_anr
         destination = HERE / 'build/validation.json'
         destination.write_text(json.dumps(report, indent=2) + '\n')
         for case in report['cases']:
             print(case['case'] + ': PASS')
     except Exception:
-        failure = {'commit': commit, 'stage': stage, **failure_state(android)}
+        failure = {'commit': commit, 'stage': stage, 'dismissedLauncherAnr': dismissed_launcher_anr,
+                   **failure_state(android)}
         try:
             failure['hierarchy'] = hierarchy_metadata(read_nodes(android))
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ET.ParseError):

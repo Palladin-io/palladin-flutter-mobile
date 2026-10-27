@@ -102,7 +102,11 @@ provider, installs the test host authority, and runs three cases:
 The driver reads all interactive windows using API 35's public
 `uiautomator dump --windows`. A temporarily unavailable root yields no nodes
 within the existing bounded wait; stale XML is removed before capture. It never
-counts an unavailable hierarchy as success. Temporary UI XML is deleted after
+counts an unavailable hierarchy as success. During the initial cold-start gate
+only, it may dismiss one exact system-owned “Pixel Launcher isn't responding”
+dialog using its unambiguous enabled Close app button, within the same deadline.
+Other or ambiguous ANRs fail normally. `dismissedLauncherAnr` records this action
+in the validation/failure JSON; all three real save cases remain mandatory. Temporary UI XML is deleted after
 each read and never printed or uploaded. On failure, `build/failure.json` records
 only the fixed scenario, source commit and booleans indicating expected fixture
 processes, resumed activities and service callback presence (null if inspection

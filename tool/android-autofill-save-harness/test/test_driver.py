@@ -89,3 +89,25 @@ class HierarchyMetadataTests(unittest.TestCase):
              'coldStartEmpty': False, 'coldStartNotEmpty': False, 'armButton': False,
              'harnessInitial': False},
         ])
+
+
+class LauncherAnrTests(unittest.TestCase):
+    def dialog(self, title="Pixel Launcher isn't responding"):
+        return [ET.Element('node', {'text': title, 'package': 'android'}),
+                ET.Element('node', {'text': 'Close app', 'package': 'android',
+                           'class': 'android.widget.Button', 'enabled': 'true',
+                           'bounds': '[70,898][1010,1024]'})]
+
+    def test_only_exact_launcher_system_dialog_can_be_dismissed(self):
+        nodes = self.dialog()
+        self.assertIs(exercise.launcher_anr_close(nodes), nodes[1])
+        for title in ("Palladin isn't responding", "System UI isn't responding", "Other isn't responding"):
+            self.assertIsNone(exercise.launcher_anr_close(self.dialog(title)))
+        self.assertIsNone(exercise.launcher_anr_close(nodes + [nodes[1]]))
+        self.assertIsNone(exercise.launcher_anr_close(nodes + self.dialog("Other isn't responding")))
+        nodes[1].set('package', exercise.PROVIDER)
+        self.assertIsNone(exercise.launcher_anr_close(nodes))
+        for attribute, value in (('enabled', 'false'), ('bounds', ''), ('class', 'android.view.View')):
+            invalid = self.dialog()
+            invalid[1].set(attribute, value)
+            self.assertIsNone(exercise.launcher_anr_close(invalid))
