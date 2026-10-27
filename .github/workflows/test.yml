@@ -151,6 +151,10 @@ jobs:
           evidence=tool/android-autofill-harness/build/presentation
           mkdir -p "$ANDROID_AVD_HOME" "$evidence"
           git rev-parse HEAD > "$evidence/commit.txt"
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          export ADB="$ANDROID_HOME/platform-tools/adb"
+          "$ADB" version > "$evidence/adb-version.txt"
+          timeout 15 "$ADB" start-server
           "$ANDROID_HOME/emulator/emulator" -version > "$evidence/emulator-version.txt" 2>&1
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name palladin-presentation \
             --package 'system-images;android-35;google_apis;x86_64' --device pixel_2
