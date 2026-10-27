@@ -69,7 +69,12 @@ APK hash.
 
 ## Isolated CI runtime
 
-Provision a fresh English API-35 `google_apis;x86_64` AVD, boot it with KVM and
+The existing Test workflow exposes an opt-in `autofill_save` dispatch input.
+Its separate job builds these APKs and runs the three cases on a fresh official
+API-35 x86_64 KVM emulator; ordinary PR checks remain unchanged. It uploads only
+boolean/source/hash JSON and emulator startup diagnostics, never APKs or UI dumps.
+
+To run the same driver manually, provision a fresh English API-35 `google_apis;x86_64` AVD, boot it with KVM and
 bounded boot/adb timeouts, then run:
 
 ```sh
