@@ -70,23 +70,7 @@ internal data class AutofillSaveFields(val username: AutofillId, val password: A
             val username = ids.usernameIds.singleOrNull() ?: return null
             // Password-change and confirmation forms are deliberately not captured.
             val password = (ids.passwordIds + ids.newPasswordIds).singleOrNull() ?: return null
-            if (username == password) return null
-            var confirmation = false
-            fun inspect(node: AssistStructure.ViewNode) {
-                if (node.autofillId == password) {
-                    val attributes = node.htmlInfo?.attributes.orEmpty()
-                    val names = listOf(node.idEntry) + attributes.filter {
-                        it.first.equals("name", true) || it.first.equals("id", true)
-                    }.map { it.second }
-                    confirmation = names.any { name -> name?.lowercase(java.util.Locale.ROOT)
-                        ?.replace("_", "")?.replace("-", "") in setOf("confirmpassword", "passwordconfirmation") } ||
-                        node.autofillHints.orEmpty().any { it.lowercase(java.util.Locale.ROOT)
-                            .replace("-", "") in setOf("confirmpassword", "passwordconfirmation") }
-                }
-                for (index in 0 until node.childCount) inspect(node.getChildAt(index))
-            }
-            inspect(structure.getWindowNodeAt(0).rootViewNode)
-            if (confirmation) return null
+            if (username == password || ids.confirmationIds.isNotEmpty()) return null
             return AutofillSaveFields(username, password)
         }
     }

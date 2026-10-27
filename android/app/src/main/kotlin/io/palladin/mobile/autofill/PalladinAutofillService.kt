@@ -214,6 +214,7 @@ class PalladinAutofillService : AutofillService() {
         val passwordIds: List<AutofillId>,
         val newPasswordIds: List<AutofillId>,
         val currentPasswordIds: List<AutofillId>,
+        val confirmationIds: List<AutofillId>,
     ) {
         val allIds: List<AutofillId> = (usernameIds + passwordIds + newPasswordIds).distinct()
 
@@ -223,6 +224,7 @@ class PalladinAutofillService : AutofillService() {
                 val passwords = mutableListOf<AutofillId>()
                 val newPasswords = mutableListOf<AutofillId>()
                 val currentPasswords = mutableListOf<AutofillId>()
+                val confirmations = mutableListOf<AutofillId>()
 
                 for (index in 0 until structure.windowNodeCount) {
                     collect(
@@ -231,9 +233,10 @@ class PalladinAutofillService : AutofillService() {
                         passwords,
                         newPasswords,
                         currentPasswords,
+                        confirmations,
                     )
                 }
-                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords)
+                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords, confirmations)
             }
 
             fun domainsFrom(structure: AssistStructure): Set<String> {
@@ -271,13 +274,16 @@ class PalladinAutofillService : AutofillService() {
                 passwords: MutableList<AutofillId>,
                 newPasswords: MutableList<AutofillId>,
                 currentPasswords: MutableList<AutofillId>,
+                confirmations: MutableList<AutofillId>,
             ) {
                 if (node.visibility != View.VISIBLE) return
                 val id = node.autofillId
                 if (id != null && node.isEnabled && node.isCredentialTarget()) {
+                    val oneTimeCode = node.hasHint("one-time-code") || node.hasHint("smsOTPCode") ||
+                        node.hasHint("2faAppOTPCode") || node.hasHint("emailOTPCode")
+                    if (!oneTimeCode && node.isPasswordConfirmation()) confirmations += id
                     when {
-                        node.hasHint("one-time-code") || node.hasHint("smsOTPCode") ||
-                            node.hasHint("2faAppOTPCode") || node.hasHint("emailOTPCode") -> Unit
+                        oneTimeCode -> Unit
                         node.hasHint(NEW_PASSWORD_HINT) || node.hasHint(WEB_NEW_PASSWORD_HINT) ->
                             newPasswords += id
                         node.isPasswordConfirmation() -> Unit
@@ -291,7 +297,7 @@ class PalladinAutofillService : AutofillService() {
                     }
                 }
                 for (index in 0 until node.childCount) {
-                    collect(node.getChildAt(index), usernames, passwords, newPasswords, currentPasswords)
+                    collect(node.getChildAt(index), usernames, passwords, newPasswords, currentPasswords, confirmations)
                 }
             }
 
