@@ -155,12 +155,40 @@ def authenticate():
         assert tap_text('Fill once'), 'Explicit manual warning missing'
 
 
+def framework_snapshot(diagnosis):
+    # AOSP API 35 Session.dumpLocked scalar fields only; never copy responses,
+    # field values, dataset IDs or arbitrary framework text into artifacts.
+    patterns = {
+        'state': r'STATE_(?:UNKNOWN|ACTIVE|FINISHED|REMOVED)',
+        'mResponses': r'(?:null|[0-9]{1,4})',
+        'mDestroyed': r'(?:true|false)',
+        'mShowingSaveUi': r'(?:true|false)',
+        'mHasCallback': r'(?:true|false)',
+        'mViewStates size': r'[0-9]{1,4}',
+    }
+    result = {}
+    for line in diagnosis.splitlines():
+        key, separator, value = line.strip().partition(': ')
+        if separator and key in patterns and re.fullmatch(patterns[key], value):
+            values = result.setdefault(key, [])
+            if len(values) < 8:
+                values.append(value)
+    return result
+
+
 def record_failure():
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         return
     destination = Path(__file__).resolve().parent / 'build/exercise' / (
         args.mode + ('-response' if args.inspect_response else '-handoff'))
     destination.mkdir(parents=True, exist_ok=True)
+    try:
+        framework = framework_snapshot(command('shell', 'dumpsys', 'autofill'))
+        framework['selectedSyntheticProvider'] = command(
+            'shell', 'settings', 'get', 'secure', 'autofill_service').strip() == service
+        (destination / 'framework.json').write_text(json.dumps(framework, indent=2) + '\n')
+    except Exception:
+        pass
     try:
         diagnosis = command('shell', 'dumpsys', 'activity', 'service', service)
         snapshot = request_snapshot(diagnosis)
