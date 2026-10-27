@@ -17,7 +17,7 @@ build = Path(__file__).resolve().parent / 'build/presentation'
 build.mkdir(parents=True, exist_ok=True)
 for language in ('en', 'pl'):
     for night in ('false', 'true'):
-        subprocess.run(adb + ['shell', 'am', 'start', '-S', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity', '--es', 'language', language, '--ez', 'night', night], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(adb + ['shell', 'am', 'start', '-S', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity', '--es', 'language', language, '--ez', 'night', night], check=True, stdout=subprocess.DEVNULL, timeout=30)
         expected = f'presentationVerified=true {language} night={night}'
         verified = False
         for attempt in range(3):
