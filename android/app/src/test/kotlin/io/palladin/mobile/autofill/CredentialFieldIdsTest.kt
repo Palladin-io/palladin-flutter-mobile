@@ -262,6 +262,36 @@ class CredentialFieldIdsTest {
         )?.mode)
     }
 
+    @Test
+    fun mixedFormIncludesOnlyEligibleCredentialTargets() {
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        val password = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        val hidden = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        `when`(hidden.visibility).thenReturn(View.GONE)
+        val disabled = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(disabled.isEnabled).thenReturn(false)
+        val otp = node(
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            hints = arrayOf("emailOTPCode"),
+        )
+        val confirmation = node(
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            idEntry = "confirm_password",
+        )
+        val container = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        `when`(container.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE)
+        val childUsername = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(container.childCount).thenReturn(1)
+        `when`(container.getChildAt(0)).thenReturn(childUsername)
+
+        val fields = parse(username, password, hidden, disabled, otp, confirmation, container)
+
+        assertEquals(listOf(username.autofillId, childUsername.autofillId), fields.usernameIds)
+        assertEquals(listOf(password.autofillId), fields.passwordIds)
+        assertEquals(listOf(username.autofillId, childUsername.autofillId, password.autofillId), fields.allIds)
+        assertEquals(emptyList<AutofillId>(), fields.newPasswordIds)
+    }
+
     private fun parse(vararg nodes: AssistStructure.ViewNode): PalladinAutofillService.CredentialFieldIds =
         PalladinAutofillService.CredentialFieldIds.from(structure(*nodes))
 
