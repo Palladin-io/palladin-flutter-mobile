@@ -53,19 +53,23 @@ composition and request invariants; those timings are not emulator evidence.
 Use a dedicated emulator and the local debug flavor. Obtain explicit local
 build authorization under repository rules. This entrypoint never starts the
 application bootstrap, Firebase, analytics, authentication or any cloud client.
-The Google Services task can therefore be excluded without checking in cloud
-configuration. Use the installed Gradle version matching the repository wrapper:
+The invocation-scoped init script allows the Google Services task to finish
+without a configuration file, rather than skipping a task whose outputs other
+tasks require. No cloud resources or identifiers are generated. The script
+rejects any other target or task. Use the installed Gradle version matching
+the repository wrapper:
 
 ```sh
 # Run from android/. JAVA_HOME must point to JDK 17 (biometric_storage toolchain).
 # Set dart-defines to base64("BENCHMARK_REVISION=<exact git HEAD>").
-gradle :app:assembleLocalDebug -x :app:processLocalDebugGoogleServices \
+gradle :app:assembleLocalDebug -I ../tool/member-preparation-benchmark/no-firebase.init.gradle \
   -Ptarget=tool/member-preparation-benchmark/main.dart \
+  -Ptarget-platform=android-arm64 -Psplit-per-abi=true \
   -Pdart-defines='<base64 revision define>'
 ```
 
-Install `build/app/outputs/apk/local/debug/app-local-debug.apk` on the dedicated
-emulator and launch `io.palladin.mobile.local/.MainActivity`. Capture only the
+Install `build/app/outputs/apk/local/debug/app-local-arm64-v8a-debug.apk` on the dedicated
+emulator and launch `io.palladin.mobile.local/io.palladin.mobile.MainActivity`. Capture only the
 `MEMBER_BENCHMARK_ENV`, `MEMBER_BENCHMARK`, and terminal
 `MEMBER_BENCHMARK_DONE`/`MEMBER_BENCHMARK_FAILED` log lines. Preserve the exact
 committed revision, APK hash, emulator/API/ABI, runtime/build mode, command and
