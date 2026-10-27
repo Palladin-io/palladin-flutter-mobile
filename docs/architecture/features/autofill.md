@@ -51,8 +51,14 @@
   handlers. A host-specific App Link alone is not browser capability. The probe
   uses a reserved `.invalid` host solely for local intent resolution, never a
   network request; an unavailable capability check fails closed.
-- Manifest package visibility includes Chrome plus HTTPS/BROWSABLE handlers,
-  the capability needed to query App Link authority. It does not request
+- Manifest package visibility includes Chrome plus HTTPS/BROWSABLE handlers
+  using an explicit `host="*"` query. A scheme-only query matches browsers but
+  misses handlers with concrete App Link hosts, causing the provider UID
+  to receive `NameNotFoundException` even when shell inspection shows verified
+  links. The wildcard is only a package-visibility capability; every credential
+  release still requires exact verified hosts or the separate manual flow.
+  See [Android query declarations](https://developer.android.com/training/package-visibility/declaring).
+  It does not request
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
