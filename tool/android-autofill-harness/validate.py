@@ -21,7 +21,7 @@ adb = os.environ.get('ADB', 'adb')
 
 
 def output(*command):
-    return subprocess.check_output(command, cwd=root, text=True).strip()
+    return subprocess.check_output(command, cwd=root, text=True, timeout=45).strip()
 
 
 def clean_commit():
@@ -35,7 +35,7 @@ def android(*command):
 
 
 commit = clean_commit()
-subprocess.run([args.gradle, '-p', str(harness), 'clean', ':provider:testDebugUnitTest', 'assembleDebug'], cwd=root, check=True)
+subprocess.run([args.gradle, '-p', str(harness), 'clean', ':provider:testDebugUnitTest', 'assembleDebug'], cwd=root, check=True, timeout=600)
 report = {'commit': commit, 'checkout': str(root), 'device': args.serial, 'apkSha256': {}, 'cases': []}
 for module in ('provider', 'form'):
     apk = harness / module / f'build/outputs/apk/debug/{module}-debug.apk'
@@ -51,7 +51,7 @@ try:
     android('shell', 'settings', 'put', 'secure', 'autofill_service', 'io.palladin.autofill.harness.provider/io.palladin.mobile.autofill.PalladinAutofillService')
     android('shell', 'settings', 'put', 'secure', 'show_ime_with_hard_keyboard', '1')
     android('shell', 'am', 'start', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.MainActivity')
-    presentation = subprocess.check_output([sys.executable, '-u', str(harness / 'presentation.py'), '--serial', args.serial], cwd=root, text=True)
+    presentation = subprocess.check_output([sys.executable, '-u', str(harness / 'presentation.py'), '--serial', args.serial], cwd=root, text=True, timeout=240)
     print(presentation, end='', flush=True)
     report['presentations'] = presentation.strip().splitlines()
     positive = ('native-login', 'native-username', 'web-login', 'web-username')
@@ -62,7 +62,7 @@ try:
     for case in cases:
         if android('shell', 'settings', 'get', 'global', 'hidden_api_policy') != prior_hidden_policy:
             raise RuntimeError('Synthetic response inspector did not restore hidden API policy')
-        result = subprocess.check_output([sys.executable, '-u', str(harness / 'exercise.py'), '--serial', args.serial, '--mode', *case], cwd=root, text=True)
+        result = subprocess.check_output([sys.executable, '-u', str(harness / 'exercise.py'), '--serial', args.serial, '--mode', *case], cwd=root, text=True, timeout=180)
         print(result, end='', flush=True)
         report['cases'].append({'arguments': list(case), 'result': result.strip()})
     if clean_commit() != commit:

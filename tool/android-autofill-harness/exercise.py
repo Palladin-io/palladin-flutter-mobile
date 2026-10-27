@@ -13,7 +13,6 @@ parser.add_argument('--mode', choices=['native-login', 'native-username', 'web-l
 parser.add_argument('--expected', choices=['RESPONSE_OFFERED', 'REJECTED', 'NO_RESPONSE'], default='RESPONSE_OFFERED')
 parser.add_argument('--fill', action='store_true')
 parser.add_argument('--inspect-response', action='store_true')
-parser.add_argument('--inline-y', type=int, default=2050, help='Inline chip center on the test AVD (1344x2992 Pixel/Gboard)')
 args = parser.parse_args()
 if not args.serial.startswith('emulator-'):
     raise RuntimeError('This harness only operates on an emulator')
@@ -26,23 +25,66 @@ service = provider + '/io.palladin.mobile.autofill.PalladinAutofillService'
 
 
 def command(*parts):
-    return subprocess.check_output([adb, '-s', args.serial, *parts], text=True)
+    return subprocess.check_output([adb, '-s', args.serial, *parts], text=True, timeout=15)
 
 
 def nodes():
-    command('shell', 'uiautomator', 'dump', '/sdcard/palladin-synthetic-ui.xml')
-    raw = command('shell', 'cat', '/sdcard/palladin-synthetic-ui.xml')
-    command('shell', 'rm', '/sdcard/palladin-synthetic-ui.xml')
-    return list(ET.fromstring(raw).iter('node'))
+    try:
+        command('shell', 'uiautomator', 'dump', '/sdcard/palladin-synthetic-ui.xml')
+        raw = command('shell', 'cat', '/sdcard/palladin-synthetic-ui.xml')
+        return list(ET.fromstring(raw).iter('node'))
+    finally:
+        command('shell', 'rm', '-f', '/sdcard/palladin-synthetic-ui.xml')
+
+
+def tap_node(node):
+    bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
+    if len(bounds) != 4:
+        return False
+    x1, y1, x2, y2 = bounds
+    if x2 <= x1 or y2 <= y1 or node.get('enabled') == 'false':
+        return False
+    command('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
+    return True
+
+
+def wait_for(predicate, message):
+    for _ in range(6):
+        if predicate(nodes()):
+            return
+        time.sleep(.3)
+    raise AssertionError(message)
 
 
 def tap_text(pattern):
-    for node in nodes():
-        if re.search(pattern, node.get('text', ''), re.I):
-            x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.get('bounds')))
-            command('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
-            return True
+    for _ in range(4):
+        for node in nodes():
+            if re.search(pattern, node.get('text', ''), re.I) and tap_node(node):
+                return True
+        time.sleep(.3)
     return False
+
+
+def focus_field():
+    # Native EditText and WebView's virtual input accessibility nodes share this
+    # public class name. The source package prevents targeting system UI fields.
+    for _ in range(6):
+        for node in nodes():
+            if (node.get('package') == form and
+                    node.get('class') == 'android.widget.EditText' and tap_node(node)):
+                return
+        time.sleep(.3)
+    raise AssertionError('Synthetic focus field not exposed by accessibility')
+
+
+def authenticate():
+    wait_for(lambda tree: any('Unlock Palladin' in n.get('text', '') for n in tree),
+             'Real biometric prompt not shown')
+    command('emu', 'finger', 'touch', '1')
+    command('emu', 'finger', 'remove')
+    if args.mode.startswith('native'):
+        assert tap_text('Synthetic fixture'), 'Authenticated native picker missing'
+        assert tap_text('Fill once'), 'Explicit manual warning missing'
 
 
 command('shell', 'pm', 'set-app-links', '--package', form, '2' if args.mode.startswith('web') else '0', 'fixture.invalid')
@@ -59,15 +101,10 @@ if args.inspect_response:
             assert any(n.get('text') == 'responseRejected=true' for n in nodes()), 'Invalid scheme released a FillResponse'
             print(args.mode + ': no authentication result PASS')
         else:
-            time.sleep(1)
-            assert any('Unlock Palladin' in n.get('text', '') for n in nodes()), 'Real biometric prompt not shown'
-            command('emu', 'finger', 'touch', '1')
-            time.sleep(.7)
-            if args.mode.startswith('native'):
-                assert tap_text('Synthetic fixture'), 'Authenticated native picker missing'
-                assert tap_text('Fill once'), 'Explicit manual warning missing'
+            authenticate()
             expected_result = 'responseRejected=true' if args.mode.endswith('empty') else 'responseVerified=true'
-            assert any(n.get('text') == expected_result for n in nodes()), 'Actual FillResponse field ID/value assertions failed'
+            wait_for(lambda tree: any(n.get('text') == expected_result for n in tree),
+                     'Actual FillResponse field ID/value assertions failed')
             print(args.mode + ': actual FillResponse dataset assertions PASS')
     finally:
         if prior_policy == 'null':
@@ -77,8 +114,7 @@ if args.inspect_response:
 
 else:
     command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode)
-    time.sleep(2)
-    command('shell', 'input', 'tap', '200', '170')
+    focus_field()
     if args.mode not in ('native-login', 'native-username', 'web-login', 'web-username'):
         assert tap_text('Request Autofill'), 'Manual request control missing'
     diagnosis = ''
@@ -99,22 +135,14 @@ else:
     print(args.mode + ': ' + outcome)
     if args.fill:
         assert args.expected == 'RESPONSE_OFFERED'
-        for _ in range(2):
-            if tap_text('Unlock Palladin to autofill'):
-                break
-            time.sleep(.2)
-        else:
-            # Gboard's inline surface is absent from uiautomator's active-window XML
-            # on the recorded API 37 AVD; retain its documented coordinate fallback.
-            command('shell', 'input', 'tap', '670', str(args.inline_y))
-        time.sleep(.5)
-        assert any('Unlock Palladin' in n.get('text', '') for n in nodes()), 'Real biometric prompt not shown'
-        command('emu', 'finger', 'touch', '1')
-        time.sleep(.7)
-        if args.mode.startswith('native'):
-            assert tap_text('Synthetic fixture'), 'Authenticated native picker missing'
-            assert tap_text('Fill once'), 'Explicit manual warning missing'
+        if not tap_text('Unlock Palladin to autofill'):
+            # The public fixture button issues AutofillManager.requestAutofill,
+            # which can expose the dropdown when the IME ignores inline UI.
+            assert tap_text('Request Autofill'), 'Manual request control missing'
+            assert tap_text('Unlock Palladin to autofill'), 'Accessible unlock suggestion missing'
+        authenticate()
         assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
         assert tap_text('Verify fill'), 'Fixture verification control missing'
-        assert any(n.get('text') == 'fillVerified=true' for n in nodes()), 'Synthetic field assertions failed'
+        wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
+                 'Synthetic field assertions failed')
         print(args.mode + ': biometric + selection + field assertions PASS')
