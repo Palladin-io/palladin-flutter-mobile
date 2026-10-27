@@ -1,0 +1,99 @@
+# Synthetic Android password-save handoff
+
+This opt-in emulator regression covers the real Android `SaveInfo` → OS save
+prompt → `PalladinAutofillService.onSaveRequest` → opaque `IntentSender` →
+production `MainActivity` → production Flutter `AutoFillSaveController.onDraft`
+path. It uses two debug APKs and no additional application dependencies.
+
+The provider APK compiles the normal application native sources unchanged. Its
+alternate Dart entrypoint starts only the real save controller and a small test
+surface. A fixed synthetic principal substitutes for an already unlocked account;
+this does not exercise login, `AuthBloc`, Vault selection, encryption or Entry
+creation. No backend, Firebase, analytics bootstrap, real credentials, MK or VK
+are involved. The fixture never invokes a Vault write. Its in-memory assertions
+check the exact synthetic source/domain, both captured values, native validation,
+and one-time consumption. Only boolean results are displayed or recorded.
+
+The separate native form APK contains real username/password EditTexts. After the
+real fill callback, a button changes both fields to fixed synthetic values, and
+Submit invokes the public `AutofillManager.commit()`. The driver must observe and
+press Android's actual Save button; calling `onSaveRequest` directly is not a
+substitute. No autofill dataset is selected, so this save-only path needs neither
+Gboard nor fingerprint enrollment. The form suppresses its software keyboard to
+keep the three fixture controls accessible; it does not alter AssistStructure,
+origin validation, production field parsing, or the OS save UI.
+
+The test marks only the reserved `fixture.invalid` host OS-verified for the
+synthetic form package using emulator `pm set-app-links` state `2`. This is
+explicit test authority, not public domain ownership. The production verifier
+still resolves the exact native host set and signing identity through Android.
+
+## Guarded build
+
+Use an isolated checkout, JDK 17, the repository's Gradle 8.14, Flutter, Android
+SDK 36/build-tools 36.0.0 and an API 35+ **x86_64 disposable emulator**. Builds and
+emulator execution require explicit authorization. No store workflow is used.
+
+```sh
+flutter test --no-pub tool/android-autofill-save-harness/test/synthetic_draft_test.dart
+flutter analyze --no-pub tool/android-autofill-save-harness/main.dart tool/android-autofill-save-harness/test/synthetic_draft_test.dart
+python3 tool/android-autofill-save-harness/build.py \
+  --gradle /path/to/gradle-8.14/bin/gradle \
+  --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt"
+```
+
+`synthetic-debug.init.gradle` follows the existing Member benchmark's invocation
+pattern. It permits only `:app:assembleLocalDebug` with this exact entrypoint,
+rejects release signing material, gives the APK a separate
+`io.palladin.autofill.savefixture.local` identity, and replaces only the debug
+manifest for this invocation. That manifest removes INTERNET and Firebase's
+initialization provider. The Google Services task receives no JSON inputs;
+existing developer cloud configuration is not selected or copied. Its old
+generated output is removed before running with the missing-config strategy.
+Normal product build files and their release guards are unchanged.
+
+The builder sets `CI=false` **only in that task/target-guarded debug subprocess**
+because the application configuration otherwise demands a release keystore even
+for a CI debug invocation. Do not set this globally or use it for release tasks.
+The separate form project disables release variants. No signing credentials or
+cloud identifiers are generated. The builder checks both final APK identities,
+the absence of network permission/Firebase initialization and cloud client
+resources, and the presence of the real MainActivity. APKs and reports stay under
+ignored build directories. It writes their hashes and the source revision to
+`build/artifacts.json`.
+
+A dirty-tree build is useful only for compilation feedback and is marked
+`sourceClean: false`. Runtime evidence requires a fresh build from the final clean
+committed checkout; the driver refuses a dirty build, different commit or changed
+APK hash.
+
+## Isolated CI runtime
+
+Provision a fresh English API-35 `google_apis;x86_64` AVD, boot it with KVM and
+bounded boot/adb timeouts, then run:
+
+```sh
+python3 tool/android-autofill-save-harness/exercise.py --serial emulator-5554
+```
+
+The driver installs/clears only the two synthetic packages, saves the selected
+provider, installs the test host authority, and runs three cases:
+
+1. OS Save launches the real MainActivity and delivers one valid draft through
+   the real controller; re-consuming that native capture returns no value.
+2. The controller temporarily treats the synthetic account as locked, leaving a
+   real pending OS save unconsumed; explicit revoke removes it, and unlocking a
+   new synthetic session cannot recover it.
+3. The same held pending state is observed before force-stopping the provider;
+   a fresh MainActivity/controller process cannot recover it.
+
+Temporary UI XML is deleted after each read and never printed or uploaded. The
+result is boolean-only `build/validation.json`, bound to the source commit and
+APK hashes. The previous AutoFill provider is restored in `finally`; synthetic
+processes are stopped. Destroy the CI AVD afterwards. Do not collect general
+logcat, real account state, screenshots or form dumps as evidence.
+
+Compilation and unit checks do not establish that these runtime cases pass.
+Only a completed `exercise.py` run does. Real Samsung/Chrome behavior, biometrics,
+app login/unlock, confirmation UI and canonical Vault creation remain separate
+acceptance boundaries.
