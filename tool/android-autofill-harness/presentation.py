@@ -23,7 +23,9 @@ for language in ('en', 'pl'):
         for attempt in range(3):
             time.sleep(.5)
             try:
-                subprocess.run(adb + ['shell', 'uiautomator', 'dump', '/sdcard/palladin-synthetic-ui.xml'], check=True, stdout=subprocess.DEVNULL, timeout=15)
+                dump = subprocess.check_output(adb + ['shell', 'uiautomator', 'dump', '/sdcard/palladin-synthetic-ui.xml'], stderr=subprocess.STDOUT, timeout=15, text=True)
+                if 'null root node returned by UiTestAutomationBridge' in dump:
+                    continue
                 raw = subprocess.check_output(adb + ['shell', 'cat', '/sdcard/palladin-synthetic-ui.xml'], timeout=5)
                 verified = any(n.get('text') == expected for n in ET.fromstring(raw).iter('node'))
             finally:

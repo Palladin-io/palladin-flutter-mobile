@@ -202,7 +202,7 @@ TalkBack, large fonts, and dropdown fallback when inline is unavailable or ignor
 The normal PR job does not build APKs. With explicit CI/emulator authorization,
 dispatch `test.yml` on the intended feature branch with `autofill_presentations=true`.
 This opt-in job uses an isolated API 35 x86_64 AVD with KVM and the default IME.
-It runs six UI-driver regressions, creates a synthetic PIN, enrolls fingerprint 1
+It runs UI-driver regressions, creates a synthetic PIN, enrolls fingerprint 1
 through the real Android Settings flow, and invokes `validate.py` on the clean
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests, four localized presentation checks and all 24 response/OS
