@@ -5,6 +5,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     private let statusLabel = UILabel()
     private let credentialsStack = UIStackView()
     private let searchBar = UISearchBar()
+    private var saveOperation: PasswordSaveOperation?
     private var picker: AutoFillCredentialPicker?
     private var requestActive = false
     private lazy var requestLifecycle = AutoFillCredentialRequestLifecycle(
@@ -116,6 +117,66 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
 
     override func prepareInterfaceForExtensionConfiguration() {
         showLockedMessage()
+    }
+
+    @available(iOS 26.2, *)
+    override func performWithoutUserInteractionIfPossible(savePasswordRequest: ASSavePasswordRequest) {
+        requireUserInteraction()
+    }
+
+    @available(iOS 26.2, *)
+    override func prepareInterface(for savePasswordRequest: ASSavePasswordRequest) {
+        loadViewIfNeeded()
+        clearCredentials()
+        guard let origin = PendingPasswordSave.origin(for: savePasswordRequest),
+              let session = try? PendingPasswordSave().activeSession()
+        else {
+            extensionContext.cancelRequest(withError: NSError(
+                domain: ASExtensionErrorDomain, code: ASExtensionError.userCanceled.rawValue))
+            return
+        }
+        let operation = PasswordSaveOperation()
+        saveOperation = operation
+        requestActive = true
+        statusLabel.text = String(format: NSLocalizedString(
+            "credential_provider_save_prompt", comment: "Two-stage save consent"), origin)
+        let save = UIButton(type: .system)
+        save.setTitle(NSLocalizedString("credential_provider_save_action", comment: "Stage password"), for: .normal)
+        save.addAction(UIAction { [weak self, weak save] _ in
+            guard let self, self.requestActive else { return }
+            save?.isEnabled = false
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                do {
+                    let store = try PendingPasswordSave()
+                    let id = try store.stage(expectedSession: session, origin: origin,
+                        formSession: savePasswordRequest.sessionID,
+                        username: savePasswordRequest.credential.user,
+                        password: savePasswordRequest.credential.password,
+                        prompt: NSLocalizedString("credential_provider_save_biometric", comment: "Save biometric"),
+                        operation: operation)
+                    DispatchQueue.main.async { [weak self] in
+                        do {
+                            try store.completeStaging(id: id, session: session, operation: operation) {
+                                guard let self, self.requestActive else { throw PasswordSaveError.invalid }
+                                self.requestActive = false
+                                self.extensionContext.completeSavePasswordRequest { expired in
+                                    if expired {
+                                        DispatchQueue.global(qos: .userInitiated).async { try? store.discard(id: id) }
+                                    }
+                                }
+                            }
+                            self?.clearCredentials()
+                        } catch { try? store.discard(id: id) }
+                    }
+                } catch {
+                    DispatchQueue.main.async { [weak self] in
+                        guard self?.saveOperation === operation else { return }
+                        self?.showUnavailableMessage()
+                    }
+                }
+            }
+        }, for: .touchUpInside)
+        credentialsStack.addArrangedSubview(save)
     }
 
     @available(iOS 26.2, *)
@@ -380,6 +441,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     private func clearCredentials() {
+        saveOperation?.cancel()
+        saveOperation = nil
         requestActive = false
         requestLifecycle.invalidate()
         picker?.clear()
