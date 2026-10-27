@@ -143,8 +143,8 @@ final class PendingPasswordSave {
     func stage(expectedSession: String, origin: String, formSession: String, username: String, password: String,
                prompt: String, operation: PasswordSaveOperation) throws -> String {
         guard Self.exactOrigin(origin) == origin, !formSession.isEmpty,
-              formSession.utf8.count <= 256, username.utf8.count <= 4096,
-              !password.isEmpty, password.utf8.count <= 16384, !prompt.isEmpty else {
+              formSession.utf8.count <= 256, !username.isEmpty, username.utf16.count <= 1024,
+              !password.isEmpty, password.utf16.count <= 4096, !prompt.isEmpty else {
             throw PasswordSaveError.invalid
         }
         let requested = try locked { () throws -> PasswordSaveAuthority in

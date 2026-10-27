@@ -173,3 +173,31 @@ try store.cancel(id: pendingCancelID)
 expect(try store.pending() == nil, "matching cancellation must remove pending ciphertext")
 expect(!FileManager.default.fileExists(atPath: ciphertextURL.path), "cancel removes matching ciphertext")
 print("iOS explicit save scoped cancellation tests passed")
+
+for (username, password, accepted) in [
+    ("", "password", false),
+    (String(repeating: "u", count: 1024), "password", true),
+    (String(repeating: "u", count: 1025), "password", false),
+    (String(repeating: "😀", count: 512), "password", true),
+    (String(repeating: "😀", count: 512) + "u", "password", false),
+    ("user", "", false),
+    ("user", String(repeating: "p", count: 4096), true),
+    ("user", String(repeating: "p", count: 4097), false),
+    ("user", String(repeating: "😀", count: 2048), true),
+    ("user", String(repeating: "😀", count: 2048) + "p", false),
+] {
+    try store.cancel()
+    var completed = false
+    do {
+        let id = try store.stage(expectedSession: authority!.session,
+            origin: "https://login.example.test", formSession: "synthetic-form",
+            username: username, password: password, prompt: "Test", operation: PasswordSaveOperation())
+        try store.completeStaging(id: id, session: authority!.session,
+                                 operation: PasswordSaveOperation()) { completed = true }
+    } catch { }
+    expect(completed == accepted, "staged completion must match shared Flutter UTF16 limits")
+    expect((try store.pending() != nil) == accepted, "rejected fields must not create a pending capture")
+    expect(FileManager.default.fileExists(atPath: ciphertextURL.path) == accepted,
+           "rejected fields must not write ciphertext")
+}
+print("iOS explicit save shared field-boundary tests passed")

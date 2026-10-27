@@ -16,7 +16,9 @@ existing Palladin create flow. That fallback does not capture passwords from
 another app or provide automatic save parity.
 
 The provider asks for explicit consent and biometric authentication, then
-stages a password for review. Its English and Polish copy explains that the
+stages a password for review. Native staging uses the shared Flutter limits:
+nonempty username up to 1024 UTF-16 code units and nonempty password up to 4096.
+Its English and Polish copy explains that the
 user must open Palladin within two minutes, unlock the same account, choose a
 Vault, and confirm creation. Provider completion means the encrypted handoff
 committed, not that a Vault Entry was created. The extension never opens the
