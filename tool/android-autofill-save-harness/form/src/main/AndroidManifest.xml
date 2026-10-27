@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="Synthetic save form" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".SaveFormActivity" android:exported="true">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="fixture.invalid"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

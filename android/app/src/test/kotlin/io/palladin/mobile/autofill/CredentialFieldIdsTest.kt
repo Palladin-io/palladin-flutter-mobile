@@ -292,6 +292,88 @@ class CredentialFieldIdsTest {
         assertEquals(emptyList<AutofillId>(), fields.newPasswordIds)
     }
 
+    @Test fun saveReadsOnlyAutofillValuesAndRejectsAmbiguity() {
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        val password = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        val usernameValue = mock(android.view.autofill.AutofillValue::class.java)
+        val passwordValue = mock(android.view.autofill.AutofillValue::class.java)
+        `when`(usernameValue.isText).thenReturn(true)
+        `when`(usernameValue.textValue).thenReturn("synthetic-user")
+        `when`(passwordValue.isText).thenReturn(true)
+        `when`(passwordValue.textValue).thenReturn("synthetic-password")
+        `when`(username.autofillValue).thenReturn(usernameValue)
+        `when`(password.autofillValue).thenReturn(passwordValue)
+        `when`(password.text).thenReturn("wrong-display-text")
+        val request = structure(username, password)
+        val fields = AutofillSaveFields.from(request)!!
+        assertEquals("synthetic-password", String(fields.read(request)!!.password))
+        `when`(password.autofillValue).thenReturn(null)
+        assertNull(fields.read(request))
+        assertNull(AutofillSaveFields.from(structure(username, password,
+            node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD)))))
+        assertNull(AutofillSaveFields.from(structure(username,
+            node(hints = arrayOf("emailOTPCode")))))
+        assertNull(AutofillSaveFields.from(structure(username,
+            node(hints = arrayOf("confirmPassword")))))
+    }
+
+    @Test fun saveRejectsSiblingOriginAndConfirmationOnlyPassword() {
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        val password = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        val sibling = node()
+        `when`(sibling.webDomain).thenReturn("login.example.com")
+        `when`(sibling.webScheme).thenReturn("https")
+        val source = AutofillSaveSource("package", setOf("signature"), AutofillOriginMode.WEB,
+            setOf("login.example.com"), setOf("https"))
+        val request = structure(username, password, sibling)
+        assertEquals(false, AutofillSaveFields.from(request)!!.isBoundTo(request, source))
+        `when`(username.webDomain).thenReturn("login.example.com")
+        `when`(username.webScheme).thenReturn("https")
+        `when`(password.webDomain).thenReturn("login.example.com")
+        `when`(password.webScheme).thenReturn("https")
+        assertEquals(true, AutofillSaveFields.from(request)!!.isBoundTo(request, source))
+        val confirmation = node(html = mapOf("type" to "password", "name" to "confirm_password",
+            "autocomplete" to "new-password"))
+        assertNull(AutofillSaveFields.from(structure(username, confirmation)))
+    }
+
+    @Test fun saveRejectsAdditionalEligibleConfirmationFields() {
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        val password = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        val confirmations = listOf(
+            node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                idEntry = "confirm_password"),
+            node(hints = arrayOf("passwordConfirmation")),
+            node(html = mapOf("type" to "password", "name" to "confirm_password")),
+            node(html = mapOf("type" to "password", "autocomplete" to "confirm-password")),
+            node(html = mapOf("type" to "password", "name" to "confirm_password",
+                "autocomplete" to "new-password")),
+        )
+        for (confirmation in confirmations) {
+            assertNull(AutofillSaveFields.from(structure(username, password, confirmation)))
+        }
+    }
+
+    @Test fun saveIgnoresConfirmationNodesThatCannotBeCredentialTargets() {
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        val password = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        val hidden = node(hints = arrayOf("confirmPassword"))
+        `when`(hidden.visibility).thenReturn(View.GONE)
+        val disabled = node(hints = arrayOf("confirmPassword"))
+        `when`(disabled.isEnabled).thenReturn(false)
+        val readonly = node(html = mapOf("type" to "password", "name" to "confirm_password", "readonly" to ""))
+        val otp = node(hints = arrayOf("confirmPassword", "emailOTPCode"))
+        val hiddenContainer = node()
+        `when`(hiddenContainer.visibility).thenReturn(View.INVISIBLE)
+        `when`(hiddenContainer.childCount).thenReturn(1)
+        val hiddenChild = node(hints = arrayOf("confirmPassword"))
+        `when`(hiddenContainer.getChildAt(0)).thenReturn(hiddenChild)
+        for (excluded in listOf(hidden, disabled, readonly, otp, hiddenContainer)) {
+            assertEquals(AutofillSaveFields(username.autofillId!!, password.autofillId!!),
+                AutofillSaveFields.from(structure(username, password, excluded)))
+        }
+    }
+
     private fun parse(vararg nodes: AssistStructure.ViewNode): PalladinAutofillService.CredentialFieldIds =
         PalladinAutofillService.CredentialFieldIds.from(structure(*nodes))
 

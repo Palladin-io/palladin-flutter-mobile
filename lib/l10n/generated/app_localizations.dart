@@ -8809,6 +8809,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not open Chrome settings. In Chrome, open Settings → Autofill services.'**
   String get autofillChromeSettingsError;
+
+  /// No description provided for @autoFillSaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save login'**
+  String get autoFillSaveTitle;
+
+  /// No description provided for @autoFillSaveWebSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified HTTPS website'**
+  String get autoFillSaveWebSource;
+
+  /// No description provided for @autoFillSaveNativeSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified application association'**
+  String get autoFillSaveNativeSource;
+
+  /// No description provided for @autoFillSaveHost.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the exact host'**
+  String get autoFillSaveHost;
+
+  /// No description provided for @autoFillSaveUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The login could not be saved safely. Try again or cancel.'**
+  String get autoFillSaveUnavailable;
 }
 
 class _AppLocalizationsDelegate

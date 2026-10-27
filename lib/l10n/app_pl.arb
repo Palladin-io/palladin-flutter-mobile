@@ -1562,5 +1562,10 @@
   "autofillChromeSetupTitle": "Skonfiguruj autouzupełnianie w Chrome",
   "autofillChromeSetupHint": "Palladin jest wybrany w Androidzie. W Chrome wybierz Autouzupełnianie przy użyciu innej usługi, a następnie potwierdź i uruchom Chrome ponownie.",
   "autofillOpenChromeSettings": "Otwórz ustawienia Chrome",
-  "autofillChromeSettingsError": "Nie udało się otworzyć ustawień Chrome. W Chrome otwórz Ustawienia → Usługi autouzupełniania."
+  "autofillChromeSettingsError": "Nie udało się otworzyć ustawień Chrome. W Chrome otwórz Ustawienia → Usługi autouzupełniania.",
+  "autoFillSaveTitle": "Zapisz dane logowania",
+  "autoFillSaveWebSource": "Zweryfikowana strona HTTPS",
+  "autoFillSaveNativeSource": "Zweryfikowane powiązanie aplikacji",
+  "autoFillSaveHost": "Wybierz dokładny host",
+  "autoFillSaveUnavailable": "Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj."
 }

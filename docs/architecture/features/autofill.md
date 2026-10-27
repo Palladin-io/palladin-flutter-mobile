@@ -491,3 +491,50 @@ verification of this command and the actual rejection remains required.
 - Android provider:
   `android/app/src/main/kotlin/io/palladin/mobile/autofill/`
 - Android service config: `android/app/src/main/res/xml/autofill_service.xml`
+
+## Explicit Android login saving
+
+Android 9+ attaches `SaveInfo` only to an unambiguous username/password pair
+with independently verified source authority and an existing process-local
+Palladin login session. This save-only response does not require a populated
+provider cache. Both selected fields must still exist in the same final
+AssistStructure/form; multi-step logins whose username field disappears are
+not supported. Authenticated fill responses retain that same request's
+`SaveInfo`. Android 8 does not offer this deferred flow.
+
+Web fields must inherit the exact HTTPS host they claim; a sibling node's
+origin cannot authorize capture. Native forms use only the package's exact
+OS-verified App Link hosts, with an explicit host choice in the confirmation
+page; that association does not claim HTTPS transport. Unknown native origins,
+multiple passwords, confirmation-only passwords, OTPs and ambiguous sources
+are not eligible. Capture compares the original field IDs, source mode, host,
+scheme, requesting package and current signing certificates, and reads only
+bounded `autofillValue` text.
+
+`onSaveRequest` retains one bounded, expiring RAM capture. Android receives only
+an opaque identifier through an immutable, one-shot `PendingIntent` supplied
+to `SaveCallback.onSuccess(IntentSender)`. No plaintext enters Intent extras,
+saved instance state, URLs, files, history, logs or analytics. Replacement,
+expiry and process death invalidate the capture. Account logout/replacement
+revokes the independent login authority; ordinary Vault lock retains only that
+non-secret authority so the same login can unlock before consuming the draft.
+
+After that unlock, a separate MethodChannel consumes the capture once and
+revalidates package identity and origin. The disposable Flutter confirmation
+shows the source, offers the shared `ChooseEntryVaultSheet`, and writes nothing
+until Save. Backgrounding or locking after presentation clears controllers and
+cancels the operation. Saving reuses canonical on-device Credential encryption,
+with private-key/session generation checks across Vault loading, crypto, cache
+invalidation, token lookup and retries. Source validation runs again after
+cache invalidation and token lookup, including the 401 retry. This is the last
+available native authority check, not an atomic transaction with Android
+package state and the server. Cache invalidation failure blocks the write. A request already accepted
+by the server cannot be undone by a later lock; stale UI and retries are
+suppressed. No existing Entry is silently updated and no app association is
+remembered.
+
+The native JVM tests cover field/source continuity and RAM mailbox invalidation;
+Flutter tests cover explicit confirmation and session guards, including a real
+loopback 401 refresh race. They do not constitute physical-device OS save UI
+acceptance. The Android save trigger, deferred app launch and unlocked
+confirmation must also be exercised on a synthetic device fixture before release.

@@ -6,6 +6,14 @@ class SecureTokenStorage {
   SecureTokenStorage(this._storage);
 
   final FlutterSecureStorage _storage;
+  Future<void> _tokenMutation = Future<void>.value();
+  int _tokenGeneration = 0;
+
+  Future<void> _mutateTokens(Future<void> Function() operation) {
+    final next = _tokenMutation.then((_) => operation());
+    _tokenMutation = next.then<void>((_) {}, onError: (Object _) {});
+    return next;
+  }
 
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
@@ -21,23 +29,35 @@ class SecureTokenStorage {
     required String refreshToken,
     required String userId,
     required bool isOnboarded,
-  }) async {
-    await Future.wait([
-      _storage.write(key: _accessTokenKey, value: accessToken),
-      _storage.write(key: _refreshTokenKey, value: refreshToken),
-      _storage.write(key: _userIdKey, value: userId),
-      _storage.write(key: _isOnboardedKey, value: isOnboarded.toString()),
-    ]);
+  }) {
+    ++_tokenGeneration;
+    return _mutateTokens(() async {
+      await Future.wait([
+        _storage.write(key: _accessTokenKey, value: accessToken),
+        _storage.write(key: _refreshTokenKey, value: refreshToken),
+        _storage.write(key: _userIdKey, value: userId),
+        _storage.write(key: _isOnboardedKey, value: isOnboarded.toString()),
+      ]);
+    });
   }
 
   /// Returns the current access token, or `null` if none is stored.
-  Future<String?> get accessToken => _storage.read(key: _accessTokenKey);
+  Future<String?> get accessToken async {
+    await _tokenMutation;
+    return _storage.read(key: _accessTokenKey);
+  }
 
   /// Returns the current refresh token, or `null` if none is stored.
-  Future<String?> get refreshToken => _storage.read(key: _refreshTokenKey);
+  Future<String?> get refreshToken async {
+    await _tokenMutation;
+    return _storage.read(key: _refreshTokenKey);
+  }
 
   /// Returns the stored user ID, or `null` if not authenticated.
-  Future<String?> get userId => _storage.read(key: _userIdKey);
+  Future<String?> get userId async {
+    await _tokenMutation;
+    return _storage.read(key: _userIdKey);
+  }
 
   /// Returns whether the user has completed onboarding.
   Future<bool> get isOnboarded async {
@@ -51,11 +71,15 @@ class SecureTokenStorage {
   Future<void> updateTokens({
     required String accessToken,
     required String refreshToken,
-  }) async {
-    await Future.wait([
-      _storage.write(key: _accessTokenKey, value: accessToken),
-      _storage.write(key: _refreshTokenKey, value: refreshToken),
-    ]);
+  }) {
+    final generation = _tokenGeneration;
+    return _mutateTokens(() async {
+      if (generation != _tokenGeneration) return;
+      await Future.wait([
+        _storage.write(key: _accessTokenKey, value: accessToken),
+        _storage.write(key: _refreshTokenKey, value: refreshToken),
+      ]);
+    });
   }
 
   /// Updates the onboarding flag without touching the access/refresh
@@ -98,5 +122,9 @@ class SecureTokenStorage {
   }
 
   /// Removes all stored tokens and metadata. Used on logout.
-  Future<void> clearAll() => _storage.deleteAll();
+  Future<void> clearAll() {
+    // Invalidate queued refreshes before waiting for any native writes in flight.
+    ++_tokenGeneration;
+    return _mutateTokens(_storage.deleteAll);
+  }
 }

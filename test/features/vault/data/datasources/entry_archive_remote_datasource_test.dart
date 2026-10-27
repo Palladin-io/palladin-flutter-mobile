@@ -49,7 +49,7 @@ void main() {
       await datasource.createCanonicalEntry('vault-id', {
         'entryId': 'entry-id',
         'memberSecret': {'ciphertext': 'opaque'},
-      });
+      }, isSessionCurrent: () => true);
 
       expect(adapter.request?.path, '/api/vaults/vault-id/entries');
       expect(adapter.request?.method, 'POST');

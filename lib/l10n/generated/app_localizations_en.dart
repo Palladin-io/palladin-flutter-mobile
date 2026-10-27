@@ -4982,4 +4982,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autofillChromeSettingsError =>
       'Could not open Chrome settings. In Chrome, open Settings → Autofill services.';
+
+  @override
+  String get autoFillSaveTitle => 'Save login';
+
+  @override
+  String get autoFillSaveWebSource => 'Verified HTTPS website';
+
+  @override
+  String get autoFillSaveNativeSource => 'Verified application association';
+
+  @override
+  String get autoFillSaveHost => 'Choose the exact host';
+
+  @override
+  String get autoFillSaveUnavailable =>
+      'The login could not be saved safely. Try again or cancel.';
 }
