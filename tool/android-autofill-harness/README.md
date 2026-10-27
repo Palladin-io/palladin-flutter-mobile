@@ -67,7 +67,14 @@ and taps suggestions by their observed bounds. It has no hardcoded screen or
 keyboard coordinates. When an inline surface is inaccessible or ignored, the
 fixture's explicit Request Autofill button can expose the standard dropdown.
 Absence of a usable suggestion fails the test instead of guessing a tap location.
-For callback-only RED checks use `--expected REJECTED` without `--fill`.
+For negative OS checks use `--expected REJECTED` without `--fill`. Each fresh
+fixture tracks the public native/virtual `AutofillCallback`, resets unavailable
+evidence before its manual request, and verifies that all input values remain
+literally empty. The driver also requires the selected provider, an enabled
+request, no shown AutoFill UI and no authentication. `REJECTED` means the provider
+snapshot explicitly rejected; `SYSTEM_UNAVAILABLE` requires the current OS
+unavailable callback when the provider has already unbound. A missing service
+alone never passes. These outcomes stay distinct in the validation report.
 
 ## Recorded evidence — 2026-10-27
 
@@ -179,7 +186,7 @@ missing scheme metadata and eligibility boundaries that cannot be emitted by a
 particular WebView version.
 
 On the recorded WebView, an HTTP `loadDataWithBaseURL` form produced no provider
-callback even after an explicit manual request. The runner reports that separate
+callback even after an explicit manual request. The historical runner reported that separate
 outcome as `FRAMEWORK_SUPPRESSED`; it must not be cited as proof that the production
 service rejected an HTTP AssistStructure. The actual activity HTTP/missing-scheme
 negative response tests and native scheme-policy JVM regressions cover the

@@ -117,6 +117,25 @@ def assert_web_origin(diagnosis):
             snapshot.get('origin') == 'VERIFIED'), 'Web fixture did not report one verified domain'
 
 
+def negative_outcome(diagnosis, tree, selected_provider):
+    assert selected_provider == service, 'Expected AutoFill provider is not selected'
+    snapshot = request_snapshot(diagnosis)
+    assert snapshot.get('result') != 'RESPONSE_OFFERED', 'Negative fixture offered credentials'
+    assert not any(node.get('package') == provider or
+                   (node.get('package') == 'com.android.systemui' and node.get('text') == 'Unlock Palladin')
+                   for node in tree), 'Negative fixture opened authentication'
+    texts = {node.get('text') for node in tree if node.get('package') == form}
+    unavailable = 'requestIssued=true unavailable=true uiShown=false enabled=true' in texts
+    pending = 'requestIssued=true unavailable=false uiShown=false enabled=true' in texts
+    assert unavailable or pending, 'Fresh enabled request without AutoFill UI not established'
+    assert 'fieldsUnchanged=true' in texts, 'Negative fixture fields changed'
+    if snapshot.get('result') == 'REJECTED':
+        return 'REJECTED'
+    assert unavailable, 'Missing current system-unavailable callback'
+    assert snapshot.get('result') == 'NO_REQUEST' or 'No services match' in diagnosis, 'Unknown provider outcome'
+    return 'SYSTEM_UNAVAILABLE'
+
+
 def authenticate():
     wait_for(lambda tree: any(n.get('text') == 'Unlock Palladin' and
                              n.get('package') == 'com.android.systemui' for n in tree),
@@ -207,12 +226,13 @@ try:
             if re.search(r'result=(RESPONSE_OFFERED|REJECTED)', diagnosis):
                 break
             time.sleep(.1)
-        if args.expected == 'NO_RESPONSE':
-            if args.mode != 'web-http':
-                raise RuntimeError('Only insecure WebView may be suppressed before the provider callback')
-            assert 'result=RESPONSE_OFFERED' not in diagnosis, 'HTTP unexpectedly offered credentials'
-            assert any(marker in diagnosis for marker in ('result=REJECTED', 'result=NO_REQUEST', 'No services match')), 'Unexpected HTTP provider state'
-            outcome = 'REJECTED' if 'result=REJECTED' in diagnosis else 'FRAMEWORK_SUPPRESSED'
+        if not positive:
+            assert args.expected in ('REJECTED', 'NO_RESPONSE')
+            assert tap_text('Verify fill'), 'Fixture verification control missing'
+            wait_for(lambda tree: any(node.get('package') == form and node.get('text') == 'fieldsUnchanged=true' for node in tree),
+                     'Negative fixture fields were not empty')
+            selected = command('shell', 'settings', 'get', 'secure', 'autofill_service').strip()
+            outcome = negative_outcome(diagnosis, nodes(), selected)
         else:
             assert 'result=' + args.expected in diagnosis, 'Unexpected provider outcome: ' + diagnosis
             outcome = args.expected

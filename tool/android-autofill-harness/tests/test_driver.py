@@ -28,8 +28,9 @@ class DriverChecks(unittest.TestCase):
    def output(cmd,**kwargs):
     a=cmd[3:];calls.append(a)
     if a[:2]==['shell','cat']:
-     return '<hierarchy><node package="fixture" text="Request Autofill" class="android.widget.Button" enabled="true" bounds="[20,40][100,80]"/></hierarchy>'
+     return '<hierarchy><node package="fixture" text="Request Autofill" class="android.widget.Button" enabled="true" bounds="[20,40][100,80]"/><node package="io.palladin.autofill.harness.form" text="Verify fill" enabled="true" bounds="[20,90][100,130]"/><node package="io.palladin.autofill.harness.form" text="requestIssued=true unavailable=true uiShown=false enabled=true"/><node package="io.palladin.autofill.harness.form" text="fieldsUnchanged=true"/></hierarchy>'
     if a[:2]==['shell','dumpsys']:return 'result=REJECTED'
+    if a[:3]==['shell','settings','get']:return 'io.palladin.autofill.harness.provider/io.palladin.mobile.autofill.PalladinAutofillService'
     return ''
    with patch.object(sys,'argv',['exercise.py','--serial','emulator-5554','--mode',mode,'--expected','REJECTED']),patch.object(subprocess,'check_output',side_effect=output),patch('time.sleep'):
     runpy.run_path(str(root/'exercise.py'),run_name='__main__')
