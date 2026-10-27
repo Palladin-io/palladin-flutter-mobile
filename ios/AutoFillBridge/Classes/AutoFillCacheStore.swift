@@ -17,7 +17,22 @@ struct AutoFillCredentialRecord: Equatable {
     let domains: [String]
 
     func matches(serviceIdentifiers: [ASCredentialServiceIdentifier]) -> Bool {
-        let requested = Set(serviceIdentifiers.compactMap { Self.normalizeDomain($0.identifier) })
+        var requested = Set<String>()
+        for service in serviceIdentifiers {
+            let identifier = service.identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+            switch service.type {
+            case .URL:
+                guard URLComponents(string: identifier)?.scheme?.lowercased() == "https" else { return false }
+            case .domain:
+                guard !identifier.contains("://"),
+                      let components = URLComponents(string: "https://" + identifier),
+                      components.path.isEmpty, components.query == nil, components.fragment == nil else { return false }
+            default:
+                return false
+            }
+            guard let host = Self.normalizeDomain(identifier) else { return false }
+            requested.insert(host)
+        }
         return domains.contains { requested.contains($0) }
     }
 
