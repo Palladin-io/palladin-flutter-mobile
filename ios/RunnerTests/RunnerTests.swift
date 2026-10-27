@@ -41,6 +41,55 @@ final class RunnerTests: XCTestCase {
         ]))
     }
 
+    func testServiceIdentifierTypesPreserveExactHTTPSAndDomainMatches() throws {
+        let credential = manualCredential()
+        let active = AutoFillFence(generation: 20, state: .active, cacheId: "cache-current")
+        for service in [
+            ASCredentialServiceIdentifier(identifier: "https://EXAMPLE.com/login?step=username", type: .URL),
+            ASCredentialServiceIdentifier(identifier: "example.com", type: .domain),
+        ] {
+            XCTAssertTrue(credential.record.matches(serviceIdentifiers: [service]))
+            XCTAssertNoThrow(try AutoFillCredentialUseGuard.validate(
+                credential, serviceIdentifiers: [service], now: now,
+                currentCounter: 20, currentFence: active
+            ))
+        }
+    }
+
+    func testUnsafeServiceIdentifiersCannotMatchOrPassFinalUseGuard() {
+        let credential = manualCredential()
+        let active = AutoFillFence(generation: 20, state: .active, cacheId: "cache-current")
+        let valid = ASCredentialServiceIdentifier(identifier: "example.com", type: .domain)
+        let unsafe = [
+            ASCredentialServiceIdentifier(identifier: "http://example.com/login", type: .URL),
+            ASCredentialServiceIdentifier(identifier: "example.com", type: .URL),
+            ASCredentialServiceIdentifier(identifier: "https:///example.com", type: .URL),
+            ASCredentialServiceIdentifier(identifier: "https://user@example.com", type: .URL),
+            ASCredentialServiceIdentifier(identifier: "https://example.com:443", type: .URL),
+            ASCredentialServiceIdentifier(identifier: "http://example.com", type: .domain),
+            ASCredentialServiceIdentifier(identifier: "https://example.com", type: .domain),
+            ASCredentialServiceIdentifier(identifier: "example.com/path", type: .domain),
+        ]
+        for service in unsafe {
+            for identifiers in [[service], [service, valid], [valid, service]] {
+                XCTAssertFalse(credential.record.matches(serviceIdentifiers: identifiers))
+                XCTAssertThrowsError(try AutoFillCredentialUseGuard.validate(
+                    credential, serviceIdentifiers: identifiers, now: now,
+                    currentCounter: 20, currentFence: active
+                ))
+                let picker = AutoFillCredentialPicker(credentials: [credential], serviceIdentifiers: identifiers)
+                XCTAssertTrue(picker.candidates(query: "").isEmpty)
+                XCTAssertFalse(picker.requiresManualConfirmation)
+            }
+        }
+        let sibling = ASCredentialServiceIdentifier(identifier: "https://login.example.com", type: .URL)
+        XCTAssertFalse(credential.record.matches(serviceIdentifiers: [sibling]))
+        XCTAssertThrowsError(try AutoFillCredentialUseGuard.validate(
+            credential, serviceIdentifiers: [sibling], now: now,
+            currentCounter: 20, currentFence: active
+        ))
+    }
+
     func testEmptyServiceListOffersSearchableManualCandidatesButRequiresConfirmation() throws {
         let picker = AutoFillCredentialPicker(
             credentials: [manualCredential()], serviceIdentifiers: []

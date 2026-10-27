@@ -62,6 +62,24 @@
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
+## iOS service matching
+
+Credential lists, QuickType identity selection and the final handoff validate
+Apple's service identifier type before projecting its exact host. A URL identifier
+must explicitly use HTTPS. A domain identifier must contain only a valid host;
+it conveys the OS-provided domain, not evidence of native-app HTTPS transport.
+An HTTP, malformed or type-inconsistent identifier rejects the whole nonempty
+list, even alongside a valid matching domain. Empty lists retain the separate
+manual confirmation flow below. Cache host normalization is not transport
+authority and cannot override this request check.
+
+Apple owns field recognition and credential routing. Username-first forms need
+appropriate username/password content types on their separate destination
+screens; the provider returns an `ASPasswordCredential` containing both values.
+See [Apple's multipage form guidance](https://developer.apple.com/documentation/security/enabling-password-autofill-on-a-text-input-view).
+Tests cover matching and the final lease guard, not real Binance/iFirma behavior
+or OS field routing; those require device QA.
+
 ## iOS manual credential selection
 
 When iOS calls the credential-list extension with **no service identifiers**,
@@ -180,8 +198,9 @@ References: [Android provider activation](https://developer.android.com/identity
    perform an explicit history reveal/copy. Temporary byte buffers are wiped
    where platform APIs expose mutable storage. The in-app copy uses the shared
    timed `SecureClipboard` policy.
-8. Domain policy is exact-host only. HTTP(S) URLs may be projected to their
-   ASCII host, but userinfo, explicit ports, wildcards, Unicode/confusable
+8. Domain policy is exact-host only. Stored domain normalization may project
+   HTTP(S) URLs to their ASCII host; incoming web requests independently require
+   HTTPS. Userinfo, explicit ports, wildcards, Unicode/confusable
    hosts, malformed labels, parent-domain inference, and `www` equivalence are
    rejected. There is no eTLD, subdomain, or suffix matching.
 9. Cache records are bounded to 2,000 records and 16 domains per record; native
