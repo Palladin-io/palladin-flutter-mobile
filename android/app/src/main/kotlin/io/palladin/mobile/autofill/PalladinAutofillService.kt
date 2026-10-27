@@ -6,6 +6,8 @@ import java.io.PrintWriter
 import android.app.PendingIntent
 import android.app.assist.AssistStructure
 import android.content.Intent
+import android.graphics.BlendMode
+import android.graphics.drawable.Icon
 import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
@@ -188,6 +190,9 @@ class PalladinAutofillService : AutofillService() {
         )
         val content = InlineSuggestionUi.newContentBuilder(attribution)
             .setTitle(label)
+            .setStartIcon(Icon.createWithResource(this, R.drawable.launch_logo_image).apply {
+                setTintBlendMode(BlendMode.DST)
+            })
             .setContentDescription(label)
             .build()
         return InlinePresentation(content.slice, spec, false)

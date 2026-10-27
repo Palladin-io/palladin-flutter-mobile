@@ -472,3 +472,16 @@ verification of this command and the actual rejection remains required.
 - Android provider:
   `android/app/src/main/kotlin/io/palladin/mobile/autofill/`
 - Android service config: `android/app/src/main/res/xml/autofill_service.xml`
+
+## Android suggestion branding
+
+The dropdown authentication prompt uses the branded `RemoteViews` layout. On
+Android 11+, compatible keyboards receive an AndroidX inline suggestion with
+the same existing Palladin logo and localized action label. The provider preserves
+the keyboard-supplied presentation spec, including size and styling, and uses the
+public start-icon slot without tinting the logo. Unsupported inline UI versions
+retain the dropdown fallback. Keyboard appearance and whether inline suggestions
+are displayed remain controlled by the IME.
+
+References: [Android inline integration](https://developer.android.com/identity/autofill/ime-autofill)
+and [InlineSuggestionUi](https://developer.android.com/reference/androidx/autofill/inline/v1/InlineSuggestionUi).
