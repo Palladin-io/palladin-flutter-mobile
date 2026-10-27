@@ -110,7 +110,123 @@ class CredentialFieldIdsTest {
         `when`(second.webDomain).thenReturn("second.invalid")
         val domains = PalladinAutofillService.CredentialFieldIds.domainsFrom(structure(first, second))
         assertEquals(setOf("first.invalid", "second.invalid"), domains)
-        assertNull(AutofillOriginPolicy.resolve(domains, { it }, { true }, { emptySet() }, false))
+        assertNull(AutofillOriginPolicy.resolve(domains, { it }, { true }, { emptySet() }, false, setOf("https")))
+    }
+
+    @Test
+    fun disabledAndInvisibleNativeFieldsAreNotTargets() {
+        val disabled = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(disabled.isEnabled).thenReturn(false)
+        val hidden = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        `when`(hidden.visibility).thenReturn(View.INVISIBLE)
+        assertEquals(emptyList<AutofillId>(), parse(disabled, hidden).allIds)
+    }
+
+    @Test
+    fun invisibleAncestorCannotContributeVisibleChildTargets() {
+        val parent = node()
+        `when`(parent.visibility).thenReturn(View.GONE)
+        val password = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        `when`(parent.childCount).thenReturn(1)
+        `when`(parent.getChildAt(0)).thenReturn(password)
+        assertEquals(emptyList<AutofillId>(), parse(parent).allIds)
+    }
+
+    @Test
+    fun nonTextControlsAndHintedContainersCannotReceiveCredentialValues() {
+        val container = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        `when`(container.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE)
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(container.childCount).thenReturn(1)
+        `when`(container.getChildAt(0)).thenReturn(username)
+        val toggle = node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD))
+        `when`(toggle.autofillType).thenReturn(View.AUTOFILL_TYPE_TOGGLE)
+        assertEquals(listOf(username.autofillId), parse(container, toggle).allIds)
+    }
+
+    @Test
+    fun htmlHiddenDisabledAndReadonlyOverrideCredentialHints() {
+        for (attributes in listOf(
+            mapOf("type" to "hidden"), mapOf("type" to "checkbox"),
+            mapOf("disabled" to ""), mapOf("readonly" to ""),
+        )) {
+            val field = node(html = attributes + ("autocomplete" to "username"))
+            assertEquals(attributes.toString(), emptyList<AutofillId>(), parse(field).allIds)
+        }
+    }
+
+    @Test
+    fun explicitSearchSemanticsOverrideUsernameHints() {
+        val webSearch = node(html = mapOf("type" to "search", "autocomplete" to "username"))
+        val nativeSearch = node(
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_FILTER,
+            hints = arrayOf(View.AUTOFILL_HINT_USERNAME),
+        )
+        assertEquals(emptyList<AutofillId>(), parse(webSearch, nativeSearch).allIds)
+    }
+
+    @Test
+    fun passwordConfirmationCannotReceiveSavedPassword() {
+        val native = node(
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            idEntry = "confirm_password",
+        )
+        val web = node(html = mapOf("type" to "password", "name" to "password_confirmation"))
+        assertEquals(emptyList<AutofillId>(), parse(native, web).allIds)
+    }
+
+    @Test
+    fun explicitlyNewPasswordConfirmationIsGenerationOnly() {
+        val confirmation = node(html = mapOf(
+            "type" to "password", "name" to "confirm_password", "autocomplete" to "new-password",
+        ))
+        val fields = parse(confirmation)
+        assertEquals(listOf(confirmation.autofillId), fields.newPasswordIds)
+        assertEquals(emptyList<AutofillId>(), fields.passwordIds)
+    }
+
+    @Test
+    fun schemeCollectionIgnoresOnlyEmptySentinelAndRetainsConflicts() {
+        val empty = node()
+        `when`(empty.webScheme).thenReturn("")
+        val secure = node()
+        `when`(secure.webScheme).thenReturn("https")
+        val insecure = node()
+        `when`(insecure.webScheme).thenReturn("http")
+        val malformed = node()
+        `when`(malformed.webScheme).thenReturn(" ")
+        assertEquals(setOf("https", "http", " "),
+            PalladinAutofillService.CredentialFieldIds.schemesFrom(structure(empty, secure, insecure, malformed)))
+    }
+
+    @Test
+    fun confirmationHintsCannotReceiveSavedPassword() {
+        val native = node(
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            hints = arrayOf("confirmPassword"),
+        )
+        val web = node(html = mapOf("type" to "password", "autocomplete" to "confirm-password"))
+        assertEquals(emptyList<AutofillId>(), parse(native, web).allIds)
+    }
+
+    @Test
+    fun maskedEmailOtpCannotReceiveSavedPassword() {
+        val otp = node(
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            hints = arrayOf("emailOTPCode"),
+        )
+        assertEquals(emptyList<AutofillId>(), parse(otp).allIds)
+    }
+
+    @Test
+    fun disabledContainerStillTraversesIndependentlyEnabledChild() {
+        val container = node()
+        `when`(container.isEnabled).thenReturn(false)
+        `when`(container.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE)
+        val username = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(container.childCount).thenReturn(1)
+        `when`(container.getChildAt(0)).thenReturn(username)
+        assertEquals(listOf(username.autofillId), parse(container).usernameIds)
     }
 
     private fun parse(vararg nodes: AssistStructure.ViewNode): PalladinAutofillService.CredentialFieldIds =
@@ -140,6 +256,8 @@ class CredentialFieldIdsTest {
         `when`(node.idEntry).thenReturn(idEntry)
         `when`(node.autofillHints).thenReturn(hints)
         `when`(node.autofillType).thenReturn(View.AUTOFILL_TYPE_TEXT)
+        `when`(node.isEnabled).thenReturn(true)
+        `when`(node.visibility).thenReturn(View.VISIBLE)
         if (html != null) {
             val info = mock(ViewStructure.HtmlInfo::class.java)
             `when`(info.tag).thenReturn("input")

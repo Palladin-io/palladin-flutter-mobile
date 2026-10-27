@@ -7,6 +7,8 @@ internal data class AutofillOrigin(val domains: Set<String>, val mode: AutofillO
 }
 
 internal object AutofillOriginPolicy {
+    fun isSecureWebScheme(scheme: String?): Boolean = scheme?.equals("https", true) == true
+
     fun canReleaseNative(
         selectedDomain: String,
         recordDomains: Collection<String>,
@@ -21,15 +23,17 @@ internal object AutofillOriginPolicy {
         verifyWebDomain: (String) -> Boolean,
         verifiedNativeDomains: () -> Set<String>?,
         isBrowser: Boolean,
+        reportedSchemes: Collection<String> = emptySet(),
     ): AutofillOrigin? {
         if (reportedDomains.isEmpty()) {
-            if (isBrowser) return null
+            if (isBrowser || reportedSchemes.isNotEmpty()) return null
             val native = verifiedNativeDomains()?.mapNotNull(normalize)?.toSet().orEmpty()
             return AutofillOrigin(
                 native,
                 if (native.isEmpty()) AutofillOriginMode.MANUAL_NATIVE else AutofillOriginMode.VERIFIED_NATIVE,
             )
         }
+        if (reportedSchemes.isEmpty() || !reportedSchemes.all(::isSecureWebScheme)) return null
         val domains = reportedDomains.map { normalize(it) ?: return null }.toSet()
         val domain = domains.singleOrNull() ?: return null
         return if (verifyWebDomain(domain)) AutofillOrigin(setOf(domain), AutofillOriginMode.WEB) else null

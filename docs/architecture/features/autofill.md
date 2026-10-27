@@ -301,6 +301,16 @@ it ignores null. Whitespace, malformed nonempty hosts and distinct real hosts
 remain in the domain set and fail origin validation. Empty-only browser requests
 remain rejected; absent-domain native requests retain the explicit chooser policy.
 
+A reported web host also requires an independently reported HTTPS scheme from
+`AssistStructure` (API 28+). Missing, unknown or cleartext schemes fail closed;
+verified App Links establish host authority, not transport security. Any reported
+scheme without a host is an incomplete web context and cannot become native
+manual selection. The accepted scheme travels in the explicit immutable
+provider authentication intent and is checked again after biometric authentication
+and under the existing release lock. Web filling on API 26–27 is unavailable
+because those APIs do not expose the scheme. Native forms with neither web host
+nor scheme retain their verified-host/manual selection policy.
+
 Login requests may contain a username, a password, or both. Username-first steps
 still require the same origin, cache and biometric checks; their response contains
 only the recognized username targets. A later password step is a fresh request.
@@ -314,6 +324,15 @@ resource names or HTML text-input `name`/`id`. It does not guess that an arbitra
 text field, search field or preceding sibling is a username. `new-password`
 remains a generation-only target; explicit OTP hints take precedence over a masked
 password input type so an account password cannot be sent to an OTP field.
+Only enabled, visible text-autofill targets are eligible; invisible ancestors
+exclude their descendants. Containers are traversed but never targeted themselves;
+a disabled container does not suppress an independently enabled child.
+HTML hidden, search, non-text, disabled and readonly controls are excluded even
+when credential hints conflict. Native filter/search fields are excluded too.
+Explicit `confirm_password` / `password_confirmation` identifiers (including
+camelCase/hyphen variants), or explicit confirmation hints, cannot receive a saved
+password; an explicit
+`new-password` hint can make them generation-only targets.
 
 The October 2026 audit compared primary implementations at pinned commits:
 [Bitwarden field classification](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/util/ViewNodeExtensions.kt)
