@@ -144,6 +144,13 @@ jobs:
             --output "$RUNNER_TEMP/gradle.zip"
           printf '%s  %s\n' '61ad310d3c7d3e5da131b76bbf22b5a4c0786e9d892dae8c1658d4b484de3caa' "$RUNNER_TEMP/gradle.zip" | sha256sum --check
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+      - name: Verify production native AutoFill logic
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/gradle-8.14/bin/gradle" --no-daemon \
+            -p tool/android-autofill-harness :provider:testDebugUnitTest
       - name: Build and verify isolated debug APKs
         timeout-minutes: 20
         shell: bash
@@ -161,6 +168,10 @@ jobs:
           export ANDROID_AVD_HOME="$RUNNER_TEMP/palladin-save-avd"
           evidence=tool/android-autofill-save-harness/build
           mkdir -p "$ANDROID_AVD_HOME" "$evidence"
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          export ADB="$ANDROID_HOME/platform-tools/adb"
+          timeout 10 "$ADB" version > "$evidence/adb-version.txt"
+          timeout 15 "$ADB" start-server
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name palladin-save \
             --package 'system-images;android-35;google_apis;x86_64' --device pixel_2
           "$ANDROID_HOME/emulator/emulator" -avd palladin-save \
@@ -185,5 +196,6 @@ jobs:
             tool/android-autofill-save-harness/build/artifacts.json
             tool/android-autofill-save-harness/build/validation.json
             tool/android-autofill-save-harness/build/emulator.log
+            tool/android-autofill-save-harness/build/adb-version.txt
           if-no-files-found: ignore
           retention-days: 7

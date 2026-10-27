@@ -70,9 +70,12 @@ APK hash.
 ## Isolated CI runtime
 
 The existing Test workflow exposes an opt-in `autofill_save` dispatch input.
-Its separate job builds these APKs and runs the three cases on a fresh official
+Its separate job runs the existing production native JVM suite, builds these
+APKs and runs the three cases on a fresh official
 API-35 x86_64 KVM emulator; ordinary PR checks remain unchanged. It uploads only
-boolean/source/hash JSON and emulator startup diagnostics, never APKs or UI dumps.
+boolean/source/hash JSON, ADB version and emulator startup diagnostics, never
+APKs, UI dumps or the runner's ephemeral ADB key. The SDK's ADB server starts
+before the emulator, so its authentication key exists before the guest connects.
 
 To run the same driver manually, provision a fresh English API-35 `google_apis;x86_64` AVD, boot it with KVM and
 bounded boot/adb timeouts, then run:
