@@ -346,6 +346,17 @@ also reads HTML semantics and prioritizes OTP, but its login result still requir
 a password. Both use broader username heuristics than Palladin. This comparison
 informed independent changes; no competitor implementation was copied.
 
+The Bitwarden comparison is pinned to commit
+[`924c851b…826e8a`](https://github.com/bitwarden/android/commit/924c851b571d782345bbf5a33d773ca09d826e8a),
+not a moving branch. In `ViewNodeExtensions.kt`, `toAutofillView` redirects a
+hinted `AUTOFILL_TYPE_NONE` container to a text child, while `isUsernameField`
+uses broader identifier/hint terms. Palladin never makes the container itself
+a dataset target and classifies eligible children independently. In
+`AutofillParserImpl.kt`, the `AutofillView.Login` branch constructs a login
+partition without requiring a password view. This supports the username-first
+comparison; it is not evidence of Palladin's authentication-result behavior,
+which is asserted separately against its real `FillResponse` on the emulator.
+
 JVM parser regressions mock framework input nodes, exercise the production
 traversal and assert resulting target IDs. They establish recognition, not OS
 presentation or biometric completion. The Android emulator harness separately
