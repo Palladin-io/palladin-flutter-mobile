@@ -33,12 +33,16 @@ class FormActivity : Activity() {
         var unavailable = false
         var shown = false
         var enabledAtRequest = false
+        var domReady = !mode.startsWith("web")
+        var focusVerified = false
+        var unavailableEvents = 0
+        var shownEvents = 0
         fun publishEvidence() {
-            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest"
+            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest domReady=$domReady focusVerified=$focusVerified unavailableEvents=$unavailableEvents shownEvents=$shownEvents"
         }
         fun observe(event: Int) {
-            if (event == AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE) unavailable = true
-            if (event == AutofillManager.AutofillCallback.EVENT_INPUT_SHOWN) shown = true
+            if (event == AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE) { unavailable = true; unavailableEvents++ }
+            if (event == AutofillManager.AutofillCallback.EVENT_INPUT_SHOWN) { shown = true; shownEvents++ }
             publishEvidence()
         }
         autofillCallback = object : AutofillManager.AutofillCallback() {
@@ -47,7 +51,6 @@ class FormActivity : Activity() {
         }
         manager.registerCallback(autofillCallback)
         fun request(target: View) {
-            unavailable = false
             requested = true
             enabledAtRequest = manager.isEnabled
             publishEvidence()
@@ -72,6 +75,12 @@ class FormActivity : Activity() {
             val html = "<html><meta name='viewport' content='width=device-width'><body><form>" +
                 usernameHtml + password + "</form></body></html>"
             web.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript("document.readyState === 'complete'") {
+                        domReady = it == "true"
+                        publishEvidence()
+                    }
+                }
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
                     val content = fixtureContent(request.url.toString(), html)
                     return WebResourceResponse(
@@ -84,7 +93,12 @@ class FormActivity : Activity() {
             web.loadUrl(fixtureUrl)
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
-                setOnClickListener { request(web) }
+                setOnClickListener {
+                    web.evaluateJavascript("(function(){const field=document.querySelector('input:not([disabled]):not([type=hidden])');if(field)field.focus();return !!field && document.activeElement===field;})()") {
+                        focusVerified = it == "true"
+                        request(web)
+                    }
+                }
             })
             layout.addView(Button(this).apply {
                 text = "Verify fill"
@@ -130,7 +144,7 @@ class FormActivity : Activity() {
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
                 setOnClickListener {
-                    focusTarget.requestFocus()
+                    focusVerified = focusTarget.requestFocus()
                     request(focusTarget)
                 }
             })

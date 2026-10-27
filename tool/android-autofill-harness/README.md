@@ -68,13 +68,21 @@ keyboard coordinates. When an inline surface is inaccessible or ignored, the
 fixture's explicit Request Autofill button can expose the standard dropdown.
 Absence of a usable suggestion fails the test instead of guessing a tap location.
 For negative OS checks use `--expected REJECTED` without `--fill`. Each fresh
-fixture tracks the public native/virtual `AutofillCallback`, resets unavailable
-evidence before its manual request, and verifies that all input values remain
-literally empty. The driver also requires the selected provider, an enabled
+fixture tracks public native/virtual `AutofillCallback` counts only within its
+current Activity instance, retaining events from autofocus in that same form. It
+records DOM readiness and actual input focus, then verifies that all input values
+remain literally empty in two observations separated by a bounded settling delay.
+Web requests wait for the current DOM-ready marker first. The existing bounded
+provider-state poll and two UI observations establish the absence of observable
+fill behavior; they do not by themselves prove a provider rejection. The driver also requires the selected provider, an enabled
 request, no shown AutoFill UI and no authentication. `REJECTED` means the provider
 snapshot explicitly rejected; `SYSTEM_UNAVAILABLE` requires the current OS
 unavailable callback when the provider has already unbound. A missing service
-alone never passes. These outcomes stay distinct in the validation report.
+alone never passes. WebView may produce no unavailable callback: with the same
+ready/requested/enabled/focused/untouched/no-UI evidence, the driver records
+`PLATFORM_NO_RESPONSE`, never provider rejection or an inferred callback. HTTP
+is served as an empty local 404 and has no focusable field. All outcomes stay
+distinct in the validation report.
 
 ## Recorded evidence — 2026-10-27
 

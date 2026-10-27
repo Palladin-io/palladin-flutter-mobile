@@ -117,7 +117,7 @@ def assert_web_origin(diagnosis):
             snapshot.get('origin') == 'VERIFIED'), 'Web fixture did not report one verified domain'
 
 
-def negative_outcome(diagnosis, tree, selected_provider):
+def negative_outcome(diagnosis, tree, selected_provider, mode):
     assert selected_provider == service, 'Expected AutoFill provider is not selected'
     snapshot = request_snapshot(diagnosis)
     assert snapshot.get('result') != 'RESPONSE_OFFERED', 'Negative fixture offered credentials'
@@ -125,15 +125,23 @@ def negative_outcome(diagnosis, tree, selected_provider):
                    (node.get('package') == 'com.android.systemui' and node.get('text') == 'Unlock Palladin')
                    for node in tree), 'Negative fixture opened authentication'
     texts = {node.get('text') for node in tree if node.get('package') == form}
-    unavailable = 'requestIssued=true unavailable=true uiShown=false enabled=true' in texts
-    pending = 'requestIssued=true unavailable=false uiShown=false enabled=true' in texts
-    assert unavailable or pending, 'Fresh enabled request without AutoFill UI not established'
+    states = [text for text in texts if text and text.startswith('requestIssued=')]
+    assert len(states) == 1, 'Current fixture evidence missing or ambiguous'
+    state = dict(part.split('=', 1) for part in states[0].split())
+    assert all(state.get(key) == 'true' for key in ('requestIssued', 'enabled', 'domReady')), 'Fresh ready enabled request not established'
+    assert state.get('uiShown') == 'false' and state.get('shownEvents') == '0', 'AutoFill UI was shown'
+    assert mode == 'web-http' or state.get('focusVerified') == 'true', 'Fixture input was not focused'
     assert 'fieldsUnchanged=true' in texts, 'Negative fixture fields changed'
     if snapshot.get('result') == 'REJECTED':
         return 'REJECTED'
-    assert unavailable, 'Missing current system-unavailable callback'
     assert snapshot.get('result') == 'NO_REQUEST' or 'No services match' in diagnosis, 'Unknown provider outcome'
-    return 'SYSTEM_UNAVAILABLE'
+    if state.get('unavailable') == 'true':
+        count = state.get('unavailableEvents', '')
+        assert count.isdigit() and int(count) > 0, 'Missing current system-unavailable event count'
+        return 'SYSTEM_UNAVAILABLE'
+    assert mode.startswith('web') and state.get('unavailable') == 'false' and state.get('unavailableEvents') == '0', 'Missing current system-unavailable callback'
+    return 'PLATFORM_NO_RESPONSE'
+
 
 
 def authenticate():
@@ -219,6 +227,9 @@ try:
         positive = args.mode in ('native-login', 'native-username', 'web-login', 'web-username')
         focus_field(required=positive)
         if not positive:
+            if args.mode.startswith('web'):
+                wait_for(lambda tree: any(node.get('package') == form and 'domReady=true' in node.get('text', '').split() for node in tree),
+                         'Web fixture DOM did not become ready')
             assert tap_text('Request Autofill'), 'Manual request control missing'
         diagnosis = ''
         for _ in range(30):
@@ -228,11 +239,17 @@ try:
             time.sleep(.1)
         if not positive:
             assert args.expected in ('REJECTED', 'NO_RESPONSE')
-            assert tap_text('Verify fill'), 'Fixture verification control missing'
-            wait_for(lambda tree: any(node.get('package') == form and node.get('text') == 'fieldsUnchanged=true' for node in tree),
-                     'Negative fixture fields were not empty')
-            selected = command('shell', 'settings', 'get', 'secure', 'autofill_service').strip()
-            outcome = negative_outcome(diagnosis, nodes(), selected)
+            observations = []
+            for observation in range(2):
+                if observation:
+                    time.sleep(.5)
+                    diagnosis = command('shell', 'dumpsys', 'activity', 'service', service)
+                assert tap_text('Verify fill'), 'Fixture verification control missing'
+                wait_for(lambda tree: any(node.get('package') == form and node.get('text') == 'fieldsUnchanged=true' for node in tree),
+                         'Negative fixture fields were not empty')
+                selected = command('shell', 'settings', 'get', 'secure', 'autofill_service').strip()
+                observations.append(negative_outcome(diagnosis, nodes(), selected, args.mode))
+            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'PLATFORM_NO_RESPONSE') if value in observations))
         else:
             assert 'result=' + args.expected in diagnosis, 'Unexpected provider outcome: ' + diagnosis
             outcome = args.expected
