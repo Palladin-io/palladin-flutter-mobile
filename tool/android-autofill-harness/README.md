@@ -99,15 +99,17 @@ JVM and Flutter tests cover complementary boundaries. The opt-in CI gate below
 provisions a separate synthetic emulator; its results must be reported for the
 exact tested commit.
 
-The WebView fixture gives `loadDataWithBaseURL` the same synthetic base and history
-URL. [Android documents](https://developer.android.com/reference/android/webkit/WebView#loadDataWithBaseURL(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String))
-that a null history URL defaults to `about:blank`; Chromium's
-[FormData bridge](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/android_autofill/browser/form_data_android_bridge_impl.cc)
-passes the form URL's origin into its Android structure. This fixture setting alone
-does not prove the runtime origin: each WebView OS fill must observe `domains=ONE`
-and `origin=VERIFIED` in the production provider's value-free snapshot before
-selection. A native association or manual chooser cannot substitute for that gate.
-CI failures preserve only allowlisted request classification enums in `request.json`.
+The WebView fixture uses `loadUrl` for the synthetic HTTPS document and the public
+[`WebViewClient.shouldInterceptRequest`](https://developer.android.com/reference/android/webkit/WebViewClient#shouldInterceptRequest(android.webkit.WebView,android.webkit.WebResourceRequest))
+callback to serve its local HTML. Only `https://fixture.invalid/` receives that
+content; every other URL receives an empty local 404, never a network fallback.
+The fixture has no Internet permission and never overrides `ViewStructure` origins.
+`loadDataWithBaseURL` reported `domains=ZERO` on the API 35 CI image, even with a
+matching history URL, so it did not establish the required WEB-origin gate.
+Each WebView OS fill must observe `domains=ONE` and `origin=VERIFIED` in the
+production provider's value-free snapshot before selection. A native association
+or manual chooser cannot substitute for that gate. CI failures preserve only
+allowlisted request classification enums in `request.json`.
 
 ## Cleanup
 

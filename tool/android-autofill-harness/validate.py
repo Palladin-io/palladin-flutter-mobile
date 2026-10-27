@@ -36,13 +36,13 @@ def android(*command):
 
 
 commit = clean_commit()
-subprocess.run([args.gradle, '-p', str(harness), 'clean', ':provider:testDebugUnitTest', 'assembleDebug'], cwd=root, check=True, timeout=600)
+subprocess.run([args.gradle, '-p', str(harness), 'clean', ':provider:testDebugUnitTest', ':form:testDebugUnitTest', 'assembleDebug'], cwd=root, check=True, timeout=600)
 report = {'commit': commit, 'checkout': str(root), 'device': args.serial, 'apkSha256': {}, 'cases': []}
 for module in ('provider', 'form'):
     apk = harness / module / f'build/outputs/apk/debug/{module}-debug.apk'
     report['apkSha256'][module] = hashlib.sha256(apk.read_bytes()).hexdigest()
     android('install', '-r', str(apk))
-report['jvmTests'] = sum(int(ET.parse(path).getroot().get('tests')) for path in (harness / 'provider/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+report['jvmTests'] = sum(int(ET.parse(path).getroot().get('tests')) for module in ('provider', 'form') for path in (harness / module / 'build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
 prior_provider = android('shell', 'settings', 'get', 'secure', 'autofill_service')
 prior_keyboard = android('shell', 'settings', 'get', 'secure', 'show_ime_with_hard_keyboard')
 prior_hidden_policy = android('shell', 'settings', 'get', 'global', 'hidden_api_policy')

@@ -5,7 +5,10 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -37,13 +40,19 @@ class FormActivity : Activity() {
                 else -> "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>"
             }
             val fixtureUrl = if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
-            web.loadDataWithBaseURL(
-                fixtureUrl,
-                "<html><meta name='viewport' content='width=device-width'><body><form>" +
-                    usernameHtml +
-                    password + "</form></body></html>",
-                "text/html", "UTF-8", fixtureUrl,
-            )
+            val html = "<html><meta name='viewport' content='width=device-width'><body><form>" +
+                usernameHtml + password + "</form></body></html>"
+            web.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+                    val content = fixtureContent(request.url.toString(), html)
+                    return WebResourceResponse(
+                        "text/html", "UTF-8", if (content == null) 404 else 200,
+                        if (content == null) "Not Found" else "OK", emptyMap(),
+                        (content ?: "").byteInputStream(),
+                    )
+                }
+            }
+            web.loadUrl(fixtureUrl)
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
                 setOnClickListener { getSystemService(AutofillManager::class.java).requestAutofill(web) }
