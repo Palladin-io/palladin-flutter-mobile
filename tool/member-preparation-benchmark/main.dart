@@ -313,7 +313,17 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
             0,
             (n, id) => n + sync.entries(id).length,
           );
-          if (count != _vaultCount * _entriesPerVault ||
+          final invalidIndexes = wrappers.keys.any(
+            (id) => sync
+                .entries(id)
+                .any(
+                  (entry) =>
+                      entry.corrupt ||
+                      !entry.memberLabel.startsWith('Synthetic '),
+                ),
+          );
+          if (invalidIndexes ||
+              count != _vaultCount * _entriesPerVault ||
               requests['list'] != 1 ||
               requests['snapshot'] != _vaultCount ||
               requests['delta'] != _vaultCount ||

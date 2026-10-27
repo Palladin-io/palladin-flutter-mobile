@@ -7,7 +7,8 @@ physical-device performance gate.
 
 The workload generates eight Vaults with twenty real encrypted Credential
 Entries each before timing. Each pass starts with an empty isolated SQLite
-cache. It exercises production `MemberEntryListService`, `MemberSyncService`,
+cache (OS filesystem caches are not dropped). Fixture/schema creation and
+initial FFI loading are outside the timer. It exercises production `MemberEntryListService`, `MemberSyncService`,
 `MemberSyncRemoteDatasource`, Dio socket transport, `SqliteMemberSyncCache`,
 X25519 Vault-key unwrap and MemberIndex decryption through libsodium. The native
 SQLite database lives in a unique temporary directory and is closed/deleted;
@@ -30,7 +31,7 @@ Fixture boundaries are explicit:
 The serial baseline uses the same loader, crypto, transport and cache, awaiting
 one Vault at a time. The batch mode uses the unchanged production preparation
 service. One pair warms up both paths, then five pairs alternate execution order.
-Every pass asserts 160 indexed Entries and exactly 17 HTTP requests: one list,
+Every pass asserts 160 non-corrupt, decrypted synthetic MemberIndex Entries and exactly 17 HTTP requests: one list,
 eight snapshots and eight closing deltas. Any added per-Vault context GET,
 retry, or per-Entry request fails that invariant. Output contains environment,
 timing/count metadata only. Compare medians after excluding `warmup: true`;
@@ -56,7 +57,7 @@ The Google Services task can therefore be excluded without checking in cloud
 configuration. Use the installed Gradle version matching the repository wrapper:
 
 ```sh
-# Run from android/. JAVA_HOME must point to the installed Android JDK.
+# Run from android/. JAVA_HOME must point to JDK 17 (biometric_storage toolchain).
 # Set dart-defines to base64("BENCHMARK_REVISION=<exact git HEAD>").
 gradle :app:assembleLocalDebug -x :app:processLocalDebugGoogleServices \
   -Ptarget=tool/member-preparation-benchmark/main.dart \
