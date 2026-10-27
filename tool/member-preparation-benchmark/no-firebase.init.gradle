@@ -1,0 +1,15 @@
+// Invocation-only configuration for the isolated, account-free debug workload.
+// Never change the application's normal cloud configuration or release tasks.
+gradle.settingsEvaluated {
+    if (gradle.parent != null) return
+    if (gradle.startParameter.projectProperties['target'] != 'tool/member-preparation-benchmark/main.dart' ||
+        gradle.startParameter.taskNames != [':app:assembleLocalDebug']) {
+        throw new GradleException('This init script only supports the Member benchmark local debug APK')
+    }
+}
+allprojects {
+    plugins.withId('com.google.gms.google-services') {
+        def config = extensions.getByName('googleServices')
+        config.missingGoogleServicesStrategy = config.missingGoogleServicesStrategy.class.enumConstants.find { it.name() == 'IGNORE' }
+    }
+}

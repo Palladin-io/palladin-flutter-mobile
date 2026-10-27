@@ -25,16 +25,28 @@ class FormActivity : Activity() {
             val web = WebView(this)
             web.settings.javaScriptEnabled = true
             layout.addView(web, LinearLayout.LayoutParams(-1, 450))
-            val password = if (mode == "web-login") {
+            val password = if (mode == "web-login" || mode == "web-http") {
                 "<input id='password' type='password' autocomplete='current-password' placeholder='Synthetic password'>"
             } else ""
+            val usernameHtml = when (mode) {
+                "web-search" -> "<input id='username' type='search' autocomplete='username'>"
+                "web-otp" -> "<input type='password' autocomplete='one-time-code'>"
+                "web-confirm" -> "<input id='confirm_password' name='confirm_password' type='password'>"
+                "web-hidden" -> "<input id='probe'><input type='hidden' autocomplete='username'>"
+                "web-disabled" -> "<input id='probe'><input type='text' autocomplete='username' disabled>"
+                else -> "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>"
+            }
             web.loadDataWithBaseURL(
-                "https://fixture.invalid/",
+                if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/",
                 "<html><meta name='viewport' content='width=device-width'><body><form>" +
-                    "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>" +
+                    usernameHtml +
                     password + "</form></body></html>",
                 "text/html", "UTF-8", null,
             )
+            layout.addView(Button(this).apply {
+                text = "Request Autofill"
+                setOnClickListener { getSystemService(AutofillManager::class.java).requestAutofill(web) }
+            })
             layout.addView(Button(this).apply {
                 text = "Verify fill"
                 setOnClickListener {
@@ -51,19 +63,33 @@ class FormActivity : Activity() {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
                 setAutofillHints(View.AUTOFILL_HINT_USERNAME)
             }
+            when (mode) {
+                "native-search" -> { username.id = R.id.search; username.inputType = InputType.TYPE_CLASS_TEXT; username.setAutofillHints("search") }
+                "native-otp" -> { username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints("smsOTPCode") }
+                "native-confirm" -> { username.id = R.id.confirm_password; username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints(View.AUTOFILL_HINT_PASSWORD) }
+                "native-hidden" -> username.visibility = View.INVISIBLE
+                "native-disabled" -> username.isEnabled = false
+            }
             val password = if (mode == "native-login") EditText(this).apply {
                 id = View.generateViewId()
                 hint = "Synthetic password"
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                 setAutofillHints(View.AUTOFILL_HINT_PASSWORD)
             } else null
-            layout.addView(username)
+            val focusTarget = if (mode in setOf("native-hidden", "native-disabled", "native-container")) EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT
+                hint = "Synthetic probe"
+            } else username
+            if (focusTarget !== username) layout.addView(focusTarget)
+            if (mode == "native-container") {
+                layout.addView(TextView(this).apply { text = "Synthetic label"; setAutofillHints(View.AUTOFILL_HINT_USERNAME) })
+            } else layout.addView(username)
             password?.let(layout::addView)
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
                 setOnClickListener {
-                    username.requestFocus()
-                    getSystemService(AutofillManager::class.java).requestAutofill(username)
+                    focusTarget.requestFocus()
+                    getSystemService(AutofillManager::class.java).requestAutofill(focusTarget)
                 }
             })
             layout.addView(Button(this).apply {

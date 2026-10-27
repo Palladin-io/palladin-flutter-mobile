@@ -51,7 +51,10 @@ username for a first-step form) and exposes only `fillVerified=true/false`.
 The runner prints outcomes, never form values or cache contents. Temporary UI XML
 is removed after each read. The form has no INTERNET permission.
 
-The runner sets `fixture.invalid` as OS-verified only for the WebView scenarios;
+The runner sets `fixture.invalid` to the emulator OS approved state (`pm set-app-links`
+state 2, exposed to the app as verified) only for the WebView scenarios. Unlike
+overridable verification state 1, this cannot race with asynchronous installation
+verification of the reserved `.invalid` host;
 native scenarios clear that verification to exercise the explicit manual warning.
 This is synthetic OS authority supplied by the test, not a claim of public domain
 ownership. The provider build imports `<queries>` directly from the production manifest,
@@ -100,3 +103,71 @@ Restore the emulator's previous provider and keyboard setting, then uninstall on
 `io.palladin.autofill.harness.provider` and `io.palladin.autofill.harness.form`.
 Do not wipe an emulator or delete its profile. Build outputs and local tooling
 state remain ignored; no APK, screenshot or cache is committed.
+
+## Authoritative validation of a committed checkout
+
+The provider Gradle module also compiles all native JVM tests directly from this
+checkout's `android/app/src/test/kotlin/io/palladin/mobile/autofill`. Production
+Kotlin, resources, manifest queries, JVM tests and APKs therefore share one source
+authority. No temporary compiler script, copied production class or old jar is
+used. Run the focused JVM gate with `:provider:testDebugUnitTest`.
+
+After committing all intended changes, with the emulator unlocked and fingerprint
+`1` enrolled:
+
+```sh
+python3 tool/android-autofill-harness/validate.py --serial emulator-5554 --gradle /path/to/gradle
+```
+
+This rejects a dirty checkout, runs Gradle `clean`, the native JVM suite and debug
+APK build, installs those APKs, and runs the response and OS cases below. It checks
+that the commit and clean state are unchanged afterwards. Successful evidence is
+written to ignored `tool/android-autofill-harness/build/validation.json`: full Git
+SHA, checkout path, APK SHA-256 digests, JVM test count and individual observed
+outcomes. The prior provider and keyboard settings are restored in `finally`.
+Do not edit source after this run and still attribute its evidence to a later SHA.
+
+### Actual authentication response inspection
+
+`exercise.py --inspect-response` starts the real `AutofillAuthenticationActivity`
+for result from the synthetic launcher, using real Android View AutofillIds and
+the real encrypted fixture/cache. It traverses `completeFill` for WEB and
+`selectionResponse` for MANUAL_NATIVE after biometric authentication. For both
+username-only and two-field requests it checks the returned **actual FillResponse**:
+one dataset, exactly the intended field IDs, exactly the corresponding value count,
+and the expected synthetic username/password in each field. Only a boolean result
+leaves the in-memory assertion. This is complementary to the separate real
+service → keyboard → biometric → OS field-handoff test; it does not replace it.
+
+Android hides the response getters from ordinary applications. Only this inspection
+case temporarily sets the selected emulator's `hidden_api_policy=1` to inspect the
+returned object through reflection, restoring the previous setting in `finally`
+even on failure. This does not alter any product origin/cache/authentication gate.
+The subsequent full OS flows require the original/default policy restored.
+Physical device serials and Python `-O` are rejected. Zero-target WEB and MANUAL_NATIVE requests traverse the authenticated activity
+paths and assert cancellation with **no FillResponse**. HTTP and missing-scheme
+inspection requests also assert cancellation with **no FillResponse**.
+
+### Negative form coverage and baseline reproduction
+
+The synthetic forms include search, OTP, password confirmation, hidden, disabled,
+and non-text-container fields. Explicit manual Autofill requests capture a real
+AssistStructure even when an ordinary focus event does not automatically request
+credentials. Unsupported/insecure framework behavior is never reported as a
+successful provider rejection.
+
+On baseline `ca6bb9719386bdbf7986346a3b2bb1aadd661654`, the actual provider incorrectly
+offered a response for native confirmation/hidden/disabled fields and WebView
+search/confirmation/disabled fields. Native search/OTP/container and WebView
+OTP/hidden fixtures already rejected. These are behavioral RED observations,
+not source-string assertions. The current native JVM tests cover malformed and
+missing scheme metadata and eligibility boundaries that cannot be emitted by a
+particular WebView version.
+
+On the recorded WebView, an HTTP `loadDataWithBaseURL` form produced no provider
+callback even after an explicit manual request. The runner reports that separate
+outcome as `FRAMEWORK_SUPPRESSED`; it must not be cited as proof that the production
+service rejected an HTTP AssistStructure. The actual activity HTTP/missing-scheme
+negative response tests and native scheme-policy JVM regressions cover the
+application boundary. HTTPS metadata observed in the real framework had
+`webScheme=https`, text Autofill type, enabled state and visible state.

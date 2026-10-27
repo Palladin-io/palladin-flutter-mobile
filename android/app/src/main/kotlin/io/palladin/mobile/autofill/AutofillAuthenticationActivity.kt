@@ -51,7 +51,8 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             AutofillOriginMode.valueOf(intent.getStringExtra(EXTRA_ORIGIN_MODE).orEmpty())
         }.getOrDefault(AutofillOriginMode.WEB)
         if (mode != AutofillOriginMode.WEB) {
-            if (intent.getStringExtra(EXTRA_DOMAIN) != null || packageName == null ||
+            if (intent.getStringExtra(EXTRA_DOMAIN) != null ||
+                intent.getStringExtra(EXTRA_WEB_SCHEME) != null || packageName == null ||
                 intent.getBooleanExtra(EXTRA_GENERATE, false) ||
                 nativeDomains.any { AutoFillCacheStore.normalizeDomain(it) != it } ||
                 (mode == AutofillOriginMode.VERIFIED_NATIVE &&
@@ -73,7 +74,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         }
         val originVerified = domain != null &&
             packageName != null &&
-            AutofillOriginVerifier(this).isVerified(packageName, domain)
+            webOriginStillVerified(packageName, domain)
         if (domain == null || !originVerified) {
             finishCanceled()
             return
@@ -146,7 +147,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         requestingPackage: String,
     ) {
         val ids = intent.autofillIds(EXTRA_NEW_PASSWORD_IDS)
-        if (ids.isEmpty() || !AutofillOriginVerifier(this).isVerified(requestingPackage, domain)) {
+        if (ids.isEmpty() || !webOriginStillVerified(requestingPackage, domain)) {
             finishCanceled()
             return
         }
@@ -162,7 +163,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                 domain,
                 password,
                 handoff = {
-                    require(AutofillOriginVerifier(this).isVerified(requestingPackage, domain))
+                    require(webOriginStillVerified(requestingPackage, domain))
                     setResult(
                         Activity.RESULT_OK,
                         Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response),
@@ -217,6 +218,10 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             .build()
         prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(operation.cipher))
     }
+
+    private fun webOriginStillVerified(requestingPackage: String, domain: String): Boolean =
+        AutofillOriginPolicy.isSecureWebScheme(intent.getStringExtra(EXTRA_WEB_SCHEME)) &&
+            AutofillOriginVerifier(this).isVerified(requestingPackage, domain)
 
     private fun nativeOriginStillVerified(requestingPackage: String, domains: Set<String>): Boolean =
         domains.isNotEmpty() && AutofillOriginVerifier(this)
@@ -419,7 +424,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         domain: String,
         requestingPackage: String,
     ) {
-        if (!AutofillOriginVerifier(this).isVerified(requestingPackage, domain)) {
+        if (!webOriginStillVerified(requestingPackage, domain)) {
             cacheStore.quarantine(operation.generation)
             finishCanceled()
             return
@@ -473,10 +478,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             // the gap after validation and still release stale plaintext.
             val handedOff = runCatching {
                 cacheStore.withRevalidatedCredentials(operation.generation, matches) {
-                    require(
-                        AutofillOriginVerifier(this)
-                            .isVerified(requestingPackage, domain),
-                    )
+                    require(webOriginStillVerified(requestingPackage, domain))
                     setResult(Activity.RESULT_OK, result)
                     finish()
                 }
@@ -517,6 +519,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
     companion object {
         const val EXTRA_ORIGIN_MODE = "palladin.autofill.origin_mode"
         const val EXTRA_NATIVE_DOMAINS = "palladin.autofill.native_domains"
+        const val EXTRA_WEB_SCHEME = "palladin.autofill.web_scheme"
         const val EXTRA_DOMAIN = "palladin.autofill.domain"
         const val EXTRA_PACKAGE_NAME = "palladin.autofill.package_name"
         const val EXTRA_USERNAME_IDS = "palladin.autofill.username_ids"

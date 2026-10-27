@@ -34,9 +34,14 @@ android {
  res.srcDir("../../../android/app/src/main/res")
 }
 
+ sourceSets.getByName("test").java.srcDir("../../../android/app/src/test/kotlin/io/palladin/mobile/autofill")
 }
 kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 } }
 dependencies { implementation("androidx.biometric:biometric:1.1.0")
- implementation("androidx.autofill:autofill:1.3.0") }
+ implementation("androidx.autofill:autofill:1.3.0")
+ testImplementation("junit:junit:4.13.2")
+ testImplementation("org.mockito:mockito-core:5.20.0")
+ testImplementation("org.json:json:20240303")
+}
 
 androidComponents { beforeVariants(selector().withBuildType("release")) { it.enable = false } }

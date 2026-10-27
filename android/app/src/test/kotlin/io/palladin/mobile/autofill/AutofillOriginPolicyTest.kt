@@ -43,7 +43,7 @@ class AutofillOriginPolicyTest {
             val result = AutofillOriginPolicy.resolve(domains, normalize, { true }, {
                 fail("Native authority must not replace a missing browser or malformed web origin")
                 emptySet()
-            }, browser)
+            }, browser, if (domains.isEmpty()) emptySet() else setOf("https"))
             assertNull(result)
         }
     }
@@ -57,10 +57,25 @@ class AutofillOriginPolicyTest {
         assertFalse(AutofillOriginPolicy.canReleaseNative("shop.pl", setOf("shop.pl"), requested, null))
     }
 
+    @Test fun webOriginRequiresExplicitHttpsTransport() {
+        for (schemes in listOf(emptySet(), setOf("http"), setOf("ftp"), setOf(" "), setOf("https", "http"))) {
+            assertNull(schemes.toString(), resolve(listOf("shop.pl"), schemes = schemes))
+        }
+        assertEquals(AutofillOriginMode.WEB,
+            resolve(listOf("shop.pl"), schemes = setOf("https"))?.mode)
+    }
+
+    @Test fun schemeWithoutDomainCannotBecomeNativeManualSelection() {
+        for (scheme in listOf("http", "https", "file")) {
+            assertNull(resolve(emptyList(), schemes = setOf(scheme)))
+        }
+    }
+
     private fun resolve(
         domains: List<String>,
         native: Set<String>? = setOf("shop.pl"),
         webVerified: Boolean = true,
         browser: Boolean = false,
-    ) = AutofillOriginPolicy.resolve(domains, normalize, { webVerified }, { native }, browser)
+        schemes: Set<String> = if (domains.isEmpty()) emptySet() else setOf("https"),
+    ) = AutofillOriginPolicy.resolve(domains, normalize, { webVerified }, { native }, browser, schemes)
 }

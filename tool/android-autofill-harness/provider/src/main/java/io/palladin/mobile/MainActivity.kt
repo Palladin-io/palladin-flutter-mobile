@@ -2,12 +2,21 @@ package io.palladin.mobile
 
 import android.app.Activity
 import android.os.Bundle
+import android.content.Intent
+import android.service.autofill.FillResponse
+import android.service.autofill.Dataset
+import android.view.autofill.AutofillValue
+import android.view.autofill.AutofillId
+import android.view.autofill.AutofillManager
+import android.widget.EditText
+import io.palladin.mobile.autofill.AutofillAuthenticationActivity
 import android.widget.TextView
 import io.palladin.mobile.autofill.AutoFillCacheStore
 import java.time.Instant
 
 /** Debug-only launcher seeds the real encrypted cache with synthetic records. */
 class MainActivity : Activity() {
+ private lateinit var expectedFields: Map<AutofillId, String>
  override fun onCreate(state: Bundle?) {
   super.onCreate(state)
   val status = runCatching {
@@ -30,6 +39,49 @@ class MainActivity : Activity() {
    ), session)
    "Synthetic encrypted cache ready"
   }.getOrElse { "Synthetic setup failed: " + it.javaClass.simpleName }
+  setContentView(TextView(this).apply { text = status; textSize = 22f })
+  if (status == "Synthetic encrypted cache ready") intent.getStringExtra("inspectResponse")?.let(::inspectResponse)
+ }
+
+ private fun inspectResponse(mode: String) {
+  val usernameId = EditText(this).autofillId
+  val passwordId = EditText(this).autofillId
+  val usernames = if (mode.endsWith("empty")) arrayListOf() else arrayListOf(usernameId)
+  val passwords = if (mode.endsWith("login")) arrayListOf(passwordId) else arrayListOf()
+  expectedFields = usernames.associateWith { "synthetic-user" } +
+   passwords.associateWith { "synthetic-only-not-secret" }
+  startActivityForResult(Intent(this, AutofillAuthenticationActivity::class.java).apply {
+   putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, if (mode.startsWith("web")) "WEB" else "MANUAL_NATIVE")
+   if (mode.startsWith("web")) {
+    putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, "fixture.invalid")
+    if (mode != "web-missing") putExtra(
+     AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, if (mode == "web-http") "http" else "https",
+    )
+   }
+   putExtra(AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME, "io.palladin.autofill.harness.form")
+   putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_USERNAME_IDS, usernames)
+   putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS, passwords)
+  }, 1)
+ }
+
+ @Suppress("DEPRECATION")
+ override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+  super.onActivityResult(requestCode, resultCode, data)
+  val response = data?.getParcelableExtra<FillResponse>(AutofillManager.EXTRA_AUTHENTICATION_RESULT)
+  @Suppress("UNCHECKED_CAST")
+  val datasets = response?.let { it.javaClass.getMethod("getDatasets").invoke(it) as List<Dataset> }.orEmpty()
+  val dataset = datasets.singleOrNull()
+  @Suppress("UNCHECKED_CAST")
+  val ids = dataset?.let { it.javaClass.getMethod("getFieldIds").invoke(it) as List<AutofillId> }.orEmpty()
+  @Suppress("UNCHECKED_CAST")
+  val values = dataset?.let { it.javaClass.getMethod("getFieldValues").invoke(it) as List<AutofillValue?> }.orEmpty()
+  val verified = requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
+   ids.size == expectedFields.size && values.size == ids.size && ids.toSet() == expectedFields.keys &&
+   ids.zip(values).all { (id, value) -> value?.textValue?.toString() == expectedFields[id] }
+  val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && response == null
+  val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty")) {
+   "responseRejected=$rejected"
+  } else "responseVerified=$verified"
   setContentView(TextView(this).apply { text = status; textSize = 22f })
  }
 }
