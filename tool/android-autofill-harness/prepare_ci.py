@@ -43,6 +43,21 @@ def tap(node):
     return True
 
 
+def unlock_keyguard(tree):
+    keys = {n.get('resource-id'): n for n in tree
+            if n.get('package') == 'com.android.systemui'}
+    prefix = 'com.android.systemui:id/'
+    if prefix + 'keyguard_pin_view' not in keys and prefix + 'pinEntry' not in keys:
+        return False
+    sequence = [prefix + 'key' + digit for digit in '246813'] + [prefix + 'key_enter']
+    if any(key not in keys or keys[key].get('enabled') != 'true' for key in sequence):
+        return False
+    for key in sequence:
+        if not tap(keys[key]):
+            raise RuntimeError('Synthetic keyguard PIN key is not accessible')
+    return True
+
+
 if command('shell', 'getprop', 'ro.kernel.qemu').strip() != '1':
     raise RuntimeError('Target is not an Android emulator')
 if command('shell', 'getprop', 'ro.build.version.sdk').strip() != '35':
@@ -54,13 +69,19 @@ if result.strip() != "Pin set to '246813'":
     raise RuntimeError('Fresh disposable emulator PIN setup failed')
 command('shell', 'input', 'keyevent', 'KEYCODE_HOME')
 command('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
+command('shell', 'input', 'keyevent', 'KEYCODE_MENU')
 command('shell', 'am', 'start', '-a', 'android.settings.FINGERPRINT_ENROLL')
 pin_entered = False
+keyguard_entered = False
 touches = 0
 deadline = time.monotonic() + 180
 try:
     while time.monotonic() < deadline:
         tree = nodes()
+        if not keyguard_entered and unlock_keyguard(tree):
+            keyguard_entered = True
+            time.sleep(.5)
+            continue
         settings = [n for n in tree if n.get('package') == 'com.android.settings']
         texts = {n.get('text', '').strip().lower() for n in settings}
         if 'fingerprint added' in texts:

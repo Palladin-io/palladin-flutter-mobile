@@ -92,6 +92,44 @@ class DriverChecks(unittest.TestCase):
       return ''
      ns['command']=command
      with self.assertRaises(type(error)):ns['nodes']()
+ def test_keyguard_is_unlocked_with_observed_synthetic_pin_keys(self):
+  state={'page':-1,'digits':''}
+  ticks=iter(range(0,1000,5))
+  def output(cmd,**kwargs):
+   a=cmd[3:]
+   if a==['shell','getprop','ro.kernel.qemu']:return '1'
+   if a==['shell','getprop','ro.build.version.sdk']:return '35'
+   if a[:3]==['shell','locksettings','set-pin']:return "Pin set to '246813'"
+   if a[:2]==['shell','cat']:
+    if state['page']==-1:
+     keys=[f'<node package="com.android.systemui" resource-id="com.android.systemui:id/key{i}" enabled="true" bounds="[{i*10},0][{i*10+8},8]"/>' for i in range(10)]
+     return '<hierarchy><node package="com.android.systemui" resource-id="com.android.systemui:id/keyguard_pin_view"/>'+''.join(keys)+'<node package="com.android.systemui" resource-id="com.android.systemui:id/key_enter" enabled="true" bounds="[110,0][118,8]"/></hierarchy>'
+    text=['I agree','Touch the sensor','Lift, then touch again','Fingerprint added'][state['page']]
+    return f'<hierarchy><node package="com.android.settings" text="{text}" enabled="true" bounds="[0,20][10,30]"/></hierarchy>'
+   if a[:3]==['shell','input','tap']:
+    if state['page']==-1:
+     x=int(a[3])
+     if x==114:
+      self.assertEqual(state['digits'],'246813');state['page']=0
+     else:state['digits']+=str(x//10)
+    elif state['page']==0:state['page']=1
+   if a==['emu','finger','touch','1']:
+    self.assertIn(state['page'],(1,2));state['page']+=1
+   if a==['exec-out','screencap','-p']:return b'synthetic-image'
+   return ''
+  with patch.object(sys,'argv',['prepare_ci.py','--serial','emulator-5554']),patch.dict(os.environ,{'GITHUB_ACTIONS':'true'}),patch.object(subprocess,'check_output',side_effect=output),patch('time.sleep'),patch('time.monotonic',side_effect=lambda:next(ticks)),patch.object(pathlib.Path,'write_text'),patch.object(pathlib.Path,'write_bytes'):
+   runpy.run_path(str(root/'prepare_ci.py'),run_name='__main__')
+  self.assertEqual(state['page'],3)
+ def test_keyguard_pin_is_not_typed_into_partial_or_foreign_keypad(self):
+  tree=ast.parse((root/'prepare_ci.py').read_text())
+  ns={}
+  exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)],type_ignores=[]),'prepare','exec'),ns)
+  taps=[]
+  ns['tap']=lambda node:taps.append(node) or True
+  for package in ('com.android.systemui','other.app'):
+   keypad=[ET.Element('node',{'package':package,'resource-id':'com.android.systemui:id/'+key,'enabled':'true'}) for key in ('keyguard_pin_view','key2','key4','key6','key8','key1','key_enter')]
+   self.assertFalse(ns['unlock_keyguard'](keypad))
+  self.assertEqual(taps,[])
  def test_settings_enrollment_requires_ui_confirmation(self):
   state={'page':0,'touches':0}
   def output(cmd,**kwargs):
