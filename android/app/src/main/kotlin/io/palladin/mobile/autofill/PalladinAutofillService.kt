@@ -98,7 +98,7 @@ class PalladinAutofillService : AutofillService() {
             fields.currentPasswordIds.isEmpty() && history.hasActiveSession().also {
                 lastRequest = lastRequest.copy(generationSession = availability(it))
             }
-        if ((fields.passwordIds.isEmpty() && !generate) ||
+        if ((fields.passwordIds.isEmpty() && fields.usernameIds.isEmpty() && !generate) ||
             origin == null ||
             (!generate && !cacheStore.hasCache().also {
                 lastRequest = lastRequest.copy(cache = availability(it))
@@ -197,7 +197,7 @@ class PalladinAutofillService : AutofillService() {
     private fun availability(available: Boolean): CheckAvailability =
         if (available) CheckAvailability.AVAILABLE else CheckAvailability.UNAVAILABLE
 
-    private data class CredentialFieldIds(
+    internal data class CredentialFieldIds(
         val usernameIds: List<AutofillId>,
         val passwordIds: List<AutofillId>,
         val newPasswordIds: List<AutofillId>,
@@ -245,6 +245,8 @@ class PalladinAutofillService : AutofillService() {
                 val id = node.autofillId
                 if (id != null) {
                     when {
+                        node.hasHint("one-time-code") || node.hasHint("smsOTPCode") ||
+                            node.hasHint("2faAppOTPCode") -> Unit
                         node.hasHint(NEW_PASSWORD_HINT) || node.hasHint(WEB_NEW_PASSWORD_HINT) ->
                             newPasswords += id
                         node.hasHint(View.AUTOFILL_HINT_PASSWORD) ||
@@ -265,14 +267,18 @@ class PalladinAutofillService : AutofillService() {
                 node: AssistStructure.ViewNode,
                 domains: MutableSet<String>,
             ) {
-                node.webDomain?.let(domains::add)
+                // WebView containers report an empty sentinel while virtual inputs
+                // carry the real host. Keep every nonempty value for origin validation.
+                node.webDomain?.takeIf(String::isNotEmpty)?.let(domains::add)
                 for (index in 0 until node.childCount) {
                     collectDomains(node.getChildAt(index), domains)
                 }
             }
 
             private fun AssistStructure.ViewNode.isPasswordField(): Boolean {
-                if (hasHint(View.AUTOFILL_HINT_PASSWORD)) return true
+                if (hasHint(View.AUTOFILL_HINT_PASSWORD) ||
+                    htmlAttribute("type")?.equals("password", true) == true
+                ) return true
                 if ((inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) {
                     return false
                 }
@@ -287,12 +293,20 @@ class PalladinAutofillService : AutofillService() {
 
             private fun AssistStructure.ViewNode.isUsernameField(): Boolean {
                 if (hasHint(View.AUTOFILL_HINT_USERNAME) ||
-                    hasHint(View.AUTOFILL_HINT_EMAIL_ADDRESS)
+                    hasHint(View.AUTOFILL_HINT_EMAIL_ADDRESS) || hasHint("email") ||
+                    htmlAttribute("type")?.equals("email", true) == true ||
+                    (htmlAttribute("type").let { it == null || it.equals("text", true) } &&
+                        listOf(htmlAttribute("name"), htmlAttribute("id")).any {
+                            it?.lowercase(java.util.Locale.ROOT) in USERNAME_RESOURCE_NAMES
+                        })
                 ) {
                     return true
                 }
                 if ((inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) {
                     return false
+                }
+                if (idEntry?.lowercase(java.util.Locale.ROOT) in USERNAME_RESOURCE_NAMES) {
+                    return true
                 }
                 return when (inputType and InputType.TYPE_MASK_VARIATION) {
                     InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
@@ -303,8 +317,16 @@ class PalladinAutofillService : AutofillService() {
             }
 
             private fun AssistStructure.ViewNode.hasHint(expected: String): Boolean =
-                autofillHints.orEmpty().any { it.equals(expected, ignoreCase = true) }
+                autofillHints.orEmpty().any { it.equals(expected, ignoreCase = true) } ||
+                    htmlAttribute("autocomplete")?.split(Regex("\\s+"))
+                        ?.any { it.equals(expected, ignoreCase = true) } == true
 
+            private fun AssistStructure.ViewNode.htmlAttribute(name: String): String? =
+                htmlInfo?.takeIf { it.tag.equals("input", ignoreCase = true) }
+                    ?.attributes?.firstOrNull { it.first.equals(name, ignoreCase = true) }?.second
+
+            private val USERNAME_RESOURCE_NAMES =
+                setOf("username", "user_name", "email", "email_address", "login")
             private const val NEW_PASSWORD_HINT = "newPassword"
             private const val WEB_NEW_PASSWORD_HINT = "new-password"
             private const val WEB_CURRENT_PASSWORD_HINT = "current-password"

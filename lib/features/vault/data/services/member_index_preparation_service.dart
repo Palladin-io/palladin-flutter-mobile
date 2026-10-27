@@ -74,8 +74,15 @@ final class MemberIndexPreparationService implements MemberIndexPreparer {
         ensureFresh: ensureFresh,
       );
       _requireCurrent(generation);
-      for (final vault in vaults) {
-        await _entries.load(vaultId: vault.id, memberPrivateKey: keyCopy);
+      // Independent Vault requests may overlap, but bound open keys and
+      // decrypt work. Drain each batch even on failure before wiping keyCopy.
+      const batchSize = 4;
+      for (var offset = 0; offset < vaults.length; offset += batchSize) {
+        _requireCurrent(generation);
+        await Future.wait([
+          for (final vault in vaults.skip(offset).take(batchSize))
+            _entries.load(vaultId: vault.id, memberPrivateKey: keyCopy),
+        ]);
         _requireCurrent(generation);
       }
       return List<VaultEntity>.unmodifiable(vaults);

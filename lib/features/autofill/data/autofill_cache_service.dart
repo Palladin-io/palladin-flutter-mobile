@@ -35,18 +35,21 @@ class AutoFillCacheService
   Future<void> _pendingOperation = Future<void>.value();
   Future<void> _sessionActivation = Future<void>.value();
   int _generation = 0;
+  // Cache repairs can queue during activation without replacing the session.
+  int _sessionGeneration = 0;
   bool _accessRevoked = true;
   bool _nativeBridgeUnavailable = false;
   int? _sessionToken;
   int? _cleanupToken;
 
   Future<void> beginSession() {
-    final generation = ++_generation;
+    ++_generation;
+    final sessionGeneration = ++_sessionGeneration;
     _accessRevoked = false;
     _nativeBridgeUnavailable = false;
     _sessionToken = null;
     _cleanupToken = null;
-    final activation = _activateSession(generation);
+    final activation = _activateSession(sessionGeneration);
     _sessionActivation = activation;
     return _bestEffort(activation);
   }
@@ -76,6 +79,7 @@ class AutoFillCacheService
   @override
   Future<void> revokeAccess() async {
     final operationGeneration = ++_generation;
+    ++_sessionGeneration;
     _accessRevoked = true;
     final previousSessionToken = _sessionToken;
     _sessionToken = null;
@@ -210,7 +214,7 @@ class AutoFillCacheService
         _cleanupToken = await _bridge.revokeCacheAccess();
         return;
       }
-      if (generation != _generation) {
+      if (generation != _sessionGeneration) {
         // A newer active beginSession already rotated the native generation.
         // Revoking globally here would let the old callback deny that newer
         // session. Its stale token is unusable and generation cleanup is native.
@@ -220,13 +224,13 @@ class AutoFillCacheService
       _nativeBridgeUnavailable = false;
       _sessionToken = token;
     } on MissingPluginException {
-      if (generation == _generation) {
+      if (generation == _sessionGeneration) {
         _accessRevoked = true;
         _nativeBridgeUnavailable = true;
       }
       return;
     } catch (_) {
-      if (generation == _generation) {
+      if (generation == _sessionGeneration) {
         _accessRevoked = true;
         _nativeBridgeUnavailable = false;
       }

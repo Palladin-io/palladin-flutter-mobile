@@ -51,8 +51,14 @@
   handlers. A host-specific App Link alone is not browser capability. The probe
   uses a reserved `.invalid` host solely for local intent resolution, never a
   network request; an unavailable capability check fails closed.
-- Manifest package visibility includes Chrome plus HTTPS/BROWSABLE handlers,
-  the capability needed to query App Link authority. It does not request
+- Manifest package visibility includes Chrome plus HTTPS/BROWSABLE handlers
+  using an explicit `host="*"` query. A scheme-only query matches browsers but
+  misses handlers with concrete App Link hosts, causing the provider UID
+  to receive `NameNotFoundException` even when shell inspection shows verified
+  links. The wildcard is only a package-visibility capability; every credential
+  release still requires exact verified hosts or the separate manual flow.
+  See [Android query declarations](https://developer.android.com/training/package-visibility/declaring).
+  It does not request
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
@@ -234,7 +240,10 @@ References: [Android provider activation](https://developer.android.com/identity
    `autofillDomains` MemberIndex policy remain unavailable until re-projected.
    AutoFill and Dashboard search use the same `MemberIndexPreparationService`
    single-flight operation, so simultaneous unlock listeners cannot start a
-   second Vault-list request or a second snapshot chain. AutoFill awaits that
+   second Vault-list request or a second snapshot chain. Native activation
+   has its own session epoch: a foreground/reconnect rebuild queued while
+   activation is pending cannot discard the new token. A replacement session
+   or revocation still invalidates older activation callbacks. AutoFill awaits that
    complete operation before reading the runtime index, preventing an empty-cache
    race while the first sync is still starting. Offline restart reopens the
    complete persisted policy-2 generation without a network call; an expired
@@ -258,6 +267,13 @@ References: [Android provider activation](https://developer.android.com/identity
    durable Member sync commit (including an ordinary Entry-list refresh)
    coalesces into the same local-only candidate rebuild after the current index
    publication tail, without starting another sync or per-Entry request.
+   Concurrent foreground and durable consumers share an in-flight publication
+   only for the same session, commit sequence and complete Vault set. The
+   coordinator detaches it on completion and skips already-consumed durable
+   updates. A later explicit foreground repair always rebuilds, including after
+   native quarantine without a Dart commit. New commits (including refreshed
+   leases), native denies and session changes also require a fresh publication;
+   the publication record contains no credential or key material.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.
@@ -276,6 +292,43 @@ References: [Android provider activation](https://developer.android.com/identity
    durably quarantines the unusable generation before best-effort artifact and
    iOS identity cleanup; the next unlocked synchronization creates a fresh
    dedicated key and cache.
+
+## Android form recognition
+
+Android WebView containers can report `webDomain=""` while their virtual inputs
+report the page host. The parser ignores only this exact empty sentinel, just as
+it ignores null. Whitespace, malformed nonempty hosts and distinct real hosts
+remain in the domain set and fail origin validation. Empty-only browser requests
+remain rejected; absent-domain native requests retain the explicit chooser policy.
+
+Login requests may contain a username, a password, or both. Username-first steps
+still require the same origin, cache and biometric checks; their response contains
+only the recognized username targets. A later password step is a fresh request.
+Neither the service nor either authenticated response path requires a password
+field on the username step.
+
+The parser reads Android autofill hints/input variations and HTML `input`
+`autocomplete` tokens and `type`. Explicit username identifiers (`username`,
+`user_name`, `email`, `email_address`, `login`) are supported as native text-field
+resource names or HTML text-input `name`/`id`. It does not guess that an arbitrary
+text field, search field or preceding sibling is a username. `new-password`
+remains a generation-only target; explicit OTP hints take precedence over a masked
+password input type so an account password cannot be sent to an OTP field.
+
+The October 2026 audit compared primary implementations at pinned commits:
+[Bitwarden field classification](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/util/ViewNodeExtensions.kt)
+and [login partition selection](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/parser/AutofillParserImpl.kt)
+use HTML/native metadata and permit a username login partition.
+[KeePassDX's parser](https://github.com/Kunzisoft/KeePassDX/blob/25493ea30139adab14d937602f28d5243d3f9ecc/app/src/main/java/com/kunzisoft/keepass/credentialprovider/autofill/StructureParser.kt)
+also reads HTML semantics and prioritizes OTP, but its login result still requires
+a password. Both use broader username heuristics than Palladin. This comparison
+informed independent changes; no competitor implementation was copied.
+
+JVM parser regressions mock framework input nodes, exercise the production
+traversal and assert resulting target IDs. They establish recognition, not OS
+presentation or biometric completion. The Android emulator harness separately
+exercises system callbacks; Samsung/Chrome/Allegro release behavior remains a
+physical-device acceptance check.
 
 ## Android dropdown presentation
 

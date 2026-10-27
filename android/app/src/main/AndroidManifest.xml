@@ -98,11 +98,13 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
-        <!-- Scope visibility to apps that declare HTTPS links for OS origin verification. -->
+        <!-- An explicit wildcard host includes host-specific App Link handlers;
+             a scheme-only query sees browsers but misses those native apps.
+             This grants visibility only; origin authorization remains exact-host. -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="https" />
+            <data android:scheme="https" android:host="*" />
         </intent>
         <!-- AutofillOriginVerifier must inspect the exact allowlisted Chrome
              package flags. Keep this narrow; never request QUERY_ALL_PACKAGES. -->

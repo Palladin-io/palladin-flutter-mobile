@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <application android:label="Palladin synthetic provider" android:allowBackup="false" android:theme="@style/AutofillAuthenticationTheme">
+        <activity android:name="io.palladin.mobile.MainActivity" android:exported="true"/>
+        <activity android:name="io.palladin.mobile.autofill.AutofillAuthenticationActivity" android:exported="false" android:noHistory="true"/>
+        <service android:name="io.palladin.mobile.autofill.PalladinAutofillService" android:exported="true" android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService"/>
+            </intent-filter>
+            <meta-data android:name="android.autofill" android:resource="@xml/autofill_service"/>
+        </service>
+    </application>
+</manifest>

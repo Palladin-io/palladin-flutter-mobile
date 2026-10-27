@@ -60,6 +60,7 @@ final class DurableAutoFillRepairCoordinator {
   int _sequence = 0;
   final Set<AutoFillRepairDeny> _repairDenies = {};
   bool _disposed = false;
+  _AutoFillPublication? _publication;
 
   /// Starts consuming the authoritative post-commit stream once.
   void start() {
@@ -86,6 +87,7 @@ final class DurableAutoFillRepairCoordinator {
   /// Holds committed-index repairs after a native deny until the mutation or
   /// invalidation batch has installed its authoritative replacement.
   AutoFillRepairDeny suspendRepairs() {
+    _publication = null;
     final deny = AutoFillRepairDeny._();
     _repairDenies.add(deny);
     _retry?.cancel();
@@ -130,10 +132,7 @@ final class DurableAutoFillRepairCoordinator {
     _installKnownVaults(completeVaultIds);
     final covered = Map<String, int>.from(_pending);
     try {
-      await _autoFill.synchronizePrepared(
-        privateKey: privateKey,
-        vaultIds: completeVaultIds,
-      );
+      await _publishPrepared(session, completeVaultIds);
     } catch (_) {
       // Keep the deny owned by the caller so its retry remains fail-closed.
       rethrow;
@@ -152,6 +151,7 @@ final class DurableAutoFillRepairCoordinator {
   /// Drops all profile-scoped state on lock, logout, or session replacement.
   void clearSession() {
     _epoch += 1;
+    _publication = null;
     _knownVaultIds.clear();
     _pending.clear();
     _readySessionIdentity = null;
@@ -232,6 +232,9 @@ final class DurableAutoFillRepairCoordinator {
           if (_sameUpdates(covered, latest)) break;
           covered = latest;
         }
+        // Foreground repair may have consumed this commit while we awaited
+        // its publication tail. It must not trigger a second native rebuild.
+        if (covered.isEmpty) return;
         final currentSession = _currentSession();
         if (currentSession == null ||
             _repairDenies.isNotEmpty ||
@@ -243,9 +246,9 @@ final class DurableAutoFillRepairCoordinator {
           if (_epoch == initialEpoch) _pending.clear();
           return;
         }
-        await _autoFill.synchronizePrepared(
-          privateKey: currentSession.privateKey,
-          vaultIds: Set<String>.from(_knownVaultIds),
+        await _publishPrepared(
+          currentSession,
+          Set<String>.from(_knownVaultIds),
         );
         if (_epoch == initialEpoch) {
           for (final update in covered.entries) {
@@ -266,6 +269,40 @@ final class DurableAutoFillRepairCoordinator {
     }
   }
 
+  Future<void> _publishPrepared(
+    AutoFillRepairSession session,
+    Set<String> vaultIds,
+  ) {
+    final previous = _publication;
+    if (previous != null &&
+        previous.sequence == _sequence &&
+        identical(previous.sessionIdentity, session.identity) &&
+        previous.vaultIds.length == vaultIds.length &&
+        previous.vaultIds.containsAll(vaultIds)) {
+      return previous.completion;
+    }
+    // Share only concurrent consumers of this commit. Native quarantine can
+    // invalidate a completed cache without a Dart event, so later foreground
+    // recovery must rebuild even when the local ciphertext has not changed.
+    // The record contains no key; its Future is detached on every completion.
+    final publication = _AutoFillPublication(
+      sequence: _sequence,
+      sessionIdentity: session.identity,
+      vaultIds: Set<String>.unmodifiable(vaultIds),
+    );
+    _publication = publication;
+    publication.completion =
+        Future<void>.sync(
+          () => _autoFill.synchronizePrepared(
+            privateKey: session.privateKey,
+            vaultIds: vaultIds,
+          ),
+        ).whenComplete(() {
+          if (identical(_publication, publication)) _publication = null;
+        });
+    return publication.completion;
+  }
+
   bool _sameUpdates(Map<String, int> left, Map<String, int> right) {
     if (left.length != right.length) return false;
     for (final entry in left.entries) {
@@ -273,4 +310,17 @@ final class DurableAutoFillRepairCoordinator {
     }
     return true;
   }
+}
+
+final class _AutoFillPublication {
+  _AutoFillPublication({
+    required this.sequence,
+    required this.sessionIdentity,
+    required this.vaultIds,
+  });
+
+  final int sequence;
+  final Object sessionIdentity;
+  final Set<String> vaultIds;
+  late final Future<void> completion;
 }

@@ -92,6 +92,60 @@ void main() {
     );
   }
 
+  test('synthetic AutoFill rebuild opens each eligible credential once', () async {
+    for (final count in [100, 500]) {
+      for (final delayMs in [0, 2]) {
+        clearInteractions(bridge);
+        final indexes = List.generate(
+          count,
+          (i) => MemberIndexEntry(
+            entryId: 'entry-$i',
+            entryType: EntryType.credential.toWire(),
+            memberLabel: 'Synthetic',
+            searchFields: const [],
+            revision: 'r-1',
+            currentKeyVersion: 1,
+            state: MemberEntryState.active,
+            autofillDomains: const ['example.com'],
+          ),
+        );
+        when(() => memberIndex.entries('vault-1')).thenReturn(indexes);
+        var opens = 0;
+        when(
+          () => localEntries.revealCurrentWithAuthority(
+            vaultId: 'vault-1',
+            entryId: any(named: 'entryId'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((call) async {
+          opens++;
+          if (delayMs > 0) {
+            await Future<void>.delayed(Duration(milliseconds: delayMs));
+          }
+          return _reveal(entryId: call.namedArguments[#entryId] as String);
+        });
+        final watch = Stopwatch()..start();
+        await service.synchronizePrepared(
+          privateKey: Uint8List(32),
+          vaultIds: ['vault-1'],
+        );
+        watch.stop();
+        final payload =
+            verify(
+                  () => bridge.replaceCache(captureAny(), sessionToken: 1),
+                ).captured.single
+                as AutoFillCachePayload;
+        expect(payload.records, hasLength(count));
+        expect(opens, count);
+        // Synthetic async reveal delay; excludes real native/SQLite/crypto time.
+        // ignore: avoid_print
+        print(
+          'AutoFill count=$count delayMs=$delayMs elapsedMs=${watch.elapsedMilliseconds} opens=$opens',
+        );
+      }
+    }
+  });
+
   test('normalizes URL hosts and rejects ambiguous identifiers', () {
     expect(
       AutoFillCacheService.normalizeDomain('https://WWW.Example.com/login'),
@@ -467,6 +521,49 @@ void main() {
       await recreated.synchronize(privateKey: Uint8List(32));
 
       verify(() => bridge.replaceCache(any(), sessionToken: 41)).called(1);
+    },
+  );
+
+  test(
+    'prepared repair during activation retains the native session token',
+    () async {
+      final activation = Completer<int>();
+      when(bridge.beginCacheSession).thenAnswer((_) => activation.future);
+      stubCredentialRebuild();
+      final begin = service.beginSession();
+      final repair = service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: ['vault-1'],
+      );
+      activation.complete(7);
+      await begin;
+      await repair;
+      verify(() => bridge.replaceCache(any(), sessionToken: 7)).called(1);
+      verifyNever(bridge.revokeCacheAccess);
+    },
+  );
+
+  test(
+    'revocation during activation prevents queued repair publication',
+    () async {
+      final activation = Completer<int>();
+      when(bridge.beginCacheSession).thenAnswer((_) => activation.future);
+      stubCredentialRebuild();
+      final begin = service.beginSession();
+      final repair = service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: ['vault-1'],
+      );
+      await service.revokeAccess();
+      activation.complete(7);
+      await begin;
+      await repair;
+      verifyNever(
+        () => bridge.replaceCache(
+          any(),
+          sessionToken: any(named: 'sessionToken'),
+        ),
+      );
     },
   );
 
@@ -1123,13 +1220,14 @@ VaultEntity _vault() => VaultEntity(
 );
 
 LocalCurrentEntryReveal _reveal({
+  String entryId = 'entry-1',
   String revision = 'r-1',
   int keyVersion = 1,
   MemberOfflineAccessContext? accessContext,
 }) => LocalCurrentEntryReveal(
   snapshot: CanonicalEntrySnapshot(
     entry: {
-      'id': 'entry-1',
+      'id': entryId,
       'organizationId': 'org-1',
       'vaultId': 'vault-1',
       'state': 'active',
