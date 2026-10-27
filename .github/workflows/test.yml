@@ -2,6 +2,11 @@ name: Test
 
 on:
   workflow_dispatch:
+    inputs:
+      autofill_presentations:
+        description: Run four synthetic Android AutoFill presentation previews
+        type: boolean
+        default: false
   workflow_call:
   push:
     branches: [main]
@@ -104,3 +109,75 @@ jobs:
               "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf '\nFailure details stay in the failing check log; this report contains only check outcomes.\n'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  autofill-presentations:
+    name: Synthetic Android AutoFill presentations
+    if: github.event_name == 'workflow_dispatch' && inputs.autofill_presentations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare isolated Android tooling
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+          curl --fail --location --silent --show-error --max-time 180 \
+            https://services.gradle.org/distributions/gradle-8.14-bin.zip \
+            --output "$RUNNER_TEMP/gradle.zip"
+          printf '%s  %s\n' '61ad310d3c7d3e5da131b76bbf22b5a4c0786e9d892dae8c1658d4b484de3caa' "$RUNNER_TEMP/gradle.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+      - name: Build synthetic provider and run native JVM tests
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/gradle-8.14/bin/gradle" --no-daemon \
+            -p tool/android-autofill-harness :provider:testDebugUnitTest :provider:assembleDebug
+      - name: Render four synthetic presentations
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/palladin-presentation-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name palladin-presentation \
+            --package 'system-images;android-35;google_apis;x86_64' --device pixel_2
+          "$ANDROID_HOME/emulator/emulator" -avd palladin-presentation \
+            -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim \
+            -gpu swiftshader_indirect -memory 2048 > "$RUNNER_TEMP/presentation-emulator.log" 2>&1 &
+          emulator_pid=$!
+          trap 'timeout 10 adb -s emulator-5554 emu kill >/dev/null 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
+          # Expansion must happen inside the bounded boot-wait subprocess.
+          # shellcheck disable=SC2016
+          timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done'
+          adb -s emulator-5554 shell input keyevent 82
+          apk=tool/android-autofill-harness/provider/build/outputs/apk/debug/provider-debug.apk
+          timeout 45 adb -s emulator-5554 install -r "$apk"
+          evidence=tool/android-autofill-harness/build/presentation
+          mkdir -p "$evidence"
+          git rev-parse HEAD > "$evidence/commit.txt"
+          sha256sum "$apk" > "$evidence/provider-apk-sha256.txt"
+          "$ANDROID_HOME/emulator/emulator" -version > "$evidence/emulator-version.txt" 2>&1
+          timeout 180 python3 -u tool/android-autofill-harness/presentation.py \
+            --serial emulator-5554 | tee "$evidence/outcomes.txt"
+          test "$(wc -l < "$evidence/outcomes.txt")" -eq 4
+      - name: Upload synthetic presentation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: autofill-presentations-${{ github.sha }}
+          path: tool/android-autofill-harness/build/presentation/
+          if-no-files-found: ignore
+          retention-days: 7
