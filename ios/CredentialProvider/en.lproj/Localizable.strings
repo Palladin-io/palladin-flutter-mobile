@@ -12,3 +12,6 @@
 "credential_provider_manual_confirm_title" = "Fill this credential?";
 "credential_provider_manual_confirm_message" = "Credential: %@\nSaved domains: %@\n\nPalladin cannot verify that this app or website belongs to these domains. Fill only if you trust it.";
 "credential_provider_manual_fill" = "Fill once";
+"credential_provider_save_prompt" = "Keep this password for %@ temporarily? After confirming with biometrics, open Palladin within two minutes, unlock the same account, choose a Vault and confirm Create. This step does not save an Entry in your Vault. Restarting Palladin discards this request.";
+"credential_provider_save_action" = "Keep for review in Palladin";
+"credential_provider_save_biometric" = "Authorize the temporary password handoff to Palladin";
