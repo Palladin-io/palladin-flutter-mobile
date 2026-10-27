@@ -27,6 +27,8 @@ import 'core/widgets/privacy_cover.dart';
 import 'features/agents/presentation/bloc/agents_cubit.dart';
 import 'features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/autofill/data/autofill_save_controller.dart';
+import 'features/autofill/presentation/autofill_save_page.dart';
 import 'features/autofill/data/autofill_cache_service.dart';
 import 'features/autofill/data/generated_password_history_bridge.dart';
 import 'features/autofill/data/autofill_mutation_notifier.dart';
@@ -116,6 +118,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
   final GeneratedPasswordHistoryBridge _generatedPasswordHistory =
       GeneratedPasswordHistoryBridge();
+  final AutoFillSaveController _autoFillSave = AutoFillSaveController();
+  StreamSubscription<AuthState>? _autoFillSaveAuth;
   Future<String?> _historyActivation = Future<String?>.value(null);
   final OrganizationMemberDirectoryService _memberDirectory =
       getIt<OrganizationMemberDirectoryService>();
@@ -159,6 +163,31 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _autoFillSave.biometricPrompt = () {
+      final context = _navigatorKey.currentContext;
+      return context == null
+          ? null
+          : AppLocalizations.of(context)?.generatedPasswordBiometric;
+    };
+    _autoFillSave.onDraft = (draft) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final navigator = _navigatorKey.currentState;
+        if (!mounted || !draft.valid || navigator == null) {
+          _autoFillSave.cancel();
+          return;
+        }
+        unawaited(
+          navigator.push<void>(
+            MaterialPageRoute(
+              builder: (_) =>
+                  AutoFillSavePage(controller: _autoFillSave, draft: draft),
+            ),
+          ),
+        );
+      });
+    };
+    _autoFillSaveAuth = _authBloc.stream.listen(_synchronizeAutoFillSave);
+    _synchronizeAutoFillSave(_authBloc.state);
     _inboxRepair =
         NotificationForegroundRepair(
           auth: _authBloc,
@@ -233,6 +262,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    unawaited(_autoFillSaveAuth?.cancel());
+    _autoFillSave.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_inboxRepair.dispose());
     _vaultInvalidationRepairRetry?.cancel();
@@ -248,8 +279,24 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  void _synchronizeAutoFillSave(AuthState state) {
+    unawaited(
+      _autoFillSave.synchronize(
+        state is AuthAuthenticated ? state.userId : null,
+        unlocked:
+            state is AuthAuthenticated &&
+            !state.isVaultLocked &&
+            state.privateKey != null,
+      ),
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_autoFillSave.resume());
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _autoFillSave.background();
+    }
     _inboxRepair.setForeground(state == AppLifecycleState.resumed);
     final obscured = state != AppLifecycleState.resumed;
     if (obscured != _obscured) {

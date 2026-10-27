@@ -26,6 +26,8 @@ class _EntryCrypto extends Mock implements EntryV2CryptoService {}
 void main() {
   const vaultId = '22222233-4455-4677-8899-aabbccddeeff';
   const entryId = '33333344-5566-4788-99aa-bbccddeeff00';
+  String? lockAt;
+  late VaultSessionStore sessions;
   late _Entries entries;
   late _Vaults vaults;
   late _VaultCrypto vaultCrypto;
@@ -66,6 +68,8 @@ void main() {
   });
 
   setUp(() {
+    lockAt = null;
+    sessions = VaultSessionStore()..setMemberPrivateKey(Uint8List(32));
     entries = _Entries();
     vaults = _Vaults();
     vaultCrypto = _VaultCrypto();
@@ -81,16 +85,18 @@ void main() {
     when(
       () => vaults.getEncryptedVault(vaultId),
     ).thenAnswer((_) async => {'opaque': true});
-    when(
-      () => entries.issueCreationChallenge(vaultId),
-    ).thenAnswer((_) async => entryId);
+    when(() => entries.issueCreationChallenge(vaultId)).thenAnswer((_) async {
+      if (lockAt == 'challenge') sessions.clear();
+      return entryId;
+    });
     when(
       () => vaultCrypto.openVaultProjection(
         json: any(named: 'json'),
         memberPrivateKey: any(named: 'memberPrivateKey'),
       ),
-    ).thenAnswer(
-      (_) async => OpenedVaultProjection(
+    ).thenAnswer((_) async {
+      if (lockAt == 'open') sessions.clear();
+      return OpenedVaultProjection(
         organizationId: '00112233-4455-4677-8899-aabbccddeeff',
         vaultId: vaultId,
         vaultKey: vaultKey,
@@ -116,8 +122,8 @@ void main() {
           recipientKeyVersion: 1,
           recipientFingerprint: 'fp',
         ),
-      ),
-    );
+      );
+    });
     when(
       () => entryCrypto.seal(
         organizationId: any(named: 'organizationId'),
@@ -132,20 +138,26 @@ void main() {
         vaultKey: any(named: 'vaultKey'),
         vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
       ),
-    ).thenAnswer(
-      (_) async => const EntryEnvelopeBundleModel(
+    ).thenAnswer((_) async {
+      if (lockAt == 'seal') sessions.clear();
+      return const EntryEnvelopeBundleModel(
         entryKey: {'descriptor': 'entry'},
         memberIndex: {'descriptor': 'index'},
         memberSecret: {'descriptor': 'secret'},
         agentDiscovery: {'descriptor': 'discovery'},
-      ),
-    );
+      );
+    });
     when(
-      () => entries.createCanonicalEntry(vaultId, any()),
+      () => entries.createCanonicalEntry(
+        vaultId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
     ).thenAnswer((_) async {});
   });
 
   KeyEntryCreationService service() => KeyEntryCreationService(
+    sessions: sessions,
     entries: entries,
     vaults: vaults,
     vaultCrypto: vaultCrypto,
@@ -153,8 +165,117 @@ void main() {
     autoFillMutationNotifier: autoFillMutationNotifier,
   );
 
+  test('lock during Vault fetch prevents challenge and create', () async {
+    when(() => vaults.getEncryptedVault(vaultId)).thenAnswer((_) async {
+      sessions.clear();
+      return {'opaque': true};
+    });
+    await expectLater(
+      service().create(
+        vaultId: vaultId,
+        label: 'Synthetic',
+        description: '',
+        icon: '',
+        content: {'type': 'KEY', 'value': 'synthetic'},
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsA(isA<StateError>()),
+    );
+    verifyNever(() => entries.issueCreationChallenge(vaultId));
+    verifyNever(
+      () => entries.createCanonicalEntry(
+        vaultId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    );
+  });
+
+  for (final stage in ['challenge', 'open', 'seal', 'invalidation']) {
+    test('lock during $stage prevents encrypted create', () async {
+      lockAt = stage;
+      if (stage == 'invalidation') {
+        autoFillMutationNotifier.attachHandler((action) async {
+          if (action == AutoFillMutationAction.invalidate) sessions.clear();
+        });
+        addTearDown(autoFillMutationNotifier.detachHandler);
+      }
+      await expectLater(
+        service().create(
+          vaultId: vaultId,
+          label: 'Synthetic',
+          description: '',
+          icon: '',
+          content: {'type': 'KEY', 'value': 'synthetic'},
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      verifyNever(
+        () => entries.createCanonicalEntry(
+          vaultId,
+          any(),
+          isSessionCurrent: any(named: 'isSessionCurrent'),
+        ),
+      );
+      if (stage == 'open' || stage == 'seal' || stage == 'invalidation') {
+        expect(vaultKey, everyElement(0));
+        expect(discoveryKey, everyElement(0));
+      }
+    });
+  }
+
+  test('source revoked during cache invalidation blocks create', () async {
+    var verified = true;
+    autoFillMutationNotifier.attachHandler((action) async {
+      if (action == AutoFillMutationAction.invalidate) verified = false;
+    });
+    addTearDown(autoFillMutationNotifier.detachHandler);
+    await expectLater(
+      service().createCredential(
+        vaultId: vaultId,
+        label: 'Synthetic',
+        description: '',
+        icon: '',
+        content: {
+          'type': 'CREDENTIAL',
+          'username': 'synthetic',
+          'password': 'synthetic',
+        },
+        memberPrivateKey: Uint8List(32),
+        exposeUsername: false,
+        exposeDomain: false,
+        validateOperation: () async => verified,
+      ),
+      throwsA(isA<StateError>()),
+    );
+    verifyNever(
+      () => entries.createCanonicalEntry(
+        vaultId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    );
+  });
+
+  test('stale caller key cannot adopt a newly unlocked session', () async {
+    await expectLater(
+      service().create(
+        vaultId: vaultId,
+        label: 'Synthetic',
+        description: '',
+        icon: '',
+        content: {'type': 'KEY', 'value': 'synthetic'},
+        memberPrivateKey: Uint8List(32)..fillRange(0, 32, 7),
+      ),
+      throwsA(isA<StateError>()),
+    );
+    verifyNever(() => vaults.getEncryptedVault(vaultId));
+  });
+
   test('uses canonical projection opener and Entry v2 sealer', () async {
     final privateKey = Uint8List(32)..fillRange(0, 32, 9);
+    sessions.setMemberPrivateKey(privateKey);
     await service().create(
       vaultId: vaultId,
       label: 'Production API',
@@ -165,7 +286,11 @@ void main() {
     );
     final request =
         verify(
-              () => entries.createCanonicalEntry(vaultId, captureAny()),
+              () => entries.createCanonicalEntry(
+                vaultId,
+                captureAny(),
+                isSessionCurrent: any(named: 'isSessionCurrent'),
+              ),
             ).captured.single
             as Map<String, Object?>;
     expect(request['entryId'], entryId);
@@ -200,9 +325,13 @@ void main() {
     () async {
       final requests = <Object?>[];
       var attempt = 0;
-      when(() => entries.createCanonicalEntry(vaultId, any())).thenAnswer((
-        call,
-      ) async {
+      when(
+        () => entries.createCanonicalEntry(
+          vaultId,
+          any(),
+          isSessionCurrent: any(named: 'isSessionCurrent'),
+        ),
+      ).thenAnswer((call) async {
         requests.add(call.positionalArguments[1]);
         if (attempt++ == 0) {
           throw DioException(
@@ -269,12 +398,24 @@ void main() {
       ),
     );
 
-    verifyNever(() => entries.createCanonicalEntry(vaultId, any()));
+    verifyNever(
+      () => entries.createCanonicalEntry(
+        vaultId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    );
     expect(autoFillActions, [AutoFillMutationAction.invalidate]);
   });
 
   test('ambiguous create failure leaves AutoFill invalidated', () async {
-    when(() => entries.createCanonicalEntry(vaultId, any())).thenThrow(
+    when(
+      () => entries.createCanonicalEntry(
+        vaultId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenThrow(
       DioException(
         requestOptions: RequestOptions(path: '/entries'),
         type: DioExceptionType.connectionError,
@@ -293,7 +434,13 @@ void main() {
       throwsA(isA<DioException>()),
     );
 
-    verify(() => entries.createCanonicalEntry(vaultId, any())).called(2);
+    verify(
+      () => entries.createCanonicalEntry(
+        vaultId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).called(2);
     expect(autoFillActions, [AutoFillMutationAction.invalidate]);
   });
 

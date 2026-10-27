@@ -3781,5 +3781,10 @@
   "autofillChromeSetupTitle": "Set up AutoFill in Chrome",
   "autofillChromeSetupHint": "Palladin is selected in Android. In Chrome, choose Autofill using another service, then confirm and restart Chrome.",
   "autofillOpenChromeSettings": "Open Chrome settings",
-  "autofillChromeSettingsError": "Could not open Chrome settings. In Chrome, open Settings → Autofill services."
+  "autofillChromeSettingsError": "Could not open Chrome settings. In Chrome, open Settings → Autofill services.",
+  "autoFillSaveTitle": "Save login",
+  "autoFillSaveWebSource": "Verified HTTPS website",
+  "autoFillSaveNativeSource": "Verified application association",
+  "autoFillSaveHost": "Choose the exact host",
+  "autoFillSaveUnavailable": "The login could not be saved safely. Try again or cancel."
 }

@@ -60,6 +60,7 @@ class PalladinAutofillService : AutofillService() {
             return
         }
 
+        val saveRequestId = AutofillSaveCoordinator.prepare(this, structure)
         val fields = CredentialFieldIds.from(structure)
         val domains = CredentialFieldIds.domainsFrom(structure)
         val schemes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -108,11 +109,14 @@ class PalladinAutofillService : AutofillService() {
             })
         ) {
             lastRequest = lastRequest.copy(result = RequestResult.REJECTED)
-            callback.onSuccess(null)
+            callback.onSuccess(saveRequestId?.let {
+                AutofillSaveCoordinator.response(FillResponse.Builder(), it).build()
+            })
             return
         }
 
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
+            putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, saveRequestId)
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
             putExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, schemes.firstOrNull())
             putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, origin.mode.name)
@@ -148,7 +152,7 @@ class PalladinAutofillService : AutofillService() {
             this,
             getString(if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label),
         )
-        val responseBuilder = FillResponse.Builder()
+        val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), saveRequestId)
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
             responseBuilder.setAuthentication(
@@ -187,9 +191,12 @@ class PalladinAutofillService : AutofillService() {
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
-        // Saving credentials requires an explicit user-confirmation flow and
-        // is intentionally outside the current MVP implementation.
-        callback.onSuccess()
+        try {
+            AutofillSaveCoordinator.save(this, request, callback)
+        } catch (_: Exception) {
+            AutofillSaveCoordinator.clear()
+            callback.onFailure(getString(R.string.autofill_save_unavailable))
+        }
     }
 
     private fun availability(available: Boolean): CheckAvailability =
@@ -200,6 +207,7 @@ class PalladinAutofillService : AutofillService() {
         val passwordIds: List<AutofillId>,
         val newPasswordIds: List<AutofillId>,
         val currentPasswordIds: List<AutofillId>,
+        val confirmationIds: List<AutofillId>,
     ) {
         val allIds: List<AutofillId> = (usernameIds + passwordIds + newPasswordIds).distinct()
 
@@ -209,6 +217,7 @@ class PalladinAutofillService : AutofillService() {
                 val passwords = mutableListOf<AutofillId>()
                 val newPasswords = mutableListOf<AutofillId>()
                 val currentPasswords = mutableListOf<AutofillId>()
+                val confirmations = mutableListOf<AutofillId>()
 
                 for (index in 0 until structure.windowNodeCount) {
                     collect(
@@ -217,9 +226,10 @@ class PalladinAutofillService : AutofillService() {
                         passwords,
                         newPasswords,
                         currentPasswords,
+                        confirmations,
                     )
                 }
-                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords)
+                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords, confirmations)
             }
 
             fun domainsFrom(structure: AssistStructure): Set<String> {
@@ -257,13 +267,16 @@ class PalladinAutofillService : AutofillService() {
                 passwords: MutableList<AutofillId>,
                 newPasswords: MutableList<AutofillId>,
                 currentPasswords: MutableList<AutofillId>,
+                confirmations: MutableList<AutofillId>,
             ) {
                 if (node.visibility != View.VISIBLE) return
                 val id = node.autofillId
                 if (id != null && node.isEnabled && node.isCredentialTarget()) {
+                    val oneTimeCode = node.hasHint("one-time-code") || node.hasHint("smsOTPCode") ||
+                        node.hasHint("2faAppOTPCode") || node.hasHint("emailOTPCode")
+                    if (!oneTimeCode && node.isPasswordConfirmation()) confirmations += id
                     when {
-                        node.hasHint("one-time-code") || node.hasHint("smsOTPCode") ||
-                            node.hasHint("2faAppOTPCode") || node.hasHint("emailOTPCode") -> Unit
+                        oneTimeCode -> Unit
                         node.hasHint(NEW_PASSWORD_HINT) || node.hasHint(WEB_NEW_PASSWORD_HINT) ->
                             newPasswords += id
                         node.isPasswordConfirmation() -> Unit
@@ -277,7 +290,7 @@ class PalladinAutofillService : AutofillService() {
                     }
                 }
                 for (index in 0 until node.childCount) {
-                    collect(node.getChildAt(index), usernames, passwords, newPasswords, currentPasswords)
+                    collect(node.getChildAt(index), usernames, passwords, newPasswords, currentPasswords, confirmations)
                 }
             }
 

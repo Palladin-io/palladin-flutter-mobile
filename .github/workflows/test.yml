@@ -7,6 +7,11 @@ on:
         description: Run synthetic Android AutoFill runtime and presentation checks
         type: boolean
         default: false
+      autofill_save:
+        description: Run the isolated synthetic Android password-save handoff
+        required: false
+        type: boolean
+        default: false
   workflow_call:
   push:
     branches: [main]
@@ -109,6 +114,98 @@ jobs:
               "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf '\nFailure details stay in the failing check log; this report contains only check outcomes.\n'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  autofill-save:
+    name: Synthetic Android password-save handoff
+    if: github.event_name == 'workflow_dispatch' && inputs.autofill_save
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.41.4
+      - name: Prepare isolated Android tooling
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libpulse0
+          test -e /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+          curl --fail --location --silent --show-error --max-time 180 \
+            https://services.gradle.org/distributions/gradle-8.14-bin.zip \
+            --output "$RUNNER_TEMP/gradle.zip"
+          printf '%s  %s\n' '61ad310d3c7d3e5da131b76bbf22b5a4c0786e9d892dae8c1658d4b484de3caa' "$RUNNER_TEMP/gradle.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+      - name: Verify production native AutoFill logic
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/gradle-8.14/bin/gradle" --no-daemon \
+            -p tool/android-autofill-harness :provider:testDebugUnitTest
+      - name: Build and verify isolated debug APKs
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tool/android-autofill-save-harness/build.py \
+            --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle" \
+            --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt"
+          flutter test --no-pub tool/android-autofill-save-harness/test/synthetic_draft_test.dart
+          python3 -m unittest discover -s tool/android-autofill-save-harness/test -p 'test_*.py'
+      - name: Validate actual OS save and Flutter handoff
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/palladin-save-avd"
+          evidence=tool/android-autofill-save-harness/build
+          mkdir -p "$ANDROID_AVD_HOME" "$evidence"
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          export ADB="$ANDROID_HOME/platform-tools/adb"
+          timeout 10 "$ADB" version > "$evidence/adb-version.txt"
+          timeout 15 "$ADB" start-server
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name palladin-save \
+            --package 'system-images;android-35;google_apis;x86_64' --device pixel_2
+          "$ANDROID_HOME/emulator/emulator" -avd palladin-save \
+            -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim \
+            -gpu swiftshader_indirect -memory 2048 > "$evidence/emulator.log" 2>&1 &
+          export emulator_pid=$!
+          trap 'timeout 10 adb -s emulator-5554 emu kill >/dev/null 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
+          # Expand device state inside the bounded subprocess, checking emulator liveness.
+          # shellcheck disable=SC2016
+          timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do kill -0 "$emulator_pid" 2>/dev/null || exit 1; sleep 2; done'
+          timeout 10 adb -s emulator-5554 shell input keyevent 82
+          for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
+            timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
+          done
+          timeout 360 python3 -u tool/android-autofill-save-harness/exercise.py --serial emulator-5554
+      - name: Upload synthetic save evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: autofill-save-${{ github.sha }}
+          path: |
+            tool/android-autofill-save-harness/build/artifacts.json
+            tool/android-autofill-save-harness/build/validation.json
+            tool/android-autofill-save-harness/build/emulator.log
+            tool/android-autofill-save-harness/build/adb-version.txt
+            tool/android-autofill-save-harness/build/failure.json
+            tool/android-autofill-save-harness/build/synthetic-failure.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   autofill-presentations:
     name: Synthetic Android AutoFill runtime

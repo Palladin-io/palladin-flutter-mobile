@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -28,10 +30,13 @@ class _FakeAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     callCount++;
-    return ResponseBody.fromString('{}', statusFor(options),
-        headers: {
-          Headers.contentTypeHeader: [Headers.jsonContentType],
-        });
+    return ResponseBody.fromString(
+      '{}',
+      statusFor(options),
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
   }
 }
 
@@ -50,6 +55,91 @@ void main() {
     dio.interceptors.add(AuthInterceptor(tokenStorage: storage, dio: dio));
     return dio;
   }
+
+  test(
+    'lock during real 401 refresh neither adopts tokens nor retries create',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      var current = true;
+      var creates = 0;
+      server.listen((request) async {
+        await request.drain<void>();
+        request.response.headers.contentType = ContentType.json;
+        if (request.uri.path == '/api/auth/refresh') {
+          current = false;
+          request.response.write(
+            jsonEncode({
+              'accessToken': 'replacement',
+              'refreshToken': 'replacement-refresh',
+            }),
+          );
+        } else {
+          creates++;
+          request.response.statusCode = 401;
+          request.response.write('{}');
+        }
+        await request.response.close();
+      });
+      when(
+        () => storage.refreshToken,
+      ).thenAnswer((_) async => 'synthetic-refresh');
+      when(
+        () => storage.updateTokens(
+          accessToken: any(named: 'accessToken'),
+          refreshToken: any(named: 'refreshToken'),
+        ),
+      ).thenAnswer((_) async {});
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: 'http://127.0.0.1:${server.port}',
+          connectTimeout: const Duration(seconds: 3),
+          receiveTimeout: const Duration(seconds: 3),
+        ),
+      );
+      dio.interceptors.add(AuthInterceptor(tokenStorage: storage, dio: dio));
+      await expectLater(
+        dio.post<void>(
+          '/api/vaults/vault/entries',
+          data: {'ciphertext': 'opaque'},
+          options: Options(
+            extra: {AuthInterceptor.sessionGuardKey: () => current},
+          ),
+        ),
+        throwsA(isA<DioException>()),
+      );
+      expect(creates, 1);
+      verifyNever(
+        () => storage.updateTokens(
+          accessToken: any(named: 'accessToken'),
+          refreshToken: any(named: 'refreshToken'),
+        ),
+      );
+      verifyNever(() => storage.clearAll());
+    },
+  );
+
+  test('changed native source after token lookup prevents transport', () async {
+    final token = Completer<String?>();
+    when(() => storage.accessToken).thenAnswer((_) => token.future);
+    final adapter = _FakeAdapter((_) => 200);
+    final dio = buildDio(adapter);
+    var verified = true;
+    final request = dio.post<void>(
+      '/api/vaults/vault/entries',
+      options: Options(
+        extra: {
+          AuthInterceptor.sessionGuardKey: () => true,
+          'palladinDispatchGuard': () async => verified,
+        },
+      ),
+    );
+    final expectation = expectLater(request, throwsA(isA<DioException>()));
+    verified = false;
+    token.complete('synthetic');
+    await expectation;
+    expect(adapter.callCount, 0);
+  });
 
   for (final retry in [false, true]) {
     test(
@@ -89,16 +179,20 @@ void main() {
     );
   }
 
-  test(
-      'a 401 on /api/auth/refresh does NOT trigger another refresh and '
+  test('a 401 on /api/auth/refresh does NOT trigger another refresh and '
       'propagates the error', () async {
     final adapter = _FakeAdapter((_) => 401);
     final dio = buildDio(adapter);
 
     await expectLater(
       dio.post<dynamic>('/api/auth/refresh', data: {'refreshToken': 'x'}),
-      throwsA(isA<DioException>()
-          .having((e) => e.response?.statusCode, 'status', 401)),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.response?.statusCode,
+          'status',
+          401,
+        ),
+      ),
     );
 
     // Only the original refresh request was sent — the interceptor did not
@@ -109,20 +203,27 @@ void main() {
     verify(() => storage.clearAll()).called(1);
   });
 
-  test('a 401 on a normal request with no refresh token clears and propagates',
-      () async {
-    when(() => storage.refreshToken).thenAnswer((_) async => null);
-    final adapter = _FakeAdapter((_) => 401);
-    final dio = buildDio(adapter);
+  test(
+    'a 401 on a normal request with no refresh token clears and propagates',
+    () async {
+      when(() => storage.refreshToken).thenAnswer((_) async => null);
+      final adapter = _FakeAdapter((_) => 401);
+      final dio = buildDio(adapter);
 
-    await expectLater(
-      dio.get<dynamic>('/api/account'),
-      throwsA(isA<DioException>()
-          .having((e) => e.response?.statusCode, 'status', 401)),
-    );
+      await expectLater(
+        dio.get<dynamic>('/api/account'),
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.response?.statusCode,
+            'status',
+            401,
+          ),
+        ),
+      );
 
-    // No retry — the request was issued exactly once.
-    expect(adapter.callCount, 1);
-    verify(() => storage.clearAll()).called(1);
-  });
+      // No retry — the request was issued exactly once.
+      expect(adapter.callCount, 1);
+      verify(() => storage.clearAll()).called(1);
+    },
+  );
 }

@@ -131,11 +131,19 @@ class EntryRemoteDatasource {
 
   Future<void> createCanonicalEntry(
     String vaultId,
-    Map<String, dynamic> payload,
-  ) async {
+    Map<String, dynamic> payload, {
+    required bool Function() isSessionCurrent,
+    Future<bool> Function()? canDispatch,
+  }) async {
     await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/entries',
       data: payload,
+      options: Options(
+        extra: {
+          AuthInterceptor.sessionGuardKey: isSessionCurrent,
+          AuthInterceptor.dispatchGuardKey: ?canDispatch,
+        },
+      ),
     );
   }
 
