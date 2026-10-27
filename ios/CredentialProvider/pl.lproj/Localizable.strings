@@ -12,3 +12,6 @@
 "credential_provider_manual_confirm_title" = "Uzupełnić tym wpisem?";
 "credential_provider_manual_confirm_message" = "Wpis: %@\nZapisane domeny: %@\n\nPalladin nie może potwierdzić, że ta aplikacja lub witryna należy do tych domen. Uzupełnij tylko wtedy, gdy jej ufasz.";
 "credential_provider_manual_fill" = "Uzupełnij jednorazowo";
+"credential_provider_save_prompt" = "Zachować tymczasowo hasło dla %@? Po potwierdzeniu biometrią otwórz Palladin w ciągu dwóch minut, odblokuj to samo konto, wybierz Vault i potwierdź utworzenie. Ten krok nie zapisuje jeszcze Entry w Twoim Vault. Ponowne uruchomienie Palladin usuwa to żądanie.";
+"credential_provider_save_action" = "Zachowaj do sprawdzenia w Palladin";
+"credential_provider_save_biometric" = "Zatwierdź tymczasowe przekazanie hasła do Palladin";

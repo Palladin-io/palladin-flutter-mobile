@@ -25,6 +25,7 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             name: "io.palladin.mobile/autofill",
             binaryMessenger: registrar.messenger()
         )
+        PendingPasswordSavePlugin.register(with: registrar)
         let instance = PalladinAutoFillBridgePlugin()
         instance.historyQueue.async {
             try? GeneratedPasswordHistory().revokeAll()
