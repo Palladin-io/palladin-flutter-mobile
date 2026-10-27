@@ -261,10 +261,13 @@ References: [Android provider activation](https://developer.android.com/identity
    durable Member sync commit (including an ordinary Entry-list refresh)
    coalesces into the same local-only candidate rebuild after the current index
    publication tail, without starting another sync or per-Entry request.
-   Foreground and durable consumers share a publication only for the same
-   session, commit sequence and complete Vault set. New commits (including
-   refreshed leases), native denies, session changes and failed rebuilds require
-   a fresh publication; the coordinator retains no credential or key material.
+   Concurrent foreground and durable consumers share an in-flight publication
+   only for the same session, commit sequence and complete Vault set. The
+   coordinator detaches it on completion and skips already-consumed durable
+   updates. A later explicit foreground repair always rebuilds, including after
+   native quarantine without a Dart commit. New commits (including refreshed
+   leases), native denies and session changes also require a fresh publication;
+   the publication record contains no credential or key material.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.

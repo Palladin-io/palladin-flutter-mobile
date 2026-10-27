@@ -174,6 +174,25 @@ void main() {
     },
   );
 
+  test(
+    'explicit foreground repair retries after completed native publication',
+    () async {
+      // Native quarantine/biometric invalidation can happen without a Dart commit.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        await coordinator.synchronizePreparedIfAllowed(
+          privateKey: session!.privateKey,
+          vaultIds: const ['vault-a'],
+        );
+      }
+      verify(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).called(2);
+    },
+  );
+
   test('changed complete Vault set requires another publication', () async {
     await coordinator.synchronizePreparedIfAllowed(
       privateKey: session!.privateKey,

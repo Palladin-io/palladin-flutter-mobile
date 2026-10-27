@@ -232,6 +232,9 @@ final class DurableAutoFillRepairCoordinator {
           if (_sameUpdates(covered, latest)) break;
           covered = latest;
         }
+        // Foreground repair may have consumed this commit while we awaited
+        // its publication tail. It must not trigger a second native rebuild.
+        if (covered.isEmpty) return;
         final currentSession = _currentSession();
         if (currentSession == null ||
             _repairDenies.isNotEmpty ||
@@ -278,9 +281,10 @@ final class DurableAutoFillRepairCoordinator {
         previous.vaultIds.containsAll(vaultIds)) {
       return previous.completion;
     }
-    // Foreground preparation and the durable stream can observe the same
-    // commit. Share its rebuild without retaining credentials or key material.
-    // A new commit, native deny, session or complete Vault set requires repair.
+    // Share only concurrent consumers of this commit. Native quarantine can
+    // invalidate a completed cache without a Dart event, so later foreground
+    // recovery must rebuild even when the local ciphertext has not changed.
+    // The record contains no key; its Future is detached on every completion.
     final publication = _AutoFillPublication(
       sequence: _sequence,
       sessionIdentity: session.identity,
@@ -293,9 +297,8 @@ final class DurableAutoFillRepairCoordinator {
             privateKey: session.privateKey,
             vaultIds: vaultIds,
           ),
-        ).catchError((Object error, StackTrace stack) {
+        ).whenComplete(() {
           if (identical(_publication, publication)) _publication = null;
-          Error.throwWithStackTrace(error, stack);
         });
     return publication.completion;
   }
