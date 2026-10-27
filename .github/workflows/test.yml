@@ -181,6 +181,7 @@ jobs:
           path: |
             tool/android-autofill-harness/build/presentation/
             tool/android-autofill-harness/build/enrollment/
+            tool/android-autofill-harness/build/exercise/
             tool/android-autofill-harness/build/validation.json
           if-no-files-found: ignore
           retention-days: 7
