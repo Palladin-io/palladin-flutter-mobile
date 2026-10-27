@@ -97,6 +97,11 @@ def focus_field(required=True):
         raise AssertionError('Synthetic focus field not exposed by accessibility')
 
 
+def assert_web_origin(diagnosis):
+    assert (re.search(r'^domains=ONE$', diagnosis, re.M) and
+            re.search(r'^origin=VERIFIED$', diagnosis, re.M)), 'Web fixture did not report one verified domain'
+
+
 def authenticate():
     wait_for(lambda tree: any(n.get('text') == 'Unlock Palladin' and
                              n.get('package') == 'com.android.systemui' for n in tree),
@@ -114,6 +119,21 @@ def record_failure():
     destination = Path(__file__).resolve().parent / 'build/exercise' / (
         args.mode + ('-response' if args.inspect_response else '-handoff'))
     destination.mkdir(parents=True, exist_ok=True)
+    try:
+        diagnosis = command('shell', 'dumpsys', 'activity', 'service', service)
+        allowed = {
+            'domains': {'NOT_CHECKED', 'ZERO', 'ONE', 'AMBIGUOUS'},
+            'origin': {'NOT_CHECKED', 'QUERY_UNAVAILABLE', 'LINK_HANDLING_DISABLED', 'UNVERIFIED', 'VERIFIED'},
+            'result': {'NO_REQUEST', 'CHECKING', 'CANCELED', 'NO_STRUCTURE', 'REJECTED', 'RESPONSE_OFFERED'},
+        }
+        snapshot = {}
+        for line in diagnosis.splitlines():
+            key, separator, value = line.strip().partition('=')
+            if separator and value in allowed.get(key, set()):
+                snapshot[key] = value
+        (destination / 'request.json').write_text(json.dumps(snapshot, indent=2) + '\n')
+    except Exception:
+        pass
     try:
         screenshot = subprocess.check_output(
             [adb, '-s', args.serial, 'exec-out', 'screencap', '-p'], timeout=15)
@@ -193,6 +213,9 @@ try:
         print(args.mode + ': ' + outcome)
         if args.fill:
             assert args.expected == 'RESPONSE_OFFERED'
+            if args.mode.startswith('web'):
+                assert_web_origin(diagnosis)
+                print(args.mode + ': reported single verified web domain PASS')
             if not tap_text('Unlock Palladin to autofill'):
                 # The public fixture button issues AutofillManager.requestAutofill,
                 # which can expose the dropdown when the IME ignores inline UI.

@@ -36,12 +36,13 @@ class FormActivity : Activity() {
                 "web-disabled" -> "<input id='probe'><input type='text' autocomplete='username' disabled>"
                 else -> "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>"
             }
+            val fixtureUrl = if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
             web.loadDataWithBaseURL(
-                if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/",
+                fixtureUrl,
                 "<html><meta name='viewport' content='width=device-width'><body><form>" +
                     usernameHtml +
                     password + "</form></body></html>",
-                "text/html", "UTF-8", null,
+                "text/html", "UTF-8", fixtureUrl,
             )
             layout.addView(Button(this).apply {
                 text = "Request Autofill"

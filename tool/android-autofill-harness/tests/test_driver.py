@@ -57,12 +57,17 @@ class DriverChecks(unittest.TestCase):
  def test_failure_evidence_omits_node_text_and_values(self):
   with tempfile.TemporaryDirectory() as directory:
    self.ns.update({'os':os,'Path':pathlib.Path,'json':json,'subprocess':subprocess,'adb':'adb','__file__':str(pathlib.Path(directory)/'exercise.py'),'args':types.SimpleNamespace(mode='native-login',inspect_response=False,serial='emulator-5554')})
+   self.ns['service']='synthetic/service'
+   self.ns['command']=lambda *parts:'domains=ZERO\norigin=VERIFIED\nresult=RESPONSE_OFFERED\nsecret=must-not-be-recorded\n'
    self.ns['nodes']=lambda:[ET.Element('node',{'text':'arbitrary-field-value','value':'arbitrary-value','package':'fixture','class':'android.widget.EditText'}),ET.Element('node',{'text':'Unlock Palladin to autofill','package':'android'})]
    with patch.dict(os.environ,{'GITHUB_ACTIONS':'true'}),patch.object(subprocess,'check_output',return_value=b'synthetic-screen'):
     self.ns['record_failure']()
    raw=(pathlib.Path(directory)/'build/exercise/native-login-handoff/nodes.json').read_text()
    self.assertNotIn('arbitrary-',raw)
    self.assertEqual(json.loads(raw)[1]['role'],'unlock-suggestion')
+   request=(pathlib.Path(directory)/'build/exercise/native-login-handoff/request.json').read_text()
+   self.assertEqual(json.loads(request),{'domains':'ZERO','origin':'VERIFIED','result':'RESPONSE_OFFERED'})
+   self.assertNotIn('must-not-be-recorded',request)
  def test_textless_inline_chip_uses_unique_observed_suggestion_bounds(self):
   root_node=ET.fromstring('<node package="ime.test" resource-id="ime.test:id/key_pos_proactive_suggestions"><node package="ime.test" class="android.view.ViewGroup" clickable="true" focusable="true" enabled="true" bounds="[265,1051][815,1161]"/></node>')
   self.ns['nodes']=lambda:list(root_node.iter('node'))

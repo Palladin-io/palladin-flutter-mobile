@@ -99,6 +99,16 @@ JVM and Flutter tests cover complementary boundaries. The opt-in CI gate below
 provisions a separate synthetic emulator; its results must be reported for the
 exact tested commit.
 
+The WebView fixture gives `loadDataWithBaseURL` the same synthetic base and history
+URL. [Android documents](https://developer.android.com/reference/android/webkit/WebView#loadDataWithBaseURL(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String))
+that a null history URL defaults to `about:blank`; Chromium's
+[FormData bridge](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/android_autofill/browser/form_data_android_bridge_impl.cc)
+passes the form URL's origin into its Android structure. This fixture setting alone
+does not prove the runtime origin: each WebView OS fill must observe `domains=ONE`
+and `origin=VERIFIED` in the production provider's value-free snapshot before
+selection. A native association or manual chooser cannot substitute for that gate.
+CI failures preserve only allowlisted request classification enums in `request.json`.
+
 ## Cleanup
 
 Restore the emulator's previous provider and keyboard setting, then uninstall only
