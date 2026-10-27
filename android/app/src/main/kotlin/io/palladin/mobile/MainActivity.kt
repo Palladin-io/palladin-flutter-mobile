@@ -13,6 +13,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.palladin.mobile.autofill.AutofillSaveCoordinator
 import io.palladin.mobile.autofill.ChromeAutofillSetup
 import io.palladin.mobile.autofill.AutoFillCacheStore
 import io.palladin.mobile.autofill.GeneratedPasswordHistory
@@ -34,10 +35,20 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         intent = sanitizeDirectIntent(intent)
         super.onCreate(savedInstanceState)
+        acceptAutoFillSave(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(sanitizeDirectIntent(intent))
+        val sanitized = sanitizeDirectIntent(intent)
+        super.onNewIntent(sanitized)
+        acceptAutoFillSave(sanitized)
+    }
+
+    private fun acceptAutoFillSave(source: Intent) {
+        if (!source.hasExtra(AutofillSaveCoordinator.EXTRA_PENDING)) return
+        val id = source.getStringExtra(AutofillSaveCoordinator.EXTRA_PENDING)
+        source.removeExtra(AutofillSaveCoordinator.EXTRA_PENDING)
+        AutofillSaveCoordinator.open(id)
     }
 
     private fun sanitizeDirectIntent(source: Intent): Intent {
@@ -66,6 +77,33 @@ class MainActivity : FlutterFragmentActivity() {
                 } catch (_: Exception) {
                     result.error("cleanup_failed", "Biometric material deletion failed", null)
                 }
+            }
+        }
+
+        val saveChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+            "io.palladin.mobile/autofill-save")
+        AutofillSaveCoordinator.onPending = { saveChannel.invokeMethod("pending", null) }
+        AutofillSaveCoordinator.onInvalidated = { saveChannel.invokeMethod("invalidated", it) }
+        saveChannel.setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "activate" -> result.success(AutofillSaveCoordinator.activate(
+                        requireNotNull(call.argument<String>("principalId"))))
+                    "revoke" -> { AutofillSaveCoordinator.revoke(); result.success(null) }
+                    "pending" -> result.success(AutofillSaveCoordinator.pendingId())
+                    "cancel" -> { AutofillSaveCoordinator.cancel(call.argument<String>("id")); result.success(null) }
+                    "take" -> result.success(AutofillSaveCoordinator.take(this,
+                        requireNotNull(call.argument<String>("id")),
+                        requireNotNull(call.argument<String>("session"))))
+                    "validate" -> result.success(AutofillSaveCoordinator.validate(this,
+                        requireNotNull(call.argument<String>("id")),
+                        requireNotNull(call.argument<String>("session")),
+                        requireNotNull(call.argument<String>("domain"))))
+                    else -> result.notImplemented()
+                }
+            } catch (_: Exception) {
+                AutofillSaveCoordinator.clear()
+                result.error("save_unavailable", "AutoFill save unavailable", null)
             }
         }
 

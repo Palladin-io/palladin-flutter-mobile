@@ -117,3 +117,12 @@ reported as successful cleanup; revoked token sessions are not resurrected.
 
 Password login establishes the session without biometric enrollment. Home and
 Security offer an explicit opt-in after login; see [unlock](unlock.md#biometric-key-lifecycle).
+
+Token refresh writes, login writes and logout deletion are serialized so a
+late native storage completion cannot restore an old account's tokens after
+logout or overwrite a newer login. A synchronous generation fence rejects
+refresh writes still queued when the account changes. Canonical Entry creation
+also carries its original unlock-session guard through token lookup and 401
+retry; an AutoFill save additionally revalidates native source authority before
+transport. Retry uses request-only authentication on a cloned client so a
+canceled retry cannot deadlock behind the original queued error handler.

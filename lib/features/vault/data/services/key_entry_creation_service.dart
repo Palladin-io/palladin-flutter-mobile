@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/vault_session_store.dart';
 import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
@@ -16,17 +17,20 @@ import 'vault_crypto_service.dart';
 /// Creates one canonical Key revision without exposing plaintext to the server.
 final class KeyEntryCreationService {
   KeyEntryCreationService({
+    required VaultSessionStore sessions,
     required EntryRemoteDatasource entries,
     required VaultRemoteDatasource vaults,
     required VaultCryptoService vaultCrypto,
     required EntryV2CryptoService entryCrypto,
     required AutoFillMutationNotifier autoFillMutationNotifier,
-  }) : _entries = entries,
+  }) : _sessions = sessions,
+       _entries = entries,
        _vaults = vaults,
        _vaultCrypto = vaultCrypto,
        _entryCrypto = entryCrypto,
        _autoFillMutationNotifier = autoFillMutationNotifier;
 
+  final VaultSessionStore _sessions;
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final VaultCryptoService _vaultCrypto;
@@ -64,6 +68,8 @@ final class KeyEntryCreationService {
     required bool exposeUsername,
     required bool exposeDomain,
     bool discoverDescription = false,
+    bool Function()? isOperationCurrent,
+    Future<bool> Function()? validateOperation,
   }) => _create(
     vaultId: vaultId,
     label: label,
@@ -75,6 +81,8 @@ final class KeyEntryCreationService {
     exposeUsername: exposeUsername,
     exposeDomain: exposeDomain,
     discoverDescription: discoverDescription,
+    isOperationCurrent: isOperationCurrent,
+    validateOperation: validateOperation,
   );
 
   Future<EntryEntity> createScript({
@@ -130,17 +138,38 @@ final class KeyEntryCreationService {
     required bool exposeUsername,
     required bool exposeDomain,
     required bool discoverDescription,
+    bool Function()? isOperationCurrent,
+    Future<bool> Function()? validateOperation,
   }) async {
+    final generation = _sessions.memberKeySessionGeneration;
+    bool isSessionCurrent() =>
+        generation == _sessions.memberKeySessionGeneration &&
+        (isOperationCurrent?.call() ?? true);
+    void requireSession() {
+      if (!isSessionCurrent()) throw StateError('Unlock session changed');
+    }
+
+    requireSession();
     _validateContent(type, content, vaultId);
-    final vault = await _vaults.getEncryptedVault(vaultId);
-    final entryId = await _entries.issueCreationChallenge(vaultId);
-    final privateKeyCopy = Uint8List.fromList(memberPrivateKey);
+    final privateKeyCopy = _sessions.copyMemberPrivateKey();
     OpenedVaultProjection? opened;
     try {
+      var difference = privateKeyCopy.length ^ memberPrivateKey.length;
+      for (var index = 0; index < privateKeyCopy.length; index++) {
+        difference |=
+            privateKeyCopy[index] ^
+            (index < memberPrivateKey.length ? memberPrivateKey[index] : 0);
+      }
+      if (difference != 0) throw StateError('Unlock session changed');
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      requireSession();
+      final entryId = await _entries.issueCreationChallenge(vaultId);
+      requireSession();
       opened = await _vaultCrypto.openVaultProjection(
         json: vault,
         memberPrivateKey: privateKeyCopy,
       );
+      requireSession();
       final discoveryKey = opened.vaultDiscoveryKey;
       if (discoveryKey == null) {
         throw const FormatException('Vault discovery key is missing');
@@ -168,13 +197,20 @@ final class KeyEntryCreationService {
         vaultKey: opened.vaultKey,
         vaultDiscoveryKey: discoveryKey,
       );
+      requireSession();
       final request = CreateEntryV2Request(
         vaultId: vaultId,
         entryId: entryId,
         envelopes: envelopes,
         deliveryPolicy: type.deliveryPolicyWire(),
       ).toJson();
-      await _commitCanonicalCreate(vaultId, request);
+      await _commitCanonicalCreate(
+        vaultId,
+        request,
+        isSessionCurrent,
+        validateOperation,
+      );
+      requireSession();
       final now = DateTime.now().toUtc();
       return EntryEntity(
         id: entryId,
@@ -200,6 +236,8 @@ final class KeyEntryCreationService {
   Future<void> _commitCanonicalCreate(
     String vaultId,
     Map<String, dynamic> request,
+    bool Function() isSessionCurrent,
+    Future<bool> Function()? validateOperation,
   ) async {
     // Clear the old provider cache before the server can advance the Entry.
     // If both attempts fail without an HTTP response, the outcome is
@@ -215,10 +253,24 @@ final class KeyEntryCreationService {
     }
     for (var attempt = 0; attempt < 2; attempt += 1) {
       try {
-        await _entries.createCanonicalEntry(vaultId, request);
+        if (!isSessionCurrent()) throw StateError('Unlock session changed');
+        if (validateOperation != null && !await validateOperation()) {
+          throw StateError('Save request changed');
+        }
+        if (!isSessionCurrent()) throw StateError('Unlock session changed');
+        await _entries.createCanonicalEntry(
+          vaultId,
+          request,
+          isSessionCurrent: isSessionCurrent,
+          canDispatch: validateOperation,
+        );
         await mutation.complete();
         return;
       } on DioException catch (error) {
+        if (CancelToken.isCancel(error)) {
+          await mutation.leaveAmbiguous();
+          rethrow;
+        }
         if (error.response != null) {
           // A concrete HTTP rejection did not leave an ambiguous mutation.
           await mutation.complete();

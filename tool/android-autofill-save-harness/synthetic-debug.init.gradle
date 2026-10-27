@@ -1,0 +1,34 @@
+// Invocation-only override: production MainActivity and native source remain unchanged.
+gradle.settingsEvaluated { settings ->
+    if (gradle.parent != null) return
+    if (gradle.startParameter.projectProperties['target'] != 'tool/android-autofill-save-harness/main.dart' ||
+        gradle.startParameter.taskNames != [':app:assembleLocalDebug']) {
+        throw new GradleException('Save harness permits only its synthetic local debug target')
+    }
+    if (new File(settings.settingsDir, 'key.properties').exists()) {
+        throw new GradleException('Run the synthetic save build without release signing material')
+    }
+}
+allprojects {
+    if (gradle.parent != null || path != ':app') return
+    plugins.withId('com.android.application') {
+        extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.defaultConfig.applicationId = 'io.palladin.autofill.savefixture'
+            android.sourceSets.getByName('debug').manifest.srcFile(
+                rootProject.file('../tool/android-autofill-save-harness/AndroidManifest.xml'))
+        }
+    }
+    plugins.withId('com.google.gms.google-services') {
+        def config = extensions.getByName('googleServices')
+        config.missingGoogleServicesStrategy = config.missingGoogleServicesStrategy.class.enumConstants.find { it.name() == 'IGNORE' }
+    }
+}
+gradle.projectsEvaluated {
+    if (gradle.parent != null) return
+    def app = rootProject.project(':app')
+    app.tasks.named('processLocalDebugGoogleServices').configure { task ->
+        task.googleServicesJsonFiles.set([])
+        task.googleServicesJsonFiles.finalizeValue()
+        task.doFirst { app.delete(task.outputDirectory.get().asFile) }
+    }
+}

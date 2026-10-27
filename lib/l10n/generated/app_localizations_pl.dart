@@ -5032,4 +5032,20 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get autofillChromeSettingsError =>
       'Nie udało się otworzyć ustawień Chrome. W Chrome otwórz Ustawienia → Usługi autouzupełniania.';
+
+  @override
+  String get autoFillSaveTitle => 'Zapisz dane logowania';
+
+  @override
+  String get autoFillSaveWebSource => 'Zweryfikowana strona HTTPS';
+
+  @override
+  String get autoFillSaveNativeSource => 'Zweryfikowane powiązanie aplikacji';
+
+  @override
+  String get autoFillSaveHost => 'Wybierz dokładny host';
+
+  @override
+  String get autoFillSaveUnavailable =>
+      'Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj.';
 }

@@ -442,6 +442,7 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<KeyEntryCreationService>(
     () => KeyEntryCreationService(
+      sessions: getIt<VaultSessionStore>(),
       entries: getIt<EntryRemoteDatasource>(),
       vaults: getIt<VaultRemoteDatasource>(),
       vaultCrypto: getIt<VaultCryptoService>(),
