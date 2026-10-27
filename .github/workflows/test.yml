@@ -151,25 +151,24 @@ jobs:
         run: |
           set -euo pipefail
           export ANDROID_AVD_HOME="$RUNNER_TEMP/palladin-presentation-avd"
-          mkdir -p "$ANDROID_AVD_HOME"
+          evidence=tool/android-autofill-harness/build/presentation
+          mkdir -p "$ANDROID_AVD_HOME" "$evidence"
+          git rev-parse HEAD > "$evidence/commit.txt"
+          "$ANDROID_HOME/emulator/emulator" -version > "$evidence/emulator-version.txt" 2>&1
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name palladin-presentation \
             --package 'system-images;android-35;google_apis;x86_64' --device pixel_2
           "$ANDROID_HOME/emulator/emulator" -avd palladin-presentation \
             -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim \
-            -gpu swiftshader_indirect -memory 2048 > "$RUNNER_TEMP/presentation-emulator.log" 2>&1 &
-          emulator_pid=$!
+            -gpu swiftshader_indirect -memory 2048 > "$evidence/emulator.log" 2>&1 &
+          export emulator_pid=$!
           trap 'timeout 10 adb -s emulator-5554 emu kill >/dev/null 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
           # Expansion must happen inside the bounded boot-wait subprocess.
           # shellcheck disable=SC2016
-          timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done'
-          adb -s emulator-5554 shell input keyevent 82
+          timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do kill -0 "$emulator_pid" 2>/dev/null || exit 1; sleep 2; done'
+          timeout 10 adb -s emulator-5554 shell input keyevent 82
           apk=tool/android-autofill-harness/provider/build/outputs/apk/debug/provider-debug.apk
           timeout 45 adb -s emulator-5554 install -r "$apk"
-          evidence=tool/android-autofill-harness/build/presentation
-          mkdir -p "$evidence"
-          git rev-parse HEAD > "$evidence/commit.txt"
           sha256sum "$apk" > "$evidence/provider-apk-sha256.txt"
-          "$ANDROID_HOME/emulator/emulator" -version > "$evidence/emulator-version.txt" 2>&1
           timeout 180 python3 -u tool/android-autofill-harness/presentation.py \
             --serial emulator-5554 | tee "$evidence/outcomes.txt"
           test "$(wc -l < "$evidence/outcomes.txt")" -eq 4
