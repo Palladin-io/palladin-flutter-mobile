@@ -151,3 +151,25 @@ rejected("consent from previous login cannot bind to current login") {
         prompt: "Test", operation: PasswordSaveOperation())
 }
 print("iOS explicit save staged completion/restart tests passed")
+
+try stage()
+let cancelledID = authority!.pending!.id
+try stage()
+let surviving = authority!
+// Models a cancelled Dart take finishing after the OS has staged another request.
+try store.cancel(id: cancelledID)
+expect(authority == surviving, "late id-scoped cancellation must preserve replacement authority")
+expect(try store.pending() == surviving.pending!.id, "late id-scoped cancellation must preserve replacement ciphertext")
+let replacement = try store.take(id: surviving.pending!.id, session: surviving.session, prompt: "Test")!
+try store.cancel(id: cancelledID)
+expect(try store.validate(replacement.authority, session: surviving.session, domain: "login.example.test"),
+       "late cancellation must preserve newer consumed lease")
+try store.cancel(id: surviving.pending!.id)
+expect(!(try store.validate(replacement.authority, session: surviving.session, domain: "login.example.test")),
+       "matching cancellation must revoke consumed lease")
+try stage()
+let pendingCancelID = authority!.pending!.id
+try store.cancel(id: pendingCancelID)
+expect(try store.pending() == nil, "matching cancellation must remove pending ciphertext")
+expect(!FileManager.default.fileExists(atPath: ciphertextURL.path), "cancel removes matching ciphertext")
+print("iOS explicit save scoped cancellation tests passed")

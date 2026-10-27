@@ -101,9 +101,11 @@ final class PendingPasswordSave {
         try locked { try writeAuthority(nil); try removeCiphertext() }
     }
 
-    func cancel() throws {
+    func cancel(id: String? = nil) throws {
         try locked {
-            if var authority = try readAuthority() {
+            let current = try readAuthority()
+            if let id, current?.captureID != id { return }
+            if var authority = current {
                 authority.pending = nil
                 authority.captureID = nil
                 try writeAuthority(authority)

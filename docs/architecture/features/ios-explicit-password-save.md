@@ -53,7 +53,12 @@ for `validate`; it does not retain another password copy. The shared Flutter
 flow validates the session and selected exact domain around canonical Entry
 creation. Cancellation, replacement, account switch, expiry, and backgrounding
 of the presented confirmation invalidate the draft. No update/overwrite flow
-is implied.
+is implied. Delayed cancellation carries the original opaque capture ID;
+both the stored capture and Runner's active operation/consumed lease are cleared
+only if that ID still matches. A value-free `invalidated(id)` channel event
+clears only the corresponding Dart draft, without cancelling a replacement.
+An explicit current-capture cancel without an ID and account revocation retain
+their broader semantics.
 
 ## Verification and release boundary
 
