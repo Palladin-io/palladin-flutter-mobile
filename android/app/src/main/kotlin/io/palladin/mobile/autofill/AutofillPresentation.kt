@@ -29,6 +29,7 @@ internal fun autofillCredentialPresentation(
     setTextViewText(R.id.autofill_credential_domain, domain)
 }
 
+@android.annotation.TargetApi(30)
 internal fun autofillInlineContent(
     context: Context,
     generate: Boolean,

@@ -183,6 +183,8 @@ or asking for biometric authentication. Run each combination of `language` (`en`
 adb -s emulator-5556 shell am start -S -n io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity --es language pl --ez night true
 ```
 
+`validate.py` runs all four previews through `presentation.py`, records their
+assertion results, and saves screenshots under ignored `build/presentation/`.
 The activity checks localized inline title and accessibility description, icon
 presence, exact synthetic username/label/host values, single-line ellipsis,
 duplicate-label suppression, and a decorative credential logo excluded from

@@ -51,6 +51,9 @@ try:
     android('shell', 'settings', 'put', 'secure', 'autofill_service', 'io.palladin.autofill.harness.provider/io.palladin.mobile.autofill.PalladinAutofillService')
     android('shell', 'settings', 'put', 'secure', 'show_ime_with_hard_keyboard', '1')
     android('shell', 'am', 'start', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.MainActivity')
+    presentation = subprocess.check_output([sys.executable, '-u', str(harness / 'presentation.py'), '--serial', args.serial], cwd=root, text=True)
+    print(presentation, end='', flush=True)
+    report['presentations'] = presentation.strip().splitlines()
     positive = ('native-login', 'native-username', 'web-login', 'web-username')
     negative = ('native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'web-http')
     cases = [(mode, '--inspect-response') for mode in (*positive, 'web-empty', 'native-empty', 'web-http', 'web-missing')]

@@ -369,20 +369,27 @@ Unlock and generated-password actions use a branded RemoteViews row with a
 24dp shield and a localized bold label. Authenticated credential choices follow
 the extension hierarchy: username first (14sp bold), optional Entry label (12sp,
 omitted when redundant with username/host), exact selected host (11sp). They use
-no per-credential icon and add no Vault name because the cache has none. Rows have
-65dp minimum height, 9dp vertical/10dp horizontal padding, an 11dp corner radius
+a decorative 24dp Palladin brand logo, without website-specific icons or Vault
+names because the cache has none. Credential rows have
+65dp minimum height, 12dp vertical/14dp horizontal padding, an 11dp corner radius
 and a subtle border; each line ellipsizes independently. Explicit paired day/night
 colors avoid host-dependent system text styles. Native AutoFill owns the popup
 container and spacing. This is a fill-only action, without automatic submission.
 Credential labels/usernames remain visible only in the authenticated picker.
 Verify readable rows and password as well as username filling on the device;
-resource compilation does not establish actual Chrome/keyboard rendering.
+resource compilation does not establish actual Chrome/keyboard rendering. The
+debug harness renders real resources in EN/PL and light/dark at 130% font scale,
+checks exact content, ellipsis and decorative-logo accessibility, and captures
+screenshots. Physical Gboard/Samsung and TalkBack checks remain required.
 
 ## Android keyboard action
 
 On Android 11+, a compatible keyboard may show the localized unlock/generate
 action inline. The service uses AndroidX Autofill 1.3.0's standard v1 UI template
-with the first IME presentation spec (including its size/style). A missing request,
+with the existing Palladin logo in the public start-icon slot (original colors),
+a localized title/accessibility description, and the first IME presentation spec
+(including its size/style). The IME controls appearance and may ignore inline
+suggestions; the branded RemoteViews fallback remains available. A missing request,
 zero suggestion capacity or unsupported template retains the dropdown. Selecting
 the chip invokes the same biometric authentication activity; long-press attribution
 opens Palladin through a fixed value-free PendingIntent. Origin/cache gates run
@@ -472,24 +479,3 @@ verification of this command and the actual rejection remains required.
 - Android provider:
   `android/app/src/main/kotlin/io/palladin/mobile/autofill/`
 - Android service config: `android/app/src/main/res/xml/autofill_service.xml`
-
-## Android suggestion branding
-
-The dropdown authentication prompt uses the branded `RemoteViews` layout. On
-Android 11+, compatible keyboards receive an AndroidX inline suggestion with
-the same existing Palladin logo and localized action label. The provider preserves
-the keyboard-supplied presentation spec, including size and styling, and uses the
-public start-icon slot without tinting the logo. Unsupported inline UI versions
-retain the dropdown fallback. Keyboard appearance and whether inline suggestions
-are displayed remain controlled by the IME.
-
-References: [Android inline integration](https://developer.android.com/identity/autofill/ime-autofill)
-and [InlineSuggestionUi](https://developer.android.com/reference/androidx/autofill/inline/v1/InlineSuggestionUi).
-
-Dropdown unlock and credential rows share the existing rounded native surface,
-light/dark color resources and Palladin logo. Credential content keeps username,
-optional distinct label, and exact host in that order; each remains its original
-value with visual end-ellipsis only. Logos are decorative for accessibility.
-The pre-authentication prompt remains value-free. The debug harness includes
-rendered EN/PL and light/dark presentation assertions at increased font scale;
-actual keyboard behavior and TalkBack still require physical-device QA.
