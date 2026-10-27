@@ -1,4 +1,4 @@
-import ast, pathlib, re, runpy, subprocess, sys, types, unittest
+import ast, json, os, pathlib, re, runpy, subprocess, sys, tempfile, types, unittest
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 root = pathlib.Path(__file__).resolve().parents[1]
@@ -38,6 +38,31 @@ class DriverChecks(unittest.TestCase):
   self.ns['nodes']=lambda:[ET.Element('node',{'text':'Unlock Palladin to autofill','package':'com.android.systemui'})]
   with self.assertRaises(AssertionError):self.ns['authenticate']()
   self.assertEqual(self.calls,[])
+ def test_unlock_dropdown_is_selected_from_interactive_windows(self):
+  self.ns['ET']=ET
+  all_windows=False
+  def command(*parts):
+   nonlocal all_windows
+   self.calls.append(parts)
+   if parts[:2]==('shell','uiautomator'):
+    all_windows='--windows' in parts
+    return 'UI hierarchy dumped'
+   if parts[:2]==('shell','cat'):
+    if not all_windows:return '<hierarchy><node text="Synthetic username"/></hierarchy>'
+    return '<displays><display><window><node package="android" text="Unlock Palladin to autofill" bounds="[10,200][310,280]" enabled="true"/></window></display></displays>'
+   return ''
+  self.ns['command']=command
+  self.assertTrue(self.ns['tap_text']('Unlock Palladin to autofill'))
+  self.assertIn(('shell','input','tap','160','240'),self.calls)
+ def test_failure_evidence_omits_node_text_and_values(self):
+  with tempfile.TemporaryDirectory() as directory:
+   self.ns.update({'os':os,'Path':pathlib.Path,'json':json,'subprocess':subprocess,'adb':'adb','__file__':str(pathlib.Path(directory)/'exercise.py'),'args':types.SimpleNamespace(mode='native-login',inspect_response=False,serial='emulator-5554')})
+   self.ns['nodes']=lambda:[ET.Element('node',{'text':'arbitrary-field-value','value':'arbitrary-value','package':'fixture','class':'android.widget.EditText'}),ET.Element('node',{'text':'Unlock Palladin to autofill','package':'android'})]
+   with patch.dict(os.environ,{'GITHUB_ACTIONS':'true'}),patch.object(subprocess,'check_output',return_value=b'synthetic-screen'):
+    self.ns['record_failure']()
+   raw=(pathlib.Path(directory)/'build/exercise/native-login-handoff/nodes.json').read_text()
+   self.assertNotIn('arbitrary-',raw)
+   self.assertEqual(json.loads(raw)[1]['role'],'unlock-suggestion')
  def test_null_root_transition_retries_without_reading_missing_xml(self):
   for filename in ('exercise.py','prepare_ci.py'):
    with self.subTest(driver=filename):
