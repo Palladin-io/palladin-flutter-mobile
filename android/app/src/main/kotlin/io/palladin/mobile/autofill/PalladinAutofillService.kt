@@ -267,7 +267,9 @@ class PalladinAutofillService : AutofillService() {
                 node: AssistStructure.ViewNode,
                 domains: MutableSet<String>,
             ) {
-                node.webDomain?.let(domains::add)
+                // WebView containers report an empty sentinel while virtual inputs
+                // carry the real host. Keep every nonempty value for origin validation.
+                node.webDomain?.takeIf(String::isNotEmpty)?.let(domains::add)
                 for (index in 0 until node.childCount) {
                     collectDomains(node.getChildAt(index), domains)
                 }

@@ -282,6 +282,12 @@ References: [Android provider activation](https://developer.android.com/identity
 
 ## Android form recognition
 
+Android WebView containers can report `webDomain=""` while their virtual inputs
+report the page host. The parser ignores only this exact empty sentinel, just as
+it ignores null. Whitespace, malformed nonempty hosts and distinct real hosts
+remain in the domain set and fail origin validation. Empty-only browser requests
+remain rejected; absent-domain native requests retain the explicit chooser policy.
+
 Login requests may contain a username, a password, or both. Username-first steps
 still require the same origin, cache and biometric checks; their response contains
 only the recognized username targets. A later password step is a fresh request.

@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewStructure
 import android.view.autofill.AutofillId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
@@ -70,7 +71,52 @@ class CredentialFieldIdsTest {
         assertEquals(emptyList<AutofillId>(), parse(otp).allIds)
     }
 
-    private fun parse(vararg nodes: AssistStructure.ViewNode): PalladinAutofillService.CredentialFieldIds {
+    @Test
+    fun emptyWebViewContainerDomainDoesNotMakeRealHostAmbiguous() {
+        val container = node()
+        `when`(container.webDomain).thenReturn("")
+        val webInput = node(html = mapOf("type" to "password"))
+        `when`(webInput.webDomain).thenReturn("fixture.invalid")
+        assertEquals(setOf("fixture.invalid"),
+            PalladinAutofillService.CredentialFieldIds.domainsFrom(structure(container, webInput)))
+    }
+
+    @Test
+    fun malformedNonemptyDomainIsRetainedForOriginRejection() {
+        val malformed = node()
+        `when`(malformed.webDomain).thenReturn(" ")
+        val valid = node()
+        `when`(valid.webDomain).thenReturn("fixture.invalid")
+        assertEquals(setOf(" ", "fixture.invalid"),
+            PalladinAutofillService.CredentialFieldIds.domainsFrom(structure(malformed, valid)))
+    }
+
+    @Test
+    fun emptyOnlyDomainIsAbsentButStillCannotAuthorizeBrowser() {
+        val container = node()
+        `when`(container.webDomain).thenReturn("")
+        val domains = PalladinAutofillService.CredentialFieldIds.domainsFrom(structure(container))
+        assertEquals(emptySet<String>(), domains)
+        assertNull(AutofillOriginPolicy.resolve(domains, { it }, { true }, { emptySet() }, true))
+        assertEquals(AutofillOriginMode.MANUAL_NATIVE,
+            AutofillOriginPolicy.resolve(domains, { it }, { true }, { emptySet() }, false)?.mode)
+    }
+
+    @Test
+    fun twoRealDomainsRemainAmbiguous() {
+        val first = node()
+        `when`(first.webDomain).thenReturn("first.invalid")
+        val second = node()
+        `when`(second.webDomain).thenReturn("second.invalid")
+        val domains = PalladinAutofillService.CredentialFieldIds.domainsFrom(structure(first, second))
+        assertEquals(setOf("first.invalid", "second.invalid"), domains)
+        assertNull(AutofillOriginPolicy.resolve(domains, { it }, { true }, { emptySet() }, false))
+    }
+
+    private fun parse(vararg nodes: AssistStructure.ViewNode): PalladinAutofillService.CredentialFieldIds =
+        PalladinAutofillService.CredentialFieldIds.from(structure(*nodes))
+
+    private fun structure(vararg nodes: AssistStructure.ViewNode): AssistStructure {
         val root = node()
         `when`(root.childCount).thenReturn(nodes.size)
         nodes.forEachIndexed { index, child -> `when`(root.getChildAt(index)).thenReturn(child) }
@@ -79,7 +125,7 @@ class CredentialFieldIdsTest {
         val structure = mock(AssistStructure::class.java)
         `when`(structure.windowNodeCount).thenReturn(1)
         `when`(structure.getWindowNodeAt(0)).thenReturn(window)
-        return PalladinAutofillService.CredentialFieldIds.from(structure)
+        return structure
     }
 
     private fun node(
