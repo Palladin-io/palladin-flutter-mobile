@@ -38,6 +38,35 @@ class DriverChecks(unittest.TestCase):
   self.ns['nodes']=lambda:[ET.Element('node',{'text':'Unlock Palladin to autofill','package':'com.android.systemui'})]
   with self.assertRaises(AssertionError):self.ns['authenticate']()
   self.assertEqual(self.calls,[])
+ def test_null_root_transition_retries_without_reading_missing_xml(self):
+  for filename in ('exercise.py','prepare_ci.py'):
+   with self.subTest(driver=filename):
+    tree=ast.parse((root/filename).read_text())
+    ns={'ET':ET,'subprocess':subprocess}
+    exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)],type_ignores=[]),filename,'exec'),ns)
+    calls=[]
+    dumps=iter(['ERROR: null root node returned by UiTestAutomationBridge.','UI hierarchy dumped'])
+    def command(*parts):
+     calls.append(parts)
+     if parts[:2]==('shell','uiautomator'):return next(dumps)
+     if parts[:2]==('shell','cat'):return '<hierarchy><node text="Ready"/></hierarchy>'
+     return ''
+    ns['command']=command
+    self.assertEqual(ns['nodes'](),[])
+    self.assertFalse(any(c[:2]==('shell','cat') for c in calls))
+    self.assertEqual(ns['nodes']()[0].get('text'),'Ready')
+ def test_ui_dump_timeouts_and_other_failures_are_not_hidden(self):
+  for filename in ('exercise.py','prepare_ci.py'):
+   for error in (subprocess.TimeoutExpired('adb',15),subprocess.CalledProcessError(1,'adb',output='unexpected failure')):
+    with self.subTest(driver=filename,error=type(error).__name__):
+     tree=ast.parse((root/filename).read_text())
+     ns={'ET':ET,'subprocess':subprocess}
+     exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)],type_ignores=[]),filename,'exec'),ns)
+     def command(*parts):
+      if parts[:2]==('shell','uiautomator'):raise error
+      return ''
+     ns['command']=command
+     with self.assertRaises(type(error)):ns['nodes']()
  def test_settings_enrollment_requires_ui_confirmation(self):
   state={'page':0,'touches':0}
   def output(cmd,**kwargs):

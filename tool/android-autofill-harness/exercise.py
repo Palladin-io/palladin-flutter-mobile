@@ -25,12 +25,14 @@ service = provider + '/io.palladin.mobile.autofill.PalladinAutofillService'
 
 
 def command(*parts):
-    return subprocess.check_output([adb, '-s', args.serial, *parts], text=True, timeout=15)
+    return subprocess.check_output([adb, '-s', args.serial, *parts], text=True, timeout=15, stderr=subprocess.STDOUT)
 
 
 def nodes():
     try:
-        command('shell', 'uiautomator', 'dump', '/sdcard/palladin-synthetic-ui.xml')
+        status = command('shell', 'uiautomator', 'dump', '/sdcard/palladin-synthetic-ui.xml')
+        if status.strip() == 'ERROR: null root node returned by UiTestAutomationBridge.':
+            return []
         raw = command('shell', 'cat', '/sdcard/palladin-synthetic-ui.xml')
         return list(ET.fromstring(raw).iter('node'))
     finally:

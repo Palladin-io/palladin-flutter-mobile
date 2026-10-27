@@ -19,12 +19,14 @@ evidence.mkdir(parents=True, exist_ok=True)
 
 
 def command(*parts):
-    return subprocess.check_output(adb + list(parts), text=True, timeout=15)
+    return subprocess.check_output(adb + list(parts), text=True, timeout=15, stderr=subprocess.STDOUT)
 
 
 def nodes():
     try:
-        command('shell', 'uiautomator', 'dump', '/sdcard/palladin-enrollment-ui.xml')
+        status = command('shell', 'uiautomator', 'dump', '/sdcard/palladin-enrollment-ui.xml')
+        if status.strip() == 'ERROR: null root node returned by UiTestAutomationBridge.':
+            return []
         return list(ET.fromstring(command('shell', 'cat', '/sdcard/palladin-enrollment-ui.xml')).iter('node'))
     finally:
         command('shell', 'rm', '-f', '/sdcard/palladin-enrollment-ui.xml')
@@ -51,6 +53,7 @@ result = command('shell', 'locksettings', 'set-pin', '246813')
 if result.strip() != "Pin set to '246813'":
     raise RuntimeError('Fresh disposable emulator PIN setup failed')
 command('shell', 'input', 'keyevent', 'KEYCODE_HOME')
+command('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
 command('shell', 'am', 'start', '-a', 'android.settings.FINGERPRINT_ENROLL')
 pin_entered = False
 touches = 0
