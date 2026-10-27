@@ -61,6 +61,7 @@ class PalladinAutofillService : AutofillService() {
             return
         }
 
+        val saveRequestId = AutofillSaveCoordinator.prepare(this, structure)
         val fields = CredentialFieldIds.from(structure)
         val domains = CredentialFieldIds.domainsFrom(structure)
         val schemes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -109,11 +110,14 @@ class PalladinAutofillService : AutofillService() {
             })
         ) {
             lastRequest = lastRequest.copy(result = RequestResult.REJECTED)
-            callback.onSuccess(null)
+            callback.onSuccess(saveRequestId?.let {
+                AutofillSaveCoordinator.response(FillResponse.Builder(), it).build()
+            })
             return
         }
 
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
+            putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, saveRequestId)
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
             putExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, schemes.firstOrNull())
             putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, origin.mode.name)
@@ -149,7 +153,7 @@ class PalladinAutofillService : AutofillService() {
             this,
             getString(if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label),
         )
-        val responseBuilder = FillResponse.Builder()
+        val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), saveRequestId)
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
             responseBuilder.setAuthentication(
@@ -194,9 +198,12 @@ class PalladinAutofillService : AutofillService() {
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
-        // Saving credentials requires an explicit user-confirmation flow and
-        // is intentionally outside the current MVP implementation.
-        callback.onSuccess()
+        try {
+            AutofillSaveCoordinator.save(this, request, callback)
+        } catch (_: Exception) {
+            AutofillSaveCoordinator.clear()
+            callback.onFailure(getString(R.string.autofill_save_unavailable))
+        }
     }
 
     private fun availability(available: Boolean): CheckAvailability =

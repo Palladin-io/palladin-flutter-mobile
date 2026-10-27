@@ -155,7 +155,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val presentation = autofillPresentation(this, getString(R.string.autofill_generate_label))
         val dataset = Dataset.Builder(presentation)
         ids.forEach { dataset.setValue(it, AutofillValue.forText(password), presentation) }
-        val response = FillResponse.Builder().addDataset(dataset.build()).build()
+        val response = AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST)).addDataset(dataset.build()).build()
         val handedOff = runCatching {
             history.appendAuthenticated(
                 operation,
@@ -380,7 +380,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         passwords.forEach {
             dataset.setValue(it, AutofillValue.forText(record.password), presentation)
         }
-        return FillResponse.Builder().addDataset(dataset.build()).build()
+        return AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST)).addDataset(dataset.build()).build()
     }
 
     private fun completeNativeSelection(
@@ -450,7 +450,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                 return
             }
 
-            val response = FillResponse.Builder()
+            val response = AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST))
             for (record in matches) {
                 val presentation = autofillCredentialPresentation(
                     context = this,
