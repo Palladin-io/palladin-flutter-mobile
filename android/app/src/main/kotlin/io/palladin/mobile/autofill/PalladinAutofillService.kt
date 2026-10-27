@@ -244,7 +244,12 @@ class PalladinAutofillService : AutofillService() {
             fun schemesFrom(structure: AssistStructure): Set<String> {
                 val schemes = mutableSetOf<String>()
                 fun collect(node: AssistStructure.ViewNode) {
-                    node.webScheme?.takeIf(String::isNotEmpty)?.let(schemes::add)
+                    if (!node.webDomain.isNullOrEmpty()) {
+                        // A sibling's HTTPS scheme cannot establish this node's transport.
+                        schemes += node.webScheme.orEmpty()
+                    } else {
+                        node.webScheme?.takeIf(String::isNotEmpty)?.let(schemes::add)
+                    }
                     for (index in 0 until node.childCount) collect(node.getChildAt(index))
                 }
                 for (index in 0 until structure.windowNodeCount) {

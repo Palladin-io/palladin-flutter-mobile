@@ -229,6 +229,39 @@ class CredentialFieldIdsTest {
         assertEquals(listOf(username.autofillId), parse(container).usernameIds)
     }
 
+    @Test
+    fun unrelatedHttpsNodeCannotAuthorizeDomainWithMissingScheme() {
+        for (missingScheme in listOf(null, "")) {
+            val webInput = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+            `when`(webInput.webDomain).thenReturn("fixture.invalid")
+            `when`(webInput.webScheme).thenReturn(missingScheme)
+            val unrelated = node()
+            `when`(unrelated.webScheme).thenReturn("https")
+            val request = structure(webInput, unrelated)
+            assertNull(AutofillOriginPolicy.resolve(
+                PalladinAutofillService.CredentialFieldIds.domainsFrom(request),
+                { it }, { true }, { emptySet() }, false,
+                PalladinAutofillService.CredentialFieldIds.schemesFrom(request),
+            ))
+        }
+    }
+
+    @Test
+    fun secureDomainNodeAcceptsEmptyWebViewContainerSentinel() {
+        val webInput = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(webInput.webDomain).thenReturn("fixture.invalid")
+        `when`(webInput.webScheme).thenReturn("https")
+        val container = node()
+        `when`(container.webDomain).thenReturn("")
+        `when`(container.webScheme).thenReturn("")
+        val request = structure(container, webInput)
+        assertEquals(AutofillOriginMode.WEB, AutofillOriginPolicy.resolve(
+            PalladinAutofillService.CredentialFieldIds.domainsFrom(request),
+            { it }, { true }, { emptySet() }, false,
+            PalladinAutofillService.CredentialFieldIds.schemesFrom(request),
+        )?.mode)
+    }
+
     private fun parse(vararg nodes: AssistStructure.ViewNode): PalladinAutofillService.CredentialFieldIds =
         PalladinAutofillService.CredentialFieldIds.from(structure(*nodes))
 

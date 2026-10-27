@@ -302,7 +302,10 @@ remain in the domain set and fail origin validation. Empty-only browser requests
 remain rejected; absent-domain native requests retain the explicit chooser policy.
 
 A reported web host also requires an independently reported HTTPS scheme from
-`AssistStructure` (API 28+). Missing, unknown or cleartext schemes fail closed;
+`AssistStructure` (API 28+). Every node reporting a nonempty domain must report
+its own HTTPS scheme; a sibling or unrelated node cannot supply that authority.
+Only containers with neither domain nor scheme use the empty-sentinel exception.
+Missing, unknown or cleartext schemes fail closed;
 verified App Links establish host authority, not transport security. Any reported
 scheme without a host is an incomplete web context and cannot become native
 manual selection. The accepted scheme travels in the explicit immutable
