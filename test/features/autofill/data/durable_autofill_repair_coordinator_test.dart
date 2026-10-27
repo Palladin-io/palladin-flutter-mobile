@@ -98,6 +98,100 @@ void main() {
   );
 
   test(
+    'foreground and durable repair share the same committed publication',
+    () async {
+      final current = Completer<void>();
+      when(
+        () => indexes.waitForCurrent('vault-a'),
+      ).thenAnswer((_) => current.future);
+      coordinator.replaceKnownVaults(const ['vault-a']);
+      var rebuilds = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) async {
+        rebuilds++;
+      });
+      updates.add('vault-a');
+      await Future<void>.delayed(Duration.zero);
+      await coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a'],
+      );
+      current.complete();
+      await coordinator.drainPending();
+      expect(rebuilds, 1);
+    },
+  );
+
+  test('foreground joins an in-flight durable publication', () async {
+    final native = Completer<void>();
+    var rebuilds = 0;
+    when(
+      () => autoFill.synchronizePrepared(
+        privateKey: any(named: 'privateKey'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).thenAnswer((_) {
+      rebuilds++;
+      return native.future;
+    });
+    coordinator.replaceKnownVaults(const ['vault-a']);
+    updates.add('vault-a');
+    await Future<void>.delayed(Duration.zero);
+    final foreground = coordinator.synchronizePreparedIfAllowed(
+      privateKey: session!.privateKey,
+      vaultIds: const ['vault-a'],
+    );
+    expect(rebuilds, 1);
+    native.complete();
+    expect(await foreground, isTrue);
+    await coordinator.drainPending();
+    expect(rebuilds, 1);
+  });
+
+  test(
+    'native deny requires a new publication even without a new commit',
+    () async {
+      await coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a'],
+      );
+      final deny = coordinator.suspendRepairs();
+      await coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a'],
+        releasingDenies: {deny},
+      );
+      verify(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).called(2);
+    },
+  );
+
+  test('changed complete Vault set requires another publication', () async {
+    await coordinator.synchronizePreparedIfAllowed(
+      privateKey: session!.privateKey,
+      vaultIds: const ['vault-a'],
+    );
+    await coordinator.synchronizePreparedIfAllowed(
+      privateKey: session!.privateKey,
+      vaultIds: const ['vault-a', 'vault-b'],
+    );
+    verify(
+      () => autoFill.synchronizePrepared(
+        privateKey: any(named: 'privateKey'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).called(2);
+  });
+
+  test(
     'commit cannot rebuild before complete all-Vault authority is ready',
     () async {
       updates.add('vault-a');
