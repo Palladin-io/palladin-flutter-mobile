@@ -7,6 +7,6 @@ android {
 
 }
 kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 } }
-dependencies {  }
+dependencies { testImplementation("junit:junit:4.13.2") }
 
 androidComponents { beforeVariants(selector().withBuildType("release")) { it.enable = false } }

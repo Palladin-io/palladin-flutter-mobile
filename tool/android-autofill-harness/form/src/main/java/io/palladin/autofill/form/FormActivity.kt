@@ -5,7 +5,10 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -13,6 +16,8 @@ import android.widget.TextView
 
 /** Local-only synthetic forms; assertions expose booleans, never field values. */
 class FormActivity : Activity() {
+    private lateinit var autofillCallback: AutofillManager.AutofillCallback
+
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         val mode = intent.getStringExtra("mode") ?: "native-login"
@@ -21,6 +26,36 @@ class FormActivity : Activity() {
             setPadding(24, 100, 24, 24)
         }
         val result = TextView(this)
+        val evidence = TextView(this)
+        val manager = getSystemService(AutofillManager::class.java)
+        val positive = mode in setOf("native-login", "native-username", "web-login", "web-username")
+        var requested = false
+        var unavailable = false
+        var shown = false
+        var enabledAtRequest = false
+        var domReady = !mode.startsWith("web")
+        var focusVerified = false
+        var unavailableEvents = 0
+        var shownEvents = 0
+        fun publishEvidence() {
+            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest domReady=$domReady focusVerified=$focusVerified unavailableEvents=$unavailableEvents shownEvents=$shownEvents"
+        }
+        fun observe(event: Int) {
+            if (event == AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE) { unavailable = true; unavailableEvents++ }
+            if (event == AutofillManager.AutofillCallback.EVENT_INPUT_SHOWN) { shown = true; shownEvents++ }
+            publishEvidence()
+        }
+        autofillCallback = object : AutofillManager.AutofillCallback() {
+            override fun onAutofillEvent(view: View, event: Int) = observe(event)
+            override fun onAutofillEvent(view: View, virtualId: Int, event: Int) = observe(event)
+        }
+        manager.registerCallback(autofillCallback)
+        fun request(target: View) {
+            requested = true
+            enabledAtRequest = manager.isEnabled
+            publishEvidence()
+            manager.requestAutofill(target)
+        }
         if (mode.startsWith("web")) {
             val web = WebView(this)
             web.settings.javaScriptEnabled = true
@@ -36,24 +71,45 @@ class FormActivity : Activity() {
                 "web-disabled" -> "<input id='probe'><input type='text' autocomplete='username' disabled>"
                 else -> "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>"
             }
-            web.loadDataWithBaseURL(
-                if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/",
-                "<html><meta name='viewport' content='width=device-width'><body><form>" +
-                    usernameHtml +
-                    password + "</form></body></html>",
-                "text/html", "UTF-8", null,
-            )
+            val fixtureUrl = if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
+            val html = "<html><meta name='viewport' content='width=device-width'><body><form>" +
+                usernameHtml + password + "</form></body></html>"
+            web.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript("document.readyState === 'complete'") {
+                        domReady = it == "true"
+                        publishEvidence()
+                    }
+                }
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+                    val content = fixtureContent(request.url.toString(), html)
+                    return WebResourceResponse(
+                        "text/html", "UTF-8", if (content == null) 404 else 200,
+                        if (content == null) "Not Found" else "OK", emptyMap(),
+                        (content ?: "").byteInputStream(),
+                    )
+                }
+            }
+            web.loadUrl(fixtureUrl)
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
-                setOnClickListener { getSystemService(AutofillManager::class.java).requestAutofill(web) }
+                setOnClickListener {
+                    web.evaluateJavascript("(function(){const field=document.querySelector('input:not([disabled]):not([type=hidden])');if(field)field.focus();return !!field && document.activeElement===field;})()") {
+                        focusVerified = it == "true"
+                        request(web)
+                    }
+                }
             })
             layout.addView(Button(this).apply {
                 text = "Verify fill"
                 setOnClickListener {
-                    web.evaluateJavascript(
+                    val assertion = if (positive) {
                         "document.getElementById('username').value === 'synthetic-user' && " +
-                            "(!document.getElementById('password') || document.getElementById('password').value === 'synthetic-only-not-secret')",
-                    ) { result.text = "fillVerified=" + (it == "true") }
+                            "(!document.getElementById('password') || document.getElementById('password').value === 'synthetic-only-not-secret')"
+                    } else "Array.from(document.querySelectorAll('input')).every(input => input.value === '')"
+                    web.evaluateJavascript(assertion) {
+                        result.text = (if (positive) "fillVerified=" else "fieldsUnchanged=") + (it == "true")
+                    }
                 }
             })
         } else {
@@ -88,19 +144,30 @@ class FormActivity : Activity() {
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
                 setOnClickListener {
-                    focusTarget.requestFocus()
-                    getSystemService(AutofillManager::class.java).requestAutofill(focusTarget)
+                    focusVerified = focusTarget.requestFocus()
+                    request(focusTarget)
                 }
             })
             layout.addView(Button(this).apply {
                 text = "Verify fill"
                 setOnClickListener {
-                    result.text = "fillVerified=" + (username.text.toString() == "synthetic-user" &&
-                        (password == null || password.text.toString() == "synthetic-only-not-secret"))
+                    result.text = if (positive) {
+                        "fillVerified=" + (username.text.toString() == "synthetic-user" &&
+                            (password == null || password.text.toString() == "synthetic-only-not-secret"))
+                    } else "fieldsUnchanged=" + (username.text.isEmpty() &&
+                        (password == null || password.text.isEmpty()) && focusTarget.text.isEmpty())
                 }
             })
         }
         layout.addView(result)
+        layout.addView(evidence)
         setContentView(layout)
+    }
+
+    override fun onDestroy() {
+        if (::autofillCallback.isInitialized) {
+            getSystemService(AutofillManager::class.java).unregisterCallback(autofillCallback)
+        }
+        super.onDestroy()
     }
 }

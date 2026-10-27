@@ -15,7 +15,8 @@ App Link verification state. Never use this app with real credentials.
 ## Build and set up
 
 Requirements: JDK 17+, Gradle 8.14, Android SDK platform 36/build tools, Python 3,
-and an Android 12+ emulator with a biometric sensor and Gboard. Build plugins are
+and an Android 12+ emulator with a biometric sensor. A keyboard without inline
+suggestions can exercise the standard dropdown fallback. Build plugins are
 pinned to AGP 8.11.1 and Kotlin 2.4.10; AndroidX Biometric 1.1.0 and Autofill 1.3.0
 match the application. Set `JAVA_HOME`, `ANDROID_HOME` and put `adb` on PATH.
 
@@ -32,7 +33,8 @@ adb -s emulator-5554 shell am start -n io.palladin.autofill.harness.provider/io.
 
 The launcher must show `Synthetic encrypted cache ready`. Enroll the emulator
 fingerprint through Android Settings first, using `adb -s emulator-5554 emu finger
-touch 1` for enrollment touches. The harness does not create or change a PIN.
+touch 1` for enrollment touches. Local validation assumes an already enrolled
+emulator; only the explicitly selected CI preparation changes a synthetic PIN.
 
 ## Exercise the real system flow
 
@@ -60,12 +62,27 @@ This is synthetic OS authority supplied by the test, not a claim of public domai
 ownership. The provider build imports `<queries>` directly from the production manifest,
 so package visibility cannot silently diverge from the application; there is no fixture-specific package allowlist.
 
-The UI driver was verified on Pixel 10 Pro XL, 1344×2992, English Gboard. Its inline
-chip is first sought by accessible text; on this AVD Gboard excludes its inline
-surface from uiautomator XML, so the fallback coordinate is x=670/y=2050; adjust `--inline-y` for a different IME
-layout. The fixture's focus coordinate also assumes that screen geometry. The
-script is a focused emulator regression, not a device-independent UI framework.
-For callback-only RED checks use `--expected REJECTED` without `--fill`.
+The UI driver focuses the synthetic app's enabled EditText accessibility nodes
+and taps suggestions by their observed bounds. It has no hardcoded screen or
+keyboard coordinates. When an inline surface is inaccessible or ignored, the
+fixture's explicit Request Autofill button can expose the standard dropdown.
+Absence of a usable suggestion fails the test instead of guessing a tap location.
+For negative OS checks use `--expected REJECTED` without `--fill`. Each fresh
+fixture tracks public native/virtual `AutofillCallback` counts only within its
+current Activity instance, retaining events from autofocus in that same form. It
+records DOM readiness and actual input focus, then verifies that all input values
+remain literally empty in two observations separated by a bounded settling delay.
+Web requests wait for the current DOM-ready marker first. The existing bounded
+provider-state poll and two UI observations establish the absence of observable
+fill behavior; they do not by themselves prove a provider rejection. The driver also requires the selected provider, an enabled
+request, no shown AutoFill UI and no authentication. `REJECTED` means the provider
+snapshot explicitly rejected; `SYSTEM_UNAVAILABLE` requires the current OS
+unavailable callback when the provider has already unbound. A missing service
+alone never passes. WebView may produce no unavailable callback: with the same
+ready/requested/enabled/focused/untouched/no-UI evidence, the driver records
+`PLATFORM_NO_RESPONSE`, never provider rejection or an inferred callback. HTTP
+is served as an empty local 404 and has no focusable field. All outcomes stay
+distinct in the validation report.
 
 ## Recorded evidence — 2026-10-27
 
@@ -93,9 +110,21 @@ This proves real Android callbacks, IME presentation, Keystore biometric auth,
 selection and field handoff for these fixtures. It does not prove physical Samsung
 behavior, third-party applications, Chrome's separate provider setting, app
 unlock/cache publication from Flutter, or OEM biometric implementations. Existing
-JVM and Flutter tests cover complementary boundaries. No emulator CI workflow is
-added: deterministic CI would additionally need a provisioned emulator, enrolled
-test biometric and fixed IME/display configuration.
+JVM and Flutter tests cover complementary boundaries. The opt-in CI gate below
+provisions a separate synthetic emulator; its results must be reported for the
+exact tested commit.
+
+The WebView fixture uses `loadUrl` for the synthetic HTTPS document and the public
+[`WebViewClient.shouldInterceptRequest`](https://developer.android.com/reference/android/webkit/WebViewClient#shouldInterceptRequest(android.webkit.WebView,android.webkit.WebResourceRequest))
+callback to serve its local HTML. Only `https://fixture.invalid/` receives that
+content; every other URL receives an empty local 404, never a network fallback.
+The fixture has no Internet permission and never overrides `ViewStructure` origins.
+`loadDataWithBaseURL` reported `domains=ZERO` on the API 35 CI image, even with a
+matching history URL, so it did not establish the required WEB-origin gate.
+Each WebView OS fill must observe `domains=ONE` and `origin=VERIFIED` in the
+production provider's value-free snapshot before selection. A native association
+or manual chooser cannot substitute for that gate. CI failures preserve only
+allowlisted request classification enums in `request.json`.
 
 ## Cleanup
 
@@ -165,9 +194,52 @@ missing scheme metadata and eligibility boundaries that cannot be emitted by a
 particular WebView version.
 
 On the recorded WebView, an HTTP `loadDataWithBaseURL` form produced no provider
-callback even after an explicit manual request. The runner reports that separate
+callback even after an explicit manual request. The historical runner reported that separate
 outcome as `FRAMEWORK_SUPPRESSED`; it must not be cited as proof that the production
 service rejected an HTTP AssistStructure. The actual activity HTTP/missing-scheme
 negative response tests and native scheme-policy JVM regressions cover the
 application boundary. HTTPS metadata observed in the real framework had
 `webScheme=https`, text Autofill type, enabled state and visible state.
+
+## Presentation regression preview
+
+The debug-only `PresentationPreviewActivity` applies the production RemoteViews
+and constructs the production AndroidX inline content without opening the cache
+or asking for biometric authentication. Run each combination of `language` (`en`,
+`pl`) and `night` (`false`, `true`):
+
+```sh
+adb -s emulator-5556 shell am start -S -n io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity --es language pl --ez night true
+```
+
+`validate.py` runs all four previews through `presentation.py`, records their
+assertion results, and saves screenshots under ignored `build/presentation/`.
+The activity checks localized inline title and accessibility description, icon
+presence, exact synthetic username/label/host values, single-line ellipsis,
+duplicate-label suppression, and a decorative credential logo excluded from
+accessibility. It renders the real dropdown layouts at 130% font scale, including
+long synthetic strings, and displays `presentationVerified=true` only after every
+assertion passes. Capture the rendered screen for light/dark visual review; no
+real data is used. This verifies content/layout independently of keyboard policy;
+it does not prove Gboard or Samsung Keyboard will display an inline suggestion.
+Physical-device QA must still check both keyboards, light/dark modes, EN/PL,
+TalkBack, large fonts, and dropdown fallback when inline is unavailable or ignored.
+
+## Opt-in CI runtime gate
+
+The normal PR job does not build APKs. With explicit CI/emulator authorization,
+dispatch `test.yml` on the intended feature branch with `autofill_presentations=true`.
+This opt-in job uses an isolated API 35 x86_64 AVD with KVM and the default IME.
+It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clean
+committed checkout. The validator compiles only the synthetic provider/form APKs,
+runs native JVM tests and four localized presentation checks, then creates a
+synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
+Only after enrollment does it seed the biometric-bound cache and run all 24
+response/OS cases. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
+
+Artifacts retain the commit identity, emulator startup diagnostics, synthetic
+enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
+and successful `validation.json` including APK
+hashes and observed case outcomes. A failed or partial run never creates a
+successful validation report. This CI gate does not establish physical Gboard,
+Samsung Keyboard or third-party application compatibility.
