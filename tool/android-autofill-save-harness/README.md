@@ -35,6 +35,7 @@ SDK 36/build-tools 36.0.0 and an API 35+ **x86_64 disposable emulator**. Builds 
 emulator execution require explicit authorization. No store workflow is used.
 
 ```sh
+python3 -m unittest discover -s tool/android-autofill-save-harness/test -p 'test_*.py'
 flutter test --no-pub tool/android-autofill-save-harness/test/synthetic_draft_test.dart
 flutter analyze --no-pub tool/android-autofill-save-harness/main.dart tool/android-autofill-save-harness/test/synthetic_draft_test.dart
 python3 tool/android-autofill-save-harness/build.py \
@@ -97,7 +98,14 @@ provider, installs the test host authority, and runs three cases:
    any cancel/revoke/activate call and must observe an empty slot. Explicit Arm
    is a later action, so initialization cannot erase evidence of persistence.
 
-Temporary UI XML is deleted after each read and never printed or uploaded. The
+The driver reads all interactive windows using API 35's public
+`uiautomator dump --windows`. A temporarily unavailable root yields no nodes
+within the existing bounded wait; stale XML is removed before capture. It never
+counts an unavailable hierarchy as success. Temporary UI XML is deleted after
+each read and never printed or uploaded. On failure, `build/failure.json` records
+only the fixed scenario, source commit and booleans indicating expected fixture
+processes, resumed activities and service callback presence (null if inspection
+was unavailable); no device text, intent contents or logcat is retained. The
 result is boolean-only `build/validation.json`, bound to the source commit and
 APK hashes. The previous AutoFill provider is restored in `finally`; synthetic
 processes are stopped. Destroy the CI AVD afterwards. Do not collect general

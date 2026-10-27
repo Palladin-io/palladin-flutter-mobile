@@ -160,6 +160,7 @@ jobs:
             --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle" \
             --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt"
           flutter test --no-pub tool/android-autofill-save-harness/test/synthetic_draft_test.dart
+          python3 -m unittest discover -s tool/android-autofill-save-harness/test -p 'test_*.py'
       - name: Validate actual OS save and Flutter handoff
         timeout-minutes: 10
         shell: bash
@@ -197,5 +198,6 @@ jobs:
             tool/android-autofill-save-harness/build/validation.json
             tool/android-autofill-save-harness/build/emulator.log
             tool/android-autofill-save-harness/build/adb-version.txt
+            tool/android-autofill-save-harness/build/failure.json
           if-no-files-found: ignore
           retention-days: 7

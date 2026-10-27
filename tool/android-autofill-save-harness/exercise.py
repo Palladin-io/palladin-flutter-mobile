@@ -19,6 +19,43 @@ MAIN = PROVIDER + '/io.palladin.mobile.MainActivity'
 FORM_ACTIVITY = FORM + '/.SaveFormActivity'
 
 
+def read_nodes(android):
+    path = '/sdcard/palladin-synthetic-save-ui.xml'
+    android('shell', 'rm', '-f', path)
+    try:
+        android('shell', 'uiautomator', 'dump', '--windows', path)
+        try:
+            android('shell', 'test', '-s', path)
+        except subprocess.CalledProcessError as error:
+            if error.returncode == 1:
+                return []
+            raise
+        return list(ET.fromstring(android('shell', 'cat', path)).iter('node'))
+    finally:
+        android('shell', 'rm', '-f', path)
+
+
+def failure_state(android):
+    def read(*parts):
+        try:
+            return android(*parts)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return None
+    activities = read('shell', 'dumpsys', 'activity', 'activities')
+    resumed = None if activities is None else '\n'.join(
+        line for line in activities.splitlines()
+        if 'mResumedActivity' in line or 'topResumedActivity' in line)
+    processes = read('shell', 'ps', '-A', '-o', 'NAME')
+    service = read('shell', 'dumpsys', 'activity', 'service', SERVICE)
+    return {
+        'providerProcessPresent': None if processes is None else PROVIDER in processes.splitlines(),
+        'formProcessPresent': None if processes is None else FORM in processes.splitlines(),
+        'providerResumed': None if resumed is None else PROVIDER + '/' in resumed,
+        'formResumed': None if resumed is None else FORM + '/' in resumed,
+        'serviceCallbackObserved': None if service is None else 'result=' in service,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--serial', required=True)
@@ -30,18 +67,10 @@ def main():
     def android(*parts):
         return subprocess.check_output([adb, '-s', args.serial, *parts], text=True, timeout=15).strip()
 
-    def nodes():
-        path = '/sdcard/palladin-synthetic-save-ui.xml'
-        try:
-            android('shell', 'uiautomator', 'dump', path)
-            return list(ET.fromstring(android('shell', 'cat', path)).iter('node'))
-        finally:
-            android('shell', 'rm', '-f', path)
-
     def wait_text(pattern, tap=False):
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
-            for node in nodes():
+            for node in read_nodes(android):
                 if re.fullmatch(pattern, node.get('text', ''), re.I):
                     if tap:
                         bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
@@ -89,6 +118,7 @@ def main():
         android('shell', 'pm', 'clear', package)
     previous = android('shell', 'settings', 'get', 'secure', 'autofill_service')
     report = {'commit': commit, 'artifacts': build['artifacts'], 'cases': []}
+    stage = 'cold-start'
     try:
         android('shell', 'settings', 'put', 'secure', 'autofill_service', SERVICE)
         android('shell', 'pm', 'set-app-links', '--package', FORM, '2', 'fixture.invalid')
@@ -96,10 +126,12 @@ def main():
         wait_text('saveColdStartEmpty=true')
         tap('Arm save')
         wait_text('saveHarnessReady=true')
+        stage = 'positive-save'
         save_form()
         wait_text('saveHandoffVerified=true')
         report['cases'].append({'case': 'os-save-to-production-flutter-controller', 'passed': True})
 
+        stage = 'revoke-negative'
         tap('Hold pending save')
         wait_text('saveHoldReady=true')
         save_form()
@@ -113,6 +145,7 @@ def main():
         wait_text('savePendingVerified=false')
         report['cases'].append({'case': 'revoke-discards-held-pending-save', 'passed': True})
 
+        stage = 'process-death-negative'
         tap('Hold pending save')
         wait_text('saveHoldReady=true')
         save_form()
@@ -129,6 +162,10 @@ def main():
         destination.write_text(json.dumps(report, indent=2) + '\n')
         for case in report['cases']:
             print(case['case'] + ': PASS')
+    except Exception:
+        failure = {'commit': commit, 'stage': stage, **failure_state(android)}
+        (HERE / 'build/failure.json').write_text(json.dumps(failure, indent=2) + '\n')
+        raise
     finally:
         if previous == 'null':
             android('shell', 'settings', 'delete', 'secure', 'autofill_service')
