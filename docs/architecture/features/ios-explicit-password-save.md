@@ -1,12 +1,19 @@
 # iOS explicit password save
 
 On iOS 26.2+, the Credential Provider advertises
-`SupportsSavePasswordCredentials` and handles Apple's `ASSavePasswordRequest`.
-Only `userInitiated` requests with an exact HTTPS URL service identifier are
+[`SupportsSavePasswordCredentials`](https://developer.apple.com/documentation/authenticationservices/ascredentialproviderviewcontroller/performwithoutuserinteractionifpossible%28savepasswordrequest%3A%29)
+and handles Apple's [`ASSavePasswordRequest`](https://developer.apple.com/documentation/authenticationservices/assavepasswordrequest).
+Only [`userInitiated`](https://developer.apple.com/documentation/authenticationservices/assavepasswordrequest/event-swift.enum/userinitiated) requests with an exact HTTPS URL service identifier are
 accepted. Domain-only identifiers do not establish HTTPS. Automatic
 `formDidDisappear` and `generatedPasswordFilled` requests are rejected; the
 noninteractive callback always requests user interaction. No caller bundle
-identity is inferred from this API.
+identity is inferred from this API. These public Apple contracts and their
+26.2 availability were checked against the installed AuthenticationServices SDK
+headers; the capability key is documented with the save callback above.
+
+On iOS versions below 26.2, users can add a Credential manually through the
+existing Palladin create flow. That fallback does not capture passwords from
+another app or provide automatic save parity.
 
 The provider asks for explicit consent and biometric authentication, then
 stages a password for review. Its English and Polish copy explains that the
