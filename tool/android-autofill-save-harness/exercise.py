@@ -35,6 +35,32 @@ def read_nodes(android):
         android('shell', 'rm', '-f', path)
 
 
+def matches_label(node, pattern):
+    return node.get('enabled') == 'true' and any(
+        re.fullmatch(pattern, node.get(attribute, ''), re.I) is not None
+        for attribute in ('text', 'content-desc'))
+
+
+def hierarchy_metadata(nodes):
+    roles = {'android.view.View', 'android.widget.TextView', 'android.widget.Button',
+             'android.widget.EditText', 'android.widget.FrameLayout', 'android.widget.LinearLayout'}
+    labels = {'coldStartEmpty': 'saveColdStartEmpty=true',
+              'coldStartNotEmpty': 'saveColdStartEmpty=false',
+              'armButton': 'Arm save', 'harnessInitial': 'saveHarnessReady=false'}
+    result = []
+    for node in nodes:
+        bounds = node.get('bounds', '')
+        result.append({
+            'role': node.get('class') if node.get('class') in roles else 'other',
+            'bounds': list(map(int, re.findall(r'\d+', bounds)))
+                      if re.fullmatch(r'\[\d+,\d+\]\[\d+,\d+\]', bounds) else None,
+            'enabled': node.get('enabled') == 'true',
+            **{key: any(node.get(attribute) == value for attribute in ('text', 'content-desc'))
+               for key, value in labels.items()},
+        })
+    return result
+
+
 def failure_state(android):
     def read(*parts):
         try:
@@ -71,7 +97,7 @@ def main():
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             for node in read_nodes(android):
-                if re.fullmatch(pattern, node.get('text', ''), re.I):
+                if matches_label(node, pattern):
                     if tap:
                         bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
                         if len(bounds) != 4:
@@ -164,6 +190,19 @@ def main():
             print(case['case'] + ': PASS')
     except Exception:
         failure = {'commit': commit, 'stage': stage, **failure_state(android)}
+        try:
+            failure['hierarchy'] = hierarchy_metadata(read_nodes(android))
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ET.ParseError):
+            failure['hierarchy'] = None
+        # This driver accepts only a fresh synthetic emulator and only fixture APKs.
+        if failure['providerResumed'] is True or failure['formResumed'] is True:
+            screenshot = HERE / 'build/synthetic-failure.png'
+            try:
+                with screenshot.open('wb') as image:
+                    subprocess.run([adb, '-s', args.serial, 'exec-out', 'screencap', '-p'],
+                                   stdout=image, stderr=subprocess.DEVNULL, check=True, timeout=15)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                screenshot.unlink(missing_ok=True)
         (HERE / 'build/failure.json').write_text(json.dumps(failure, indent=2) + '\n')
         raise
     finally:

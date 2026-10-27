@@ -199,5 +199,6 @@ jobs:
             tool/android-autofill-save-harness/build/emulator.log
             tool/android-autofill-save-harness/build/adb-version.txt
             tool/android-autofill-save-harness/build/failure.json
+            tool/android-autofill-save-harness/build/synthetic-failure.png
           if-no-files-found: ignore
           retention-days: 7

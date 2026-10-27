@@ -12,7 +12,7 @@ this does not exercise login, `AuthBloc`, Vault selection, encryption or Entry
 creation. No backend, Firebase, analytics bootstrap, real credentials, MK or VK
 are involved. The fixture never invokes a Vault write. Its in-memory assertions
 check the exact synthetic source/domain, both captured values, native validation,
-and one-time consumption. Only boolean results are displayed or recorded.
+and one-time consumption. Only boolean scenario results are displayed or recorded.
 
 The separate native form APK contains real username/password EditTexts. After the
 real fill callback, a button changes both fields to fixed synthetic values, and
@@ -74,7 +74,8 @@ The existing Test workflow exposes an opt-in `autofill_save` dispatch input.
 Its separate job runs the existing production native JVM suite, builds these
 APKs and runs the three cases on a fresh official
 API-35 x86_64 KVM emulator; ordinary PR checks remain unchanged. It uploads only
-boolean/source/hash JSON, ADB version and emulator startup diagnostics, never
+boolean/source/hash JSON, whitelisted role/bounds metadata, ADB version, emulator
+startup diagnostics and a synthetic failure screenshot, never
 APKs, UI dumps or the runner's ephemeral ADB key. The SDK's ADB server starts
 before the emulator, so its authentication key exists before the guest connects.
 
@@ -105,11 +106,16 @@ counts an unavailable hierarchy as success. Temporary UI XML is deleted after
 each read and never printed or uploaded. On failure, `build/failure.json` records
 only the fixed scenario, source commit and booleans indicating expected fixture
 processes, resumed activities and service callback presence (null if inspection
-was unavailable); no device text, intent contents or logcat is retained. The
+was unavailable). Hierarchy metadata contains only whitelisted roles, numeric
+bounds and known labels mapped to booleans; no arbitrary device text or intent
+contents is retained. Flutter labels match exact `content-desc` as well as native
+`text`, with enabled-state and tap-bounds checks. On this fresh synthetic AVD,
+a failure screenshot is captured only while a fixture activity is foregrounded. The
 result is boolean-only `build/validation.json`, bound to the source commit and
 APK hashes. The previous AutoFill provider is restored in `finally`; synthetic
 processes are stopped. Destroy the CI AVD afterwards. Do not collect general
-logcat, real account state, screenshots or form dumps as evidence.
+logcat, real account state or form dumps as evidence. Never run this fixture on
+an emulator containing real accounts or data.
 
 Compilation and unit checks do not establish that these runtime cases pass.
 Only a completed `exercise.py` run does. Real Samsung/Chrome behavior, biometrics,

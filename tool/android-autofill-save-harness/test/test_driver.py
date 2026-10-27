@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import unittest
+import xml.etree.ElementTree as ET
 
 spec = importlib.util.spec_from_file_location('save_exercise', Path(__file__).parents[1] / 'exercise.py')
 exercise = importlib.util.module_from_spec(spec)
@@ -59,3 +60,32 @@ class FailureMetadataTests(unittest.TestCase):
             'providerProcessPresent': True, 'formProcessPresent': False,
             'providerResumed': True, 'formResumed': False, 'serviceCallbackObserved': True,
         })
+
+
+class LabelMatchTests(unittest.TestCase):
+    def test_flutter_labels_and_native_text_match_exactly(self):
+        for attribute in ('content-desc', 'text'):
+            node = ET.Element('node', {attribute: 'Arm save', 'enabled': 'true'})
+            self.assertTrue(exercise.matches_label(node, 'Arm save'))
+            self.assertFalse(exercise.matches_label(node, 'save'))
+            node.set('enabled', 'false')
+            self.assertFalse(exercise.matches_label(node, 'Arm save'))
+
+
+class HierarchyMetadataTests(unittest.TestCase):
+    def test_arbitrary_labels_and_roles_never_escape(self):
+        nodes = [ET.Element('node', {
+            'text': 'arbitrary-private-text', 'content-desc': 'saveColdStartEmpty=true',
+            'class': 'android.view.View', 'bounds': '[1,2][30,40]', 'enabled': 'true',
+        }), ET.Element('node', {
+            'text': 'another-private-value', 'class': 'private-role', 'bounds': 'bad',
+        })]
+        result = exercise.hierarchy_metadata(nodes)
+        self.assertEqual(result, [
+            {'role': 'android.view.View', 'bounds': [1, 2, 30, 40], 'enabled': True,
+             'coldStartEmpty': True, 'coldStartNotEmpty': False, 'armButton': False,
+             'harnessInitial': False},
+            {'role': 'other', 'bounds': None, 'enabled': False,
+             'coldStartEmpty': False, 'coldStartNotEmpty': False, 'armButton': False,
+             'harnessInitial': False},
+        ])
