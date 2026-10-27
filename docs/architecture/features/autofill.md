@@ -473,6 +473,11 @@ verification of this command and the actual rejection remains required.
   `android/app/src/main/kotlin/io/palladin/mobile/autofill/`
 - Android service config: `android/app/src/main/res/xml/autofill_service.xml`
 
+## Explicit iOS password saving
+
+See [iOS explicit password save](ios-explicit-password-save.md) for the iOS 26.2+
+consented encrypted handoff, shared Flutter confirmation and older-iOS fallback.
+
 ## Explicit Android login saving
 
 Android 9+ attaches `SaveInfo` only to an unambiguous username/password pair
