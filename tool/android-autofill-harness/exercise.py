@@ -45,7 +45,7 @@ def tap_text(pattern):
     return False
 
 
-command('shell', 'pm', 'set-app-links', '--package', form, '1' if args.mode.startswith('web') else '0', 'fixture.invalid')
+command('shell', 'pm', 'set-app-links', '--package', form, '2' if args.mode.startswith('web') else '0', 'fixture.invalid')
 command('shell', 'am', 'force-stop', form)
 command('shell', 'am', 'force-stop', provider)
 if args.inspect_response:

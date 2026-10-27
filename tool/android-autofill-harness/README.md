@@ -51,7 +51,10 @@ username for a first-step form) and exposes only `fillVerified=true/false`.
 The runner prints outcomes, never form values or cache contents. Temporary UI XML
 is removed after each read. The form has no INTERNET permission.
 
-The runner sets `fixture.invalid` as OS-verified only for the WebView scenarios;
+The runner sets `fixture.invalid` to the emulator OS approved state (`pm set-app-links`
+state 2, exposed to the app as verified) only for the WebView scenarios. Unlike
+overridable verification state 1, this cannot race with asynchronous installation
+verification of the reserved `.invalid` host;
 native scenarios clear that verification to exercise the explicit manual warning.
 This is synthetic OS authority supplied by the test, not a claim of public domain
 ownership. The provider build imports `<queries>` directly from the production manifest,
