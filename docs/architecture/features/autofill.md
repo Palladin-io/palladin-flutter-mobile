@@ -652,3 +652,7 @@ Flutter tests cover explicit confirmation and session guards, including a real
 loopback 401 refresh race. They do not constitute physical-device OS save UI
 acceptance. The Android save trigger, deferred app launch and unlocked
 confirmation must also be exercised on a synthetic device fixture before release.
+
+### Android debug identity
+
+Android debug builds use `Palladin (Debug)` for the launcher and system AutoFill provider label. English and Polish unlock, biometric and generation prompts also identify the debug build, including the public inline suggestion and dropdown paths. These resources live only in `src/debug`; release labels remain unchanged. The label does not select a backend environment.
