@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
@@ -10,6 +11,7 @@ import 'package:mobile_palladin/features/vault/data/services/member_sync_service
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/approval/data/services/encrypted_reason_crypto_service.dart';
@@ -47,6 +49,7 @@ void main() {
     'lock-during-decrypt',
     'failed-vault',
     'timed-reads',
+    'paged-http',
   ]) {
     test(
       'Inbox shares encrypted reads with independent key lifetime: $scenario',
@@ -214,13 +217,75 @@ void main() {
         });
         when(() => index.waitForCurrent(any())).thenAnswer((_) async {});
         when(() => index.entries(any())).thenReturn([]);
+        final requests = <String, int>{};
+        GrantsRemoteDatasource grantSource = remote;
+        VaultRemoteDatasource vaultSource = vaults;
+        AgentDiscoveryRemote discoverySource = discovery;
+        if (scenario == 'paged-http') {
+          final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+          final dio = Dio(
+            BaseOptions(
+              baseUrl: 'http://${server.address.address}:${server.port}',
+            ),
+          );
+          addTearDown(() async {
+            dio.close(force: true);
+            await server.close(force: true);
+          });
+          server.listen((request) async {
+            final path = request.uri.path;
+            final page = request.uri.queryParameters['afterId'];
+            final target = page == null ? path : '$path?afterId=$page';
+            requests[target] = (requests[target] ?? 0) + 1;
+            Object? body;
+            if (path == '/api/vaults/v-1') {
+              body = await vaults.getEncryptedVault('v-1');
+            } else if (path == '/api/vaults/v-1/discovery/agents') {
+              body = {
+                'items': [
+                  {
+                    'agentId': page == null ? 'other-agent' : 'a-1',
+                    'recipientKeyVersion': 1,
+                    'status': 'current',
+                    'x25519PublicKey': base64Encode(List.filled(32, 1)),
+                    'ed25519PublicKey': base64Encode(signingKey),
+                  },
+                ],
+                'nextAfterId': page == null ? 'next' : null,
+              };
+            } else if (path.startsWith('/api/vaults/v-1/grants/')) {
+              final grant = grants.firstWhere(
+                (grant) => grant.id == request.uri.pathSegments.last,
+              );
+              body = {
+                'id': grant.id,
+                'vaultId': grant.vaultId,
+                'agentId': grant.agentId,
+                'status': 'active',
+                'type': 'granular',
+                'createdAt': grant.createdAt,
+                'entryId': grant.entryId,
+                'methods': grant.methods,
+                'encryptedReason': grant.encryptedReason,
+              };
+            } else {
+              request.response.statusCode = 404;
+            }
+            request.response.headers.contentType = ContentType.json;
+            request.response.write(jsonEncode(body));
+            await request.response.close();
+          });
+          grantSource = GrantsRemoteDatasource(dio);
+          vaultSource = VaultRemoteDatasource(dio, opaqueAssetDio: dio);
+          discoverySource = AgentDiscoveryRemoteDatasource(dio);
+        }
         final repository = GrantsRepositoryImpl(
-          remote,
+          grantSource,
           vaultSessionStore: session,
           reasonResolver: LocalGrantReasonResolver(
-            vaults: vaults,
+            vaults: vaultSource,
             keys: keys,
-            discovery: discovery,
+            discovery: discoverySource,
             reasonCrypto: reasonCrypto,
             messageKeyFingerprint: (_) async => fingerprint,
           ),
@@ -337,13 +402,22 @@ void main() {
         verify(
           () => keys.openMemberVaultKey(any(), any()),
         ).called(opens * passes);
-        verify(
-          () => remote.getGrant(any(), any()),
-        ).called((locked ? 4 : 8) * passes);
-        verify(
-          () => vaults.getEncryptedVault(any()),
-        ).called(failedVault ? 2 : passes);
-        verify(() => discovery.list(any())).called(passes);
+        if (scenario == 'paged-http') {
+          expect(requests, {
+            for (var i = 0; i < 8; i++) '/api/vaults/v-1/grants/g-$i': 1,
+            '/api/vaults/v-1': 1,
+            '/api/vaults/v-1/discovery/agents': 1,
+            '/api/vaults/v-1/discovery/agents?afterId=next': 1,
+          });
+        } else {
+          verify(
+            () => remote.getGrant(any(), any()),
+          ).called((locked ? 4 : 8) * passes);
+          verify(
+            () => vaults.getEncryptedVault(any()),
+          ).called(failedVault ? 2 : passes);
+          verify(() => discovery.list(any())).called(passes);
+        }
       },
     );
   }
