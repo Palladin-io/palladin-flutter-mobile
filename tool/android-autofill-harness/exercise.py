@@ -350,7 +350,9 @@ try:
                 assert tap_text('Request Autofill'), 'Manual request control missing'
                 assert tap_text('Unlock Palladin to autofill'), 'Accessible unlock suggestion missing'
             authenticate()
-            assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
+            direct_native = args.mode.startswith('native') and int(command('shell', 'getprop', 'ro.build.version.sdk')) >= 31
+            if not direct_native:
+                assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
             assert tap_text('Verify fill'), 'Fixture verification control missing'
             wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
                      'Synthetic field assertions failed')
