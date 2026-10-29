@@ -218,6 +218,9 @@ jobs:
           timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do kill -0 "$emulator_pid" 2>/dev/null || exit 1; sleep 2; done'
           mark_phase unlock-screen
           timeout 10 adb -s emulator-5554 shell input keyevent 82
+          # Fresh disposable AVD only: server flag refreshes destroy active AutoFill sessions.
+          timeout 10 adb -s emulator-5554 shell cmd device_config set_sync_disabled_for_tests until_reboot
+          test "$(timeout 10 adb -s emulator-5554 shell cmd device_config get_sync_disabled_for_tests | tr -d '\r')" = until_reboot
           for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
             mark_phase "disable-$animation"
             timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
@@ -323,6 +326,9 @@ jobs:
             timeout 10 adb -s emulator-5554 shell getprop "$property" >> "$evidence/platform.txt"
           done
           timeout 10 adb -s emulator-5554 shell input keyevent 82
+          # Fresh disposable AVD only: server flag refreshes destroy active AutoFill sessions.
+          timeout 10 adb -s emulator-5554 shell cmd device_config set_sync_disabled_for_tests until_reboot
+          test "$(timeout 10 adb -s emulator-5554 shell cmd device_config get_sync_disabled_for_tests | tr -d '\r')" = until_reboot
           for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
             timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
           done

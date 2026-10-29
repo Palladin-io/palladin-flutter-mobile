@@ -264,4 +264,25 @@ The CI runtime uses Android's supported `-gpu software` mode. `swiftshader_indir
 
 ### Synthetic inspector failure diagnostics
 
-Failure artifacts may include `inspector.json`, containing only bounded lifecycle phase enums, exception class/stack symbols and line numbers for at most three cause levels and twelve frames per level (never exception messages, file names or values), plus up to three Android process-exit reason/status pairs scoped to the inspected process. The debug harness owns these files and the diagnostic intent; no production application code is changed. Capture happens after the original failure screenshot, preserves the original failure, and never makes a failed assertion pass. It does not collect logcat or raw Activity/framework dumps. Use only the disposable emulator with synthetic records.
+Direct-response inspection failures may include `inspector.json`, containing only bounded lifecycle phase enums, exception class/stack symbols and line numbers for at most three cause levels and twelve frames per level (never exception messages, file names or values), plus up to three Android process-exit reason/status pairs scoped to the inspected process. The debug harness owns these files and the diagnostic intent; no production application code is changed. OS handoffs never collect this file, since their provider process does not execute the inspector and could otherwise expose stale evidence from a prior case. Capture happens after the original failure screenshot, preserves the original failure, and never makes a failed assertion pass. It does not collect logcat or raw Activity/framework dumps. Use only the disposable emulator with synthetic records.
+
+### Disposable emulator configuration isolation
+
+Both AutoFill and save CI jobs disable bulk DeviceConfig synchronization with the
+public shell command `cmd device_config set_sync_disabled_for_tests until_reboot`
+and verify the returned mode before cases run. This applies only to each job's
+fresh disposable AVD and resets on reboot; it does not alter application policy,
+field classification, timeouts or acceptance assertions.
+
+A local API 35 reproduction showed a valid authenticated inline response being
+shown, followed 1.7 seconds later by a framework service refresh and session
+destruction. A controlled update of `autofill/compat_mode_allowed_packages`
+reproduced the same sequence: active response and visible chip disappeared, then
+the exact original setting was restored. Android 15's
+[`AutofillManagerServiceImpl.updateLocked`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/autofill/java/com/android/server/autofill/AutofillManagerServiceImpl.java)
+removes all sessions before updating the service. Concurrent bulk configuration
+callbacks make background synchronization a candidate trigger, but the exact
+spontaneous key change was not logged. Earlier cloud failures lack this lifecycle
+evidence and are not claimed to share the proven local cause. Configuration
+isolation makes the synthetic test environment stable; it is not a product fix
+or permission to ignore a missing dataset.

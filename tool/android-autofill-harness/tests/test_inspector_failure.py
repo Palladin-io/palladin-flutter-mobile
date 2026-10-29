@@ -3,13 +3,14 @@ import json
 import pathlib
 import subprocess
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock
 
 
 class InspectorFailureTests(unittest.TestCase):
     def setUp(self):
         source = pathlib.Path(__file__).resolve().parents[1] / 'exercise.py'
-        self.namespace = {'json': json, 'provider': 'synthetic.provider', 'command': Mock()}
+        self.namespace = {'json': json, 'provider': 'synthetic.provider', 'command': Mock(), 'args': SimpleNamespace(inspect_response=True)}
         functions = [node for node in ast.parse(source.read_text()).body if isinstance(node, ast.FunctionDef)]
         exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), 'exec'), self.namespace)
         self.namespace['command'] = Mock()
@@ -36,3 +37,10 @@ class InspectorFailureTests(unittest.TestCase):
         self.namespace['collect_inspector_failure'](destination)
         encoded = destination.__truediv__.return_value.write_text.call_args.args[0]
         self.assertEqual(json.loads(encoded), {'exits': []})
+
+    def test_os_handoff_never_exports_previous_inspector_state(self):
+        self.namespace['args'].inspect_response = False
+        destination = MagicMock()
+        self.namespace['collect_inspector_failure'](destination)
+        self.namespace['command'].assert_not_called()
+        destination.__truediv__.assert_not_called()

@@ -190,6 +190,8 @@ def framework_snapshot(diagnosis):
 
 
 def collect_inspector_failure(destination):
+    if not args.inspect_response:
+        return
     report = {}
     try:
         raw = command('shell', 'run-as', provider, 'cat', 'files/synthetic-failure.json')
