@@ -4,6 +4,7 @@ useDefault = true
 [[allowlists]]
 description = "Deterministic cryptographic fixtures with no production secrets"
 paths = [
+  '''^test/fixtures/account-recovery-challenge-v1/vectors\.json$''',
   '''^test/fixtures/crypto/envelope-xchacha-hkdf\.json$''',
   '''^test/fixtures/current_member_entry_sync_v2/(?:valid-snapshot|tombstone-reset)\.json$''',
   '''^test/fixtures/vault_protocol_2/negative/corruption\.json$''',

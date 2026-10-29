@@ -976,6 +976,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Odzyskiwanie nie powiodło się. Spróbuj ponownie.';
 
   @override
+  String get recoveryProofInvalid =>
+      'Weryfikacja odzyskiwania wygasła lub nie powiodła się. Spróbuj ponownie.';
+
+  @override
   String get vaultTitle => 'Sejfy';
 
   @override
@@ -4116,6 +4120,17 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get authTotpEnrollDone => 'Gotowe';
+
+  @override
+  String get authTotpEnrollPasswordSubtitle =>
+      'Potwierdź bieżące hasło główne, aby skonfigurować uwierzytelnianie dwuskładnikowe.';
+
+  @override
+  String get authTotpEnrollPasswordButton => 'Dalej';
+
+  @override
+  String get authTotpEnrollUnavailable =>
+      'Uwierzytelnianie dwuskładnikowe jest dostępne tylko dla kont logujących się hasłem.';
 
   @override
   String get authChangePwTitle => 'Zmień hasło główne';

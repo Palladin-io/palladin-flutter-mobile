@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -12,9 +13,15 @@ import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../autofill/presentation/widgets/autofill_setup_card.dart';
+import '../../../unlock/data/datasources/account_remote_datasource.dart';
+import '../../../unlock/data/models/account_response.dart';
 
 class SecurityPage extends StatelessWidget {
-  const SecurityPage({super.key});
+  const SecurityPage({super.key, this.loadAccount});
+
+  /// Account source for the TOTP visibility check; defaults to
+  /// `GET /api/account`.
+  final Future<AccountResponse> Function()? loadAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -63,19 +70,65 @@ class SecurityPage extends StatelessWidget {
               onTap: () => context.push(AppRoutes.changePassword),
             ),
             const SizedBox(height: AppSpacing.cardGap),
-            _SecurityAction(
-              icon: Icons.shield_outlined,
-              title: l10n.settingsTwoFactor,
-              subtitle: l10n.settingsSecurityTwoFactorHint,
-              onTap: () => context.push(AppRoutes.totpEnroll),
-            ),
-          ] else
-            _InfoCard(
-              icon: Icons.verified_user_outlined,
-              message: l10n.settingsSecurityOAuth,
-            ),
+          ],
+          _TwoFactorAction(
+            loadAccount:
+                loadAccount ??
+                () => getIt<AccountRemoteDatasource>().getAccount(),
+            fallback: isPasswordAccount
+                ? null
+                : _InfoCard(
+                    icon: Icons.verified_user_outlined,
+                    message: l10n.settingsSecurityOAuth,
+                  ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// TOTP protects the password login credential, so the entry is shown only
+/// when Identity reports one (`kdf.credentialRevision > 0`), as on the web.
+class _TwoFactorAction extends StatefulWidget {
+  const _TwoFactorAction({required this.loadAccount, this.fallback});
+
+  final Future<AccountResponse> Function() loadAccount;
+
+  /// Shown instead when the account has no password login credential.
+  final Widget? fallback;
+
+  @override
+  State<_TwoFactorAction> createState() => _TwoFactorActionState();
+}
+
+class _TwoFactorActionState extends State<_TwoFactorAction> {
+  late final Future<bool> _hasPasswordCredential = _load();
+
+  Future<bool> _load() async {
+    final kdf = (await widget.loadAccount()).kdf;
+    return kdf != null && kdf.credentialRevision > 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return FutureBuilder<bool>(
+      future: _hasPasswordCredential,
+      builder: (context, snapshot) {
+        if (snapshot.data == true) {
+          return _SecurityAction(
+            icon: Icons.shield_outlined,
+            title: l10n.settingsTwoFactor,
+            subtitle: l10n.settingsSecurityTwoFactorHint,
+            onTap: () => context.push(AppRoutes.totpEnroll),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
+        return widget.fallback ?? const SizedBox.shrink();
+      },
     );
   }
 }

@@ -1784,6 +1784,12 @@ abstract class AppLocalizations {
   /// **'Recovery failed. Please try again.'**
   String get recoveryServerError;
 
+  /// Recovery was rejected because the one-time key-possession challenge was invalid, expired or already used
+  ///
+  /// In en, this message translates to:
+  /// **'The recovery check expired or could not be verified. Please try again.'**
+  String get recoveryProofInvalid;
+
   /// Vaults section title shown in the app bar of the vault list
   ///
   /// In en, this message translates to:
@@ -7225,6 +7231,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get authTotpEnrollDone;
+
+  /// TOTP enrollment step asking for the current login password
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your current master password to set up two-factor authentication.'**
+  String get authTotpEnrollPasswordSubtitle;
+
+  /// Button that verifies the current password before TOTP enrollment
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get authTotpEnrollPasswordButton;
+
+  /// Shown when the backend reports the account has no password login credential
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication is available only for accounts that sign in with a password.'**
+  String get authTotpEnrollUnavailable;
 
   /// Change-password screen title
   ///

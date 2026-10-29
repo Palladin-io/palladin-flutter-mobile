@@ -356,6 +356,7 @@
   "recoveryPasswordMismatch": "Hasła są różne",
   "recoveryMaterialMissing": "Tego konta nie można odzyskać — klucz odzyskiwania nie został ustawiony. Skontaktuj się z pomocą techniczną.",
   "recoveryServerError": "Odzyskiwanie nie powiodło się. Spróbuj ponownie.",
+  "recoveryProofInvalid": "Weryfikacja odzyskiwania wygasła lub nie powiodła się. Spróbuj ponownie.",
   "vaultTitle": "Sejfy",
   "vaultNewVault": "Nowy sejf",
   "vaultNoVaults": "Brak sejfów",
@@ -1293,6 +1294,9 @@
   "authTotpEnrollCopyCodes": "Kopiuj kody",
   "authTotpEnrollCodesCopied": "Skopiowano kody odzyskiwania.",
   "authTotpEnrollDone": "Gotowe",
+  "authTotpEnrollPasswordSubtitle": "Potwierdź bieżące hasło główne, aby skonfigurować uwierzytelnianie dwuskładnikowe.",
+  "authTotpEnrollPasswordButton": "Dalej",
+  "authTotpEnrollUnavailable": "Uwierzytelnianie dwuskładnikowe jest dostępne tylko dla kont logujących się hasłem.",
 
   "authChangePwTitle": "Zmień hasło główne",
   "authChangePwSubtitle": "To ponownie zaszyfruje klucz sejfu na urządzeniu. Klucz odzyskiwania pozostaje bez zmian.",

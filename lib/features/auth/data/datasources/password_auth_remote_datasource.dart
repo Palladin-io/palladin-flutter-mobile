@@ -132,36 +132,59 @@ class PasswordAuthRemoteDatasource {
   }
 
   /// `POST /api/auth/totp/enroll` (JWT) — begins TOTP enrollment.
-  Future<TotpEnrollModel> totpEnroll() async {
+  ///
+  /// [currentAuthCredential] proves knowledge of the login password so a
+  /// stolen session alone cannot install a second factor. Throws
+  /// [TotpCurrentCredentialException] (403) or [TotpUnavailableException]
+  /// (404, account without a password login).
+  Future<TotpEnrollModel> totpEnroll(Uint8List currentAuthCredential) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/totp/enroll',
+        data: {'currentAuthCredential': _encode(currentAuthCredential)},
       );
       return TotpEnrollModel.fromJson(_requireBody(response));
     } on DioException catch (e) {
-      throw PasswordAuthServerException(_classify(e));
+      throw _totpCredentialError(e) ??
+          PasswordAuthServerException(_classify(e));
     }
   }
 
   /// `POST /api/auth/totp/confirm` (JWT) — confirms the pending secret with
   /// a generated [code] and returns the one-time recovery codes. Throws
-  /// [TotpInvalidException] on a wrong code.
-  Future<List<String>> totpConfirm(String code) async {
+  /// [TotpInvalidException] on a wrong code and the credential errors of
+  /// [totpEnroll].
+  Future<List<String>> totpConfirm(
+    String code,
+    Uint8List currentAuthCredential,
+  ) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/totp/confirm',
-        data: {'code': code},
+        data: {
+          'code': code,
+          'currentAuthCredential': _encode(currentAuthCredential),
+        },
       );
       final codes = _requireBody(response)['recoveryCodes'] as List<dynamic>?;
       return codes == null
           ? const <String>[]
           : codes.map((c) => c as String).toList(growable: false);
     } on DioException catch (e) {
+      final credentialError = _totpCredentialError(e);
+      if (credentialError != null) throw credentialError;
       final status = e.response?.statusCode;
       if (status == 401 || status == 400) throw const TotpInvalidException();
       throw PasswordAuthServerException(_classify(e));
     }
   }
+
+  Exception? _totpCredentialError(DioException e) =>
+      switch (e.response?.statusCode) {
+        403 => const TotpCurrentCredentialException(),
+        404 => const TotpUnavailableException(),
+        _ => null,
+      };
 
   /// Changes the master password for the authenticated user via
   /// `PUT /api/account/password` (JWT).
