@@ -57,9 +57,11 @@ reason text and deep links never become interim presentation. Up to four rows
 resolve concurrently, with grant reads keyed by Vault/grant and member-directory
 reads keyed by Vault shared only within that resolution. Ready rows publish
 independently, including Entry/reason/actor fields before the Agent-name read
-finishes. Agent-name loading runs independently and cannot occupy a row worker;
-its completion merges into the latest row metadata. There is no new persistent
-or cross-refresh cache. Hydration merges
+finishes. Agent-name and actor-directory loading run independently and cannot
+occupy a row worker. Actor lookup uses four bounded workers and one shared
+directory read per Vault within the resolution; ready Entry labels and reasons
+publish while a directory is pending. Both name paths merge into the latest row
+metadata. There is no new persistent or cross-refresh cache. Hydration merges
 metadata only, retaining read/action changes, and checks both session and feed
 generation before every publication. Approval still refreshes the pending source
 and performs the existing authenticated review in its sheet.

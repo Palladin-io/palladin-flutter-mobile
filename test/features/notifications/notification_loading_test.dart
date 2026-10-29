@@ -400,6 +400,69 @@ void main() {
   });
 
   test(
+    'all Entry labels and reasons publish while actor names are pending',
+    () async {
+      final response = Completer<List<VaultMember>>();
+      when(() => members.list('vault')).thenAnswer((_) => response.future);
+      when(() => repository.list()).thenAnswer(
+        (_) async =>
+            NotificationPage(items: [for (var i = 0; i < 9; i++) _item('$i')]),
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer(
+        (invocation) async => _grant(
+          invocation.positionalArguments[1] as String,
+          entryId: 'entry',
+        ),
+      );
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'entry',
+          entryType: 1,
+          memberLabel: 'Local Entry',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.active,
+        ),
+      ]);
+      final loading = cubit.load();
+      await Future<void>.delayed(Duration.zero);
+      final beforeActors = cubit.state.items;
+      response.complete([
+        VaultMember(
+          id: 'actor',
+          name: 'Local Actor',
+          addedAt: DateTime(2026),
+          status: VaultMemberStatus.active,
+        ),
+      ]);
+      await loading;
+      verify(() => members.list('vault')).called(1);
+      verify(() => grants.getGrant('vault', any())).called(9);
+      expect(beforeActors.map((item) => item.metadata['reason']), [
+        for (var i = 0; i < 9; i++) 'Reason $i',
+      ]);
+      expect(
+        beforeActors.every(
+          (item) => item.metadata['entryLabel'] == 'Local Entry',
+        ),
+        true,
+      );
+      expect(
+        cubit.state.items.every(
+          (item) => item.metadata['actorName'] == 'Local Actor',
+        ),
+        true,
+      );
+      expect(
+        cubit.state.items.every(
+          (item) => item.metadata['entryLabel'] == 'Local Entry',
+        ),
+        true,
+      );
+    },
+  );
+  test(
     'all Entry labels and reasons publish while Agent names are pending',
     () async {
       final response = Completer<List<Agent>>();
@@ -541,6 +604,192 @@ void main() {
         true,
       );
     });
+  }
+
+  test('actor directory reads remain bounded across distinct Vaults', () async {
+    final pending = List.generate(5, (_) => Completer<List<VaultMember>>());
+    var active = 0;
+    var maximum = 0;
+    final started = <String>[];
+    cubit.configureUnlockedResolution(
+      activeAccountId: 'account',
+      activeOrganizationId: 'org',
+      activeVaults: [
+        for (var i = 0; i < 5; i++)
+          VaultEntity(
+            id: 'vault-$i',
+            name: 'Vault $i',
+            grantMode: GrantMode.granular,
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+            entryCount: 0,
+            activeGrantCount: 1,
+            memberCount: 1,
+          ),
+      ],
+    );
+    when(() => repository.list()).thenAnswer(
+      (_) async => NotificationPage(
+        items: [
+          for (var i = 0; i < 5; i++)
+            _item('$i').copyWith(
+              metadata: {
+                'vaultId': 'vault-$i',
+                'grantId': '$i',
+                'agentId': 'agent',
+              },
+            ),
+        ],
+      ),
+    );
+    when(() => grants.getGrant(any(), any())).thenAnswer(
+      (call) async => Grant(
+        id: call.positionalArguments[1] as String,
+        vaultId: call.positionalArguments[0] as String,
+        agentId: 'agent',
+        status: GrantStatus.active,
+        scope: GrantScope.full,
+        reason: 'Ready',
+        createdBy: 'actor',
+        createdAt: DateTime(2026),
+      ),
+    );
+    when(() => members.list(any())).thenAnswer((call) async {
+      final vault = call.positionalArguments.single as String;
+      started.add(vault);
+      active++;
+      if (active > maximum) maximum = active;
+      try {
+        return await pending[int.parse(vault.split('-').last)].future;
+      } finally {
+        active--;
+      }
+    });
+    final loading = cubit.load();
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      cubit.state.items.every((item) => item.metadata['reason'] == 'Ready'),
+      true,
+    );
+    expect(started.length, 4);
+    pending[0].complete([]);
+    await Future<void>.delayed(Duration.zero);
+    expect(started.length, 5);
+    for (var i = 1; i < 5; i++) {
+      pending[i].complete([]);
+    }
+    await loading;
+    expect(maximum, 4);
+    expect(started.toSet().length, 5);
+  });
+
+  for (final boundary in ['refresh', 'lock', 'reset', 'vault removal']) {
+    test('delayed actor metadata cannot overwrite $boundary', () async {
+      final directory = Completer<List<VaultMember>>();
+      when(() => members.list('vault')).thenAnswer((_) => directory.future);
+      when(
+        () => repository.list(),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('one')]));
+      when(
+        () => grants.getGrant('vault', 'one'),
+      ).thenAnswer((_) async => _grant('one'));
+      final loading = cubit.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.items.single.metadata['reason'], 'Reason one');
+      switch (boundary) {
+        case 'refresh':
+          when(
+            () => repository.list(),
+          ).thenAnswer((_) async => const NotificationPage(items: []));
+          await cubit.refresh();
+        case 'lock':
+          cubit.lock();
+        case 'reset':
+          cubit.reset();
+        case 'vault removal':
+          cubit.configureUnlockedResolution(
+            activeAccountId: 'account',
+            activeOrganizationId: 'org',
+            activeVaults: [],
+          );
+      }
+      final settled = cubit.state;
+      directory.complete([
+        VaultMember(
+          id: 'actor',
+          name: 'Late Actor',
+          addedAt: DateTime(2026),
+          status: VaultMemberStatus.active,
+        ),
+      ]);
+      await loading;
+      expect(identical(cubit.state, settled), true);
+      expect(
+        cubit.state.items.every((item) => item.metadata['actorName'] == null),
+        true,
+      );
+    });
+  }
+
+  for (final actorFirst in [true, false]) {
+    test(
+      'actor and Agent completions merge latest metadata (actorFirst=$actorFirst)',
+      () async {
+        final directory = Completer<List<VaultMember>>();
+        final agentNames = Completer<List<Agent>>();
+        when(() => members.list('vault')).thenAnswer((_) => directory.future);
+        when(() => agents.listAgents()).thenAnswer((_) => agentNames.future);
+        when(
+          () => repository.list(),
+        ).thenAnswer((_) async => NotificationPage(items: [_item('one')]));
+        when(
+          () => grants.getGrant('vault', 'one'),
+        ).thenAnswer((_) async => _grant('one'));
+        final loading = cubit.load();
+        await Future<void>.delayed(Duration.zero);
+        void completeActor() => directory.complete([
+          VaultMember(
+            id: 'actor',
+            name: 'Local Actor',
+            addedAt: DateTime(2026),
+            status: VaultMemberStatus.active,
+          ),
+        ]);
+        void completeAgent() => agentNames.complete([
+          Agent(
+            agentId: 'agent',
+            name: 'Local Agent',
+            status: AgentStatus.active,
+            publicKeySuffix: 'suffix',
+            createdAt: DateTime(2026),
+          ),
+        ]);
+        if (actorFirst) {
+          completeActor();
+        } else {
+          completeAgent();
+        }
+        await Future<void>.delayed(Duration.zero);
+        if (actorFirst) {
+          completeAgent();
+        } else {
+          completeActor();
+        }
+        await loading;
+        expect(
+          cubit.state.items.single.metadata,
+          containsPair('actorName', 'Local Actor'),
+        );
+        expect(
+          cubit.state.items.single.metadata,
+          containsPair('agentName', 'Local Agent'),
+        );
+        expect(
+          cubit.state.items.single.metadata,
+          containsPair('reason', 'Reason one'),
+        );
+      },
+    );
   }
 
   test('metadata completion preserves a concurrent mark-read', () async {
