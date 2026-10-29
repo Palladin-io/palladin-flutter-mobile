@@ -170,9 +170,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerSingleton<EnvConfig>(config);
 
   // Storage
-  getIt.registerLazySingleton<FlutterSecureStorage>(
-    () => deviceSecureStorage,
-  );
+  getIt.registerLazySingleton<FlutterSecureStorage>(() => deviceSecureStorage);
   getIt.registerLazySingleton<SecureTokenStorage>(
     () => SecureTokenStorage(getIt<FlutterSecureStorage>()),
   );
@@ -358,6 +356,7 @@ void configureDependencies(EnvConfig config) {
     () => RecoveryCubit(
       datasource: getIt<RecoveryRemoteDatasource>(),
       cryptoService: getIt<RecoveryCryptoService>(),
+      sessionUserId: () => getIt<SecureTokenStorage>().userId,
     ),
   );
 

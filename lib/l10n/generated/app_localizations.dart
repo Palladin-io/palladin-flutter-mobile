@@ -1784,6 +1784,12 @@ abstract class AppLocalizations {
   /// **'Recovery failed. Please try again.'**
   String get recoveryServerError;
 
+  /// Recovery was rejected because the one-time key-possession challenge was invalid, expired or already used
+  ///
+  /// In en, this message translates to:
+  /// **'The recovery check expired or could not be verified. Please try again.'**
+  String get recoveryProofInvalid;
+
   /// Vaults section title shown in the app bar of the vault list
   ///
   /// In en, this message translates to:

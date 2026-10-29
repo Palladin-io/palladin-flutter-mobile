@@ -972,6 +972,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recoveryServerError => 'Recovery failed. Please try again.';
 
   @override
+  String get recoveryProofInvalid =>
+      'The recovery check expired or could not be verified. Please try again.';
+
+  @override
   String get vaultTitle => 'Vaults';
 
   @override

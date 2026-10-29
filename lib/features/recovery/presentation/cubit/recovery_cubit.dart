@@ -29,11 +29,18 @@ export 'recovery_state.dart';
 /// Failures surface as [RecoveryFailed] carrying typed exceptions so the
 /// presentation layer can choose the correct localized message.
 class RecoveryCubit extends Cubit<RecoveryState> {
-  RecoveryCubit({required this.datasource, required this.cryptoService})
-    : super(const RecoveryInitial());
+  RecoveryCubit({
+    required this.datasource,
+    required this.cryptoService,
+    required Future<String?> Function() sessionUserId,
+  }) : _sessionUserId = sessionUserId,
+       super(const RecoveryInitial());
 
   final RecoveryRemoteDatasource datasource;
   final RecoveryCryptoService cryptoService;
+
+  /// User id of the authenticated session; the challenge must be bound to it.
+  final Future<String?> Function() _sessionUserId;
 
   /// Validates the user-supplied recovery mnemonic.
   ///
@@ -109,17 +116,34 @@ class RecoveryCubit extends Cubit<RecoveryState> {
         return;
       }
 
+      final sessionUserId = await _sessionUserId();
+      if (sessionUserId == null) {
+        emit(
+          const RecoveryFailed(
+            RecoveryServerException(RecoveryServerErrorKind.invalidResponse),
+          ),
+        );
+        return;
+      }
+      // The challenge is one-time, so every attempt fetches a fresh one.
+      final sealedChallenge = await datasource.createRecoveryChallenge();
       final result = await cryptoService.recoverAccount(
         recoveryMnemonic: current.validatedMnemonic,
         newPassword: newPassword,
         recoverySaltBase64: recoverySalt,
         encryptedPrivateKeyByRecoveryBase64: encryptedByRecovery,
         accountId: account.userId,
+        sessionUserId: sessionUserId,
+        sealedChallenge: sealedChallenge,
         baseCredentialRevision: kdf.credentialRevision,
         basePrivateKeyWrapRevision: kdf.privateKeyWrapRevision,
       );
 
-      await datasource.recoverAccount(result.request);
+      try {
+        await datasource.recoverAccount(result.request);
+      } finally {
+        result.request.wipeSecrets();
+      }
 
       AppLogger.i('Recovery', 'Account recovery completed');
       emit(RecoveryCompleted(newRecoveryMnemonic: result.newRecoveryMnemonic));
@@ -129,6 +153,13 @@ class RecoveryCubit extends Cubit<RecoveryState> {
       // error so the user can restart from the top.
       AppLogger.w('Recovery', 'Mnemonic no longer valid at completion');
       emit(RecoveryFailed(e));
+    } on RecoveryChallengeException {
+      AppLogger.w('Recovery', 'Recovery challenge rejected');
+      emit(
+        const RecoveryFailed(
+          RecoveryServerException(RecoveryServerErrorKind.invalidResponse),
+        ),
+      );
     } on DioException catch (e, s) {
       AppLogger.e(
         'Recovery',
@@ -136,6 +167,11 @@ class RecoveryCubit extends Cubit<RecoveryState> {
         error: e,
         stackTrace: s,
       );
+      if (e.response?.statusCode == 404 &&
+          e.requestOptions.path.endsWith('/recovery/challenge')) {
+        emit(const RecoveryFailed(RecoveryMaterialMissingException()));
+        return;
+      }
       emit(RecoveryFailed(RecoveryServerException(_classifyDioError(e))));
     } catch (e, s) {
       AppLogger.e('Recovery', 'Recovery failed', error: e, stackTrace: s);
@@ -154,6 +190,10 @@ class RecoveryCubit extends Cubit<RecoveryState> {
     if (e.type == DioExceptionType.connectionError ||
         e.error is SocketException) {
       return RecoveryServerErrorKind.cannotConnect;
+    }
+    if (e.response?.statusCode == 403 &&
+        '${e.response?.data}'.contains('recovery-proof-invalid')) {
+      return RecoveryServerErrorKind.recoveryProofInvalid;
     }
     if (e.type == DioExceptionType.badResponse) {
       return RecoveryServerErrorKind.invalidResponse;

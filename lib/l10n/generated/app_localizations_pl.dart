@@ -976,6 +976,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Odzyskiwanie nie powiodło się. Spróbuj ponownie.';
 
   @override
+  String get recoveryProofInvalid =>
+      'Weryfikacja odzyskiwania wygasła lub nie powiodła się. Spróbuj ponownie.';
+
+  @override
   String get vaultTitle => 'Sejfy';
 
   @override

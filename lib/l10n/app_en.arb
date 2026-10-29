@@ -621,6 +621,10 @@
   "@recoveryServerError": {
     "description": "Generic fallback error for the recovery flow"
   },
+  "recoveryProofInvalid": "The recovery check expired or could not be verified. Please try again.",
+  "@recoveryProofInvalid": {
+    "description": "Recovery was rejected because the one-time key-possession challenge was invalid, expired or already used"
+  },
   "vaultTitle": "Vaults",
   "@vaultTitle": {
     "description": "Vaults section title shown in the app bar of the vault list"

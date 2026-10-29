@@ -356,6 +356,7 @@
   "recoveryPasswordMismatch": "Hasła są różne",
   "recoveryMaterialMissing": "Tego konta nie można odzyskać — klucz odzyskiwania nie został ustawiony. Skontaktuj się z pomocą techniczną.",
   "recoveryServerError": "Odzyskiwanie nie powiodło się. Spróbuj ponownie.",
+  "recoveryProofInvalid": "Weryfikacja odzyskiwania wygasła lub nie powiodła się. Spróbuj ponownie.",
   "vaultTitle": "Sejfy",
   "vaultNewVault": "Nowy sejf",
   "vaultNoVaults": "Brak sejfów",
