@@ -224,100 +224,108 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Center(child: SheetDragHandle()),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              AppSpacing.sm,
-              AppSpacing.screenH,
-              AppSpacing.section,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.entrySignInMethodLabel,
-                  style: TextStyle(
-                    color: AppColors.onSurface(brightness),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+          // The fields scroll in the height left above the footer band, which
+          // alone absorbs the keyboard inset, so small screens with large
+          // text never overflow the sheet.
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                AppSpacing.sm,
+                AppSpacing.screenH,
+                AppSpacing.section,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.entrySignInMethodLabel,
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.innerGap),
-                Text(
-                  l10n.entrySignInMethodHint,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceMuted(brightness),
-                    fontSize: 12,
-                    height: 1.4,
+                  const SizedBox(height: AppSpacing.innerGap),
+                  Text(
+                    l10n.entrySignInMethodHint,
+                    style: TextStyle(
+                      color: AppColors.onSurfaceMuted(brightness),
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.section),
-                AppDropdownField<SignInProvider>(
-                  key: const ValueKey('sign-in-method-provider'),
-                  label: l10n.entrySignInMethodProvider,
-                  value: _provider,
-                  filled: false,
-                  hint: Text(l10n.entrySignInMethodChooseProvider),
-                  items: [
-                    for (final provider in SignInProvider.values)
-                      DropdownMenuItem(
-                        value: provider,
-                        child: Text(signInProviderName(l10n, provider)),
-                      ),
+                  const SizedBox(height: AppSpacing.section),
+                  AppDropdownField<SignInProvider>(
+                    key: const ValueKey('sign-in-method-provider'),
+                    label: l10n.entrySignInMethodProvider,
+                    value: _provider,
+                    filled: false,
+                    hint: Text(l10n.entrySignInMethodChooseProvider),
+                    items: [
+                      for (final provider in SignInProvider.values)
+                        DropdownMenuItem(
+                          value: provider,
+                          child: Text(signInProviderName(l10n, provider)),
+                        ),
+                    ],
+                    onChanged: _selectProvider,
+                  ),
+                  if (widget.loadCandidates != null && _provider != null) ...[
+                    const SizedBox(height: AppSpacing.fieldGap),
+                    _linkedEntryField(l10n),
                   ],
-                  onChanged: _selectProvider,
-                ),
-                if (widget.loadCandidates != null && _provider != null) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
-                  _linkedEntryField(l10n),
-                ],
-                const SizedBox(height: AppSpacing.fieldGap),
-                OnboardingTextField(
-                  key: const ValueKey('sign-in-method-account'),
-                  label: l10n.entrySignInMethodAccount,
-                  hintText: l10n.entrySignInMethodAccountHint,
-                  controller: _accountController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
-                  borderColor: _accountTooLong ? AppColors.brandRed : null,
-                  focusBorderColor: _accountTooLong ? AppColors.brandRed : null,
-                  // A typed account is no longer the linked Credential's.
-                  onChanged: (_) {
-                    if (_accountTooLong || _entry != null) {
-                      setState(() {
-                        _accountTooLong = false;
-                        _entry = null;
-                      });
-                    }
-                  },
-                  onSubmitted: (_) => _submit(),
-                  feedbackChild: Text(
-                    l10n.entrySignInMethodAccountTooLong,
-                    style: const TextStyle(
-                      color: AppColors.brandRed,
-                      fontSize: 11,
-                    ),
-                  ),
-                  feedbackVisible: _accountTooLong,
-                  feedbackReserveSpace: false,
-                ),
-                if (widget.canRemove) ...[
-                  const SizedBox(height: AppSpacing.fieldGap),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      key: const ValueKey('sign-in-method-remove'),
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop(const SignInMethodChoice(null)),
-                      child: Text(
-                        l10n.entrySignInMethodRemove,
-                        style: const TextStyle(color: AppColors.brandRed),
+                  OnboardingTextField(
+                    key: const ValueKey('sign-in-method-account'),
+                    label: l10n.entrySignInMethodAccount,
+                    hintText: l10n.entrySignInMethodAccountHint,
+                    controller: _accountController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    borderColor: _accountTooLong ? AppColors.brandRed : null,
+                    focusBorderColor: _accountTooLong
+                        ? AppColors.brandRed
+                        : null,
+                    // A typed account is no longer the linked Credential's.
+                    onChanged: (_) {
+                      if (_accountTooLong || _entry != null) {
+                        setState(() {
+                          _accountTooLong = false;
+                          _entry = null;
+                        });
+                      }
+                    },
+                    onSubmitted: (_) => _submit(),
+                    feedbackChild: Text(
+                      l10n.entrySignInMethodAccountTooLong,
+                      style: const TextStyle(
+                        color: AppColors.brandRed,
+                        fontSize: 11,
                       ),
                     ),
+                    feedbackVisible: _accountTooLong,
+                    feedbackReserveSpace: false,
                   ),
+                  if (widget.canRemove) ...[
+                    const SizedBox(height: AppSpacing.fieldGap),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const ValueKey('sign-in-method-remove'),
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(const SignInMethodChoice(null)),
+                        child: Text(
+                          l10n.entrySignInMethodRemove,
+                          style: const TextStyle(color: AppColors.brandRed),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           SheetActionButtons(

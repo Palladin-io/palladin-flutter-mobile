@@ -180,4 +180,70 @@ void main() {
     expect(choice?.binding?.entry, isNull);
     expect(choice?.binding?.account, 'octo');
   });
+
+  testWidgets('a small screen with large text and keyboard keeps the form '
+      'scrollable above the footer', (tester) async {
+    tester.view
+      ..physicalSize = const Size(320, 480)
+      ..devicePixelRatio = 1
+      ..viewInsets = const FakeViewPadding(bottom: 260);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(() {
+      tester.view.reset();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    SignInMethodChoice? choice;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => choice = await SignInMethodSheet.show(
+              context,
+              initial: const SignInMethodBinding(
+                provider: SignInProvider.google,
+              ),
+              canRemove: true,
+              loadCandidates: loader,
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final account = find.descendant(
+      of: find.byKey(const ValueKey('sign-in-method-account')),
+      matching: find.byType(TextField),
+    );
+    await tester.ensureVisible(account);
+    await tester.pumpAndSettle();
+    await tester.enterText(account, 'qa@corp.test');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('sign-in-method-remove')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('sign-in-method-remove')).hitTestable(),
+      findsOneWidget,
+    );
+
+    final save = find.text(l10n.entrySaveAction);
+    expect(save.hitTestable(), findsOneWidget);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(
+      choice?.binding,
+      const SignInMethodBinding(
+        provider: SignInProvider.google,
+        account: 'qa@corp.test',
+      ),
+    );
+  });
 }
