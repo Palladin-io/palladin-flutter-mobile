@@ -7,6 +7,10 @@ on:
         description: Run synthetic Android AutoFill runtime and presentation checks
         type: boolean
         default: false
+      autofill_transport_probe:
+        description: Compare software and swiftshader on fresh AVDs (diagnostic only)
+        type: boolean
+        default: false
       autofill_save:
         description: Run the isolated synthetic Android password-save handoff
         required: false
@@ -246,11 +250,16 @@ jobs:
           retention-days: 7
 
   autofill-presentations:
-    name: Synthetic Android AutoFill runtime
-    if: github.event_name == 'workflow_dispatch' && inputs.autofill_presentations
+    name: ${{ inputs.autofill_transport_probe && 'Diagnostic renderer comparison (not acceptance)' || 'Synthetic Android AutoFill runtime' }}
+    if: github.event_name == 'workflow_dispatch' && (inputs.autofill_presentations || inputs.autofill_transport_probe)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
+      - name: Reject conflicting runtime modes
+        if: inputs.autofill_presentations && inputs.autofill_transport_probe
+        run: |
+          echo 'Choose full AutoFill validation or the diagnostic probe, never both.' >&2
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -277,7 +286,12 @@ jobs:
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
       - name: Verify synthetic UI driver regressions
         run: python3 -m unittest discover -s tool/android-autofill-harness/tests
+      - name: Compare renderer transport on identical synthetic APKs
+        if: inputs.autofill_transport_probe
+        timeout-minutes: 28
+        run: timeout 1500 python3 -u tool/android-autofill-harness/transport_probe.py --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle"
       - name: Validate committed synthetic AutoFill runtime
+        if: ${{ !inputs.autofill_transport_probe }}
         timeout-minutes: 28
         shell: bash
         run: |
@@ -338,11 +352,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: autofill-runtime-${{ github.sha }}
+          name: ${{ inputs.autofill_transport_probe && format('autofill-transport-probe-{0}', github.sha) || format('autofill-runtime-{0}', github.sha) }}
           path: |
             tool/android-autofill-harness/build/presentation/
             tool/android-autofill-harness/build/enrollment/
             tool/android-autofill-harness/build/exercise/
             tool/android-autofill-harness/build/validation.json
+            tool/android-autofill-harness/build/transport-probe/
           if-no-files-found: ignore
           retention-days: 7
