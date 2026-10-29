@@ -189,6 +189,26 @@ def framework_snapshot(diagnosis):
     return result
 
 
+def collect_inspector_failure(destination):
+    report = {}
+    try:
+        raw = command('shell', 'run-as', provider, 'cat', 'files/synthetic-failure.json')
+        if len(raw) <= 16384:
+            report['inspector'] = json.loads(raw)
+    except Exception:
+        pass
+    try:
+        command('shell', 'am', 'start', '-W', '-n', provider + '/io.palladin.mobile.MainActivity',
+                '--ez', 'collectDiagnostics', 'true')
+        raw = command('shell', 'run-as', provider, 'cat', 'files/synthetic-exits.json')
+        if len(raw) <= 1024:
+            report['exits'] = json.loads(raw)
+    except Exception:
+        pass
+    if report:
+        (destination / 'inspector.json').write_text(json.dumps(report, indent=2) + '\n')
+
+
 def record_failure():
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         return
@@ -235,6 +255,10 @@ def record_failure():
         (destination / 'nodes.json').write_text(json.dumps(metadata, indent=2) + '\n')
     except Exception:
         pass
+    try:
+        collect_inspector_failure(destination)
+    except Exception:
+        pass  # Keep the original failure even if artifact storage fails.
 
 
 try:

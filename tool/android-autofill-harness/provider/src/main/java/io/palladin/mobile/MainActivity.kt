@@ -1,6 +1,11 @@
 package io.palladin.mobile
 
 import android.app.Activity
+import android.app.ActivityManager
+import android.os.Build
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import android.os.Bundle
 import android.util.Size
 import android.widget.inline.InlinePresentationSpec
@@ -23,11 +28,29 @@ import java.time.Instant
 
 /** Debug-only launcher seeds the real encrypted cache with synthetic records. */
 class MainActivity : Activity() {
+ private val phases = mutableListOf<String>()
+ private var collectingDiagnostics = false
  private var expectInline = true
  private lateinit var expectedInlineSpec: InlinePresentationSpec
  private lateinit var expectedFields: Map<AutofillId, String>
  override fun onCreate(state: Bundle?) {
   super.onCreate(state)
+  collectingDiagnostics = intent.getBooleanExtra("collectDiagnostics", false)
+  if (collectingDiagnostics) {
+   val inspectedPid = runCatching { File(filesDir, "synthetic-pid").readText().toInt() }.getOrNull()
+   val exits = if (Build.VERSION.SDK_INT >= 30 && inspectedPid != null && inspectedPid > 0) {
+    getSystemService(ActivityManager::class.java).getHistoricalProcessExitReasons(packageName, inspectedPid, 3)
+     .map { JSONObject().put("reason", it.reason).put("status", it.status) }
+   } else emptyList()
+   File(filesDir, "synthetic-exits.json").writeText(JSONArray(exits).toString())
+   finish()
+   return
+  }
+  runCatching { File(filesDir, "synthetic-pid").writeText(android.os.Process.myPid().toString()) }
+  recordPhase("CREATED")
+  Thread.getDefaultUncaughtExceptionHandler()?.let { prior ->
+   Thread.setDefaultUncaughtExceptionHandler(syntheticFailureHandler(prior) { recordPhase("UNCAUGHT", it) })
+  }
   val status = runCatching {
    val store = AutoFillCacheStore(this)
    val session = store.beginSession()
@@ -64,6 +87,7 @@ class MainActivity : Activity() {
   expectInline = inlineMode == "supported"
   val style = if (expectInline) UiVersions.newStylesBuilder().addStyle(InlineSuggestionUi.newStyleBuilder().build()).build() else Bundle()
   expectedInlineSpec = InlinePresentationSpec.Builder(Size(40, 40), Size(600, 80)).setStyle(style).build()
+  recordPhase("AUTH_LAUNCHED")
   startActivityForResult(Intent(this, AutofillAuthenticationActivity::class.java).apply {
    if (inlineMode != "absent") {
     carryAutofillInlineRequest(this, InlineSuggestionsRequest.Builder(listOf(expectedInlineSpec)).setMaxSuggestionCount(1).build())
@@ -92,6 +116,7 @@ class MainActivity : Activity() {
  @Suppress("DEPRECATION")
  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
   super.onActivityResult(requestCode, resultCode, data)
+  recordPhase("RESULT_STARTED")
   val response = data?.getParcelableExtra<FillResponse>(AutofillManager.EXTRA_AUTHENTICATION_RESULT)
   @Suppress("UNCHECKED_CAST")
   val datasets = response?.let { it.javaClass.getMethod("getDatasets").invoke(it) as List<Dataset> }.orEmpty()
@@ -116,6 +141,19 @@ class MainActivity : Activity() {
   val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
    "responseRejected=$rejected"
   } else "responseVerified=$verified"
+  recordPhase(if (verified) "RESULT_VERIFIED" else if (rejected) "RESULT_REJECTED" else "RESULT_MISMATCH")
   setContentView(TextView(this).apply { text = status; textSize = 22f })
  }
+
+ private fun recordPhase(phase: String, error: Throwable? = null) {
+  if (collectingDiagnostics) return
+  synchronized(phases) {
+   phases += phase
+   if (phases.size > 16) phases.removeAt(0)
+   runCatching { File(filesDir, "synthetic-failure.json").writeText(syntheticFailureEvidence(phases, error).toString()) }
+  }
+ }
+
+ override fun onResume() { super.onResume(); recordPhase("RESUMED") }
+ override fun onStop() { recordPhase("STOPPED"); super.onStop() }
 }
