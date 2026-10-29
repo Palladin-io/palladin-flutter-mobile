@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/agents/domain/entities/agent.dart';
@@ -13,8 +14,8 @@ import 'package:mobile_palladin/features/notifications/domain/repositories/notif
 import 'package:mobile_palladin/features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
-import 'package:mobile_palladin/features/vault/domain/entities/vault_member.dart';
-import 'package:mobile_palladin/features/vault/domain/repositories/vault_members_repository.dart';
+
+import '../../support/member_directory_fixture.dart';
 
 class _Repository extends Mock implements NotificationCenterRepository {}
 
@@ -29,9 +30,12 @@ class _Index extends Mock implements MemberIndexReader {}
 
 class _Agents extends Mock implements AgentsRepository {}
 
-class _Members extends Mock implements VaultMembersRepository {}
-
-Grant _grant(String id, {String? entryId, String? reason}) => Grant(
+Grant _grant(
+  String id, {
+  String? entryId,
+  String? reason,
+  String actorId = 'actor',
+}) => Grant(
   id: id,
   vaultId: 'vault',
   agentId: 'agent',
@@ -39,7 +43,7 @@ Grant _grant(String id, {String? entryId, String? reason}) => Grant(
   scope: entryId == null ? GrantScope.full : GrantScope.granular,
   entryId: entryId,
   reason: reason ?? 'Reason $id',
-  createdBy: 'actor',
+  createdBy: actorId,
   createdAt: DateTime(2026),
 );
 
@@ -64,15 +68,14 @@ void main() {
   late _Grants grants;
   late _Agents agents;
   late _Index index;
-  late _Members members;
+  late MemberDirectoryFixture members;
   late NotificationCenterCubit cubit;
   setUp(() {
     repository = _Repository();
     grants = _Grants();
     agents = _Agents();
     index = _Index();
-    members = _Members();
-    when(() => members.list(any())).thenAnswer((_) async => []);
+    members = MemberDirectoryFixture();
     when(() => agents.listAgents()).thenAnswer((_) async => []);
     when(() => repository.summary()).thenAnswer(
       (_) async =>
@@ -84,7 +87,7 @@ void main() {
         index: index,
         agents: agents,
         grants: grants,
-        vaultMembers: members,
+        memberDirectory: members.service,
       ),
     );
     cubit.configureUnlockedResolution(
@@ -115,16 +118,9 @@ void main() {
       when(
         () => grants.getGrant('vault', 'same'),
       ).thenAnswer((_) async => _grant('same', entryId: 'entry'));
-      when(() => members.list('vault')).thenAnswer(
-        (_) async => [
-          VaultMember(
-            id: 'actor',
-            name: 'Local Actor',
-            addedAt: DateTime(2026),
-            status: VaultMemberStatus.active,
-          ),
-        ],
-      );
+      members.read = () async => [
+        {'userId': 'actor', 'displayName': 'Local Actor'},
+      ];
       when(() => agents.listAgents()).thenAnswer(
         (_) async => [
           Agent(
@@ -407,8 +403,8 @@ void main() {
   test(
     'all Entry labels and reasons publish while actor names are pending',
     () async {
-      final response = Completer<List<VaultMember>>();
-      when(() => members.list('vault')).thenAnswer((_) => response.future);
+      final response = Completer<List<Map<String, Object?>>>();
+      members.read = () => response.future;
       when(() => repository.list()).thenAnswer(
         (_) async =>
             NotificationPage(items: [for (var i = 0; i < 9; i++) _item('$i')]),
@@ -434,15 +430,10 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       final beforeActors = cubit.state.items;
       response.complete([
-        VaultMember(
-          id: 'actor',
-          name: 'Local Actor',
-          addedAt: DateTime(2026),
-          status: VaultMemberStatus.active,
-        ),
+        {'userId': 'actor', 'displayName': 'Local Actor'},
       ]);
       await loading;
-      verify(() => members.list('vault')).called(1);
+      expect(members.calls, 1);
       verify(() => grants.getGrant('vault', any())).called(9);
       expect(beforeActors.map((item) => item.metadata['reason']), [
         for (var i = 0; i < 9; i++) 'Reason $i',
@@ -611,87 +602,210 @@ void main() {
     });
   }
 
-  test('actor directory reads remain bounded across distinct Vaults', () async {
-    final pending = List.generate(5, (_) => Completer<List<VaultMember>>());
-    var active = 0;
-    var maximum = 0;
-    final started = <String>[];
-    cubit.configureUnlockedResolution(
-      activeAccountId: 'account',
-      activeOrganizationId: 'org',
-      activeVaults: [
-        for (var i = 0; i < 5; i++)
-          VaultEntity(
-            id: 'vault-$i',
-            name: 'Vault $i',
-            grantMode: GrantMode.granular,
-            createdAt: DateTime(2026),
-            updatedAt: DateTime(2026),
-            entryCount: 0,
-            activeGrantCount: 1,
-            memberCount: 1,
-          ),
-      ],
-    );
-    when(() => repository.list()).thenAnswer(
-      (_) async => NotificationPage(
-        items: [
+  test(
+    'one organization directory HTTP serves distinct Vaults and refreshes',
+    () async {
+      final pending = Completer<List<Map<String, Object?>>>();
+      cubit.configureUnlockedResolution(
+        activeAccountId: 'account',
+        activeOrganizationId: 'org',
+        activeVaults: [
           for (var i = 0; i < 5; i++)
-            _item('$i').copyWith(
-              metadata: {
-                'vaultId': 'vault-$i',
-                'grantId': '$i',
-                'agentId': 'agent',
-              },
+            VaultEntity(
+              id: 'vault-$i',
+              name: 'Vault $i',
+              grantMode: GrantMode.granular,
+              createdAt: DateTime(2026),
+              updatedAt: DateTime(2026),
+              entryCount: 0,
+              activeGrantCount: 1,
+              memberCount: 1,
             ),
         ],
+      );
+      when(() => repository.list()).thenAnswer(
+        (_) async => NotificationPage(
+          items: [
+            for (var i = 0; i < 5; i++)
+              _item('$i').copyWith(
+                metadata: {
+                  'vaultId': 'vault-$i',
+                  'grantId': '$i',
+                  'agentId': 'agent',
+                },
+              ),
+          ],
+        ),
+      );
+      when(() => grants.getGrant(any(), any())).thenAnswer(
+        (call) async => Grant(
+          id: call.positionalArguments[1] as String,
+          vaultId: call.positionalArguments[0] as String,
+          agentId: 'agent',
+          status: GrantStatus.active,
+          scope: GrantScope.full,
+          reason: 'Ready',
+          createdBy: 'actor',
+          createdAt: DateTime(2026),
+        ),
+      );
+      members.read = () => pending.future;
+      final loading = cubit.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        cubit.state.items.every((item) => item.metadata['reason'] == 'Ready'),
+        true,
+      );
+      await members.started.future;
+      expect(members.calls, 1);
+      pending.complete([
+        {'userId': 'actor', 'displayName': 'Former Member'},
+      ]);
+      await loading;
+      expect(
+        cubit.state.items.every(
+          (item) => item.metadata['actorName'] == 'Former Member',
+        ),
+        true,
+      );
+      await cubit.refresh();
+      expect(members.calls, 1);
+      expect(
+        cubit.state.items.every(
+          (item) => item.metadata['actorName'] == 'Former Member',
+        ),
+        true,
+      );
+    },
+  );
+
+  test('failed directory HTTP stays bounded across all Inbox rows', () async {
+    members.read = () async => throw DioException(
+      requestOptions: RequestOptions(
+        path: '/api/organization/member-directory',
       ),
     );
-    when(() => grants.getGrant(any(), any())).thenAnswer(
-      (call) async => Grant(
-        id: call.positionalArguments[1] as String,
-        vaultId: call.positionalArguments[0] as String,
-        agentId: 'agent',
-        status: GrantStatus.active,
-        scope: GrantScope.full,
-        reason: 'Ready',
-        createdBy: 'actor',
-        createdAt: DateTime(2026),
-      ),
+    when(() => repository.list()).thenAnswer(
+      (_) async =>
+          NotificationPage(items: [for (var i = 0; i < 12; i++) _item('$i')]),
     );
-    when(() => members.list(any())).thenAnswer((call) async {
-      final vault = call.positionalArguments.single as String;
-      started.add(vault);
-      active++;
-      if (active > maximum) maximum = active;
-      try {
-        return await pending[int.parse(vault.split('-').last)].future;
-      } finally {
-        active--;
-      }
-    });
-    final loading = cubit.load();
-    await Future<void>.delayed(Duration.zero);
+    when(
+      () => grants.getGrant('vault', any()),
+    ).thenAnswer((call) async => _grant(call.positionalArguments[1] as String));
+    await cubit.load();
     expect(
-      cubit.state.items.every((item) => item.metadata['reason'] == 'Ready'),
+      cubit.state.items.every((item) => item.metadata['reason'] != null),
       true,
     );
-    expect(started.length, 4);
-    pending[0].complete([]);
-    await Future<void>.delayed(Duration.zero);
-    expect(started.length, 5);
-    for (var i = 1; i < 5; i++) {
-      pending[i].complete([]);
-    }
-    await loading;
-    expect(maximum, 4);
-    expect(started.toSet().length, 5);
+    expect(members.calls, 1);
   });
+
+  test(
+    'missing actors use one whole-directory repair and do not retry per row',
+    () async {
+      var reads = 0;
+      members.read = () async {
+        reads++;
+        return reads == 1
+            ? []
+            : [
+                for (var i = 0; i < 7; i++)
+                  {'userId': 'actor-$i', 'displayName': 'Member $i'},
+              ];
+      };
+      when(() => repository.list()).thenAnswer(
+        (_) async =>
+            NotificationPage(items: [for (var i = 0; i < 8; i++) _item('$i')]),
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer((call) async {
+        final id = call.positionalArguments[1] as String;
+        return _grant(id, actorId: 'actor-$id');
+      });
+      await cubit.load();
+      expect(members.calls, 2);
+      expect(cubit.state.items.map((item) => item.metadata['actorName']), [
+        for (var i = 0; i < 7; i++) 'Member $i',
+        null,
+      ]);
+      await cubit.refresh();
+      expect(members.calls, 2);
+    },
+  );
+
+  test(
+    'known actor publishes before an unrelated slow grant finishes',
+    () async {
+      final slow = Completer<Grant>();
+      members.read = () async => [
+        {'userId': 'actor', 'displayName': 'Known Member'},
+      ];
+      when(() => repository.list()).thenAnswer(
+        (_) async => NotificationPage(items: [_item('fast'), _item('slow')]),
+      );
+      when(
+        () => grants.getGrant('vault', 'fast'),
+      ).thenAnswer((_) async => _grant('fast'));
+      when(
+        () => grants.getGrant('vault', 'slow'),
+      ).thenAnswer((_) => slow.future);
+      final ready = cubit.stream.firstWhere(
+        (state) => state.items.any(
+          (item) =>
+              item.id == 'fast' && item.metadata['actorName'] == 'Known Member',
+        ),
+      );
+      final loading = cubit.load();
+      final early = await ready;
+      expect(early.items.first.metadata['reason'], 'Reason fast');
+      expect(early.items.last.metadata['reason'], isNull);
+      expect(members.calls, 1);
+      slow.complete(_grant('slow'));
+      await loading;
+      expect(members.calls, 1);
+    },
+  );
+
+  for (final boundary in ['lock', 'account', 'organization']) {
+    test('late batch actor repair cannot cross $boundary', () async {
+      final repair = Completer<List<Map<String, Object?>>>();
+      final repairStarted = Completer<void>();
+      var reads = 0;
+      members.read = () {
+        if (++reads == 1) return Future.value([]);
+        repairStarted.complete();
+        return repair.future;
+      };
+      when(
+        () => repository.list(),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('one')]));
+      when(
+        () => grants.getGrant('vault', 'one'),
+      ).thenAnswer((_) async => _grant('one'));
+      final loading = cubit.load();
+      await repairStarted.future;
+      if (boundary == 'lock') {
+        cubit.lock();
+      } else {
+        cubit.configureUnlockedResolution(
+          activeAccountId: boundary == 'account' ? 'other' : 'account',
+          activeOrganizationId: boundary == 'organization' ? 'other' : 'org',
+          activeVaults: [],
+        );
+      }
+      final settled = cubit.state;
+      repair.complete([
+        {'userId': 'actor', 'displayName': 'Late Member'},
+      ]);
+      await loading;
+      expect(identical(cubit.state, settled), true);
+      expect(members.calls, 2);
+    });
+  }
 
   for (final boundary in ['refresh', 'lock', 'reset', 'vault removal']) {
     test('delayed actor metadata cannot overwrite $boundary', () async {
-      final directory = Completer<List<VaultMember>>();
-      when(() => members.list('vault')).thenAnswer((_) => directory.future);
+      final directory = Completer<List<Map<String, Object?>>>();
+      members.read = () => directory.future;
       when(
         () => repository.list(),
       ).thenAnswer((_) async => NotificationPage(items: [_item('one')]));
@@ -720,12 +834,7 @@ void main() {
       }
       final settled = cubit.state;
       directory.complete([
-        VaultMember(
-          id: 'actor',
-          name: 'Late Actor',
-          addedAt: DateTime(2026),
-          status: VaultMemberStatus.active,
-        ),
+        {'userId': 'actor', 'displayName': 'Late Actor'},
       ]);
       await loading;
       expect(identical(cubit.state, settled), true);
@@ -740,9 +849,9 @@ void main() {
     test(
       'actor and Agent completions merge latest metadata (actorFirst=$actorFirst)',
       () async {
-        final directory = Completer<List<VaultMember>>();
+        final directory = Completer<List<Map<String, Object?>>>();
         final agentNames = Completer<List<Agent>>();
-        when(() => members.list('vault')).thenAnswer((_) => directory.future);
+        members.read = () => directory.future;
         when(() => agents.listAgents()).thenAnswer((_) => agentNames.future);
         when(
           () => repository.list(),
@@ -753,12 +862,7 @@ void main() {
         final loading = cubit.load();
         await Future<void>.delayed(Duration.zero);
         void completeActor() => directory.complete([
-          VaultMember(
-            id: 'actor',
-            name: 'Local Actor',
-            addedAt: DateTime(2026),
-            status: VaultMemberStatus.active,
-          ),
+          {'userId': 'actor', 'displayName': 'Local Actor'},
         ]);
         void completeAgent() => agentNames.complete([
           Agent(

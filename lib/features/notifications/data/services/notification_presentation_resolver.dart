@@ -1,3 +1,4 @@
+import '../../../../core/identity/organization_member_directory_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../grants/domain/entities/grant.dart';
@@ -6,7 +7,6 @@ import '../../../vault/data/services/member_sync_service.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/entities/member_index_entry.dart';
 import '../../../vault/domain/entities/vault_entity.dart';
-import '../../../vault/domain/repositories/vault_members_repository.dart';
 import '../../domain/entities/inbox_notification.dart';
 
 /// Resolves zero-knowledge notification labels from the unlocked local index.
@@ -15,16 +15,16 @@ final class NotificationPresentationResolver {
     required MemberIndexReader index,
     GrantsRepository? grants,
     AgentsRepository? agents,
-    VaultMembersRepository? vaultMembers,
+    OrganizationMemberDirectoryService? memberDirectory,
   }) : _index = index,
        _grants = grants,
        _agents = agents,
-       _vaultMembers = vaultMembers;
+       _memberDirectory = memberDirectory;
 
   final MemberIndexReader _index;
   final GrantsRepository? _grants;
   final AgentsRepository? _agents;
-  final VaultMembersRepository? _vaultMembers;
+  final OrganizationMemberDirectoryService? _memberDirectory;
 
   Future<List<InboxNotification>> resolve({
     required List<InboxNotification> items,
@@ -61,19 +61,22 @@ final class NotificationPresentationResolver {
     }
     final prepared = prepare(items: items, activeVaults: activeVaults);
     var agentNames = const <String, String>{};
-    final memberNames = <String, Future<Map<String, String>>>{};
+    final missingActors = <int, String>{};
+    Future<MemberDirectorySnapshot>? memberSnapshot;
     final grants = <(String, String), Future<Grant?>>{};
     final output = List<InboxNotification>.of(prepared);
     final actorWorkers = List.generate(4, (_) => Future<void>.value());
     var nextActorWorker = 0;
-    Future<void> resolveActor(
-      int position,
-      String vaultId,
-      String actorId,
-    ) async {
-      final names = await (memberNames[vaultId] ??= _memberNames(vaultId));
-      final actorName = names[actorId];
-      if (actorName == null) return;
+    Future<void> resolveActor(int position, String actorId) async {
+      final snapshot = await (memberSnapshot ??= _memberSnapshot(
+        activeAccountId,
+        activeOrganizationId,
+      ));
+      final actorName = snapshot.names[actorId];
+      if (actorName == null) {
+        if (snapshot.canRepair) missingActors[position] = actorId;
+        return;
+      }
       final item = output[position];
       final resolved = item.copyWith(
         metadata: {...item.metadata, 'actorName': actorName},
@@ -125,7 +128,7 @@ final class NotificationPresentationResolver {
           final slot = nextActorWorker++ % actorWorkers.length;
           final actor = actorId;
           actorWorkers[slot] = actorWorkers[slot].then(
-            (_) => resolveActor(position, vaultId, actor),
+            (_) => resolveActor(position, actor),
           );
         }
       }
@@ -152,6 +155,23 @@ final class NotificationPresentationResolver {
       ...List.generate(items.length.clamp(0, 4), (_) => worker()),
     ]);
     await Future.wait(actorWorkers);
+    if (missingActors.isNotEmpty) {
+      final names = await _memberNames(
+        missingActors.values.toSet(),
+        activeAccountId,
+        activeOrganizationId,
+      );
+      for (final actor in missingActors.entries) {
+        final name = names[actor.value];
+        if (name == null) continue;
+        final item = output[actor.key];
+        final resolved = item.copyWith(
+          metadata: {...item.metadata, 'actorName': name},
+        );
+        output[actor.key] = resolved;
+        onResolved?.call(resolved);
+      }
+    }
     return output;
   }
 
@@ -277,16 +297,34 @@ final class NotificationPresentationResolver {
     }
   }
 
-  Future<Map<String, String>> _memberNames(String vaultId) async {
-    final repository = _vaultMembers;
-    if (repository == null) return const {};
+  Future<MemberDirectorySnapshot> _memberSnapshot(
+    String accountId,
+    String organizationId,
+  ) async {
     try {
-      final members = await repository.list(vaultId);
-      return {
-        for (final member in members)
-          if (member.name?.trim().isNotEmpty == true)
-            member.id: member.name!.trim(),
-      };
+      return await _memberDirectory?.availableSnapshot(
+            expectedAccountId: accountId,
+            expectedOrganizationId: organizationId,
+          ) ??
+          const MemberDirectorySnapshot({}, canRepair: false);
+    } catch (_) {
+      AppLogger.w('Notifications', 'Local member-name resolution failed');
+      return const MemberDirectorySnapshot({}, canRepair: false);
+    }
+  }
+
+  Future<Map<String, String>> _memberNames(
+    Set<String> actorIds,
+    String accountId,
+    String organizationId,
+  ) async {
+    try {
+      return await _memberDirectory?.resolve(
+            actorIds,
+            expectedAccountId: accountId,
+            expectedOrganizationId: organizationId,
+          ) ??
+          const {};
     } catch (_) {
       AppLogger.w('Notifications', 'Local member-name resolution failed');
       return const {};

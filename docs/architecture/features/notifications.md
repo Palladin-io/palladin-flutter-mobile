@@ -54,15 +54,19 @@ Initial Inbox loads and pagination results publish their sanitized structural ro
 before optional presentation hydration. Existing localized generic Entry labels
 and empty-value placeholders remain until local metadata is ready; server names,
 reason text and deep links never become interim presentation. Up to four rows
-resolve concurrently, with grant reads keyed by Vault/grant and member-directory
-reads keyed by Vault shared only within that resolution. Ready rows publish
+resolve concurrently, with grant reads keyed by Vault/grant within that resolution. Ready rows publish
 independently, including Entry/reason/actor fields before the Agent-name read
 finishes. Agent-name and actor-directory loading run independently and cannot
-occupy a row worker. Actor lookup uses four bounded workers and one shared
-directory listing per Vault within the resolution (a listing may span multiple
-HTTP pages); ready Entry labels and reasons
-publish while a directory is pending. Both name paths merge into the latest row
-metadata. There is no new persistent or cross-refresh cache. One hydration shares
+occupy a row worker. Actor lookup uses four bounded workers and the existing singleton
+`OrganizationMemberDirectoryService`, shared with Entry History. Its five-minute
+memory-only account/organization snapshot coalesces the minimal current/former
+member-directory HTTP read across Vaults and Inbox refreshes. Known actors publish
+progressively; missing actor IDs are collected for at most one whole-directory
+repair per hydration, never one repair per row. A failed directory fetch preserves
+valid-scope warm names without immediately retrying missing IDs; a successful empty
+directory may still be repaired. Ready Entry labels and reasons
+publish while the directory is pending. Both name paths merge into the latest row
+metadata. No new cache or persistent storage is introduced. One hydration shares
 only encrypted Vault/discovery read Futures and the existing authenticated
 Entry-list load per Vault across distinct grant rows. Grant detail reads stay
 bounded and progressive; an unreadable row does not hold up ready rows. Each row
@@ -148,7 +152,10 @@ acceptance remains required.
 - Notification logs omit payloads, resource identifiers, and raw exceptions.
 - Pending and historical Grant notifications resolve `Reason` from the
   authoritative grant's encrypted envelope and `By` from its actor id plus the
-  Vault Member directory. Notification metadata never carries plaintext or
+  organization member directory. The resolver supplies its expected account and
+  organization; the directory binds its cache to the authenticated token subject
+  and organization and fences awaited results against identity/generation changes.
+  Notification metadata never carries plaintext or
   ciphertext reason, and server-supplied presentation names/free text are
   discarded. The singleton Inbox state keeps decrypted reason only in memory
   and redacts it with locally resolved names whenever the Vault session locks.

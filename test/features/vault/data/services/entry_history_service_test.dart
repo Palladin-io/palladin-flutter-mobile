@@ -170,5 +170,5 @@ void main() {
 String _token(String organizationId) {
   String encode(Object value) =>
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
-  return '${encode({'alg': 'none'})}.${encode({'org_id': organizationId})}.sig';
+  return '${encode({'alg': 'none'})}.${encode({'org_id': organizationId, 'sub': 'account'})}.sig';
 }
