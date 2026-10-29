@@ -53,17 +53,18 @@ final class ProtectedExportWriter implements ExportWriter {
   @override
   Future<void> write(ExportRecord record) async {
     if (_format == ExportFormat.csv) {
-      await _append(
-        [
-          record.entryId,
-          record.name,
-          record.entryType,
-          record.lifecycle,
-          record.revision,
-          record.historical.toString(),
-          jsonEncode(record.payload),
-        ].map(_escapeCsv).join(','),
-      );
+      final metadata = [
+        record.entryId,
+        record.name,
+        record.entryType,
+        record.lifecycle,
+        record.revision,
+        record.historical.toString(),
+      ].map((cell) => _escapeCsv(_neutraliseFormula(cell)));
+      // Secret values stay byte-exact so other password managers import them
+      // unchanged; the JSON object cell cannot start a formula.
+      final payload = _escapeCsv(jsonEncode(record.payload));
+      await _append([...metadata, payload].join(','));
       await _append('\r\n');
     } else {
       if (_records > 0) await _append(',');
@@ -103,6 +104,9 @@ final class ProtectedExportWriter implements ExportWriter {
       bytes.fillRange(0, bytes.length, 0);
     }
   }
+
+  static String _neutraliseFormula(String value) =>
+      value.startsWith(RegExp('[=+\\-@\t\r]')) ? "'$value" : value;
 
   static String _escapeCsv(String value) {
     if (value.contains(',') ||
