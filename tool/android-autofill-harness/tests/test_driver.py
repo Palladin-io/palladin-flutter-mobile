@@ -9,6 +9,26 @@ class DriverChecks(unittest.TestCase):
   self.ns={'args':types.SimpleNamespace(mode='web-login'),'re':re,'time':types.SimpleNamespace(sleep=lambda _:None),'form':'fixture','command':lambda *a:self.calls.append(a)}
   exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)],type_ignores=[]),'driver','exec'),self.ns)
   self.ns['command']=lambda *a:self.calls.append(a)
+ def test_proof_expiration_occurs_before_biometric_completion(self):
+  self.ns['args']=types.SimpleNamespace(mode='web-username',handoff_check='expire-proof')
+  self.ns['provider']='synthetic.provider'
+  self.ns['command']=lambda *args:self.calls.append(args) or 'Broadcast completed: result=1'
+  self.ns['wait_for']=lambda *args:None
+  self.ns['authenticate']()
+  self.assertEqual(self.calls[0][-1],'io.palladin.autofill.harness.EXPIRE_ASSOCIATION')
+  self.assertEqual(self.calls[1],('emu','finger','touch','1'))
+ def test_failed_proof_expiration_does_not_count_as_security_rejection(self):
+  self.ns['args']=types.SimpleNamespace(mode='web-username',handoff_check='expire-proof')
+  self.ns['provider']='synthetic.provider'
+  self.ns['command']=lambda *args:self.calls.append(args) or 'Broadcast completed: result=0'
+  self.ns['wait_for']=lambda *args:None
+  with self.assertRaises(AssertionError):self.ns['authenticate']()
+  self.assertEqual(len(self.calls),1)
+ def test_biometric_cancellation_never_completes_fingerprint(self):
+  self.ns['args']=types.SimpleNamespace(mode='web-username',handoff_check='cancel-biometric')
+  self.ns['wait_for']=lambda *args:None
+  self.ns['authenticate']()
+  self.assertEqual(self.calls,[('shell','input','keyevent','4')])
  def test_focus_ignores_foreign_and_disabled_fields(self):
   nodes=[ET.Element('node',{'package':'system','class':'android.widget.EditText','bounds':'[0,0][20,20]'}),ET.Element('node',{'package':'fixture','class':'android.widget.EditText','enabled':'false','bounds':'[0,0][20,20]'}),ET.Element('node',{'package':'fixture','class':'android.widget.EditText','enabled':'true','bounds':'[20,40][100,80]'})]
   self.ns['nodes']=lambda:nodes

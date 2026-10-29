@@ -68,6 +68,11 @@ try:
         'native-login-opaque', 'native-username-manual', 'native-username-manual-verified')]
     cases += [(mode, '--expected', 'NO_RESPONSE' if mode == 'web-http' else 'REJECTED') for mode in negative]
     if int(android('shell', 'getprop', 'ro.build.version.sdk')) >= 31:
+        cases += [('web-username', '--inspect-response', '--dal-proof', proof) for proof in ('valid', 'expired', 'wrong-signer')]
+        cases += [('web-username', '--fill', '--dal-proof', 'valid')]
+        cases += [('web-username', '--fill', '--dal-proof', 'valid', '--handoff-check', check) for check in ('cancel-biometric', 'expire-proof')]
+        cases += [('web-username', '--fill', '--dal-proof', 'valid', '--handoff-check', check) for check in ('repeat', 'cancel-picker', 'expire-picker', 'revoke')]
+        cases += [(mode, '--inspect-response', '--browser-source') for mode in ('web-login', 'web-username', 'web-http')]
         cases += [('native-login', '--fill', '--handoff-check', check) for check in
                   ('repeat', 'cancel-biometric', 'cancel-picker', 'cancel-confirmation', 'revoke')]
     for case in cases:

@@ -8,6 +8,15 @@ class AutofillOriginPolicyTest {
         value.takeIf { it.matches(Regex("[a-z]+\\.[a-z]+")) }
     }
 
+    @Test fun directDatasetAuthenticationIsRestrictedToModernAppCredentialFlows() {
+        for (api in listOf(26, 30, 31, 35, 36)) {
+            assertEquals(api >= 31, AutofillOriginPolicy.usesDatasetAuthentication(api, false, false))
+            assertFalse(AutofillOriginPolicy.usesDatasetAuthentication(api, true, false))
+            assertFalse(AutofillOriginPolicy.usesDatasetAuthentication(api, false, true))
+            assertFalse(AutofillOriginPolicy.usesDatasetAuthentication(api, true, true))
+        }
+    }
+
     @Test fun nativeFormWithoutWebDomainUsesEveryVerifiedExactHost() {
         val origin = resolve(emptyList(), native = setOf("shop.pl", "shop.cz"))
         assertEquals(setOf("shop.pl", "shop.cz"), origin?.domains)

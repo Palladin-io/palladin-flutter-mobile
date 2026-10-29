@@ -252,8 +252,8 @@ It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clea
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
-Only after enrollment does it seed the biometric-bound cache and run all 41
-response/OS cases. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
+Only after enrollment does it seed the biometric-bound cache and run the complete
+response/OS matrix. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
 enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
@@ -328,7 +328,7 @@ failed before the repeated handoffs. The software run observed an unavailable
 cache after an asynchronous seed launch; the swiftshader run offered a response
 but exposed no accessible unlock row. It does not prove a renderer fix. The
 experimental probe was removed rather than becoming an alternative acceptance
-path. Full validation remains the unchanged 41-case validator; local API 35
+path. Full validation retains all original cases and the later regressions below; local API 35
 ARM64 evidence must identify its emulator version and clean source SHA, and must
 not be described as a successful Linux x86 run.
 
@@ -342,3 +342,44 @@ into this isolated debug provider to commit the real cache revocation while the
 confirmation remains foreground. It is absent from the production manifest.
 The authoritative matrix runs revoke last because it deliberately invalidates
 the synthetic cache. No scenario uses real credentials or logs field values.
+
+Observed physical metadata regressions: [Binance virtual username](observed-binance.md).
+
+### Exact-host credential-delegation regressions
+
+API31+ adds DAL and app-WebView result-contract cases to the existing matrix. `--mode web-username
+--dal-proof valid` uses a second strictly local WebView document at
+`https://example.com/`; the form APK has no OS-verified association for that host.
+Its content is intercepted locally, never fetched. The provider's merged manifest
+explicitly removes the library-contributed INTERNET permission.
+
+The debug-only `SyntheticCredentialAssociation` substitutes only the successful
+network-proof step: it reads the real installed form APK identity and puts that
+exact key into the production process-memory proof cache. It does not bypass the
+production verifier, parser, service, biometric Activity, lease or final dataset
+checks. Response inspection requires the original username-only IDs and synthetic
+value, no password, and the expected exact-host presentation. The actual OS case
+requires Service → biometric authentication → returned credential selection →
+field equality. Cancellation and expiring the proof while the biometric prompt
+is open must leave all fields empty. A test-only receiver changes the proof's
+monotonic timestamp for expiration; there is no production injection API.
+
+Web verification controls hide the IME through `InputMethodManager` before
+publishing the DOM equality result so the result remains accessible below the
+controls. WebView repeat validation clears the focused synthetic input through
+keyboard select-all/delete: assigning the DOM value and dispatching an input
+event does not notify Android's virtual-field value tracking. It then explicitly
+refocuses the field and requires a new unlock action and biometric prompt in the
+same framework session.
+
+Expired and wrong-signer proof inspectors require rejection before authentication;
+they invoke the Activity/verifier directly, not a network fallback. Actual HTTPS,
+DNS/address, MIME/body/JSON and deadline behavior is covered separately by native
+JVM tests. Every synthetic launcher also executes valid and malformed statements
+through the production parser on the device's actual JsonReader before cache seed.
+This split does not claim that a live merchant endpoint or physical keyboard was
+tested. The API31+ authoritative matrix now contains 59 cases. It additionally checks
+same-session WebView repeat authentication, picker cancellation, proof expiry
+after authentication, revoke before selection, and browser-source legacy
+FillResponse results (using the installed system Chrome identity only in the
+response inspector; no live browser page or network).

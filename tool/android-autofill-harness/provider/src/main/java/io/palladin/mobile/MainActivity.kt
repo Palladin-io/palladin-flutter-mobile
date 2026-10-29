@@ -21,6 +21,8 @@ import android.view.autofill.AutofillValue
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import android.widget.EditText
+import io.palladin.mobile.autofill.AutofillOriginPolicy
+import io.palladin.mobile.autofill.AutofillOriginVerifier
 import io.palladin.mobile.autofill.AutofillAuthenticationActivity
 import android.widget.TextView
 import io.palladin.mobile.autofill.AutoFillCacheStore
@@ -28,6 +30,7 @@ import java.time.Instant
 
 /** Debug-only launcher seeds the real encrypted cache with synthetic records. */
 class MainActivity : Activity() {
+ private val fixtureHost: String get() = if (intent.hasExtra("dalProof")) SyntheticCredentialAssociation.HOST else "fixture.invalid"
  private val phases = mutableListOf<String>()
  private var collectingDiagnostics = false
  private var expectInline = true
@@ -52,6 +55,7 @@ class MainActivity : Activity() {
    Thread.setDefaultUncaughtExceptionHandler(syntheticFailureHandler(prior) { recordPhase("UNCAUGHT", it) })
   }
   val status = runCatching {
+   verifyCredentialStatementParser()
    val store = AutoFillCacheStore(this)
    val session = store.beginSession()
    val issuedAt = Instant.now().minusSeconds(10)
@@ -67,12 +71,23 @@ class MainActivity : Activity() {
     "records" to listOf(mapOf("id" to "synthetic-entry", "organizationId" to "synthetic-org",
      "vaultId" to "synthetic-vault", "revision" to "1", "keyVersion" to 1,
      "label" to "Synthetic fixture", "username" to "synthetic-user", "password" to "synthetic-only-not-secret",
-     "domains" to listOf("fixture.invalid")))
+     "domains" to listOf(fixtureHost)))
    ), session)
+   intent.getStringExtra("dalProof")?.let { SyntheticCredentialAssociation.configure(this, it) }
    "Synthetic encrypted cache ready"
   }.getOrElse { "Synthetic setup failed: " + it.javaClass.simpleName }
   setContentView(TextView(this).apply { text = status; textSize = 22f })
   if (status == "Synthetic encrypted cache ready") intent.getStringExtra("inspectResponse")?.let(::inspectResponse)
+ }
+
+ private fun verifyCredentialStatementParser() {
+  val signer = List(32) { "AB" }.joinToString(":")
+  val statement = """[{"relation":["delegate_permission/common.get_login_creds"],"target":{"namespace":"android_app","package_name":"synthetic.app","sha256_cert_fingerprints":["$signer"]},"metadata":{"enabled":true,"version":1,"optional":null}}]"""
+  check(io.palladin.mobile.autofill.CredentialAssetLinks.authorizes(statement, "synthetic.app", setOf(signer)))
+  for (invalid in listOf(statement + "[]", statement.replace("\"relation\":", "\"relation\":[],\"relation\":"),
+   statement.replace("delegate_permission/common.get_login_creds", "delegate_permission/common.handle_all_urls"))) {
+   check(!io.palladin.mobile.autofill.CredentialAssetLinks.authorizes(invalid, "synthetic.app", setOf(signer)))
+  }
  }
 
  private fun inspectResponse(mode: String) {
@@ -87,6 +102,9 @@ class MainActivity : Activity() {
   expectInline = inlineMode == "supported"
   val style = if (expectInline) UiVersions.newStylesBuilder().addStyle(InlineSuggestionUi.newStyleBuilder().build()).build() else Bundle()
   expectedInlineSpec = InlinePresentationSpec.Builder(Size(40, 40), Size(600, 80)).setStyle(style).build()
+  val sourcePackage = if (intent.getBooleanExtra("browserSource", false)) "com.android.chrome" else "io.palladin.autofill.harness.form"
+  val browser = AutofillOriginVerifier(this).isBrowser(sourcePackage)
+  check(browser == intent.getBooleanExtra("browserSource", false))
   recordPhase("AUTH_LAUNCHED")
   startActivityForResult(Intent(this, AutofillAuthenticationActivity::class.java).apply {
    if (inlineMode != "absent") {
@@ -102,12 +120,14 @@ class MainActivity : Activity() {
     AutofillAuthenticationActivity.EXTRA_NATIVE_DOMAINS, arrayListOf("fixture.invalid"))
 
    if (mode.startsWith("web")) {
-    putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, "fixture.invalid")
+    putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, fixtureHost)
     if (mode != "web-missing") putExtra(
      AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, if (mode == "web-http") "http" else "https",
     )
    }
-   putExtra(AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME, "io.palladin.autofill.harness.form")
+   putExtra(AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME, sourcePackage)
+   putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION,
+    AutofillOriginPolicy.usesDatasetAuthentication(Build.VERSION.SDK_INT, browser, false))
    putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_USERNAME_IDS, usernames)
    putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS, passwords)
   }, 1)
@@ -118,7 +138,7 @@ class MainActivity : Activity() {
   super.onActivityResult(requestCode, resultCode, data)
   recordPhase("RESULT_STARTED")
   val result = data?.getParcelableExtra<android.os.Parcelable>(AutofillManager.EXTRA_AUTHENTICATION_RESULT)
-  val direct = Build.VERSION.SDK_INT >= 31 && intent.getStringExtra("inspectResponse")?.startsWith("native") == true
+  val direct = Build.VERSION.SDK_INT >= 31 && !intent.getBooleanExtra("browserSource", false)
   val response = result as? FillResponse
   @Suppress("UNCHECKED_CAST")
   val datasets = if (direct) listOfNotNull(result as? Dataset) else
@@ -138,14 +158,14 @@ class MainActivity : Activity() {
   val inlineVerified = dropdown != null && if (expectInline) {
    inline != null && inline.inlinePresentationSpec == expectedInlineSpec &&
     inlineContent?.title?.toString() == "synthetic-user" &&
-    inlineContent.subtitle?.toString() == "fixture.invalid" &&
+    inlineContent.subtitle?.toString() == fixtureHost &&
     inlineContent.startIcon != null && inlineContent.contentDescription?.contains("Synthetic fixture") == true
   } else inline == null
   val verified = handoffVerified && inlineVerified && requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
    ids.size == expectedFields.size && values.size == ids.size && ids.toSet() == expectedFields.keys &&
    ids.zip(values).all { (id, value) -> value?.textValue?.toString() == expectedFields[id] }
   val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && result == null
-  val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
+  val status = if (intent.getStringExtra("dalProof") in setOf("expired", "wrong-signer") || intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
    "responseRejected=$rejected"
   } else "responseVerified=$verified"
   recordPhase(if (verified) "RESULT_VERIFIED" else if (rejected) "RESULT_REJECTED" else "RESULT_MISMATCH")
