@@ -7,8 +7,12 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from android_harness_ui import launcher_anr_close
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -39,22 +43,6 @@ def matches_label(node, pattern):
     return node.get('enabled') == 'true' and any(
         re.fullmatch(pattern, node.get(attribute, ''), re.I) is not None
         for attribute in ('text', 'content-desc'))
-
-
-def launcher_anr_close(nodes):
-    titles = [node for node in nodes if "isn't responding" in node.get('text', '')]
-    if (len(titles) != 1 or titles[0].get('text') != "Pixel Launcher isn't responding"
-            or titles[0].get('package') != 'android'):
-        return None
-    controls = [node for node in nodes if node.get('text') == 'Close app']
-    if len(controls) != 1:
-        return None
-    control = controls[0]
-    if (control.get('package') != 'android' or control.get('class') != 'android.widget.Button'
-            or control.get('enabled') != 'true'
-            or not re.fullmatch(r'\[\d+,\d+\]\[\d+,\d+\]', control.get('bounds', ''))):
-        return None
-    return control
 
 
 def hierarchy_metadata(nodes):

@@ -308,3 +308,12 @@ provider, ambiguous metadata or another platform version cannot establish this
 outcome. Only the outcome enum is retained; raw dumps and credential values are
 never written to evidence files. This is an OS null response, not inferred parser
 rejection. JVM regressions independently verify excluded-field classification.
+
+Presentation setup may dismiss one exact Android-owned “Pixel Launcher isn't
+responding” dialog using the same recognizer as the save harness. A screenshot
+is retained before the dismissal and `presentation/setup.json` records
+`dismissedLauncherAnr=true`. The existing three observations and deadlines are
+unchanged; the real locale/theme assertion must subsequently appear. A second
+Launcher ANR, or any provider, System UI or unknown ANR, remains a failure.
+This handles a documented disposable-emulator boot obstruction, not an
+application crash or a failed presentation assertion.

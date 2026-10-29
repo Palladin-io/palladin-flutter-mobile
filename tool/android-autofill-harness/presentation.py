@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Assert real synthetic presentation views and capture EN/PL day/night screenshots."""
 import argparse
+import json
+import re
+import sys
 from pathlib import Path
 import subprocess
 import os
 import time
 import xml.etree.ElementTree as ET
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from android_harness_ui import launcher_anr_close
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--serial', required=True)
@@ -15,6 +21,7 @@ if not args.serial.startswith('emulator-'):
 adb = [os.environ.get('ADB', 'adb'), '-s', args.serial]
 build = Path(__file__).resolve().parent / 'build/presentation'
 build.mkdir(parents=True, exist_ok=True)
+dismissed_launcher_anr = False
 for language in ('en', 'pl'):
     for night in ('false', 'true'):
         subprocess.run(adb + ['shell', 'am', 'start', '-S', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity', '--es', 'language', language, '--ez', 'night', night], check=True, stdout=subprocess.DEVNULL, timeout=30)
@@ -29,7 +36,19 @@ for language in ('en', 'pl'):
                     continue
                 raw = subprocess.check_output(adb + ['shell', 'cat', '/sdcard/palladin-synthetic-ui.xml'], timeout=5)
                 last_raw = raw
-                verified = any(n.get('text') == expected for n in ET.fromstring(raw).iter('node'))
+                nodes = list(ET.fromstring(raw).iter('node'))
+                close = launcher_anr_close(nodes)
+                if close is not None and not dismissed_launcher_anr:
+                    screenshot = subprocess.check_output(adb + ['exec-out', 'screencap', '-p'], timeout=15)
+                    (build / 'launcher-anr-before-dismissal.png').write_bytes(screenshot)
+                    x1, y1, x2, y2 = map(int, re.findall(r'\d+', close.get('bounds')))
+                    subprocess.run(adb + ['shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2)], check=True, timeout=5)
+                    dismissed_launcher_anr = True
+                    (build / 'setup.json').write_text(json.dumps({'dismissedLauncherAnr': True}) + '\n')
+                    continue
+                if any("isn't responding" in n.get('text', '') for n in nodes):
+                    break
+                verified = any(n.get('text') == expected for n in nodes)
             finally:
                 subprocess.run(adb + ['shell', 'rm', '-f', '/sdcard/palladin-synthetic-ui.xml'], check=True, timeout=5)
             if verified:
