@@ -15,6 +15,7 @@ parser.add_argument('--mode', choices=['native-login', 'native-username', 'web-l
 parser.add_argument('--expected', choices=['RESPONSE_OFFERED', 'REJECTED', 'NO_RESPONSE'], default='RESPONSE_OFFERED')
 parser.add_argument('--fill', action='store_true')
 parser.add_argument('--inspect-response', action='store_true')
+parser.add_argument('--inline-mode', choices=['supported', 'absent', 'unsupported'], default='supported')
 args = parser.parse_args()
 if not args.serial.startswith('emulator-'):
     raise RuntimeError('This harness only operates on an emulator')
@@ -234,7 +235,7 @@ try:
         prior_policy = command('shell', 'settings', 'get', 'global', 'hidden_api_policy').strip()
         try:
             command('shell', 'settings', 'put', 'global', 'hidden_api_policy', '1')
-            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode)
+            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode, '--es', 'inlineMode', args.inline_mode)
             if args.mode in ('web-http', 'web-missing'):
                 wait_for(lambda tree: any(n.get('text') == 'responseRejected=true' for n in tree),
                          'Invalid scheme rejection result not observed')

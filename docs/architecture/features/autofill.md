@@ -414,6 +414,24 @@ the chip invokes the same biometric authentication activity; long-press attribut
 opens Palladin through a fixed value-free PendingIntent. Origin/cache gates run
 before any presentation is constructed. No credential value enters this chip.
 
+After biometric authentication and the existing origin/session checks, both web
+and native credential datasets retain optional inline presentation. The original
+IME's specs and capacity are copied as value-free metadata into Palladin's explicit,
+immutable authentication PendingIntent. No IME token/package/extras are copied.
+The 32-spec bound protects this bridge; larger spec lists fall back entirely
+to RemoteViews. A dataset uses its original position's supported v1 spec; the last
+spec is reused for further positions only within the IME capacity, as required by
+[`InlineSuggestionsRequest`](https://developer.android.com/reference/android/view/inputmethod/InlineSuggestionsRequest#getInlinePresentationSpecs()).
+Unsupported, missing, malformed and pre-Android-11 metadata leave the branded
+dropdown intact. No field classification, origin, biometric or lease gate changes.
+
+Authenticated inline content uses username as title, exact host as subtitle and
+the existing Palladin logo. EN/PL accessibility text also includes the Entry label;
+the full username/label/host hierarchy remains in RemoteViews because v1 has only
+two text slots. No credential appears in the pre-authentication unlock chip.
+The IME can suppress or restyle inline suggestions. This capability improvement
+is not a diagnosis or proof of a fix for intermittent system dropdown disappearance.
+
 Reference: [Android inline autofill guide](https://developer.android.com/identity/autofill/ime-autofill).
 Android API compilation checks the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.

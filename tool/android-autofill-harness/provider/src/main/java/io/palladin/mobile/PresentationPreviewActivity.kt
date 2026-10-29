@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import io.palladin.mobile.autofill.autofillCredentialPresentation
 import io.palladin.mobile.autofill.autofillInlineContent
+import io.palladin.mobile.autofill.autofillInlineCredentialContent
 import io.palladin.mobile.autofill.autofillPresentation
 import java.util.Locale
 
@@ -49,6 +50,12 @@ class PresentationPreviewActivity : Activity() {
   val username = "synthetic.long.username.for.ellipsis@example.invalid"
   val label = "Synthetic long credential label for large-font and ellipsis verification"
   val host = "exact.synthetic.fixture.invalid"
+  val credentialInline = autofillInlineCredentialContent(context, username, label, host, attribution)
+  check(credentialInline.title.toString() == username)
+  check(credentialInline.subtitle.toString() == host)
+  val expectedCredentialDescription = if (language == "pl") "Uzupełnij $username, $label, $host" else "Autofill $username, $label, $host"
+  check(credentialInline.contentDescription.toString() == expectedCredentialDescription)
+  check(credentialInline.startIcon != null && credentialInline.isValid)
   val row = autofillCredentialPresentation(context, username, label, host).apply(context, root)
   for ((id, expected) in listOf(R.id.autofill_credential_username to username, R.id.autofill_credential_label to label, R.id.autofill_credential_domain to host)) {
    val text = row.findViewById<TextView>(id)

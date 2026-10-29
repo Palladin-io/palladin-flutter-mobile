@@ -163,8 +163,11 @@ for result from the synthetic launcher, using real Android View AutofillIds and
 the real encrypted fixture/cache. It traverses `completeFill` for WEB and
 `selectionResponse` for MANUAL_NATIVE after biometric authentication. For both
 username-only and two-field requests it checks the returned **actual FillResponse**:
-one dataset, exactly the intended field IDs, exactly the corresponding value count,
-and the expected synthetic username/password in each field. Only a boolean result
+one dataset with both a RemoteViews fallback and supported inline content (original
+spec, username/host/logo), exactly the intended field IDs, exactly the corresponding value count,
+and the expected synthetic username/password in each field. The four native/web
+login and username-only inspections also run with absent and unsupported inline
+requests; those must return the same fields with a dropdown and no inline content. Only a boolean result
 leaves the in-memory assertion. This is complementary to the separate real
 service → keyboard → biometric → OS field-handoff test; it does not replace it.
 
@@ -234,7 +237,7 @@ It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clea
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
-Only after enrollment does it seed the biometric-bound cache and run all 24
+Only after enrollment does it seed the biometric-bound cache and run all 32
 response/OS cases. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic

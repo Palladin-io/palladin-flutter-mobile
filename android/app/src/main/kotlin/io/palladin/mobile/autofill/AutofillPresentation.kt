@@ -46,3 +46,19 @@ internal fun autofillInlineContent(
         .setContentDescription(label)
         .build()
 }
+
+@android.annotation.TargetApi(30)
+internal fun autofillInlineCredentialContent(
+    context: Context,
+    username: String,
+    label: String,
+    domain: String,
+    attribution: PendingIntent,
+): InlineSuggestionUi.Content = InlineSuggestionUi.newContentBuilder(attribution)
+    .setTitle(username)
+    .setSubtitle(domain)
+    .setStartIcon(Icon.createWithResource(context, R.drawable.launch_logo_image).apply {
+        setTintBlendMode(BlendMode.DST)
+    })
+    .setContentDescription(context.getString(R.string.autofill_credential_description, username, label, domain))
+    .build()

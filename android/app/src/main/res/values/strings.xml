@@ -16,4 +16,5 @@
     <string name="autofill_manual_confirm_message">Palladin could not verify this app’s website.\n\nApp: %1$s\nEntry domain: %2$s\n\nContinue only if you trust this app. This choice will not be remembered.</string>
     <string name="autofill_fill_once">Fill once</string>
     <string name="autofill_save_unavailable">This save request is no longer available.</string>
+    <string name="autofill_credential_description">Autofill %1$s, %2$s, %3$s</string>
 </resources>

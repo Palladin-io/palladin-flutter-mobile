@@ -373,7 +373,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val usernames = intent.autofillIds(EXTRA_USERNAME_IDS)
         if (passwords.isEmpty() && usernames.isEmpty()) return null
         val presentation = autofillCredentialPresentation(this, record.username, record.label, domain)
-        val dataset = Dataset.Builder(presentation)
+        val dataset = authenticatedAutofillDataset(this, intent, presentation, record.username, record.label, domain)
         usernames.forEach {
             dataset.setValue(it, AutofillValue.forText(record.username), presentation)
         }
@@ -451,14 +451,16 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             }
 
             val response = AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST))
-            for (record in matches) {
+            for ((index, record) in matches.withIndex()) {
                 val presentation = autofillCredentialPresentation(
                     context = this,
                     username = record.username,
                     label = record.label,
                     domain = domain,
                 )
-                val dataset = Dataset.Builder(presentation)
+                val dataset = authenticatedAutofillDataset(
+                    this, intent, presentation, record.username, record.label, domain, index,
+                )
                 usernameIds.forEach { id ->
                     dataset.setValue(id, AutofillValue.forText(record.username), presentation)
                 }
