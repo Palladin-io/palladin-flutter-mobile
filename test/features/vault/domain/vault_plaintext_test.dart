@@ -260,4 +260,97 @@ void main() {
       throwsA(isA<VaultPlaintextFormatException>()),
     );
   });
+
+  group('canonical custom fields', () {
+    const unknownId = '55555555-5555-4555-8555-555555555555';
+    MemberSecret withUnknown(AgentFieldAccess access) => MemberSecret(
+      entryType: VaultEntryType.credential,
+      memberLabel: credential.memberLabel,
+      agentLabel: credential.agentLabel,
+      description: credential.description,
+      icon: credential.icon,
+      color: credential.color,
+      discoverable: true,
+      content: CredentialSecretContent(
+        username: 'patryk@example.com',
+        password: '',
+        url: null,
+        urlDomain: null,
+        totp: null,
+        notes: null,
+        customFields: const [
+          VaultCustomField(
+            id: unknownId,
+            label: 'Sign-in method',
+            kind: 'palladin.signin.v1',
+            value: {'provider': 'github', 'account': null},
+          ),
+        ],
+      ),
+      agentFieldAccess: {
+        'memberLabel': AgentFieldAccess.never,
+        'agentLabel': AgentFieldAccess.discovery,
+        'description': AgentFieldAccess.never,
+        'icon': AgentFieldAccess.never,
+        'color': AgentFieldAccess.never,
+        'entryType': AgentFieldAccess.discovery,
+        'credential.username': AgentFieldAccess.onGrantValue,
+        'credential.password': AgentFieldAccess.never,
+        'credential.url': AgentFieldAccess.never,
+        'credential.urlDomain': AgentFieldAccess.never,
+        'credential.totp': AgentFieldAccess.never,
+        'notes': AgentFieldAccess.never,
+        'custom:$unknownId': access,
+      },
+    );
+
+    test('serialize in the canonical shape without local flags', () {
+      final fields =
+          (credential.toJson()['content']! as Map)['customFields'] as List;
+      expect(fields, [
+        {
+          'id': 'custom:d9428888-122b-11e1-b85c-61cd3cbb3210',
+          'label': 'Tenant',
+          'type': 'text',
+          'value': 'Acme',
+        },
+      ]);
+    });
+
+    test('unknown types are preserved with never access only', () {
+      final secret = withUnknown(AgentFieldAccess.never);
+      final field =
+          ((secret.toJson()['content']! as Map)['customFields'] as List).single;
+      expect(field, {
+        'id': 'custom:$unknownId',
+        'label': 'Sign-in method',
+        'type': 'palladin.signin.v1',
+        'value': {'provider': 'github', 'account': null},
+      });
+      expect(VaultPlaintextProjector.memberIndex(secret).customIndex, isEmpty);
+      expect(
+        jsonEncode(VaultPlaintextProjector.agentDiscovery(secret)),
+        isNot(contains('github')),
+      );
+      expect(
+        () =>
+            VaultPlaintextProjector.grantPayload(secret, {'custom:$unknownId'}),
+        throwsA(isA<VaultPlaintextFormatException>()),
+      );
+    });
+
+    for (final access in [
+      AgentFieldAccess.discovery,
+      AgentFieldAccess.onGrantValue,
+      AgentFieldAccess.onGrantDerived,
+      AgentFieldAccess.onGrantRuntime,
+    ]) {
+      test('unknown types reject ${access.name} access', () {
+        expect(
+          () => withUnknown(access),
+          throwsA(isA<VaultPlaintextFormatException>()),
+        );
+      });
+    }
+  });
 }

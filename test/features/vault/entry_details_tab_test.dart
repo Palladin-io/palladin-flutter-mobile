@@ -719,4 +719,184 @@ void main() {
     expect(find.text(secret), findsNothing);
     expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
   });
+
+  group('sign-in method', () {
+    final credential = EntryEntity(
+      id: 'e3',
+      vaultId: 'v1',
+      label: 'Example',
+      type: EntryType.credential,
+      createdAt: DateTime.utc(2026, 6, 1),
+      updatedAt: DateTime.utc(2026, 6, 2),
+    );
+
+    Map<String, dynamic> payloadWith(List<Map<String, dynamic>> fields) => {
+      'username': 'qa@example.test',
+      'password': '',
+      'url': 'https://example.test',
+      'fields': fields,
+    };
+
+    Map<String, dynamic> binding(Object? value, {String id = 'b1'}) => {
+      'id': id,
+      'label': 'Sign-in method',
+      'type': 'palladin.signin.v1',
+      'value': value,
+    };
+
+    Future<String> rowText(WidgetTester tester) async {
+      final row = find.byKey(const ValueKey('entry-sign-in-method'));
+      expect(row, findsOneWidget);
+      final texts = tester
+          .widgetList<Text>(
+            find.descendant(of: row, matching: find.byType(Text)),
+          )
+          .map((text) => text.data)
+          .whereType<String>();
+      return texts.join();
+    }
+
+    testWidgets('shows a recognized provider and account', (tester) async {
+      await pumpTab(
+        tester,
+        entry: credential,
+        payload: payloadWith([
+          binding({'provider': 'github', 'account': 'octo'}),
+        ]),
+      );
+      expect(await rowText(tester), 'GitHub · octo');
+    });
+
+    testWidgets('shows a missing account explicitly', (tester) async {
+      await pumpTab(
+        tester,
+        entry: credential,
+        payload: payloadWith([
+          binding({'provider': 'apple', 'account': null}),
+        ]),
+      );
+      expect(await rowText(tester), 'Apple · Account not specified');
+    });
+
+    testWidgets('unrecognized bindings stay neutral', (tester) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      await pumpTab(
+        tester,
+        entry: credential,
+        payload: payloadWith([
+          binding({'provider': 'twitter', 'account': 'x'}),
+        ]),
+      );
+      expect(await rowText(tester), l10n.entrySignInMethodUnrecognized);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('entry-sign-in-method')),
+          matching: find.byIcon(Icons.content_copy),
+        ),
+        findsNothing,
+      );
+      expect(find.textContaining('twitter'), findsNothing);
+    });
+
+    testWidgets('ambiguous bindings stay neutral', (tester) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      await pumpTab(
+        tester,
+        entry: credential,
+        payload: payloadWith([
+          binding({'provider': 'google', 'account': null}),
+          binding({'provider': 'github', 'account': null}, id: 'b2'),
+        ]),
+      );
+      expect(await rowText(tester), l10n.entrySignInMethodAmbiguous);
+    });
+
+    testWidgets('choosing a provider saves through the canonical update', (
+      tester,
+    ) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      final (:cubit, :canonical) = await pumpTab(
+        tester,
+        entry: credential,
+        payload: payloadWith(const []),
+      );
+      expect(await rowText(tester), l10n.entrySignInMethodNotSet);
+      when(
+        () => canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer(
+        (_) async => CanonicalEntrySnapshot(
+          entry: {'currentRevision': '1'},
+          payload: payloadWith(const []),
+          secret: {
+            'entryType': EntryType.credential.toWire(),
+            'memberLabel': 'Example',
+            'agentLabel': 'Example',
+            'agentVisibilityPolicy': {
+              'discoverable': true,
+              'fields': {'agentLabel': 'discovery', 'username': 'discovery'},
+            },
+          },
+        ),
+      );
+      when(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      ).thenAnswer((_) async => credential);
+
+      await tester.tap(find.byKey(const ValueKey('entry-sign-in-method-edit')));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.entrySignInMethodRemove), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Microsoft').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('sign-in-method-account')),
+          matching: find.byType(TextField),
+        ),
+        '  qa@example.test  ',
+      );
+      await tester.tap(find.text(l10n.entrySaveAction));
+      await tester.pumpAndSettle();
+
+      final content =
+          verify(
+                () => canonical.update(
+                  snapshot: any(named: 'snapshot'),
+                  expected: any(named: 'expected'),
+                  label: any(named: 'label'),
+                  description: any(named: 'description'),
+                  icon: any(named: 'icon'),
+                  type: any(named: 'type'),
+                  content: captureAny(named: 'content'),
+                  memberPrivateKey: any(named: 'memberPrivateKey'),
+                  agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+                  agentLabel: any(named: 'agentLabel'),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
+      final field = (content['fields'] as List).single as Map;
+      expect(field['type'], 'palladin.signin.v1');
+      expect(field['label'], l10n.entrySignInMethodLabel);
+      expect(field['value'], {
+        'provider': 'microsoft',
+        'account': 'qa@example.test',
+      });
+      expect(cubit.isClosed, isFalse);
+    });
+  });
 }

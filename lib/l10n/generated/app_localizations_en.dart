@@ -4998,4 +4998,74 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autoFillSaveUnavailable =>
       'The login could not be saved safely. Try again or cancel.';
+
+  @override
+  String get entrySignInMethodLabel => 'Sign-in method';
+
+  @override
+  String get entrySignInMethodNotSet => 'Not set';
+
+  @override
+  String entrySignInMethodWithAccount(String provider, String account) {
+    return '$provider · $account';
+  }
+
+  @override
+  String entrySignInMethodNoAccount(String provider) {
+    return '$provider · Account not specified';
+  }
+
+  @override
+  String get entrySignInMethodUnrecognized =>
+      'Saved in a format this app does not recognize';
+
+  @override
+  String get entrySignInMethodAmbiguous =>
+      'More than one sign-in method is saved';
+
+  @override
+  String get entrySignInMethodEdit => 'Edit sign-in method';
+
+  @override
+  String get entrySignInMethodHint =>
+      'Remember which provider you use to sign in to this service. Palladin does not sign in for you and cannot detect provider sign-ins in other apps or browsers.';
+
+  @override
+  String get entrySignInMethodProvider => 'Provider';
+
+  @override
+  String get entrySignInMethodChooseProvider => 'Choose a provider';
+
+  @override
+  String get entrySignInMethodAccount => 'Provider account (optional)';
+
+  @override
+  String get entrySignInMethodAccountHint => 'name@example.com';
+
+  @override
+  String get entrySignInMethodAccountTooLong => 'Use at most 256 characters.';
+
+  @override
+  String get entrySignInMethodRemove => 'Remove sign-in method';
+
+  @override
+  String get entrySignInMethodSaved => 'Sign-in method saved';
+
+  @override
+  String get entrySignInMethodRemoved => 'Sign-in method removed';
+
+  @override
+  String get signInProviderGoogle => 'Google';
+
+  @override
+  String get signInProviderApple => 'Apple';
+
+  @override
+  String get signInProviderMicrosoft => 'Microsoft';
+
+  @override
+  String get signInProviderGithub => 'GitHub';
+
+  @override
+  String get signInProviderFacebook => 'Facebook';
 }

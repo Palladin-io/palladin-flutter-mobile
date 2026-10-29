@@ -170,4 +170,46 @@ void main() {
       }),
     );
   });
+
+  test('projects a canonical web-shaped custom field', () {
+    const fieldId = '11111111-2222-4333-8444-555555555555';
+    final canonical = {
+      ...memberSecret,
+      'content': {
+        ...memberSecret['content']! as Map<String, Object?>,
+        'customFields': [
+          {
+            'id': 'custom:$fieldId',
+            'label': 'Tenant',
+            'type': 'text',
+            'value': 'acme',
+          },
+        ],
+      },
+      'agentFieldAccess': {
+        ...memberSecret['agentFieldAccess']! as Map<String, Object?>,
+        'custom:$fieldId': 'onGrantValue',
+      }..remove('custom:tenant'),
+    };
+
+    final result = projectCanonicalGrantPayload(canonicalVaultJson(canonical), {
+      'custom:$fieldId',
+    });
+
+    expect(
+      result,
+      canonicalVaultJson({
+        'schema': 'palladin.grant-payload.v1',
+        'entryType': 'credential',
+        'fields': [
+          {
+            'id': 'custom:$fieldId',
+            'kind': 'text',
+            'mode': 'value',
+            'value': 'acme',
+          },
+        ],
+      }),
+    );
+  });
 }

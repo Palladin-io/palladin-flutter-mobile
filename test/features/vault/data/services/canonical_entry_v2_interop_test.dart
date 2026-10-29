@@ -584,6 +584,212 @@ void main() {
     expect((source['content'] as Map)['customFields'], hasLength(1));
   });
 
+  test(
+    'web-shaped custom fields round-trip as canonical MemberSecret',
+    () async {
+      const textId = '44444444-4444-4444-8444-444444444444';
+      const signInId = '55555555-5555-4555-8555-555555555555';
+      const signInValue = {'provider': 'google', 'account': 'qa@example.test'};
+      final source = <String, dynamic>{
+        'schema': MemberSecret.schema,
+        'entryType': 'credential',
+        'memberLabel': 'Fixture',
+        'agentLabel': 'Fixture',
+        'description': null,
+        'icon': null,
+        'color': null,
+        'discoverable': true,
+        'content': {
+          'username': 'fixture',
+          'password': '',
+          'url': 'https://example.test',
+          'urlDomain': 'example.test',
+          'totp': null,
+          'notes': null,
+          'customFields': [
+            {
+              'id': 'custom:$textId',
+              'label': 'Team',
+              'type': 'text',
+              'value': 'qa',
+            },
+            {
+              'id': 'custom:$signInId',
+              'label': 'Sign-in method',
+              'type': 'palladin.signin.v1',
+              'value': signInValue,
+            },
+          ],
+        },
+        'agentFieldAccess': {
+          'memberLabel': 'never',
+          'agentLabel': 'discovery',
+          'description': 'never',
+          'icon': 'never',
+          'color': 'never',
+          'entryType': 'discovery',
+          'credential.username': 'onGrantValue',
+          'credential.password': 'onGrantValue',
+          'credential.url': 'onGrantValue',
+          'credential.urlDomain': 'discovery',
+          'credential.totp': 'never',
+          'notes': 'onGrantValue',
+          'custom:$textId': 'onGrantValue',
+          'custom:$signInId': 'never',
+        },
+      };
+      final adapted = service.adaptCanonicalSecret(source);
+      final payload = adapted['content'] as Map<String, dynamic>;
+      expect(payload['fields'], [
+        {
+          'id': textId,
+          'label': 'Team',
+          'type': 'text',
+          'value': 'qa',
+          'agentVisible': false,
+        },
+        {
+          'id': signInId,
+          'label': 'Sign-in method',
+          'type': 'palladin.signin.v1',
+          'value': signInValue,
+          'agentVisible': false,
+        },
+      ]);
+
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/update'),
+          statusCode: 200,
+        ),
+      );
+      final edited = <String, dynamic>{
+        ...payload,
+        'fields': [
+          {...(payload['fields'] as List).first as Map, 'value': 'qa-edited'},
+          (payload['fields'] as List).last,
+        ],
+      };
+      await service.update(
+        snapshot: CanonicalEntrySnapshot(
+          entry: head(),
+          secret: adapted,
+          payload: payload,
+        ),
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Fixture',
+          type: EntryType.credential,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        label: 'Fixture',
+        description: '',
+        icon: '',
+        type: EntryType.credential,
+        content: edited,
+        memberPrivateKey: Uint8List(32),
+      );
+      final captured =
+          verify(
+                () => crypto.seal(
+                  organizationId: orgId,
+                  vaultId: vaultId,
+                  entryId: entryId,
+                  revision: 8,
+                  entryKeyRevision: 4,
+                  memberIndexRevision: 4,
+                  agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
+                  entryKeyVersion: 2,
+                  vaultKeyVersion: 4,
+                  vdkVersion: 6,
+                  memberKeyGeneration: 3,
+                  operation: 2,
+                  secret: captureAny(named: 'secret'),
+                  vaultKey: any(named: 'vaultKey'),
+                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                  existingEntryDek: any(named: 'existingEntryDek'),
+                ),
+              ).captured.single
+              as MemberSecret;
+      final written = jsonDecode(
+        utf8.decode(canonicalVaultJson(captured.toJson())),
+      );
+      expect((written['content'] as Map)['customFields'], [
+        {
+          'id': 'custom:$textId',
+          'label': 'Team',
+          'type': 'text',
+          'value': 'qa-edited',
+        },
+        {
+          'id': 'custom:$signInId',
+          'label': 'Sign-in method',
+          'type': 'palladin.signin.v1',
+          'value': signInValue,
+        },
+      ]);
+      expect((written['agentFieldAccess'] as Map)['custom:$signInId'], 'never');
+      expect(
+        (written['agentFieldAccess'] as Map)['custom:$textId'],
+        'onGrantValue',
+      );
+      expect((written['content'] as Map)['password'], '');
+      // Mobile never adds fields to MemberIndex without its legacy local flag.
+      expect(
+        VaultPlaintextProjector.memberIndex(captured).customIndex,
+        isEmpty,
+      );
+      expect(VaultPlaintextProjector.agentDiscovery(captured)!['fields'], [
+        {'id': 'credential.urlDomain', 'value': 'example.test'},
+      ]);
+    },
+  );
+
+  test('legacy mobile custom field shape is rewritten canonically', () {
+    const fieldId = '88888888-8888-4888-8888-888888888888';
+    final adapted = service.adaptCanonicalSecret({
+      ...canonicalSecret,
+      'content': {
+        'value': 'synthetic-key',
+        'notes': null,
+        'customFields': [
+          {
+            'id': fieldId,
+            'label': 'Legacy',
+            'kind': 'text',
+            'value': 'legacy',
+            'includeInMemberIndex': true,
+          },
+        ],
+      },
+      'agentFieldAccess': {
+        ...canonicalSecret['agentFieldAccess'] as Map,
+        'custom:$fieldId': 'onGrantValue',
+      },
+    });
+    final field = ((adapted['content'] as Map)['fields'] as List).single as Map;
+    expect(field['id'], fieldId);
+    expect(field['type'], 'text');
+    expect(field['agentVisible'], isTrue);
+    final rewritten = VaultCustomField(
+      id: field['id'] as String,
+      label: field['label'] as String,
+      kind: field['type'] as String,
+      value: field['value'],
+      includeInMemberIndex: true,
+    );
+    expect(rewritten.toJson(), {
+      'id': 'custom:$fieldId',
+      'label': 'Legacy',
+      'type': 'text',
+      'value': 'legacy',
+    });
+  });
+
   for (final representation in ['map', 'uri']) {
     for (final access in ['never', 'onGrantDerived', 'missing']) {
       test(
