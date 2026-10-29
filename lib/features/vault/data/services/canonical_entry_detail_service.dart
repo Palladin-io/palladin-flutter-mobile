@@ -947,11 +947,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       }
       _validateScope(snapshot.entry, expected);
       final vault = await _vaults.getEncryptedVault(expected.vaultId);
-      final organizationId = snapshot.entry['organizationId'] as String;
-      if (vault['organizationId'] != organizationId) {
-        throw const FormatException('Vault organization mismatch');
-      }
-      final generation = _int(vault, 'memberKeyGeneration');
+      final authority = _validateCanonicalAuthority(
+        vault,
+        snapshot.entry,
+        expected,
+      );
+      final organizationId = authority.organizationId;
+      final generation = authority.memberKeyGeneration;
       final epoch = _map(vault, 'currentKeyEpoch');
       final vdkVersion = _int(epoch, 'vdkVersion');
       final wrapper = _map(snapshot.entry, 'entryKey');
@@ -966,11 +968,27 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (canonicalVaultCrypto == null) {
           throw const FormatException('Missing canonical Vault cryptography');
         }
+        _validateCanonicalEnvelope(
+          wrapper,
+          snapshot.entry,
+          expected.id,
+          expectedKeyVersion: _int(snapshot.entry, 'currentKeyVersion'),
+          maximumMemberKeyGeneration: generation,
+          expectedWrappingVaultKeyVersion: authority.vaultKeyVersion,
+        );
         final openedVault = await canonicalVaultCrypto.openVaultProjection(
           json: vault,
           memberPrivateKey: memberPrivateKey,
         );
         vaultKey = openedVault.vaultKey;
+        // The wrapper scope is self-described; bind it to the edited Vault.
+        if (openedVault.organizationId != organizationId ||
+            openedVault.vaultId != expected.vaultId ||
+            openedVault.wrapper.wrappedKeyVersion !=
+                authority.vaultKeyVersion ||
+            openedVault.wrapper.memberKeyGeneration != generation) {
+          throw const FormatException('Vault key wrapper scope mismatch');
+        }
         discoveryKey = openedVault.vaultDiscoveryKey;
         if (discoveryKey == null) {
           throw const FormatException('Missing Vault discovery key');
@@ -998,6 +1016,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       vaultKey = await _keys.openMemberVaultKey(
         _map(vault, 'memberVaultKey'),
         memberPrivateKey,
+        expectedOrganizationId: organizationId,
+        expectedVaultId: expected.vaultId,
+        expectedVaultKeyVersion: authority.vaultKeyVersion,
+        expectedMemberKeyGeneration: generation,
       );
       discoveryKey = await _keys.openDiscoveryKey(
         _map(vault, 'discoveryKey'),

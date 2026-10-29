@@ -914,6 +914,145 @@ void main() {
     },
   );
 
+  group('canonical update rejects wrappers from another scope', () {
+    const otherVaultId = '22222222-2222-4222-8222-2222222b0000';
+    const otherEntryId = '33333333-3333-4333-8333-3333333b0000';
+    final expected = EntryEntity(
+      id: entryId,
+      vaultId: vaultId,
+      label: 'Key',
+      type: EntryType.key,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+
+    Map<String, dynamic> foreignEntryKeyHead({required bool localCache}) {
+      final value = head();
+      if (localCache) value.remove('agentDiscoveryRevisionHighWatermark');
+      final entryKey = Map<String, dynamic>.from(value['entryKey'] as Map);
+      entryKey['descriptor'] = {
+        ...descriptor(5, '4'),
+        'scope': {
+          'organizationId': orgId,
+          'vaultId': otherVaultId,
+          'entryId': otherEntryId,
+        },
+      };
+      value['entryKey'] = entryKey;
+      return value;
+    }
+
+    Future<void> expectRejectedBeforeSeal(Map<String, dynamic> entry) async {
+      await expectLater(
+        service.update(
+          snapshot: CanonicalEntrySnapshot(
+            entry: entry,
+            secret: {
+              'agentVisibilityPolicy': {
+                'discoverable': true,
+                'fields': {'agentLabel': 'discovery'},
+              },
+            },
+            payload: {'type': 'KEY', 'value': 'secret'},
+          ),
+          expected: expected,
+          label: 'Key',
+          description: '',
+          icon: '',
+          type: EntryType.key,
+          content: {'type': 'KEY', 'value': 'edited'},
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.corrupt,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openEntryDek(
+          entryKey: any(named: 'entryKey'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+      verifyNever(
+        () => crypto.seal(
+          organizationId: any(named: 'organizationId'),
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          revision: any(named: 'revision'),
+          entryKeyRevision: any(named: 'entryKeyRevision'),
+          memberIndexRevision: any(named: 'memberIndexRevision'),
+          agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
+          entryKeyVersion: any(named: 'entryKeyVersion'),
+          vaultKeyVersion: any(named: 'vaultKeyVersion'),
+          vdkVersion: any(named: 'vdkVersion'),
+          memberKeyGeneration: any(named: 'memberKeyGeneration'),
+          operation: any(named: 'operation'),
+          secret: any(named: 'secret'),
+          vaultKey: any(named: 'vaultKey'),
+          vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+          existingEntryDek: any(named: 'existingEntryDek'),
+        ),
+      );
+      verifyNever(() => entries.updateCanonicalEntry(any(), any(), any()));
+    }
+
+    for (final localCache in [true, false]) {
+      test(
+        'Entry key scoped to another Vault (localCache=$localCache)',
+        () async {
+          when(
+            () => entries.getCanonicalEntry(vaultId, entryId),
+          ).thenAnswer((_) async => foreignEntryKeyHead(localCache: false));
+          await expectRejectedBeforeSeal(
+            foreignEntryKeyHead(localCache: localCache),
+          );
+        },
+      );
+    }
+
+    test('Vault key wrapper opened for another Vault', () async {
+      when(
+        () => vaultCrypto.openVaultProjection(
+          json: any(named: 'json'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer(
+        (_) async => OpenedVaultProjection(
+          organizationId: orgId,
+          vaultId: otherVaultId,
+          vaultKey: Uint8List(32),
+          vaultDiscoveryKey: Uint8List(32),
+          metadata: const MemberVaultMetadata(
+            name: 'Other',
+            description: null,
+            icon: null,
+            color: null,
+            grantMode: 'granular',
+          ),
+          epoch: const VaultKeyEpochModel(
+            vaultKeyVersion: 4,
+            vdkVersion: 6,
+            agentMessageKeyVersion: 1,
+            manifestSigningKeyVersion: 1,
+          ),
+          memberKeyGeneration: 3,
+          wrapper: const MemberVaultKeyWrapperMetadata(
+            wrapperSuiteId: 'x25519',
+            wrappedKeyVersion: 4,
+            memberKeyGeneration: 3,
+            recipientKeyVersion: 1,
+            recipientFingerprint: 'fingerprint',
+          ),
+        ),
+      );
+      await expectRejectedBeforeSeal(head());
+    });
+  });
+
   test(
     'Script conversion requests atomic revocation of its direct grant',
     () async {
