@@ -18,7 +18,12 @@ import 'package:mobile_palladin/features/vault/domain/repositories/vault_members
 
 class _Repository extends Mock implements NotificationCenterRepository {}
 
-class _Grants extends Mock implements GrantsRepository {}
+class _Grants extends Mock implements GrantsRepository {
+  @override
+  Future<T> withPresentationReads<T>(
+    Future<T> Function(GrantReader) operation,
+  ) => operation(getGrant);
+}
 
 class _Index extends Mock implements MemberIndexReader {}
 

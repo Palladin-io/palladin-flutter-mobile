@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/services/member_entry_list_service.dart';
+import '../../../vault/domain/entities/member_index_entry.dart';
 import '../../domain/entities/grant.dart';
 import '../models/grant_model.dart';
 
@@ -14,12 +15,42 @@ typedef GrantEntryLabelTarget = ({
 
 /// Resolves Grant Entry labels from the unlocked, runtime-only MemberIndex.
 final class GrantEntryLabelResolver {
-  const GrantEntryLabelResolver({required MemberEntryListLoader entries})
-    : _entries = entries;
+  GrantEntryLabelResolver({required MemberEntryListLoader entries})
+    : _load = entries.load;
+
+  GrantEntryLabelResolver._withLoad(this._load);
 
   static const _maxConcurrentVaultLoads = 4;
 
-  final MemberEntryListLoader _entries;
+  final Future<List<MemberIndexEntry>> Function({
+    required String vaultId,
+    required Uint8List memberPrivateKey,
+  })
+  _load;
+
+  Future<T> withSharedReads<T>(
+    Future<T> Function(GrantEntryLabelResolver) operation,
+  ) async {
+    final pending = <String, Future<List<MemberIndexEntry>>>{};
+    var active = true;
+    try {
+      return await operation(
+        GrantEntryLabelResolver._withLoad(({
+          required vaultId,
+          required memberPrivateKey,
+        }) {
+          if (!active) throw StateError('Grant presentation read scope closed');
+          return pending[vaultId] ??= _load(
+            vaultId: vaultId,
+            memberPrivateKey: memberPrivateKey,
+          );
+        }),
+      );
+    } finally {
+      active = false;
+      pending.clear();
+    }
+  }
 
   static GrantEntryLabelTarget? targetFor(GrantModel grant) {
     final entryId = grant.entryId;
@@ -64,7 +95,7 @@ final class GrantEntryLabelResolver {
         nextVaultIndex++;
         final vault = vaults[vaultIndex];
         try {
-          final index = await _entries.load(
+          final index = await _load(
             vaultId: vault.key,
             memberPrivateKey: memberPrivateKey,
           );

@@ -92,15 +92,79 @@ class GrantsRepositoryImpl implements GrantsRepository {
   }
 
   @override
-  Future<Grant> getGrant(String vaultId, String grantId) async {
+  Future<Grant> getGrant(String vaultId, String grantId) =>
+      _getGrant(vaultId, grantId);
+
+  Future<Grant> _getGrant(
+    String vaultId,
+    String grantId, {
+    GrantReasonResolver? reasons,
+    GrantEntryLabelResolver? entryLabels,
+    bool Function()? isCurrent,
+  }) async {
+    if (isCurrent?.call() == false) {
+      throw StateError('Grant presentation invalidated');
+    }
     try {
       AppLogger.d('Grants', 'GET /api/vaults/$vaultId/grants/$grantId');
       final model = await _dataSource.getGrant(vaultId, grantId);
-      return (await _toEntities([model])).single;
+      if (isCurrent?.call() == false) {
+        throw StateError('Grant presentation invalidated');
+      }
+      final result = (await _toEntities(
+        [model],
+        reasons: reasons,
+        entryLabels: entryLabels,
+      )).single;
+      if (isCurrent?.call() == false) {
+        throw StateError('Grant presentation invalidated');
+      }
+      return result;
     } on DioException catch (e, s) {
       AppLogger.e('Grants', 'getGrant failed', error: e, stackTrace: s);
       throw GrantsException(_classifyError(e));
     }
+  }
+
+  @override
+  Future<T> withPresentationReads<T>(
+    Future<T> Function(GrantReader read) operation,
+  ) async {
+    final generation = _vaultSessionStore?.memberKeySessionGeneration;
+    var active = true;
+    final pending = <Future<void>>[];
+    bool isCurrent() =>
+        active && _vaultSessionStore?.memberKeySessionGeneration == generation;
+    Future<T> withLabels(GrantReasonResolver? reasons) {
+      Future<T> run(GrantEntryLabelResolver? labels) async {
+        try {
+          return await operation((vaultId, grantId) {
+            final result = _getGrant(
+              vaultId,
+              grantId,
+              reasons: reasons,
+              entryLabels: labels,
+              isCurrent: isCurrent,
+            );
+            pending.add(
+              result.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+            );
+            return result;
+          });
+        } finally {
+          active = false;
+          await Future.wait(pending);
+        }
+      }
+
+      final labels = _entryLabelResolver;
+      return labels == null ? run(null) : labels.withSharedReads(run);
+    }
+
+    final reasons = _reasonResolver;
+    return await (reasons == null
+        ? withLabels(null)
+        : reasons.withSharedReads(withLabels));
   }
 
   @override
@@ -114,7 +178,11 @@ class GrantsRepositoryImpl implements GrantsRepository {
     }
   }
 
-  Future<List<Grant>> _toEntities(List<GrantModel> models) async {
+  Future<List<Grant>> _toEntities(
+    List<GrantModel> models, {
+    GrantReasonResolver? reasons,
+    GrantEntryLabelResolver? entryLabels,
+  }) async {
     final session = _vaultSessionStore;
     if (session == null || models.isEmpty) {
       return models.map((model) => model.toEntity()).toList(growable: false);
@@ -122,15 +190,15 @@ class GrantsRepositoryImpl implements GrantsRepository {
 
     Uint8List? memberPrivateKey;
     int? memberKeySessionGeneration;
-    var reasons = const <String, String>{};
-    var entryLabels = const <GrantEntryLabelTarget, String>{};
+    var resolvedReasons = const <String, String>{};
+    var resolvedEntryLabels = const <GrantEntryLabelTarget, String>{};
     try {
       memberKeySessionGeneration = session.memberKeySessionGeneration;
       memberPrivateKey = session.copyMemberPrivateKey();
-      final reasonResolver = _reasonResolver;
+      final reasonResolver = reasons ?? _reasonResolver;
       if (reasonResolver != null) {
         try {
-          reasons = await reasonResolver.resolve(
+          resolvedReasons = await reasonResolver.resolve(
             grants: models,
             memberPrivateKey: memberPrivateKey,
           );
@@ -141,10 +209,10 @@ class GrantsRepositoryImpl implements GrantsRepository {
           );
         }
       }
-      final entryLabelResolver = _entryLabelResolver;
+      final entryLabelResolver = entryLabels ?? _entryLabelResolver;
       if (entryLabelResolver != null) {
         try {
-          entryLabels = await entryLabelResolver.resolve(
+          resolvedEntryLabels = await entryLabelResolver.resolve(
             grants: models,
             memberPrivateKey: memberPrivateKey,
             isSessionCurrent: () =>
@@ -167,10 +235,12 @@ class GrantsRepositoryImpl implements GrantsRepository {
         .map((model) {
           final entryTarget = GrantEntryLabelResolver.targetFor(model);
           return model.toEntity(
-            resolvedReason: projectionIsCurrent ? reasons[model.id] : null,
+            resolvedReason: projectionIsCurrent
+                ? resolvedReasons[model.id]
+                : null,
             resolvedEntryLabel: !projectionIsCurrent || entryTarget == null
                 ? null
-                : entryLabels[entryTarget],
+                : resolvedEntryLabels[entryTarget],
           );
         })
         .toList(growable: false);
