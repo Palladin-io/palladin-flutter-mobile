@@ -16,8 +16,8 @@ import 'package:mobile_palladin/features/notifications/presentation/cubit/push_n
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
-import 'package:mobile_palladin/features/vault/domain/entities/vault_member.dart';
-import 'package:mobile_palladin/features/vault/domain/repositories/vault_members_repository.dart';
+
+import '../../support/member_directory_fixture.dart';
 
 class _Index extends Mock implements MemberIndexReader {}
 
@@ -31,8 +31,6 @@ class _Grants extends Mock implements GrantsRepository {
 }
 
 class _Agents extends Mock implements AgentsRepository {}
-
-class _Members extends Mock implements VaultMembersRepository {}
 
 final _occurredAt = DateTime.utc(2026, 7, 26, 20);
 
@@ -222,7 +220,10 @@ void main() {
       final index = _Index();
       final grants = _Grants();
       final agents = _Agents();
-      final members = _Members();
+      final members = MemberDirectoryFixture(
+        organizationId: 'organization',
+        accountId: 'member',
+      );
       when(() => index.waitForCurrent('vault')).thenAnswer((_) async {});
       when(() => index.entries('vault')).thenReturn(const [
         MemberIndexEntry(
@@ -258,23 +259,16 @@ void main() {
           createdAt: DateTime.utc(2026, 8, 7),
         ),
       );
-      when(() => members.list('vault')).thenAnswer(
-        (_) async => [
-          VaultMember(
-            id: 'member',
-            name: 'Alice',
-            addedAt: DateTime.utc(2026, 1, 1),
-            status: VaultMemberStatus.active,
-          ),
-        ],
-      );
+      members.read = () async => [
+        {'userId': 'member', 'displayName': 'Alice'},
+      ];
 
       final resolved =
           await NotificationPresentationResolver(
             index: index,
             grants: grants,
             agents: agents,
-            vaultMembers: members,
+            memberDirectory: members.service,
           ).resolve(
             items: [
               _inbox(
