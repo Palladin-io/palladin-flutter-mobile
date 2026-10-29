@@ -259,3 +259,5 @@ and successful `validation.json` including APK
 hashes and observed case outcomes. A failed or partial run never creates a
 successful validation report. This CI gate does not establish physical Gboard,
 Samsung Keyboard or third-party application compatibility.
+
+The CI runtime uses Android's supported `-gpu software` mode. `swiftshader_indirect` was deprecated in emulator 36.4.9 ([Android graphics acceleration documentation](https://developer.android.com/studio/run/emulator-acceleration)). Two 37.2.12 runs lost ADB transport with EGL errors; that correlation alone does not establish a renderer or memory root cause. Cleanup records process/ADB state and aggregate memory counters before stopping the synthetic emulator, preserving the original test result.

@@ -257,9 +257,29 @@ jobs:
             --package 'system-images;android-35;google_apis;x86_64' --device pixel_2
           "$ANDROID_HOME/emulator/emulator" -avd palladin-presentation \
             -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim \
-            -gpu swiftshader_indirect -memory 2048 > "$evidence/emulator.log" 2>&1 &
+            -gpu software -memory 2048 > "$evidence/emulator.log" 2>&1 &
           export emulator_pid=$!
-          trap 'timeout 10 adb -s emulator-5554 emu kill >/dev/null 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
+          cleanup() {
+            result=$?
+            {
+              date -u
+              free -m
+              ps -p "$emulator_pid" -o pid,stat,rss,vsz,etime,comm || true
+              if [ -r /sys/fs/cgroup/memory.events ]; then cat /sys/fs/cgroup/memory.events; fi
+              timeout 10 adb -s emulator-5554 get-state || true
+              if kill -0 "$emulator_pid" 2>/dev/null; then
+                echo emulator_process=running
+              else
+                emulator_exit=0
+                wait "$emulator_pid" || emulator_exit=$?
+                echo "emulator_exit=$emulator_exit"
+              fi
+            } > "$evidence/runtime-state.txt" 2>&1
+            timeout 10 adb -s emulator-5554 emu kill >/dev/null 2>&1 || true
+            kill "$emulator_pid" 2>/dev/null || true
+            exit "$result"
+          }
+          trap cleanup EXIT
           # Expansion must happen inside the bounded boot-wait subprocess.
           # shellcheck disable=SC2016
           timeout 180 bash -c 'until [ "$(timeout 5 adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do kill -0 "$emulator_pid" 2>/dev/null || exit 1; sleep 2; done'
