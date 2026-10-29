@@ -4084,6 +4084,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authTotpEnrollDone => 'Done';
 
   @override
+  String get authTotpEnrollPasswordSubtitle =>
+      'Confirm your current master password to set up two-factor authentication.';
+
+  @override
+  String get authTotpEnrollPasswordButton => 'Continue';
+
+  @override
+  String get authTotpEnrollUnavailable =>
+      'Two-factor authentication is available only for accounts that sign in with a password.';
+
+  @override
   String get authChangePwTitle => 'Change master password';
 
   @override

@@ -5,10 +5,10 @@ import 'package:mobile_palladin/features/auth/presentation/bloc/auth_state.dart'
 void main() {
   group('AuthAuthenticated.isPasswordAccount', () {
     AuthAuthenticated authWith(String? provider) => AuthAuthenticated(
-          userId: 'u1',
-          isOnboarded: true,
-          authProvider: provider,
-        );
+      userId: 'u1',
+      isOnboarded: true,
+      authProvider: provider,
+    );
 
     test('true only for a password account', () {
       expect(authWith(AuthProviderId.password).isPasswordAccount, isTrue);
@@ -25,8 +25,9 @@ void main() {
     });
 
     test('copyWith preserves authProvider', () {
-      final updated =
-          authWith(AuthProviderId.password).copyWith(isVaultLocked: false);
+      final updated = authWith(
+        AuthProviderId.password,
+      ).copyWith(isVaultLocked: false);
       expect(updated.isPasswordAccount, isTrue);
       expect(updated.authProvider, AuthProviderId.password);
     });

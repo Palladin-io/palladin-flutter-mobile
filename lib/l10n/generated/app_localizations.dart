@@ -7232,6 +7232,24 @@ abstract class AppLocalizations {
   /// **'Done'**
   String get authTotpEnrollDone;
 
+  /// TOTP enrollment step asking for the current login password
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your current master password to set up two-factor authentication.'**
+  String get authTotpEnrollPasswordSubtitle;
+
+  /// Button that verifies the current password before TOTP enrollment
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get authTotpEnrollPasswordButton;
+
+  /// Shown when the backend reports the account has no password login credential
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication is available only for accounts that sign in with a password.'**
+  String get authTotpEnrollUnavailable;
+
   /// Change-password screen title
   ///
   /// In en, this message translates to:

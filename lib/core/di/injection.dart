@@ -278,7 +278,11 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<TotpEnrollCubit>(
-    () => TotpEnrollCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+    () => TotpEnrollCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      cryptoService: getIt<PasswordAuthCryptoService>(),
+    ),
   );
 
   // Custom-scheme deep links. Singleton — owns the link stream

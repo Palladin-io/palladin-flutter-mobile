@@ -19,15 +19,16 @@ import '../cubit/totp_enroll_cubit.dart';
 
 /// TOTP enrollment screen.
 ///
-/// Shows the otpauth QR + the base32 secret for manual entry, confirms a
-/// generated 6-digit code, then reveals the one-time recovery codes.
+/// Asks for the current login password, shows the otpauth QR + the base32
+/// secret for manual entry, confirms a generated 6-digit code, then reveals
+/// the one-time recovery codes.
 class TotpEnrollPage extends StatelessWidget {
   const TotpEnrollPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<TotpEnrollCubit>(
-      create: (_) => getIt<TotpEnrollCubit>()..enroll(),
+      create: (_) => getIt<TotpEnrollCubit>(),
       child: const _TotpEnrollView(),
     );
   }
@@ -69,10 +70,8 @@ class _TotpEnrollViewState extends State<_TotpEnrollView> {
       ),
       body: BlocBuilder<TotpEnrollCubit, TotpEnrollState>(
         builder: (context, state) => switch (state) {
-          TotpEnrollLoading() => const Center(
-            child: CircularProgressIndicator(color: AppColors.brandRed),
-          ),
-          TotpEnrollLoadFailed(:final error) => _LoadFailed(error: error),
+          TotpEnrollPasswordRequired() => _PasswordBody(state: state),
+          TotpEnrollUnavailable() => const _UnavailableBody(),
           TotpEnrollReady() => _ReadyBody(
             state: state,
             codeController: _codeController,
@@ -86,43 +85,102 @@ class _TotpEnrollViewState extends State<_TotpEnrollView> {
   }
 }
 
-class _LoadFailed extends StatelessWidget {
-  const _LoadFailed({required this.error});
+class _PasswordBody extends StatefulWidget {
+  const _PasswordBody({required this.state});
 
-  final Object error;
+  final TotpEnrollPasswordRequired state;
+
+  @override
+  State<_PasswordBody> createState() => _PasswordBodyState();
+}
+
+class _PasswordBodyState extends State<_PasswordBody> {
+  final _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(_PasswordBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.state.error != null && oldWidget.state.error == null) {
+      _passwordController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: AppScreen.screenPadding,
+    final error = widget.state.error;
+    final canSubmit =
+        !widget.state.verifying && _passwordController.text.isNotEmpty;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.xxl,
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.cloud_off, color: AppColors.brandRed, size: 40),
-          const SizedBox(height: AppSpacing.section),
           Text(
-            _message(l10n),
-            textAlign: TextAlign.center,
+            l10n.authTotpEnrollPasswordSubtitle,
             style: TextStyle(
               fontSize: 13,
               color: AppColors.onSurfaceSubtle(brightness),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.section),
+          OnboardingTextField(
+            label: l10n.authChangePwCurrentLabel,
+            controller: _passwordController,
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: canSubmit ? (_) => _submit(context) : null,
+            borderColor: error != null ? AppColors.brandRed : null,
+            focusBorderColor: error != null ? AppColors.brandRed : null,
+            feedbackVisible: error != null,
+            feedbackReserveSpace: false,
+            feedbackChild: Text(
+              error == null ? '' : _message(l10n, error),
+              style: const TextStyle(fontSize: 12, color: AppColors.brandRed),
             ),
           ),
           const SizedBox(height: AppSpacing.section),
           PrimaryButton(
-            label: l10n.authTotpEnrollRetry,
-            onPressed: () => context.read<TotpEnrollCubit>().enroll(),
+            label: l10n.authTotpEnrollPasswordButton,
+            isLoading: widget.state.verifying,
+            onPressed: canSubmit ? () => _submit(context) : null,
           ),
         ],
       ),
     );
   }
 
-  String _message(AppLocalizations l10n) {
+  void _submit(BuildContext context) {
+    FocusScope.of(context).unfocus();
+    context.read<TotpEnrollCubit>().enroll(_passwordController.text);
+  }
+
+  String _message(AppLocalizations l10n, Object error) {
+    if (error is TotpCurrentCredentialException) {
+      return l10n.authChangePwWrongCurrent;
+    }
     if (error is PasswordAuthServerException) {
-      return switch ((error as PasswordAuthServerException).kind) {
+      return switch (error.kind) {
         PasswordAuthServerErrorKind.serverNotResponding =>
           l10n.errorServerNotResponding,
         PasswordAuthServerErrorKind.cannotConnect =>
@@ -134,6 +192,30 @@ class _LoadFailed extends StatelessWidget {
       };
     }
     return l10n.errorConnectionFailed;
+  }
+}
+
+class _UnavailableBody extends StatelessWidget {
+  const _UnavailableBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Padding(
+      padding: AppScreen.screenPadding,
+      child: Center(
+        child: Text(
+          l10n.authTotpEnrollUnavailable,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.onSurfaceSubtle(brightness),
+            height: 1.4,
+          ),
+        ),
+      ),
+    );
   }
 }
 

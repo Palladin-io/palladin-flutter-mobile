@@ -4122,6 +4122,17 @@ class AppLocalizationsPl extends AppLocalizations {
   String get authTotpEnrollDone => 'Gotowe';
 
   @override
+  String get authTotpEnrollPasswordSubtitle =>
+      'Potwierdź bieżące hasło główne, aby skonfigurować uwierzytelnianie dwuskładnikowe.';
+
+  @override
+  String get authTotpEnrollPasswordButton => 'Dalej';
+
+  @override
+  String get authTotpEnrollUnavailable =>
+      'Uwierzytelnianie dwuskładnikowe jest dostępne tylko dla kont logujących się hasłem.';
+
+  @override
   String get authChangePwTitle => 'Zmień hasło główne';
 
   @override

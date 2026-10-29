@@ -61,6 +61,24 @@ class TotpInvalidException implements Exception {
   String toString() => 'TotpInvalidException';
 }
 
+/// Thrown by the TOTP enroll/confirm endpoints when the server rejects the
+/// current auth credential derived from the entered password (HTTP 403).
+class TotpCurrentCredentialException implements Exception {
+  const TotpCurrentCredentialException();
+
+  @override
+  String toString() => 'TotpCurrentCredentialException';
+}
+
+/// Thrown by the TOTP endpoints for an account without a password login
+/// credential (HTTP 404) — TOTP protects password sign-in only.
+class TotpUnavailableException implements Exception {
+  const TotpUnavailableException();
+
+  @override
+  String toString() => 'TotpUnavailableException';
+}
+
 /// Distinguishes the two terminal verification-token failures surfaced by
 /// `POST /api/auth/verify-email`.
 enum VerificationTokenErrorKind { expired, invalid }
