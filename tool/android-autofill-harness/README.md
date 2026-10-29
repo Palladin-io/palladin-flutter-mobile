@@ -199,7 +199,7 @@ AssistStructure even when an ordinary focus event does not automatically request
 credentials. Unsupported/insecure framework behavior is never reported as a
 successful provider rejection.
 
-The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
+The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases require the current framework null-password proof below or remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
 
 On baseline `ca6bb9719386bdbf7986346a3b2bb1aadd661654`, the actual provider incorrectly
 offered a response for native confirmation/hidden/disabled fields and WebView
@@ -286,3 +286,25 @@ spontaneous key change was not logged. Earlier cloud failures lack this lifecycl
 evidence and are not claimed to share the proven local cause. Configuration
 isolation makes the synthetic test environment stable; it is not a product fix
 or permission to ignore a missing dataset.
+
+### API 35 null password responses
+
+Android 15's [`Session.onFillRequestSuccess` and `processNullResponseLocked`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/autofill/java/com/android/server/autofill/Session.java)
+retain a password-input session after a successful null response and omit the
+unavailable callback. The native OTP fixture reproduced this behavior: both
+requests reached the provider, and the framework reported a null password
+response while the field remained empty and no suggestion/authentication appeared.
+
+The driver reports `SYSTEM_NULL_PASSWORD` only from a bounded, memory-only API35
+framework dump: one exact fixture session created after the current case's
+conservative elapsed-time boundary, active/not destroyed, no stored response,
+and the unique latest request ordinal with the exact fixture/provider identities,
+`TYPE=SUCCESS(10)`, `NUM_DATASETS=-1`, and both manual/password flags. In this
+platform source, `-1` is assigned only for a successful null response; errors and
+timeouts use different request types. Earlier successful requests cannot excuse
+a newer pending or failed request. Existing focused/requested/unchanged/no-UI and
+no-authentication assertions remain mandatory. No request, stale session, wrong
+provider, ambiguous metadata or another platform version cannot establish this
+outcome. Only the outcome enum is retained; raw dumps and credential values are
+never written to evidence files. This is an OS null response, not inferred parser
+rejection. JVM regressions independently verify excluded-field classification.

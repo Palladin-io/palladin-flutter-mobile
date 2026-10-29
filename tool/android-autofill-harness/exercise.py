@@ -2,6 +2,7 @@
 """Exercise installed synthetic APKs on an explicitly selected disposable emulator."""
 import argparse
 import json
+import math
 from pathlib import Path
 import os
 import re
@@ -118,7 +119,7 @@ def assert_web_origin(diagnosis):
             snapshot.get('origin') == 'VERIFIED'), 'Web fixture did not report one verified domain'
 
 
-def negative_outcome(diagnosis, tree, selected_provider, mode):
+def negative_outcome(diagnosis, tree, selected_provider, mode, password_null=False):
     assert selected_provider == service, 'Expected AutoFill provider is not selected'
     snapshot = request_snapshot(diagnosis)
     assert snapshot.get('result') != 'RESPONSE_OFFERED', 'Negative fixture offered credentials'
@@ -140,6 +141,9 @@ def negative_outcome(diagnosis, tree, selected_provider, mode):
         count = state.get('unavailableEvents', '')
         assert count.isdigit() and int(count) > 0, 'Missing current system-unavailable event count'
         return 'SYSTEM_UNAVAILABLE'
+    if password_null:
+        assert state.get('unavailable') == 'false' and state.get('unavailableEvents') == '0'
+        return 'SYSTEM_NULL_PASSWORD'
     if mode == 'native-container':
         assert state.get('noneditableTarget') == 'true', 'Target was not proven noneditable'
         assert any(node.get('package') == form and node.get('class') == 'android.widget.TextView'
@@ -291,6 +295,10 @@ try:
                 command('shell', 'settings', 'put', 'global', 'hidden_api_policy', prior_policy)
 
     else:
+        # /proc/uptime has 10ms precision; reject sessions inside that ambiguous tick.
+        case_started_ms = None
+        if args.mode.startswith('native'):
+            case_started_ms = math.ceil(float(command('shell', 'cat', '/proc/uptime').split()[0]) * 1000) + 10
         command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode)
         positive = args.mode in ('native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username')
         focus_field(required=positive)
@@ -316,8 +324,17 @@ try:
                 wait_for(lambda tree: any(node.get('package') == form and node.get('text') == 'fieldsUnchanged=true' for node in tree),
                          'Negative fixture fields were not empty')
                 selected = command('shell', 'settings', 'get', 'secure', 'autofill_service').strip()
-                observations.append(negative_outcome(diagnosis, nodes(), selected, args.mode))
-            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'PLATFORM_NO_RESPONSE', 'PLATFORM_INELIGIBLE') if value in observations))
+                null_password = False
+                if args.mode.startswith('native') and request_snapshot(diagnosis).get('result') != 'REJECTED':
+                    from null_response import password_null_response
+                    null_password = password_null_response(
+                        command('shell', 'dumpsys', 'autofill'),
+                        api=int(command('shell', 'getprop', 'ro.build.version.sdk').strip()),
+                        started_ms=case_started_ms, form=form, provider=provider,
+                    )
+                observations.append(negative_outcome(diagnosis, nodes(), selected, args.mode,
+                                                     password_null=null_password))
+            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'SYSTEM_NULL_PASSWORD', 'PLATFORM_NO_RESPONSE', 'PLATFORM_INELIGIBLE') if value in observations))
         else:
             assert 'result=' + args.expected in diagnosis, 'Unexpected provider outcome: ' + diagnosis
             outcome = args.expected
