@@ -1,4 +1,5 @@
 import 'entry_entity.dart';
+import 'sign_in_method.dart';
 
 /// Closed Agent field-access modes from the Vault protocol 2 contract.
 enum AgentFieldAccess {
@@ -159,6 +160,14 @@ final class AgentVisibilityPolicy {
     }
     if (field == null) return const {AgentFieldAccess.never};
     final fieldType = field['type'];
+    if (fieldType == SignInMethodField.type) {
+      return SignInMethodField.allowsDiscovery(
+            credential: type == EntryType.credential,
+            value: field['value'],
+          )
+          ? const {AgentFieldAccess.never, AgentFieldAccess.discovery}
+          : const {AgentFieldAccess.never};
+    }
     if (fieldType == 'totp') {
       return const {AgentFieldAccess.never, AgentFieldAccess.onGrantDerived};
     }

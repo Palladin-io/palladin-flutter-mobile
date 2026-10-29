@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'sign_in_method.dart';
+
 /// A malformed or unsupported Vault v2 plaintext document.
 final class VaultPlaintextFormatException implements Exception {
   const VaultPlaintextFormatException(this.message);
@@ -650,6 +652,14 @@ final class MemberSecret {
       (value) => value.fieldId == id,
     );
     return switch (field.kind) {
+      SignInMethodField.type => {
+        AgentFieldAccess.never,
+        if (SignInMethodField.allowsDiscovery(
+          credential: entryType == VaultEntryType.credential,
+          value: field.value,
+        ))
+          AgentFieldAccess.discovery,
+      },
       'totp' => {AgentFieldAccess.never, AgentFieldAccess.onGrantDerived},
       'text' || 'multiline' || 'concealed' => {
         AgentFieldAccess.never,
@@ -660,8 +670,7 @@ final class MemberSecret {
           AgentFieldAccess.onGrantValue,
         if (field.kind != 'concealed') AgentFieldAccess.discovery,
       },
-      // Future and non-standard types (e.g. `palladin.signin.v1`) are
-      // preserved but can never reach an Agent.
+      // Future and non-standard types are preserved but never reach an Agent.
       _ => {AgentFieldAccess.never},
     };
   }
@@ -723,20 +732,17 @@ abstract final class VaultPlaintextProjector {
   static Map<String, Object?>? agentDiscovery(MemberSecret secret) {
     if (!secret.discoverable) return null;
     final values = _allValues(secret);
-    final fields =
-        secret.agentFieldAccess.entries
-            .where(
-              (entry) =>
-                  entry.value == AgentFieldAccess.discovery &&
-                  entry.key != 'agentLabel' &&
-                  entry.key != 'entryType',
-            )
-            .map(
-              (entry) =>
-                  ProjectedAgentField(id: entry.key, value: values[entry.key]),
-            )
-            .toList()
-          ..sort((left, right) => left.id.compareTo(right.id));
+    // Discovery carries string values only (shared @palladin/crypto rule);
+    // structured custom values such as a sign-in binding are never emitted.
+    final fields = [
+      for (final entry in secret.agentFieldAccess.entries)
+        if (entry.value == AgentFieldAccess.discovery &&
+            entry.key != 'agentLabel' &&
+            entry.key != 'entryType' &&
+            values[entry.key] is String)
+          ProjectedAgentField(id: entry.key, value: values[entry.key]),
+      ?_signInDiscovery(secret),
+    ]..sort((left, right) => left.id.compareTo(right.id));
     return {
       'schema': 'palladin.agent-discovery.v1',
       'entryType': secret.entryType.name,
@@ -746,6 +752,27 @@ abstract final class VaultPlaintextProjector {
       if (secret.content case ScriptSecretContent(execution: final value?))
         'execution': value,
     };
+  }
+
+  /// The single discoverable, well-formed sign-in method of a Credential.
+  /// Ambiguous methods are never exposed and the account is never included.
+  static ProjectedAgentField? _signInDiscovery(MemberSecret secret) {
+    if (secret.entryType != VaultEntryType.credential) return null;
+    final discoverable = secret.content.customFields
+        .where(
+          (field) =>
+              field.kind == SignInMethodField.type &&
+              secret.agentFieldAccess[field.fieldId] ==
+                  AgentFieldAccess.discovery,
+        )
+        .toList(growable: false);
+    if (discoverable.length != 1) return null;
+    final binding = SignInMethodField.parseValue(discoverable.single.value);
+    if (binding == null) return null;
+    return ProjectedAgentField(
+      id: SignInMethodField.discoveryFieldId,
+      value: SignInMethodField.discoveryValue(binding),
+    );
   }
 
   static Map<String, Object?> grantPayload(

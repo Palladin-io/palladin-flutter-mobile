@@ -5068,4 +5068,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signInProviderFacebook => 'Facebook';
+
+  @override
+  String get entrySignInMethodLinkedEntry =>
+      'Palladin entry for this provider (optional)';
+
+  @override
+  String get entrySignInMethodLinkedEntryNone => 'None';
+
+  @override
+  String get entrySignInMethodLinkedEntryLoading =>
+      'Looking for matching entries…';
+
+  @override
+  String get entrySignInMethodLinkedEntryEmpty =>
+      'No agent-discoverable entry for this provider';
+
+  @override
+  String get entrySignInMethodAgentHint =>
+      'Agents can see the provider and the linked entry, never the account.';
 }

@@ -761,7 +761,7 @@ void main() {
         tester,
         entry: credential,
         payload: payloadWith([
-          binding({'provider': 'github', 'account': 'octo'}),
+          binding({'provider': 'github', 'account': 'octo', 'entry': null}),
         ]),
       );
       expect(await rowText(tester), 'GitHub · octo');
@@ -772,7 +772,7 @@ void main() {
         tester,
         entry: credential,
         payload: payloadWith([
-          binding({'provider': 'apple', 'account': null}),
+          binding({'provider': 'apple', 'account': null, 'entry': null}),
         ]),
       );
       expect(await rowText(tester), 'Apple · Account not specified');
@@ -804,8 +804,12 @@ void main() {
         tester,
         entry: credential,
         payload: payloadWith([
-          binding({'provider': 'google', 'account': null}),
-          binding({'provider': 'github', 'account': null}, id: 'b2'),
+          binding({'provider': 'google', 'account': null, 'entry': null}),
+          binding({
+            'provider': 'github',
+            'account': null,
+            'entry': null,
+          }, id: 'b2'),
         ]),
       );
       expect(await rowText(tester), l10n.entrySignInMethodAmbiguous);
@@ -895,6 +899,7 @@ void main() {
       expect(field['value'], {
         'provider': 'microsoft',
         'account': 'qa@example.test',
+        'entry': null,
       });
       expect(cubit.isClosed, isFalse);
     });

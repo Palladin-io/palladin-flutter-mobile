@@ -1588,5 +1588,10 @@
   "signInProviderApple": "Apple",
   "signInProviderMicrosoft": "Microsoft",
   "signInProviderGithub": "GitHub",
-  "signInProviderFacebook": "Facebook"
+  "signInProviderFacebook": "Facebook",
+  "entrySignInMethodLinkedEntry": "Wpis Palladin dla tego dostawcy (opcjonalnie)",
+  "entrySignInMethodLinkedEntryNone": "Brak",
+  "entrySignInMethodLinkedEntryLoading": "Szukam pasujących wpisów…",
+  "entrySignInMethodLinkedEntryEmpty": "Brak wpisu tego dostawcy widocznego dla agentów",
+  "entrySignInMethodAgentHint": "Agenci widzą dostawcę i powiązany wpis, nigdy konto."
 }

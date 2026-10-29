@@ -353,4 +353,232 @@ void main() {
       });
     }
   });
+
+  group('sign-in method policy and Discovery', () {
+    const signInId = '55555555-5555-4555-8555-555555555555';
+    const otherSignInId = '66666666-6666-4666-8666-666666666666';
+    const teamId = '44444444-4444-4444-8444-444444444444';
+    const vaultId = '22222222-2222-4222-8222-222222222222';
+    const entryId = '33333333-3333-4333-8333-333333333333';
+    const linked = {
+      'provider': 'google',
+      'account': 'alice@example.com',
+      'entry': {'vaultId': vaultId, 'entryId': entryId},
+    };
+
+    MemberSecret secretWith({
+      VaultEntryType type = VaultEntryType.credential,
+      List<VaultCustomField> fields = const [],
+      Map<String, AgentFieldAccess> custom = const {},
+    }) => MemberSecret(
+      entryType: type,
+      memberLabel: 'Example',
+      agentLabel: 'Example agent',
+      description: null,
+      icon: null,
+      color: null,
+      discoverable: true,
+      content: type == VaultEntryType.credential
+          ? CredentialSecretContent(
+              username: 'service-user',
+              password: '',
+              url: 'https://example.test',
+              urlDomain: 'example.test',
+              totp: null,
+              notes: null,
+              customFields: fields,
+            )
+          : KeySecretContent(value: 'k', notes: null, customFields: fields),
+      agentFieldAccess: {
+        'memberLabel': AgentFieldAccess.never,
+        'agentLabel': AgentFieldAccess.discovery,
+        'description': AgentFieldAccess.never,
+        'icon': AgentFieldAccess.never,
+        'color': AgentFieldAccess.never,
+        'entryType': AgentFieldAccess.discovery,
+        if (type == VaultEntryType.credential) ...{
+          'credential.username': AgentFieldAccess.onGrantValue,
+          'credential.password': AgentFieldAccess.never,
+          'credential.url': AgentFieldAccess.never,
+          'credential.urlDomain': AgentFieldAccess.discovery,
+          'credential.totp': AgentFieldAccess.never,
+        } else
+          'key.value': AgentFieldAccess.never,
+        'notes': AgentFieldAccess.never,
+        ...custom,
+      },
+    );
+
+    VaultCustomField signIn(Object? value, {String id = signInId}) =>
+        VaultCustomField(
+          id: id,
+          label: 'Sign-in method',
+          kind: 'palladin.signin.v1',
+          value: value,
+        );
+
+    test('a valid Credential binding allows never and discovery', () {
+      for (final access in [
+        AgentFieldAccess.never,
+        AgentFieldAccess.discovery,
+      ]) {
+        expect(
+          () => secretWith(
+            fields: [signIn(linked)],
+            custom: {'custom:$signInId': access},
+          ),
+          returnsNormally,
+        );
+      }
+    });
+
+    for (final access in [
+      AgentFieldAccess.onGrantValue,
+      AgentFieldAccess.onGrantDerived,
+      AgentFieldAccess.onGrantRuntime,
+    ]) {
+      test('a valid binding rejects ${access.name}', () {
+        expect(
+          () => secretWith(
+            fields: [signIn(linked)],
+            custom: {'custom:$signInId': access},
+          ),
+          throwsA(isA<VaultPlaintextFormatException>()),
+        );
+      });
+    }
+
+    for (final (name, type, value) in <(String, VaultEntryType, Object?)>[
+      (
+        'retired two-key value',
+        VaultEntryType.credential,
+        {'provider': 'google', 'account': null},
+      ),
+      ('non-Credential Entry', VaultEntryType.key, linked),
+    ]) {
+      test('$name allows only never', () {
+        expect(
+          () => secretWith(
+            type: type,
+            fields: [signIn(value)],
+            custom: {'custom:$signInId': AgentFieldAccess.never},
+          ),
+          returnsNormally,
+        );
+        expect(
+          () => secretWith(
+            type: type,
+            fields: [signIn(value)],
+            custom: {'custom:$signInId': AgentFieldAccess.discovery},
+          ),
+          throwsA(isA<VaultPlaintextFormatException>()),
+        );
+      });
+    }
+
+    test('other unknown types still allow only never', () {
+      expect(
+        () => secretWith(
+          fields: const [
+            VaultCustomField(
+              id: signInId,
+              label: 'Future',
+              kind: 'palladin.future.v9',
+              value: 'x',
+            ),
+          ],
+          custom: {'custom:$signInId': AgentFieldAccess.discovery},
+        ),
+        throwsA(isA<VaultPlaintextFormatException>()),
+      );
+    });
+
+    test('Discovery emits the canonical signIn string and no account', () {
+      final secret = secretWith(
+        fields: [
+          signIn(linked),
+          const VaultCustomField(
+            id: teamId,
+            label: 'Team',
+            kind: 'text',
+            value: 'qa',
+          ),
+        ],
+        custom: {
+          'custom:$signInId': AgentFieldAccess.discovery,
+          'custom:$teamId': AgentFieldAccess.discovery,
+        },
+      );
+      final discovery = VaultPlaintextProjector.agentDiscovery(secret)!;
+      const signInValue =
+          '{"entry":{"entryId":"$entryId","vaultId":"$vaultId"},'
+          '"provider":"google","schema":"palladin.signin.v1"}';
+      expect(discovery['fields'], [
+        {'id': 'credential.urlDomain', 'value': 'example.test'},
+        {'id': 'custom:$teamId', 'value': 'qa'},
+        {'id': 'signIn', 'value': signInValue},
+      ]);
+      expect(
+        utf8.decode(canonicalVaultJson(discovery)),
+        '{"agentLabel":"Example agent",'
+        '"capabilities":["get","exec","inject"],'
+        '"entryType":"credential",'
+        '"fields":['
+        '{"id":"credential.urlDomain","value":"example.test"},'
+        '{"id":"custom:$teamId","value":"qa"},'
+        '{"id":"signIn","value":${jsonEncode(signInValue)}}'
+        '],'
+        '"schema":"palladin.agent-discovery.v1"}',
+      );
+      expect(jsonEncode(discovery), isNot(contains('alice')));
+      expect(jsonEncode(discovery), isNot(contains('custom:$signInId')));
+    });
+
+    test('a never binding is hidden and an unlinked one has a null entry', () {
+      final hidden = secretWith(
+        fields: [signIn(linked)],
+        custom: {'custom:$signInId': AgentFieldAccess.never},
+      );
+      expect(
+        jsonEncode(VaultPlaintextProjector.agentDiscovery(hidden)),
+        isNot(contains('signIn')),
+      );
+      final unlinked = secretWith(
+        fields: [
+          signIn({'provider': 'github', 'account': null, 'entry': null}),
+        ],
+        custom: {'custom:$signInId': AgentFieldAccess.discovery},
+      );
+      expect(
+        (VaultPlaintextProjector.agentDiscovery(unlinked)!['fields'] as List)
+            .last,
+        {
+          'id': 'signIn',
+          'value':
+              '{"entry":null,"provider":"github",'
+              '"schema":"palladin.signin.v1"}',
+        },
+      );
+    });
+
+    test('two discoverable bindings are ambiguous and not exposed', () {
+      final secret = secretWith(
+        fields: [
+          signIn(linked),
+          signIn({
+            'provider': 'apple',
+            'account': null,
+            'entry': null,
+          }, id: otherSignInId),
+        ],
+        custom: {
+          'custom:$signInId': AgentFieldAccess.discovery,
+          'custom:$otherSignInId': AgentFieldAccess.discovery,
+        },
+      );
+      expect(VaultPlaintextProjector.agentDiscovery(secret)!['fields'], [
+        {'id': 'credential.urlDomain', 'value': 'example.test'},
+      ]);
+    });
+  });
 }

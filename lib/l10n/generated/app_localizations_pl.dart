@@ -5118,4 +5118,22 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get signInProviderFacebook => 'Facebook';
+
+  @override
+  String get entrySignInMethodLinkedEntry =>
+      'Wpis Palladin dla tego dostawcy (opcjonalnie)';
+
+  @override
+  String get entrySignInMethodLinkedEntryNone => 'Brak';
+
+  @override
+  String get entrySignInMethodLinkedEntryLoading => 'Szukam pasujących wpisów…';
+
+  @override
+  String get entrySignInMethodLinkedEntryEmpty =>
+      'Brak wpisu tego dostawcy widocznego dla agentów';
+
+  @override
+  String get entrySignInMethodAgentHint =>
+      'Agenci widzą dostawcę i powiązany wpis, nigdy konto.';
 }

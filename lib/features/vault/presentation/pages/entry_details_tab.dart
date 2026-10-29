@@ -24,6 +24,7 @@ import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_s
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../data/services/script_access_impact_service.dart';
+import '../../data/services/sign_in_candidate_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -31,6 +32,7 @@ import '../../domain/entities/sign_in_method.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../cubit/edit_entry_cubit.dart';
+import '../cubit/vault_list_cubit.dart';
 import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_field_row.dart';
 import '../widgets/entry_form_utils.dart';
@@ -1299,6 +1301,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       context,
       initial: current is SignInMethodRecognized ? current.binding : null,
       canRemove: current is! SignInMethodAbsent,
+      loadCandidates: getIt.isRegistered<SignInCandidateService>()
+          ? (provider) => _signInCandidates(entry, provider)
+          : null,
     );
     if (choice == null || !mounted || _editMode) return;
     final auth = context.read<AuthBloc>().state;
@@ -1342,6 +1347,37 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         _showSnackBar(EntryFormUtils.errorMessage(l10n, kind));
       default:
         break;
+    }
+  }
+
+  /// Discoverable Credentials of [provider] across the unlocked Vaults.
+  Future<List<SignInProviderCandidate>> _signInCandidates(
+    EntryEntity entry,
+    SignInProvider provider,
+  ) async {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) return const [];
+    final vaults = getIt.isRegistered<VaultListCubit>()
+        ? switch (getIt<VaultListCubit>().state) {
+            VaultListLoaded(:final vaults) => [
+              for (final vault in vaults) vault.id,
+            ],
+            _ => [entry.vaultId],
+          }
+        : [entry.vaultId];
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    try {
+      return await getIt<SignInCandidateService>().candidates(
+        provider: provider,
+        vaultIds: vaults,
+        exclude: SignInEntryReference(
+          vaultId: entry.vaultId,
+          entryId: entry.id,
+        ),
+        memberPrivateKey: keyCopy,
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
     }
   }
 

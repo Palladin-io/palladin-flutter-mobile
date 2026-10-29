@@ -226,9 +226,9 @@ class EditEntryCubit extends Cubit<EditEntryState> {
   ///
   /// The change is applied to a freshly authenticated canonical head, which
   /// also becomes the optimistic base revision. Every other field, policy and
-  /// presentation value is carried over unchanged; the new field is `never`
-  /// visible to Agents. The displayed snapshot stays intact until success, so
-  /// a failed save leaves the details and the Edit base usable.
+  /// presentation value is carried over unchanged; see [_signInAccess] for
+  /// the new field's Agent access. The displayed snapshot stays intact until
+  /// success, so a failed save leaves the details and the Edit base usable.
   Future<void> saveSignInMethod({
     required EntryEntity entry,
     required Uint8List privateKey,
@@ -274,9 +274,10 @@ class EditEntryCubit extends Cubit<EditEntryState> {
               fields.any((field) => field.id == id) &&
               !retainedIds.contains(id),
         );
+      final access = _signInAccess(fields, previous);
       for (final field in next) {
         if (field.rawType == SignInMethodField.type) {
-          policyFields[field.id] = AgentFieldAccess.never;
+          policyFields[field.id] = access;
         }
       }
       final label = secret['memberLabel'] as String? ?? entry.label;
@@ -309,11 +310,30 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     } finally {
       // The fresh head is only this operation's base; the presentation keeps
       // its own snapshot, which must not be cleared by a failed save.
-      fresh?.payload.clear();
-      fresh?.secret.clear();
-      fresh?.entry.clear();
+      fresh?.clear();
       _updateInFlight = false;
     }
+  }
+
+  /// A replaced recognized binding keeps its `never`/`discovery` access;
+  /// otherwise the new field is discoverable exactly when the Credential is.
+  AgentFieldAccess _signInAccess(
+    List<CustomField> fields,
+    AgentVisibilityPolicy policy,
+  ) {
+    if (!policy.discoverable) return AgentFieldAccess.never;
+    final previous = SignInMethodField.read(
+      entryType: EntryType.credential,
+      fields: fields,
+    );
+    if (previous is SignInMethodRecognized) {
+      final access = policy.fields[previous.fieldId];
+      if (access == AgentFieldAccess.never ||
+          access == AgentFieldAccess.discovery) {
+        return access!;
+      }
+    }
+    return AgentFieldAccess.discovery;
   }
 
   void _emitCanonicalFailure(CanonicalEntryDetailException e) {

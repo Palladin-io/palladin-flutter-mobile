@@ -455,6 +455,8 @@ void main() {
     const otherId = '44444444-4444-4444-8444-444444444444';
     const oldId = '55555555-5555-4555-8555-555555555555';
     const futureId = '66666666-6666-4666-8666-666666666666';
+    const linkedVault = '77777777-7777-4777-8777-777777777777';
+    const linkedEntry = '88888888-8888-4888-8888-888888888888';
     final credential = EntryEntity(
       id: 'e-2',
       vaultId: 'v-1',
@@ -467,6 +469,8 @@ void main() {
     CanonicalEntrySnapshot credentialSnapshot({
       int entryType = 1,
       List<Map<String, dynamic>>? fields,
+      bool discoverable = true,
+      Map<String, String>? access,
     }) => CanonicalEntrySnapshot(
       entry: <String, dynamic>{'currentRevision': '9'},
       payload: <String, dynamic>{
@@ -509,15 +513,17 @@ void main() {
         'description': 'Desc',
         'iconReference': 'key',
         'agentVisibilityPolicy': {
-          'discoverable': true,
-          'fields': {
-            'agentLabel': 'discovery',
-            'username': 'discovery',
-            'password': 'onGrantValue',
-            otherId: 'onGrantValue',
-            oldId: 'never',
-            futureId: 'never',
-          },
+          'discoverable': discoverable,
+          'fields':
+              access ??
+              {
+                'agentLabel': 'discovery',
+                'username': 'discovery',
+                'password': 'onGrantValue',
+                otherId: 'onGrantValue',
+                oldId: 'never',
+                futureId: 'never',
+              },
         },
       },
     );
@@ -572,6 +578,10 @@ void main() {
           binding: const SignInMethodBinding(
             provider: SignInProvider.github,
             account: 'octo',
+            entry: SignInEntryReference(
+              vaultId: linkedVault,
+              entryId: linkedEntry,
+            ),
           ),
           fieldLabel: 'Sign-in method',
         );
@@ -594,7 +604,11 @@ void main() {
         final created = fields.last;
         expect(created['type'], 'palladin.signin.v1');
         expect(created['label'], 'Sign-in method');
-        expect(created['value'], {'provider': 'github', 'account': 'octo'});
+        expect(created['value'], {
+          'provider': 'github',
+          'account': 'octo',
+          'entry': {'vaultId': linkedVault, 'entryId': linkedEntry},
+        });
         expect(
           RegExp(
             r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
@@ -603,7 +617,9 @@ void main() {
         );
         final policy = captured[6] as AgentVisibilityPolicy;
         expect(policy.discoverable, isTrue);
-        expect(policy.fields[created['id']], AgentFieldAccess.never);
+        // The retired two-key field is unrecognized, so the Credential's
+        // discoverability decides the default.
+        expect(policy.fields[created['id']], AgentFieldAccess.discovery);
         expect(policy.fields.containsKey(oldId), isFalse);
         expect(policy.fields[otherId], AgentFieldAccess.onGrantValue);
         expect(policy.fields[futureId], AgentFieldAccess.never);
@@ -664,6 +680,75 @@ void main() {
         ),
       );
       await cubit.close();
+    });
+
+    Map<String, dynamic> recognized() => {
+      'id': oldId,
+      'label': 'Old',
+      'type': 'palladin.signin.v1',
+      'value': {'provider': 'google', 'account': 'a@b.test', 'entry': null},
+      'agentVisible': false,
+    };
+
+    Future<AgentVisibilityPolicy> savedPolicy(
+      CanonicalEntrySnapshot snapshot,
+    ) async {
+      stubReveal(snapshot);
+      stubUpdate();
+      final cubit = buildCubit();
+      await cubit.saveSignInMethod(
+        entry: credential,
+        privateKey: privateKey,
+        binding: const SignInMethodBinding(provider: SignInProvider.apple),
+        fieldLabel: 'Sign-in method',
+      );
+      await cubit.close();
+      final captured = captureUpdate();
+      final fields = ((captured[5] as Map)['fields'] as List)
+          .cast<Map<String, dynamic>>();
+      final policy = captured[6] as AgentVisibilityPolicy;
+      final created = fields.singleWhere(
+        (field) => field['type'] == 'palladin.signin.v1',
+      );
+      return AgentVisibilityPolicy(
+        discoverable: policy.discoverable,
+        fields: {'created': policy.fields[created['id']]!},
+      );
+    }
+
+    test('replacing a recognized binding keeps its never access', () async {
+      final policy = await savedPolicy(
+        credentialSnapshot(
+          fields: [recognized()],
+          access: {
+            'agentLabel': 'discovery',
+            'username': 'discovery',
+            oldId: 'never',
+          },
+        ),
+      );
+      expect(policy.fields['created'], AgentFieldAccess.never);
+    });
+
+    test('replacing a recognized binding keeps its discovery access', () async {
+      final policy = await savedPolicy(
+        credentialSnapshot(
+          fields: [recognized()],
+          access: {'agentLabel': 'discovery', oldId: 'discovery'},
+        ),
+      );
+      expect(policy.fields['created'], AgentFieldAccess.discovery);
+    });
+
+    test('a non-discoverable Credential writes never access', () async {
+      final policy = await savedPolicy(
+        credentialSnapshot(
+          fields: const [],
+          discoverable: false,
+          access: {'agentLabel': 'never', 'username': 'onGrantValue'},
+        ),
+      );
+      expect(policy.fields['created'], AgentFieldAccess.never);
     });
 
     test('an optimistic conflict surfaces as a conflict state', () async {

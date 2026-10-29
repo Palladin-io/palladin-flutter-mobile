@@ -8965,6 +8965,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Facebook'**
   String get signInProviderFacebook;
+
+  /// No description provided for @entrySignInMethodLinkedEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin entry for this provider (optional)'**
+  String get entrySignInMethodLinkedEntry;
+
+  /// No description provided for @entrySignInMethodLinkedEntryNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get entrySignInMethodLinkedEntryNone;
+
+  /// No description provided for @entrySignInMethodLinkedEntryLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for matching entries…'**
+  String get entrySignInMethodLinkedEntryLoading;
+
+  /// No description provided for @entrySignInMethodLinkedEntryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No agent-discoverable entry for this provider'**
+  String get entrySignInMethodLinkedEntryEmpty;
+
+  /// No description provided for @entrySignInMethodAgentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents can see the provider and the linked entry, never the account.'**
+  String get entrySignInMethodAgentHint;
 }
 
 class _AppLocalizationsDelegate
