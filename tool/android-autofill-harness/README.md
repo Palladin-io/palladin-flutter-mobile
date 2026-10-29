@@ -199,7 +199,7 @@ AssistStructure even when an ordinary focus event does not automatically request
 credentials. Unsupported/insecure framework behavior is never reported as a
 successful provider rejection.
 
-The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
+The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases require the current framework null-password proof below or remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
 
 On baseline `ca6bb9719386bdbf7986346a3b2bb1aadd661654`, the actual provider incorrectly
 offered a response for native confirmation/hidden/disabled fields and WebView
@@ -261,3 +261,71 @@ successful validation report. This CI gate does not establish physical Gboard,
 Samsung Keyboard or third-party application compatibility.
 
 The CI runtime uses Android's supported `-gpu software` mode. `swiftshader_indirect` was deprecated in emulator 36.4.9 ([Android graphics acceleration documentation](https://developer.android.com/studio/run/emulator-acceleration)). Two 37.2.12 runs lost ADB transport with EGL errors; that correlation alone does not establish a renderer or memory root cause. Cleanup records process/ADB state and aggregate memory counters before stopping the synthetic emulator, preserving the original test result.
+
+### Synthetic inspector failure diagnostics
+
+Direct-response inspection failures may include `inspector.json`, containing only bounded lifecycle phase enums, exception class/stack symbols and line numbers for at most three cause levels and twelve frames per level (never exception messages, file names or values), plus up to three Android process-exit reason/status pairs scoped to the inspected process. The debug harness owns these files and the diagnostic intent; no production application code is changed. OS handoffs never collect this file, since their provider process does not execute the inspector and could otherwise expose stale evidence from a prior case. Capture happens after the original failure screenshot, preserves the original failure, and never makes a failed assertion pass. It does not collect logcat or raw Activity/framework dumps. Use only the disposable emulator with synthetic records.
+
+### Disposable emulator configuration isolation
+
+Both AutoFill and save CI jobs disable bulk DeviceConfig synchronization with the
+public shell command `cmd device_config set_sync_disabled_for_tests until_reboot`
+and verify the returned mode before cases run. This applies only to each job's
+fresh disposable AVD and resets on reboot; it does not alter application policy,
+field classification, timeouts or acceptance assertions.
+
+A local API 35 reproduction showed a valid authenticated inline response being
+shown, followed 1.7 seconds later by a framework service refresh and session
+destruction. A controlled update of `autofill/compat_mode_allowed_packages`
+reproduced the same sequence: active response and visible chip disappeared, then
+the exact original setting was restored. Android 15's
+[`AutofillManagerServiceImpl.updateLocked`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/autofill/java/com/android/server/autofill/AutofillManagerServiceImpl.java)
+removes all sessions before updating the service. Concurrent bulk configuration
+callbacks make background synchronization a candidate trigger, but the exact
+spontaneous key change was not logged. Earlier cloud failures lack this lifecycle
+evidence and are not claimed to share the proven local cause. Configuration
+isolation makes the synthetic test environment stable; it is not a product fix
+or permission to ignore a missing dataset.
+
+### API 35 null password responses
+
+Android 15's [`Session.onFillRequestSuccess` and `processNullResponseLocked`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/autofill/java/com/android/server/autofill/Session.java)
+retain a password-input session after a successful null response and omit the
+unavailable callback. The native OTP fixture reproduced this behavior: both
+requests reached the provider, and the framework reported a null password
+response while the field remained empty and no suggestion/authentication appeared.
+
+The driver reports `SYSTEM_NULL_PASSWORD` only from a bounded, memory-only API35
+framework dump: one exact fixture session created after the current case's
+conservative elapsed-time boundary, active/not destroyed, no stored response,
+and the unique latest request ordinal with the exact fixture/provider identities,
+`TYPE=SUCCESS(10)`, `NUM_DATASETS=-1`, and both manual/password flags. In this
+platform source, `-1` is assigned only for a successful null response; errors and
+timeouts use different request types. Earlier successful requests cannot excuse
+a newer pending or failed request. Existing focused/requested/unchanged/no-UI and
+no-authentication assertions remain mandatory. No request, stale session, wrong
+provider, ambiguous metadata or another platform version cannot establish this
+outcome. Only the outcome enum is retained; raw dumps and credential values are
+never written to evidence files. This is an OS null response, not inferred parser
+rejection. JVM regressions independently verify excluded-field classification.
+
+Presentation setup may dismiss one exact Android-owned “Pixel Launcher isn't
+responding” dialog using the same recognizer as the save harness. A screenshot
+is retained before the dismissal and `presentation/setup.json` records
+`dismissedLauncherAnr=true`. The existing three observations and deadlines are
+unchanged; the real locale/theme assertion must subsequently appear. A second
+Launcher ANR, or any provider, System UI or unknown ANR, remains a failure.
+This handles a documented disposable-emulator boot obstruction, not an
+application crash or a failed presentation assertion.
+
+### Renderer investigation limit
+
+The bounded renderer comparison at `ab5b20fbb37cd4f606bab038640a7c6c0738e279`
+was inconclusive: both fresh Linux x86 emulators retained ADB connectivity but
+failed before the repeated handoffs. The software run observed an unavailable
+cache after an asynchronous seed launch; the swiftshader run offered a response
+but exposed no accessible unlock row. It does not prove a renderer fix. The
+experimental probe was removed rather than becoming an alternative acceptance
+path. Full validation remains the unchanged 41-case validator; local API 35
+ARM64 evidence must identify its emulator version and clean source SHA, and must
+not be described as a successful Linux x86 run.
