@@ -209,6 +209,7 @@ def authenticate():
             expiry = command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.EXPIRE_ASSOCIATION')
             assert 'Broadcast completed: result=1' in expiry, 'Synthetic proof expiry was not acknowledged'
         if args.mode.startswith('web') and args.handoff_check == 'revoke':
+            wait_for(lambda tree: any('Synthetic fixture' in n.get('text', '') for n in tree), 'Picker missing before revocation')
             revoked = command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.REVOKE')
             assert 'Broadcast completed: result=1' in revoked, 'Synthetic revocation not acknowledged'
         assert tap_text('Synthetic fixture'), 'Authenticated credential picker missing'
@@ -423,7 +424,14 @@ try:
                 if args.handoff_check == 'repeat':
                     assert direct_native, 'Repeat check requires dataset authentication'
                     original_response = active_fixture_response()
-                    assert tap_text('Clear fields'), 'Clear control missing'
+                    if args.mode.startswith('web'):
+                        # DOM assignment does not notify Android of a virtual
+                        # field's value change; exercise an actual user edit.
+                        focus_field()
+                        command('shell', 'input', 'keycombination', 'KEYCODE_CTRL_LEFT', 'KEYCODE_A')
+                        command('shell', 'input', 'keyevent', 'KEYCODE_DEL')
+                    else:
+                        assert tap_text('Clear fields'), 'Clear control missing'
                     focus_field()
                     assert tap_text('Unlock Palladin to autofill'), 'Cached dataset skipped authentication'
                     authenticate()

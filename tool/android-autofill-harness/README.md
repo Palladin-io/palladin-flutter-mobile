@@ -366,8 +366,11 @@ monotonic timestamp for expiration; there is no production injection API.
 
 Web verification controls hide the IME through `InputMethodManager` before
 publishing the DOM equality result so the result remains accessible below the
-controls. Repeat validation explicitly refocuses the field and still requires a
-new unlock action and biometric prompt in the same framework session.
+controls. WebView repeat validation clears the focused synthetic input through
+keyboard select-all/delete: assigning the DOM value and dispatching an input
+event does not notify Android's virtual-field value tracking. It then explicitly
+refocuses the field and requires a new unlock action and biometric prompt in the
+same framework session.
 
 Expired and wrong-signer proof inspectors require rejection before authentication;
 they invoke the Activity/verifier directly, not a network fallback. Actual HTTPS,
