@@ -2,6 +2,13 @@ package io.palladin.mobile
 
 import android.app.Activity
 import android.os.Bundle
+import android.util.Size
+import android.widget.inline.InlinePresentationSpec
+import android.view.inputmethod.InlineSuggestionsRequest
+import android.service.autofill.InlinePresentation
+import androidx.autofill.inline.UiVersions
+import androidx.autofill.inline.v1.InlineSuggestionUi
+import io.palladin.mobile.autofill.carryAutofillInlineRequest
 import android.content.Intent
 import android.service.autofill.FillResponse
 import android.service.autofill.Dataset
@@ -16,6 +23,8 @@ import java.time.Instant
 
 /** Debug-only launcher seeds the real encrypted cache with synthetic records. */
 class MainActivity : Activity() {
+ private var expectInline = true
+ private lateinit var expectedInlineSpec: InlinePresentationSpec
  private lateinit var expectedFields: Map<AutofillId, String>
  override fun onCreate(state: Bundle?) {
   super.onCreate(state)
@@ -50,7 +59,15 @@ class MainActivity : Activity() {
   val passwords = if (mode.endsWith("login")) arrayListOf(passwordId) else arrayListOf()
   expectedFields = usernames.associateWith { "synthetic-user" } +
    passwords.associateWith { "synthetic-only-not-secret" }
+  val inlineMode = intent.getStringExtra("inlineMode") ?: "supported"
+  require(inlineMode in setOf("supported", "absent", "unsupported"))
+  expectInline = inlineMode == "supported"
+  val style = if (expectInline) UiVersions.newStylesBuilder().addStyle(InlineSuggestionUi.newStyleBuilder().build()).build() else Bundle()
+  expectedInlineSpec = InlinePresentationSpec.Builder(Size(40, 40), Size(600, 80)).setStyle(style).build()
   startActivityForResult(Intent(this, AutofillAuthenticationActivity::class.java).apply {
+   if (inlineMode != "absent") {
+    carryAutofillInlineRequest(this, InlineSuggestionsRequest.Builder(listOf(expectedInlineSpec)).setMaxSuggestionCount(1).build())
+   }
    putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, if (mode.startsWith("web")) "WEB" else "MANUAL_NATIVE")
    if (mode.startsWith("web")) {
     putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, "fixture.invalid")
@@ -75,7 +92,16 @@ class MainActivity : Activity() {
   val ids = dataset?.let { it.javaClass.getMethod("getFieldIds").invoke(it) as List<AutofillId> }.orEmpty()
   @Suppress("UNCHECKED_CAST")
   val values = dataset?.let { it.javaClass.getMethod("getFieldValues").invoke(it) as List<AutofillValue?> }.orEmpty()
-  val verified = requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
+  val inline = dataset?.let { it.javaClass.getMethod("getFieldInlinePresentation", Int::class.javaPrimitiveType).invoke(it, 0) as? InlinePresentation }
+  val inlineContent = inline?.let { InlineSuggestionUi.fromSlice(it.slice) }
+  val dropdown = dataset?.let { it.javaClass.getMethod("getFieldPresentation", Int::class.javaPrimitiveType).invoke(it, 0) }
+  val inlineVerified = dropdown != null && if (expectInline) {
+   inline != null && inline.inlinePresentationSpec == expectedInlineSpec &&
+    inlineContent?.title?.toString() == "synthetic-user" &&
+    inlineContent.subtitle?.toString() == "fixture.invalid" &&
+    inlineContent.startIcon != null && inlineContent.contentDescription?.contains("Synthetic fixture") == true
+  } else inline == null
+  val verified = inlineVerified && requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
    ids.size == expectedFields.size && values.size == ids.size && ids.toSet() == expectedFields.keys &&
    ids.zip(values).all { (id, value) -> value?.textValue?.toString() == expectedFields[id] }
   val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && response == null

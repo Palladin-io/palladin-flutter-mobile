@@ -10,7 +10,6 @@ import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.InlinePresentation
-import androidx.autofill.inline.UiVersions
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
@@ -142,6 +141,9 @@ class PalladinAutofillService : AutofillService() {
                 ArrayList(fields.newPasswordIds),
             )
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            carryAutofillInlineRequest(launchIntent, request.inlineSuggestionsRequest)
+        }
         val pendingIntent = PendingIntent.getActivity(
             this,
             requestingPackage.hashCode() xor origin.domains.hashCode(),
@@ -176,10 +178,9 @@ class PalladinAutofillService : AutofillService() {
     ): InlinePresentation? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         val inlineRequest = request.inlineSuggestionsRequest ?: return null
-        val spec = inlineRequest.inlinePresentationSpecs.firstOrNull() ?: return null
-        if (inlineRequest.maxSuggestionCount <= 0 ||
-            !UiVersions.getVersions(spec.style).contains(UiVersions.INLINE_UI_VERSION_1)
-        ) return null
+        val spec = selectAutofillInlineSpec(
+            inlineRequest.inlinePresentationSpecs, inlineRequest.maxSuggestionCount, 0, Build.VERSION.SDK_INT,
+        ) ?: return null
         // Fixed, value-free attribution intent is reused across requests. Long
         // press opens Palladin; selecting the chip uses the authentication intent.
         val attribution = PendingIntent.getActivity(
