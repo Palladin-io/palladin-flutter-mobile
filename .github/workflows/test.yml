@@ -211,7 +211,7 @@ jobs:
     name: Synthetic Android AutoFill runtime
     if: github.event_name == 'workflow_dispatch' && inputs.autofill_presentations
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -240,7 +240,7 @@ jobs:
       - name: Verify synthetic UI driver regressions
         run: python3 -m unittest discover -s tool/android-autofill-harness/tests
       - name: Validate committed synthetic AutoFill runtime
-        timeout-minutes: 20
+        timeout-minutes: 28
         shell: bash
         run: |
           set -euo pipefail
@@ -271,7 +271,7 @@ jobs:
           for animation in window_animation_scale transition_animation_scale animator_duration_scale; do
             timeout 10 adb -s emulator-5554 shell settings put global "$animation" 0
           done
-          timeout 900 python3 -u tool/android-autofill-harness/validate.py \
+          timeout 1500 python3 -u tool/android-autofill-harness/validate.py \
             --serial emulator-5554 --prepare-ci --gradle "$RUNNER_TEMP/gradle-8.14/bin/gradle"
       - name: Upload synthetic runtime evidence
         if: always()

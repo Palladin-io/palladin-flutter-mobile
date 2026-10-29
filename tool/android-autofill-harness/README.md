@@ -251,7 +251,7 @@ committed checkout. The validator compiles only the synthetic provider/form APKs
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
 Only after enrollment does it seed the biometric-bound cache and run all 41
-response/OS cases. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
+response/OS cases. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
 enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
