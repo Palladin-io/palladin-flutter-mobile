@@ -5,6 +5,7 @@
         <activity android:name="io.palladin.mobile.PresentationPreviewActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar"/>
         <activity android:name="io.palladin.mobile.MainActivity" android:exported="true"/>
         <activity android:name="io.palladin.mobile.autofill.AutofillAuthenticationActivity" android:exported="false" android:noHistory="true"/>
+        <receiver android:name="io.palladin.mobile.RevokeSyntheticCacheReceiver" android:exported="true"/>
         <service android:name="io.palladin.mobile.autofill.PalladinAutofillService" android:exported="true" android:permission="android.permission.BIND_AUTOFILL_SERVICE">
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillService"/>

@@ -15,6 +15,7 @@ parser.add_argument('--serial', required=True)
 parser.add_argument('--mode', choices=['native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'], required=True)
 parser.add_argument('--expected', choices=['RESPONSE_OFFERED', 'REJECTED', 'NO_RESPONSE'], default='RESPONSE_OFFERED')
 parser.add_argument('--fill', action='store_true')
+parser.add_argument('--handoff-check', choices=['cancel-biometric', 'cancel-picker', 'cancel-confirmation', 'revoke', 'repeat'])
 parser.add_argument('--inspect-response', action='store_true')
 parser.add_argument('--inline-mode', choices=['supported', 'absent', 'unsupported'], default='supported')
 args = parser.parse_args()
@@ -99,6 +100,22 @@ def focus_field(required=True):
         raise AssertionError('Synthetic focus field not exposed by accessibility')
 
 
+def active_fixture_response():
+    dump = command('shell', 'dumpsys', 'autofill')
+    starts = list(re.finditer(r'^([ ]+)id: ([0-9]+)$', dump, re.M))
+    matches = []
+    for index, start in enumerate(starts):
+        block = dump[start.start():starts[index + 1].start() if index + 1 < len(starts) else len(dump)]
+        component = re.findall(r'^\s*mComponentName: ComponentInfo\{([^/{}]+)/[^{}]+\}$', block, re.M)
+        if component != [form]:
+            continue
+        counts = re.findall(r'^\s*mResponses: ([0-9]+)$', block, re.M)
+        assert counts == ['1'], 'Repeat fill changed the original response count'
+        matches.append((start.group(2), counts[0]))
+    assert len(matches) == 1, 'Repeat fill needs one active fixture session'
+    return matches[0]
+
+
 def request_snapshot(diagnosis):
     allowed = {
         'domains': {'NOT_CHECKED', 'ZERO', 'ONE', 'AMBIGUOUS'},
@@ -160,11 +177,20 @@ def authenticate():
     wait_for(lambda tree: any(n.get('text') == 'Unlock Palladin' and
                              n.get('package') == 'com.android.systemui' for n in tree),
              'Real biometric prompt not shown')
+    if args.handoff_check == 'cancel-biometric':
+        command('shell', 'input', 'keyevent', '4')
+        return
     command('emu', 'finger', 'touch', '1')
     command('emu', 'finger', 'remove')
     if args.mode.startswith('native'):
+        if args.handoff_check == 'cancel-picker':
+            wait_for(lambda tree: any('Synthetic fixture' in n.get('text', '') for n in tree), 'Picker missing')
+            command('shell', 'input', 'keyevent', '4')
+            return
         assert tap_text('Synthetic fixture'), 'Authenticated native picker missing'
-        if args.mode == 'native-username-manual-cancel':
+        if args.handoff_check == 'revoke':
+            command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.REVOKE')
+        if args.handoff_check == 'cancel-confirmation' or args.mode == 'native-username-manual-cancel':
             assert tap_text('^Cancel$'), 'Explicit cancellation missing'
         elif 'manual' in args.mode:
             assert tap_text('^Fill username once$'), 'Explicit username-only confirmation missing'
@@ -286,8 +312,8 @@ try:
                 authenticate()
                 expected_result = 'responseRejected=true' if args.mode.endswith(('empty', 'cancel')) else 'responseVerified=true'
                 wait_for(lambda tree: any(n.get('text') == expected_result for n in tree),
-                         'Actual FillResponse field ID/value assertions failed')
-                print(args.mode + ': actual FillResponse dataset assertions PASS')
+                         'Actual authentication-result field ID/value assertions failed')
+                print(args.mode + ': actual authentication-result dataset assertions PASS')
         finally:
             if prior_policy == 'null':
                 command('shell', 'settings', 'delete', 'global', 'hidden_api_policy')
@@ -351,12 +377,30 @@ try:
                 assert tap_text('Unlock Palladin to autofill'), 'Accessible unlock suggestion missing'
             authenticate()
             direct_native = args.mode.startswith('native') and int(command('shell', 'getprop', 'ro.build.version.sdk')) >= 31
-            if not direct_native:
-                assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
-            assert tap_text('Verify fill'), 'Fixture verification control missing'
-            wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
-                     'Synthetic field assertions failed')
-            print(args.mode + ': biometric + selection + field assertions PASS')
+            if args.handoff_check and args.handoff_check != 'repeat':
+                assert direct_native, 'Handoff checks require native API31+'
+                assert tap_text('Verify empty'), 'Empty field control missing'
+                wait_for(lambda tree: any(n.get('text') == 'fieldsUnchanged=true' for n in tree),
+                         'Canceled or revoked operation filled fields')
+                print(args.mode + ': ' + args.handoff_check + ' leaves fields empty PASS')
+            else:
+                if not direct_native:
+                    assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
+                assert tap_text('Verify fill'), 'Fixture verification control missing'
+                wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
+                         'Synthetic field assertions failed')
+                if args.handoff_check == 'repeat':
+                    assert direct_native, 'Repeat check requires native API31+'
+                    original_response = active_fixture_response()
+                    assert tap_text('Clear fields'), 'Clear control missing'
+                    focus_field()
+                    assert tap_text('Unlock Palladin to autofill'), 'Cached dataset skipped authentication'
+                    authenticate()
+                    assert active_fixture_response() == original_response, 'Repeat replaced the original OS session'
+                    assert tap_text('Verify fill'), 'Fixture verification control missing'
+                    wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
+                             'Repeated authenticated fill failed')
+                print(args.mode + ': biometric + selection + field assertions PASS')
 except Exception:
     record_failure()
     raise

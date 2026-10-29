@@ -10,6 +10,7 @@ import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.InlinePresentation
+import android.service.autofill.Dataset
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
@@ -160,7 +161,12 @@ class PalladinAutofillService : AutofillService() {
         )
         val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), saveRequestId)
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && origin.requiresSelection && !generate) {
+            val locked = Dataset.Builder(presentation).setAuthentication(pendingIntent.intentSender)
+            fields.allIds.forEach { locked.setValue(it, null, presentation) }
+            if (inlinePresentation != null) locked.setInlinePresentation(inlinePresentation)
+            responseBuilder.addDataset(locked.build())
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
             responseBuilder.setAuthentication(
                 fields.allIds.toTypedArray(), pendingIntent.intentSender,
                 presentation, inlinePresentation,

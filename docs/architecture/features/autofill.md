@@ -62,6 +62,34 @@
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
+## Android native authentication handoff
+
+On Android 12/API 31+, native requests offer one locked Dataset with null values,
+the existing branded unlock presentation and the existing immutable explicit
+PendingIntent. After biometrics and the native picker/required confirmation,
+Palladin returns only the selected Dataset. The system fills the original target
+IDs directly; there is no second credential choice in the keyboard. The returned
+Intent sets `EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET=true`, so Android retains
+the locked initial dataset instead of caching an unauthenticated credential choice.
+Clearing and filling again requires biometrics and a new selection. Every final
+origin, generation, lease, revocation and one-operation confirmation check remains
+under the existing mutation lock through `setResult`.
+
+API 26–30 retain the previous response-authentication flow because they do not
+provide the explicit ephemeral-result contract. Web requests (which can return
+multiple matched entries) and password generation also retain response-level
+authentication. SaveInfo and its client state remain on the initial FillResponse;
+a Dataset result does not replace them. No platform-provided fill-in extras are
+trusted: the immutable intent already carries the original IDs and origin context.
+
+This uses the public [Dataset authentication contract](https://developer.android.com/reference/android/service/autofill/Dataset.Builder#setAuthentication(android.content.IntentSender))
+and [API 31 ephemeral result](https://developer.android.com/reference/android/view/autofill/AutofillManager#EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET).
+Bitwarden's pinned [initial authenticated dataset](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/util/FilledDataExtensions.kt)
+and [selected Dataset completion](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/manager/AutofillCompletionManagerImpl.kt)
+provide precedent for the public flow, not Palladin's origin or ephemeral policy.
+The change removes dependence on redisplaying a second suggestion after an
+explicit native selection; it does not claim to repair IME rendering failures.
+
 ## Generic native field recognition
 
 `CredentialFieldIds` uses a finite `Matched(role)` / `Unknown` / `Rejected`
