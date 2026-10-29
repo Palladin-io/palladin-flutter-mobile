@@ -146,14 +146,22 @@ class FormActivity : Activity() {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                 setAutofillHints(View.AUTOFILL_HINT_PASSWORD)
             } else null
-            val focusTarget = if (mode in setOf("native-hidden", "native-disabled", "native-container")) EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_TEXT
-                hint = "Synthetic probe"
-            } else username
+            val focusTarget: TextView = when (mode) {
+                "native-container" -> TextView(this).apply {
+                    text = "Synthetic label"
+                    isFocusableInTouchMode = true
+                    importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+                    setAutofillHints(View.AUTOFILL_HINT_USERNAME)
+                    check(autofillType == View.AUTOFILL_TYPE_NONE && inputType == InputType.TYPE_NULL)
+                }
+                "native-hidden", "native-disabled" -> EditText(this).apply {
+                    inputType = InputType.TYPE_CLASS_TEXT
+                    hint = "Synthetic probe"
+                }
+                else -> username
+            }
             if (focusTarget !== username) layout.addView(focusTarget)
-            if (mode == "native-container") {
-                layout.addView(TextView(this).apply { text = "Synthetic label"; setAutofillHints(View.AUTOFILL_HINT_USERNAME) })
-            } else layout.addView(username)
+            if (mode != "native-container") layout.addView(username)
             password?.let(layout::addView)
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
@@ -169,7 +177,9 @@ class FormActivity : Activity() {
                         "fillVerified=" + (username.text.toString() == "synthetic-user" &&
                             (password == null || password.text.toString() == "synthetic-only-not-secret"))
                     } else "fieldsUnchanged=" + (username.text.isEmpty() &&
-                        (password == null || password.text.isEmpty()) && focusTarget.text.isEmpty())
+                        (password == null || password.text.isEmpty()) &&
+                        (if (mode == "native-container") focusTarget.text.toString() == "Synthetic label"
+                         else focusTarget.text.isEmpty()))
                 }
             })
         }
