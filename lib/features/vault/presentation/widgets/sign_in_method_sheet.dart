@@ -126,7 +126,7 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
       _entry = reference;
       _accountTooLong = false;
       if (candidate != null && candidate.isNotEmpty) {
-        _accountController.text = candidate.first.account ?? '';
+        _accountController.text = candidate.first.account;
       }
     });
   }
@@ -187,13 +187,13 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
             for (final candidate in candidates ?? const [])
               DropdownMenuItem<SignInEntryReference?>(
                 value: candidate.reference,
-                child: Text(switch (candidate.account) {
-                  null => candidate.label,
-                  final account => l10n.entrySignInMethodWithAccount(
+                child: Text(
+                  l10n.entrySignInMethodWithAccount(
                     candidate.label,
-                    account,
+                    candidate.account,
                   ),
-                }, overflow: TextOverflow.ellipsis),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
           onChanged: _selectCandidate,

@@ -39,10 +39,18 @@ MemberIndexEntry _index(
 CanonicalEntrySnapshot _snapshot({
   required bool discoverable,
   required String username,
+  int entryType = 1,
+  String urlDomain = 'accounts.google.com',
 }) => CanonicalEntrySnapshot(
   entry: {'currentRevision': '1'},
-  payload: {'username': username, 'password': 'secret'},
+  payload: {
+    'username': username,
+    'password': 'secret',
+    'url': 'https://$urlDomain/',
+    'urlDomain': urlDomain,
+  },
   secret: {
+    'entryType': entryType,
     'agentVisibilityPolicy': {'discoverable': discoverable, 'fields': {}},
   },
 );
@@ -109,4 +117,53 @@ void main() {
       expect(key, everyElement(7));
     },
   );
+
+  test('rechecks the revealed head instead of the scanned index', () async {
+    const moved = '88888888-8888-4888-8888-888888888888';
+    const converted = '99999999-9999-4999-8999-999999999999';
+    const blank = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    final index = _Index();
+    final entries = _Entries();
+    // The scanned index still describes three Google Credentials.
+    when(() => index.entries(_vault)).thenReturn([
+      _index(moved, 'accounts.google.com', label: 'Moved'),
+      _index(converted, 'accounts.google.com', label: 'Converted'),
+      _index(blank, 'accounts.google.com', label: 'Blank'),
+      _index(_work, 'accounts.google.com', label: 'Work Google'),
+    ]);
+    when(
+      () => entries.revealCurrent(
+        vaultId: _vault,
+        entryId: any(named: 'entryId'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((invocation) async {
+      // Member sync advanced the heads after the scan.
+      return switch (invocation.namedArguments[#entryId] as String) {
+        moved => _snapshot(
+          discoverable: true,
+          username: 'octo',
+          urlDomain: 'github.com',
+        ),
+        converted => _snapshot(
+          discoverable: true,
+          username: 'k@corp.test',
+          entryType: 0,
+        ),
+        blank => _snapshot(discoverable: true, username: '  '),
+        _ => _snapshot(discoverable: true, username: 'alice@corp.test'),
+      };
+    });
+
+    final result = await SignInCandidateService(index: index, entries: entries)
+        .candidates(
+          provider: SignInProvider.google,
+          vaultIds: const [_vault],
+          exclude: const SignInEntryReference(vaultId: _vault, entryId: _self),
+          memberPrivateKey: Uint8List.fromList(List.filled(32, 7)),
+        );
+
+    expect(result.map((candidate) => candidate.reference.entryId), [_work]);
+    expect(result.single.account, 'alice@corp.test');
+  });
 }

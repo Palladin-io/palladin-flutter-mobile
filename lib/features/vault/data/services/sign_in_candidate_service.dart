@@ -18,15 +18,16 @@ final class SignInProviderCandidate {
   final SignInEntryReference reference;
   final String label;
 
-  /// The Credential's username in stored account form, or null when empty.
-  final String? account;
+  /// The revealed Credential's username in stored account form.
+  final String account;
 }
 
 /// Finds discoverable Credentials of a sign-in provider in the unlocked local
 /// Member index. Only index candidates whose AutoFill domain belongs to the
-/// provider are opened, one at a time from the local encrypted generation,
-/// to read `discoverable` and the username; each snapshot is cleared
-/// immediately. Nothing is sent to the backend.
+/// provider are opened, one at a time from the local encrypted generation.
+/// The revealed head must itself still be a discoverable Credential whose
+/// `urlDomain` belongs to the provider and whose username is non-empty; each
+/// snapshot is cleared immediately. Nothing is sent to the backend.
 class SignInCandidateService {
   SignInCandidateService({
     required MemberIndexReader index,
@@ -69,9 +70,24 @@ class SignInCandidateService {
           memberPrivateKey: key,
         );
         try {
+          // Member sync may have advanced this Entry since the index scan, so
+          // every criterion is rechecked on the revealed head itself.
           final policy = snapshot.secret['agentVisibilityPolicy'];
-          final username = snapshot.payload['username'];
-          if (policy is! Map || policy['discoverable'] != true) continue;
+          final urlDomain = snapshot.payload['urlDomain'];
+          final account = switch (snapshot.payload['username']) {
+            final String username => SignInMethodField.normalizeAccount(
+              username,
+            ),
+            _ => null,
+          };
+          if (snapshot.secret['entryType'] != EntryType.credential.toWire() ||
+              policy is! Map ||
+              policy['discoverable'] != true ||
+              urlDomain is! String ||
+              !_owns(provider, urlDomain) ||
+              account == null) {
+            continue;
+          }
           result.add(
             SignInProviderCandidate(
               reference: SignInEntryReference(
@@ -79,9 +95,7 @@ class SignInCandidateService {
                 entryId: entry.entryId.toLowerCase(),
               ),
               label: entry.memberLabel,
-              account: username is String
-                  ? SignInMethodField.normalizeAccount(username)
-                  : null,
+              account: account,
             ),
           );
         } finally {
