@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
 import android.service.autofill.Dataset
 import android.service.autofill.FillResponse
 import android.view.View
@@ -369,7 +370,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             finishCanceled()
             return
         }
-        val response = selectionResponse(record, domain) ?: run {
+        val result = selectionResult(record, domain) ?: run {
             finishCanceled()
             return
         }
@@ -378,15 +379,14 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                 require(!AutofillOriginVerifier(this).isBrowser(requestingPackage))
                 require(manualSelection?.confirm(record.id, domain, requestingPackage) == true)
                 clearNativeSelection()
-                setResult(Activity.RESULT_OK,
-                    Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response))
+                setResult(Activity.RESULT_OK, result)
                 finish()
             }
         }.isSuccess
         if (!handedOff) finishCanceled()
     }
 
-    private fun selectionResponse(record: CachedCredential, domain: String): FillResponse? {
+    private fun selectionResult(record: CachedCredential, domain: String): Intent? {
         val passwords = intent.autofillIds(EXTRA_PASSWORD_IDS)
         val usernames = intent.autofillIds(EXTRA_USERNAME_IDS)
         if (passwords.isEmpty() && usernames.isEmpty()) return null
@@ -402,7 +402,17 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         passwords.forEach {
             dataset.setValue(it, AutofillValue.forText(record.password), presentation)
         }
-        return AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST)).addDataset(dataset.build()).build()
+        val selected = dataset.build()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Keep the locked dataset in the framework cache: a later fill must
+            // authenticate and recheck origin, generation and lease again.
+            Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, selected)
+                .putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET, true)
+        } else {
+            val response = AutofillSaveCoordinator.response(FillResponse.Builder(),
+                intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST)).addDataset(selected).build()
+            Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response)
+        }
     }
 
     private fun completeNativeSelection(
@@ -423,7 +433,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             finishCanceled()
             return
         }
-        val response = selectionResponse(record, domain) ?: run {
+        val result = selectionResult(record, domain) ?: run {
             finishCanceled()
             return
         }
@@ -436,7 +446,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                 clearNativeSelection()
                 setResult(
                     Activity.RESULT_OK,
-                    Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response),
+                    result,
                 )
                 finish()
             }

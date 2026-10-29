@@ -47,8 +47,10 @@ python3 tool/android-autofill-harness/exercise.py --serial emulator-5554 --mode 
 
 `--fill` checks the service's actual callback diagnosis, taps its inline keyboard
 chip, asserts that the real biometric prompt appears, sends an emulator fingerprint,
-and selects the returned dataset. Native forms additionally require the real
-picker and **Fill once** warning. The form checks both expected fields (or just the
+and selects the returned dataset on web/legacy flows. Native API31+ forms fill
+directly after the real picker and **Fill once** warning, without tapping a second
+system suggestion. Response inspection requires an ephemeral Dataset result for
+these native flows; web and older Android retain FillResponse inspection. The form checks both expected fields (or just the
 username for a first-step form) and exposes only `fillVerified=true/false`.
 The runner prints outcomes, never form values or cache contents. Temporary UI XML
 is removed after each read. The form has no INTERNET permission.
@@ -329,3 +331,14 @@ experimental probe was removed rather than becoming an alternative acceptance
 path. Full validation remains the unchanged 41-case validator; local API 35
 ARM64 evidence must identify its emulator version and clean source SHA, and must
 not be described as a successful Linux x86 run.
+
+### Native direct-handoff regressions
+
+On API31+, `--handoff-check repeat` clears synthetic fields without canceling the
+framework session, then requires a new biometric prompt and selection before
+filling again. `cancel-biometric`, `cancel-picker`, `cancel-confirmation` and
+`revoke` assert empty fields. The revoke scenario uses a receiver compiled only
+into this isolated debug provider to commit the real cache revocation while the
+confirmation remains foreground. It is absent from the production manifest.
+The authoritative matrix runs revoke last because it deliberately invalidates
+the synthetic cache. No scenario uses real credentials or logs field values.

@@ -172,6 +172,22 @@ class FormActivity : Activity() {
                     request(focusTarget)
                 }
             })
+            if (positive) {
+                layout.addView(Button(this).apply {
+                    text = "Clear fields"
+                    setOnClickListener {
+                        username.text.clear()
+                        password?.text?.clear()
+                        result.text = "fieldsUnchanged=" + (username.text.isEmpty() && (password == null || password.text.isEmpty()))
+                    }
+                })
+                layout.addView(Button(this).apply {
+                    text = "Verify empty"
+                    setOnClickListener {
+                        result.text = "fieldsUnchanged=" + (username.text.isEmpty() && (password == null || password.text.isEmpty()))
+                    }
+                })
+            }
             layout.addView(Button(this).apply {
                 text = "Verify fill"
                 setOnClickListener {

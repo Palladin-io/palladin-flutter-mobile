@@ -117,9 +117,16 @@ class MainActivity : Activity() {
  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
   super.onActivityResult(requestCode, resultCode, data)
   recordPhase("RESULT_STARTED")
-  val response = data?.getParcelableExtra<FillResponse>(AutofillManager.EXTRA_AUTHENTICATION_RESULT)
+  val result = data?.getParcelableExtra<android.os.Parcelable>(AutofillManager.EXTRA_AUTHENTICATION_RESULT)
+  val direct = Build.VERSION.SDK_INT >= 31 && intent.getStringExtra("inspectResponse")?.startsWith("native") == true
+  val response = result as? FillResponse
   @Suppress("UNCHECKED_CAST")
-  val datasets = response?.let { it.javaClass.getMethod("getDatasets").invoke(it) as List<Dataset> }.orEmpty()
+  val datasets = if (direct) listOfNotNull(result as? Dataset) else
+   response?.let { it.javaClass.getMethod("getDatasets").invoke(it) as List<Dataset> }.orEmpty()
+  val handoffVerified = if (direct) result is Dataset &&
+   data?.getBooleanExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET, false) == true &&
+   result.javaClass.getMethod("getAuthentication").invoke(result) == null
+  else result is FillResponse && !data!!.hasExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET)
   val dataset = datasets.singleOrNull()
   @Suppress("UNCHECKED_CAST")
   val ids = dataset?.let { it.javaClass.getMethod("getFieldIds").invoke(it) as List<AutofillId> }.orEmpty()
@@ -134,10 +141,10 @@ class MainActivity : Activity() {
     inlineContent.subtitle?.toString() == "fixture.invalid" &&
     inlineContent.startIcon != null && inlineContent.contentDescription?.contains("Synthetic fixture") == true
   } else inline == null
-  val verified = inlineVerified && requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
+  val verified = handoffVerified && inlineVerified && requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
    ids.size == expectedFields.size && values.size == ids.size && ids.toSet() == expectedFields.keys &&
    ids.zip(values).all { (id, value) -> value?.textValue?.toString() == expectedFields[id] }
-  val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && response == null
+  val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && result == null
   val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
    "responseRejected=$rejected"
   } else "responseVerified=$verified"
