@@ -38,3 +38,17 @@ class PresentationDriverChecks(unittest.TestCase):
             with self.assertRaises(subprocess.TimeoutExpired):
                 runpy.run_path(str(SCRIPT), run_name='__main__')
         self.assertEqual(output.call_count, 1)
+
+    def test_failed_marker_keeps_synthetic_failure_evidence_and_still_fails(self):
+        def output(command, **kwargs):
+            if 'uiautomator' in command:
+                return 'UI hierarchy dumped'
+            if 'cat' in command:
+                return b'<hierarchy><node text="Synthetic unexpected screen"/></hierarchy>'
+            return b'synthetic-png'
+
+        with patch.object(sys, 'argv', ['presentation.py', '--serial', 'emulator-5554']), patch.object(subprocess, 'run'), patch.object(subprocess, 'check_output', side_effect=output), patch('time.sleep'), patch.object(pathlib.Path, 'write_bytes') as capture:
+            with self.assertRaisesRegex(RuntimeError, 'Presentation assertions failed'):
+                runpy.run_path(str(SCRIPT), run_name='__main__')
+        self.assertEqual(capture.call_count, 2)
+        self.assertIn(b'synthetic-png', [call.args[0] for call in capture.call_args_list])

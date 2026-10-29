@@ -20,6 +20,7 @@ for language in ('en', 'pl'):
         subprocess.run(adb + ['shell', 'am', 'start', '-S', '-n', 'io.palladin.autofill.harness.provider/io.palladin.mobile.PresentationPreviewActivity', '--es', 'language', language, '--ez', 'night', night], check=True, stdout=subprocess.DEVNULL, timeout=30)
         expected = f'presentationVerified=true {language} night={night}'
         verified = False
+        last_raw = None
         for attempt in range(3):
             time.sleep(.5)
             try:
@@ -27,12 +28,17 @@ for language in ('en', 'pl'):
                 if 'null root node returned by UiTestAutomationBridge' in dump:
                     continue
                 raw = subprocess.check_output(adb + ['shell', 'cat', '/sdcard/palladin-synthetic-ui.xml'], timeout=5)
+                last_raw = raw
                 verified = any(n.get('text') == expected for n in ET.fromstring(raw).iter('node'))
             finally:
                 subprocess.run(adb + ['shell', 'rm', '-f', '/sdcard/palladin-synthetic-ui.xml'], check=True, timeout=5)
             if verified:
                 break
         if not verified:
+            if last_raw is not None:
+                (build / f'{language}-night-{night}-failed.xml').write_bytes(last_raw)
+            screenshot = subprocess.check_output(adb + ['exec-out', 'screencap', '-p'], timeout=15)
+            (build / f'{language}-night-{night}-failed.png').write_bytes(screenshot)
             raise RuntimeError(f'Presentation assertions failed for {language} night={night}')
         screenshot = subprocess.check_output(adb + ['exec-out', 'screencap', '-p'], timeout=15)
         (build / f'{language}-night-{night}.png').write_bytes(screenshot)
