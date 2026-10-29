@@ -28,7 +28,7 @@ class FormActivity : Activity() {
         val result = TextView(this)
         val evidence = TextView(this)
         val manager = getSystemService(AutofillManager::class.java)
-        val positive = mode in setOf("native-login", "native-username", "web-login", "web-username")
+        val positive = mode in setOf("native-login", "native-username", "native-username-hint", "native-login-opaque", "native-username-manual", "native-username-manual-verified", "web-login", "web-username")
         var requested = false
         var unavailable = false
         var shown = false
@@ -120,13 +120,23 @@ class FormActivity : Activity() {
                 setAutofillHints(View.AUTOFILL_HINT_USERNAME)
             }
             when (mode) {
+                "native-username-hint" -> {
+                    username.inputType = InputType.TYPE_CLASS_TEXT
+                    username.setAutofillHints(null)
+                    username.hint = "Adres e-mail lub login"
+                }
+                "native-username-manual", "native-username-manual-verified", "native-login-opaque" -> {
+                    username.inputType = InputType.TYPE_CLASS_TEXT
+                    username.setAutofillHints(null)
+                    username.hint = "識別子"
+                }
                 "native-search" -> { username.id = R.id.search; username.inputType = InputType.TYPE_CLASS_TEXT; username.setAutofillHints("search") }
                 "native-otp" -> { username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints("smsOTPCode") }
                 "native-confirm" -> { username.id = R.id.confirm_password; username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints(View.AUTOFILL_HINT_PASSWORD) }
                 "native-hidden" -> username.visibility = View.INVISIBLE
                 "native-disabled" -> username.isEnabled = false
             }
-            val password = if (mode == "native-login") EditText(this).apply {
+            val password = if (mode in setOf("native-login", "native-login-opaque")) EditText(this).apply {
                 id = View.generateViewId()
                 hint = "Synthetic password"
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD

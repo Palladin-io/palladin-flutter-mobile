@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--serial', required=True)
-parser.add_argument('--mode', choices=['native-login', 'native-username', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container'], required=True)
+parser.add_argument('--mode', choices=['native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'], required=True)
 parser.add_argument('--expected', choices=['RESPONSE_OFFERED', 'REJECTED', 'NO_RESPONSE'], default='RESPONSE_OFFERED')
 parser.add_argument('--fill', action='store_true')
 parser.add_argument('--inspect-response', action='store_true')
@@ -152,7 +152,12 @@ def authenticate():
     command('emu', 'finger', 'remove')
     if args.mode.startswith('native'):
         assert tap_text('Synthetic fixture'), 'Authenticated native picker missing'
-        assert tap_text('Fill once'), 'Explicit manual warning missing'
+        if args.mode == 'native-username-manual-cancel':
+            assert tap_text('^Cancel$'), 'Explicit cancellation missing'
+        elif 'manual' in args.mode:
+            assert tap_text('^Fill username once$'), 'Explicit username-only confirmation missing'
+        else:
+            assert tap_text('Fill once'), 'Explicit manual warning missing'
 
 
 def framework_snapshot(diagnosis):
@@ -225,23 +230,23 @@ def record_failure():
 
 
 try:
-    command('shell', 'pm', 'set-app-links', '--package', form, '2' if args.mode.startswith('web') else '0', 'fixture.invalid')
+    command('shell', 'pm', 'set-app-links', '--package', form, '2' if args.mode.startswith('web') or args.mode == 'native-username-manual-verified' else '0', 'fixture.invalid')
     command('shell', 'am', 'force-stop', form)
     command('shell', 'am', 'force-stop', provider)
     if args.inspect_response:
-        if args.mode not in ('native-login', 'native-username', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty'):
+        if args.mode not in ('native-login', 'native-username', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'native-username-manual', 'native-username-manual-verified', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'):
             raise RuntimeError('Response inspection uses the four credential fixtures')
         prior_policy = command('shell', 'settings', 'get', 'global', 'hidden_api_policy').strip()
         try:
             command('shell', 'settings', 'put', 'global', 'hidden_api_policy', '1')
             command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode)
-            if args.mode in ('web-http', 'web-missing'):
+            if args.mode in ('web-http', 'web-missing', 'native-username-manual-password', 'web-username-manual'):
                 wait_for(lambda tree: any(n.get('text') == 'responseRejected=true' for n in tree),
                          'Invalid scheme rejection result not observed')
                 print(args.mode + ': no authentication result PASS')
             else:
                 authenticate()
-                expected_result = 'responseRejected=true' if args.mode.endswith('empty') else 'responseVerified=true'
+                expected_result = 'responseRejected=true' if args.mode.endswith(('empty', 'cancel')) else 'responseVerified=true'
                 wait_for(lambda tree: any(n.get('text') == expected_result for n in tree),
                          'Actual FillResponse field ID/value assertions failed')
                 print(args.mode + ': actual FillResponse dataset assertions PASS')
@@ -253,9 +258,9 @@ try:
 
     else:
         command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode)
-        positive = args.mode in ('native-login', 'native-username', 'web-login', 'web-username')
+        positive = args.mode in ('native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username')
         focus_field(required=positive)
-        if not positive:
+        if not positive or args.mode in ('native-username-manual', 'native-username-manual-verified'):
             if args.mode.startswith('web'):
                 wait_for(lambda tree: any(node.get('package') == form and 'domReady=true' in node.get('text', '').split() for node in tree),
                          'Web fixture DOM did not become ready')

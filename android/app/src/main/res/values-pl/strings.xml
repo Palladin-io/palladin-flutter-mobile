@@ -16,4 +16,7 @@
     <string name="autofill_manual_confirm_message">Palladin nie mógł zweryfikować witryny tej aplikacji.\n\nAplikacja: %1$s\nDomena wpisu: %2$s\n\nKontynuuj tylko, jeśli ufasz tej aplikacji. Ten wybór nie zostanie zapamiętany.</string>
     <string name="autofill_fill_once">Uzupełnij raz</string>
     <string name="autofill_save_unavailable">To żądanie zapisu nie jest już dostępne.</string>
+    <string name="autofill_username_confirm_title">Uzupełnić tylko login?</string>
+    <string name="autofill_username_confirm_message">Palladin nie rozpoznał tego pola. Potwierdź, że jest to pole logowania. Uzupełniony zostanie tylko login, nigdy hasło.\n\nAplikacja: %1$s\nDomena wpisu: %2$s</string>
+    <string name="autofill_fill_username_once">Uzupełnij login raz</string>
 </resources>

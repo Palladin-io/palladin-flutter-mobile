@@ -47,11 +47,18 @@ class MainActivity : Activity() {
   val usernameId = EditText(this).autofillId
   val passwordId = EditText(this).autofillId
   val usernames = if (mode.endsWith("empty")) arrayListOf() else arrayListOf(usernameId)
-  val passwords = if (mode.endsWith("login")) arrayListOf(passwordId) else arrayListOf()
+  val passwords = if (mode.endsWith("login") || mode == "native-username-manual-password") arrayListOf(passwordId) else arrayListOf()
   expectedFields = usernames.associateWith { "synthetic-user" } +
    passwords.associateWith { "synthetic-only-not-secret" }
   startActivityForResult(Intent(this, AutofillAuthenticationActivity::class.java).apply {
-   putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, if (mode.startsWith("web")) "WEB" else "MANUAL_NATIVE")
+   putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, when {
+    mode.startsWith("web") -> "WEB"
+    mode == "native-username-manual-verified" -> "VERIFIED_NATIVE"
+    else -> "MANUAL_NATIVE"
+   })
+   putExtra(AutofillAuthenticationActivity.EXTRA_USERNAME_CONFIRMATION, mode.contains("manual"))
+   if (mode == "native-username-manual-verified") putStringArrayListExtra(
+    AutofillAuthenticationActivity.EXTRA_NATIVE_DOMAINS, arrayListOf("fixture.invalid"))
    if (mode.startsWith("web")) {
     putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, "fixture.invalid")
     if (mode != "web-missing") putExtra(
@@ -79,7 +86,7 @@ class MainActivity : Activity() {
    ids.size == expectedFields.size && values.size == ids.size && ids.toSet() == expectedFields.keys &&
    ids.zip(values).all { (id, value) -> value?.textValue?.toString() == expectedFields[id] }
   val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && response == null
-  val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty")) {
+  val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
    "responseRejected=$rejected"
   } else "responseVerified=$verified"
   setContentView(TextView(this).apply { text = status; textSize = 22f })

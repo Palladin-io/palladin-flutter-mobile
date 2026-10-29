@@ -14,6 +14,237 @@ import org.mockito.Mockito.`when`
 
 class CredentialFieldIdsTest {
     @Test
+    fun explicitManualRequestCanSelectOnlyFocusedUnknownNativeUsername() {
+        val field = node(inputType = InputType.TYPE_CLASS_TEXT)
+        `when`(field.isFocused).thenReturn(true)
+        `when`(field.hint).thenReturn("識別子")
+        assertEquals(emptyList<AutofillId>(), parse(field).allIds)
+        val manual = PalladinAutofillService.CredentialFieldIds.from(structure(field), manualRequest = true)
+        assertEquals(listOf(field.autofillId), manual.usernameIds)
+        assertEquals(true, manual.requiresUsernameConfirmation)
+        assertEquals(emptyList<AutofillId>(), manual.passwordIds)
+    }
+
+    @Test
+    fun manualRequestCannotRecoverRejectedAmbiguousOrWebFields() {
+        val excluded = listOf(
+            node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = "search"),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("smsOTPCode")),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("confirmPassword")),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("newPassword")),
+            node(inputType = InputType.TYPE_CLASS_TEXT, html = mapOf("type" to "text")),
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.webDomain).thenReturn("fixture.invalid") },
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.isEnabled).thenReturn(false) },
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.visibility).thenReturn(View.GONE) },
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE) },
+        )
+        for (field in excluded) {
+            `when`(field.isFocused).thenReturn(true)
+            assertEquals(false, PalladinAutofillService.CredentialFieldIds.from(
+                structure(field), manualRequest = true).requiresUsernameConfirmation)
+        }
+        val first = node(inputType = InputType.TYPE_CLASS_TEXT)
+        val second = node(inputType = InputType.TYPE_CLASS_TEXT)
+        assertEquals(emptyList<AutofillId>(), PalladinAutofillService.CredentialFieldIds.from(
+            structure(first), manualRequest = true).allIds)
+        `when`(first.isFocused).thenReturn(true)
+        `when`(second.isFocused).thenReturn(true)
+        assertEquals(emptyList<AutofillId>(), PalladinAutofillService.CredentialFieldIds.from(
+            structure(first, second), manualRequest = true).allIds)
+    }
+
+    @Test
+    fun manualUnknownDoesNotRecoverAnExcludedCredentialThroughAnotherField() {
+        val probe = node(inputType = InputType.TYPE_CLASS_TEXT)
+        `when`(probe.isFocused).thenReturn(true)
+        for (excluded in listOf(
+            node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME)).also { `when`(it.visibility).thenReturn(View.GONE) },
+            node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME)).also { `when`(it.isEnabled).thenReturn(false) },
+            node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME)).also { `when`(it.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE) },
+        )) {
+            assertEquals(emptyList<AutofillId>(), PalladinAutofillService.CredentialFieldIds.from(
+                structure(probe, excluded), manualRequest = true).allIds)
+        }
+        val hiddenParent = node().also { `when`(it.visibility).thenReturn(View.GONE) }
+        val child = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(hiddenParent.childCount).thenReturn(1)
+        `when`(hiddenParent.getChildAt(0)).thenReturn(child)
+        assertEquals(emptyList<AutofillId>(), PalladinAutofillService.CredentialFieldIds.from(
+            structure(probe, hiddenParent), manualRequest = true).allIds)
+    }
+
+    @Test
+    fun sameParentPasswordStructureRecognizesOpaqueUsernameWithoutLabels() {
+        val username = node(inputType = InputType.TYPE_CLASS_TEXT)
+        `when`(username.hint).thenReturn("利用者")
+        val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val fields = parse(username, password)
+        assertEquals(listOf(username.autofillId), fields.usernameIds)
+        assertEquals(listOf(password.autofillId), fields.passwordIds)
+    }
+
+    @Test
+    fun structuralInferenceDoesNotCrossParentsOrIgnoreConflictingThirdField() {
+        val username = node(inputType = InputType.TYPE_CLASS_TEXT)
+        val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val third = node(inputType = InputType.TYPE_CLASS_TEXT)
+        assertEquals(emptyList<AutofillId>(), parse(username, password, third).usernameIds)
+        val otp = node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("smsOTPCode"))
+        assertEquals(emptyList<AutofillId>(), parse(username, password, otp).usernameIds)
+        val parent = node()
+        `when`(parent.childCount).thenReturn(1)
+        `when`(parent.getChildAt(0)).thenReturn(password)
+        assertEquals(emptyList<AutofillId>(), parse(username, parent).usernameIds)
+        for (role in listOf("newPassword", "confirmPassword")) {
+            val other = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                hints = arrayOf(role))
+            assertEquals(emptyList<AutofillId>(), parse(username, other).usernameIds)
+        }
+    }
+
+    @Test
+    fun structuralInferenceRejectsAdditionalNumericAndSeparatePasswordTargets() {
+        val username = node(inputType = InputType.TYPE_CLASS_TEXT)
+        val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        for (inputType in listOf(InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE)) {
+            val extra = node(inputType = inputType)
+            assertEquals(emptyList<AutofillId>(), parse(username, password, extra).usernameIds)
+        }
+        val parent = node()
+        val otherPassword = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        `when`(parent.childCount).thenReturn(1)
+        `when`(parent.getChildAt(0)).thenReturn(otherPassword)
+        assertEquals(emptyList<AutofillId>(), parse(username, password, parent).usernameIds)
+    }
+
+    @Test
+    fun structuralUsernameCandidateMustBeTextEvenWhenItIsTheOnlyUnknownField() {
+        val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        for (inputType in listOf(InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE,
+            InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD)) {
+            val candidate = node(inputType = inputType)
+            assertEquals(emptyList<AutofillId>(), parse(candidate, password).usernameIds)
+            `when`(candidate.isFocused).thenReturn(true)
+            assertEquals(emptyList<AutofillId>(), PalladinAutofillService.CredentialFieldIds.from(
+                structure(candidate), manualRequest = true).allIds)
+        }
+    }
+
+    @Test
+    fun rejectedPurposeCannotFallThroughToStructuralInference() {
+        val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        for (purpose in listOf("newsletter", "search", "otp", "confirm")) {
+            val candidate = node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = purpose)
+            assertEquals(purpose, emptyList<AutofillId>(), parse(candidate, password).usernameIds)
+        }
+    }
+
+    @Test
+    fun nativeEmailTypeRejectsExplicitNonUsernameHintsBeforeWeakInference() {
+        for (purpose in listOf("search", "newsletter")) {
+            val field = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+                hints = arrayOf(purpose))
+            assertEquals(purpose, emptyList<AutofillId>(), parse(field).allIds)
+            `when`(field.hint).thenReturn("Username")
+            assertEquals(purpose, emptyList<AutofillId>(), parse(field).allIds)
+        }
+        val unknown = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+            hints = arrayOf("customNeutralHint"))
+        assertEquals(listOf(unknown.autofillId), parse(unknown).usernameIds)
+    }
+
+    @Test
+    fun nativeCompleteUsernameLabelsSupportBothLanguagesAndAlternatives() {
+        for (label in listOf("Username", "Username: *", "userName", "user_id", "Login", "Nazwa użytkownika",
+            "Wpisz swój login", "Enter your username:", "email or username", "Login / e-mail",
+            "Adres e-mail lub login", "username albo adres email")) {
+            val field = node(inputType = InputType.TYPE_CLASS_TEXT)
+            `when`(field.hint).thenReturn(label)
+            assertEquals(label, listOf(field.autofillId), parse(field).usernameIds)
+        }
+    }
+
+    @Test
+    fun nativeEmailTypeAndSemanticUsernameCannotOverrideConflictingPurpose() {
+        for (label in listOf("newsletter", "subscribe", "Search", "usernameSearch", "loginCode",
+            "confirm login", "new password", "kod weryfikacyjny")) {
+            for (semantic in listOf(emptyArray<String>(), arrayOf(View.AUTOFILL_HINT_USERNAME))) {
+                val field = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+                    idEntry = label, hints = semantic)
+                `when`(field.hint).thenReturn("Username")
+                assertEquals(label, emptyList<AutofillId>(), parse(field).allIds)
+                val hintConflict = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+                `when`(hintConflict.hint).thenReturn(label)
+                assertEquals(label, emptyList<AutofillId>(), parse(hintConflict).allIds)
+            }
+        }
+    }
+
+    @Test
+    fun nativeEmailTypeAndExplicitUsernameStillWorkWithoutConflicts() {
+        val email = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+        val explicit = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        assertEquals(listOf(email.autofillId), parse(email).usernameIds)
+        assertEquals(listOf(explicit.autofillId), parse(explicit).usernameIds)
+    }
+
+    @Test
+    fun nativeFallbackRequiresOneUnambiguousCandidateWithoutExplicitUsername() {
+        val first = node(inputType = InputType.TYPE_CLASS_TEXT)
+        val second = node(inputType = InputType.TYPE_CLASS_TEXT)
+        `when`(first.hint).thenReturn("Login")
+        `when`(second.hint).thenReturn("Username")
+        assertEquals(emptyList<AutofillId>(), parse(first, second).allIds)
+        val explicit = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        assertEquals(listOf(explicit.autofillId), parse(first, explicit).usernameIds)
+    }
+
+    @Test
+    fun exactNativeLoginPlaceholderProducesUsernameOnlyTargets() {
+        val username = node(inputType = InputType.TYPE_CLASS_TEXT)
+        `when`(username.hint).thenReturn("Adres e-mail lub login")
+        `when`(username.isFocused).thenReturn(true)
+        val fields = parse(username)
+        assertEquals(listOf(username.autofillId), fields.usernameIds)
+        assertEquals(listOf(username.autofillId), fields.allIds)
+        assertEquals(emptyList<AutofillId>(), fields.passwordIds)
+    }
+
+    @Test
+    fun ordinaryEmailAndNonexactPlaceholdersRemainUnclassified() {
+        for (placeholder in listOf("Email", "Adres e-mail", "Newsletter", "Search", "Adres e-mail lub login newsletter", "notusername", "phone", "email or phone", "Login " + "x".repeat(256))) {
+            val field = node(inputType = InputType.TYPE_CLASS_TEXT)
+            `when`(field.hint).thenReturn(placeholder)
+            assertEquals(placeholder, emptyList<AutofillId>(), parse(field).allIds)
+        }
+    }
+
+    @Test
+    fun nativeLoginPlaceholderDoesNotOverrideExclusionsOrWebSemantics() {
+        val excluded = listOf(
+            node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = "search"),
+            node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = "Search"),
+            node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = "newsletter"),
+            node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = "otp"),
+            node(inputType = InputType.TYPE_CLASS_TEXT, idEntry = "confirm"),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("search")),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("newsletter")),
+            node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_FILTER),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("emailOTPCode")),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("confirmPassword")),
+            node(inputType = InputType.TYPE_CLASS_NUMBER),
+            node(inputType = InputType.TYPE_CLASS_TEXT, html = mapOf("type" to "text")),
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.isEnabled).thenReturn(false) },
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.visibility).thenReturn(View.GONE) },
+            node(inputType = InputType.TYPE_CLASS_TEXT).also { `when`(it.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE) },
+        )
+        for (field in excluded) {
+            `when`(field.hint).thenReturn("Adres e-mail lub login")
+            assertEquals(emptyList<AutofillId>(), parse(field).allIds)
+        }
+    }
+
+    @Test
     fun htmlPasswordWithoutAndroidInputTypeIsRecognized() {
         val password = node(html = mapOf("type" to "password"))
         assertEquals(listOf(password.autofillId), parse(password).passwordIds)
@@ -402,6 +633,7 @@ class CredentialFieldIdsTest {
         `when`(node.autofillHints).thenReturn(hints)
         `when`(node.autofillType).thenReturn(View.AUTOFILL_TYPE_TEXT)
         `when`(node.isEnabled).thenReturn(true)
+        `when`(node.isFocusable).thenReturn(true)
         `when`(node.visibility).thenReturn(View.VISIBLE)
         if (html != null) {
             val info = mock(ViewStructure.HtmlInfo::class.java)

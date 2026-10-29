@@ -60,7 +60,11 @@ try:
     positive = ('native-login', 'native-username', 'web-login', 'web-username')
     negative = ('native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'web-http')
     cases = [(mode, '--inspect-response') for mode in (*positive, 'web-empty', 'native-empty', 'web-http', 'web-missing')]
-    cases += [(mode, '--fill') for mode in positive]
+    cases += [(mode, '--inspect-response') for mode in (
+        'native-username-manual', 'native-username-manual-verified',
+        'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel')]
+    cases += [(mode, '--fill') for mode in (*positive, 'native-username-hint',
+        'native-login-opaque', 'native-username-manual', 'native-username-manual-verified')]
     cases += [(mode, '--expected', 'NO_RESPONSE' if mode == 'web-http' else 'REJECTED') for mode in negative]
     for case in cases:
         if android('shell', 'settings', 'get', 'global', 'hidden_api_policy') != prior_hidden_policy:

@@ -61,7 +61,9 @@ class PalladinAutofillService : AutofillService() {
         }
 
         val saveRequestId = AutofillSaveCoordinator.prepare(this, structure)
-        val fields = CredentialFieldIds.from(structure)
+        val fields = CredentialFieldIds.from(
+            structure, manualRequest = request.flags and FillRequest.FLAG_MANUAL_REQUEST != 0,
+        )
         val domains = CredentialFieldIds.domainsFrom(structure)
         val schemes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             CredentialFieldIds.schemesFrom(structure)
@@ -104,6 +106,7 @@ class PalladinAutofillService : AutofillService() {
             }
         if ((fields.passwordIds.isEmpty() && fields.usernameIds.isEmpty() && !generate) ||
             origin == null ||
+            (fields.requiresUsernameConfirmation && origin.mode == AutofillOriginMode.WEB) ||
             (!generate && !cacheStore.hasCache().also {
                 lastRequest = lastRequest.copy(cache = availability(it))
             })
@@ -125,6 +128,7 @@ class PalladinAutofillService : AutofillService() {
                 if (origin.requiresSelection) ArrayList(origin.domains) else null,
             )
             putExtra(AutofillAuthenticationActivity.EXTRA_GENERATE, generate)
+            putExtra(AutofillAuthenticationActivity.EXTRA_USERNAME_CONFIRMATION, fields.requiresUsernameConfirmation)
             putExtra(
                 AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME,
                 requestingPackage,
@@ -208,28 +212,71 @@ class PalladinAutofillService : AutofillService() {
         val newPasswordIds: List<AutofillId>,
         val currentPasswordIds: List<AutofillId>,
         val confirmationIds: List<AutofillId>,
+        val requiresUsernameConfirmation: Boolean = false,
     ) {
         val allIds: List<AutofillId> = (usernameIds + passwordIds + newPasswordIds).distinct()
 
         companion object {
-            fun from(structure: AssistStructure): CredentialFieldIds {
-                val usernames = mutableListOf<AutofillId>()
-                val passwords = mutableListOf<AutofillId>()
-                val newPasswords = mutableListOf<AutofillId>()
-                val currentPasswords = mutableListOf<AutofillId>()
-                val confirmations = mutableListOf<AutofillId>()
+            private enum class Role { USERNAME, PASSWORD, CURRENT_PASSWORD, NEW_PASSWORD, CONFIRMATION }
+            private sealed interface Decision {
+                data class Matched(val role: Role) : Decision
+                data object Unknown : Decision
+                data object Rejected : Decision
+            }
+            private data class Candidate(
+                val node: AssistStructure.ViewNode,
+                val parent: AssistStructure.ViewNode?,
+                val decision: Decision,
+            )
 
+            fun from(structure: AssistStructure, manualRequest: Boolean = false): CredentialFieldIds {
+                val candidates = mutableListOf<Candidate>()
                 for (index in 0 until structure.windowNodeCount) {
-                    collect(
-                        structure.getWindowNodeAt(index).rootViewNode,
-                        usernames,
-                        passwords,
-                        newPasswords,
-                        currentPasswords,
-                        confirmations,
-                    )
+                    collect(structure.getWindowNodeAt(index).rootViewNode, null, candidates)
                 }
-                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords, confirmations)
+                fun ids(vararg roles: Role) = candidates.filter {
+                    (it.decision as? Decision.Matched)?.role in roles
+                }.mapNotNull { it.node.autofillId }
+                val usernames = ids(Role.USERNAME).toMutableList()
+                val passwords = ids(Role.PASSWORD, Role.CURRENT_PASSWORD)
+                val newPasswords = ids(Role.NEW_PASSWORD)
+                val currentPasswords = ids(Role.CURRENT_PASSWORD)
+                val confirmations = candidates.filter {
+                    it.decision != Decision.Rejected && it.node.isPasswordConfirmation()
+                }.mapNotNull { it.node.autofillId }
+                if (usernames.isEmpty() && passwords.size == 1 && newPasswords.isEmpty() && confirmations.isEmpty()) {
+                    val structural = candidates.filter { it.node.isNativeEditable() }
+                        .groupBy { it.parent }.values.mapNotNull { group ->
+                            if (group.size != 2 || group.count {
+                                (it.decision as? Decision.Matched)?.role in setOf(Role.PASSWORD, Role.CURRENT_PASSWORD)
+                            } != 1) null else group.singleOrNull {
+                                it.decision == Decision.Unknown && it.node.isNativeEditableText()
+                            }
+                        }
+                    if (structural.size == 1) usernames += structural.single().node.autofillId!!
+                }
+                if (usernames.isEmpty()) {
+                    val labeled = candidates.filter {
+                        it.decision == Decision.Unknown && it.node.hasNativeUsernameLabel()
+                    }
+                    if (labeled.size == 1) usernames += labeled.single().node.autofillId!!
+                }
+                var requiresUsernameConfirmation = false
+                if (manualRequest && usernames.isEmpty() && passwords.isEmpty() &&
+                    newPasswords.isEmpty() && confirmations.isEmpty() && domainsFrom(structure).isEmpty() &&
+                    candidates.none { it.decision == Decision.Rejected && it.node.hasCredentialMetadata() }
+                ) {
+                    val focused = candidates.filter { it.node.isFocused }
+                    val candidate = focused.singleOrNull()?.takeIf {
+                        it.decision == Decision.Unknown && it.node.isNativeEditableText()
+                    }
+                    if (candidate != null) {
+                        usernames += candidate.node.autofillId!!
+                        requiresUsernameConfirmation = true
+                    }
+                }
+                return CredentialFieldIds(usernames, passwords, newPasswords, currentPasswords,
+                    confirmations, requiresUsernameConfirmation)
             }
 
             fun domainsFrom(structure: AssistStructure): Set<String> {
@@ -263,36 +310,44 @@ class PalladinAutofillService : AutofillService() {
 
             private fun collect(
                 node: AssistStructure.ViewNode,
-                usernames: MutableList<AutofillId>,
-                passwords: MutableList<AutofillId>,
-                newPasswords: MutableList<AutofillId>,
-                currentPasswords: MutableList<AutofillId>,
-                confirmations: MutableList<AutofillId>,
+                parent: AssistStructure.ViewNode?,
+                candidates: MutableList<Candidate>,
+                ancestorsVisible: Boolean = true,
             ) {
-                if (node.visibility != View.VISIBLE) return
-                val id = node.autofillId
-                if (id != null && node.isEnabled && node.isCredentialTarget()) {
-                    val oneTimeCode = node.hasHint("one-time-code") || node.hasHint("smsOTPCode") ||
-                        node.hasHint("2faAppOTPCode") || node.hasHint("emailOTPCode")
-                    if (!oneTimeCode && node.isPasswordConfirmation()) confirmations += id
-                    when {
-                        oneTimeCode -> Unit
-                        node.hasHint(NEW_PASSWORD_HINT) || node.hasHint(WEB_NEW_PASSWORD_HINT) ->
-                            newPasswords += id
-                        node.isPasswordConfirmation() -> Unit
-                        node.hasHint(View.AUTOFILL_HINT_PASSWORD) ||
-                            node.hasHint(WEB_CURRENT_PASSWORD_HINT) -> {
-                            passwords += id
-                            currentPasswords += id
-                        }
-                        node.isPasswordField() -> passwords += id
-                        node.isUsernameField() -> usernames += id
-                    }
-                }
-                for (index in 0 until node.childCount) {
-                    collect(node.getChildAt(index), usernames, passwords, newPasswords, currentPasswords, confirmations)
-                }
+                val visible = ancestorsVisible && node.visibility == View.VISIBLE
+                candidates += Candidate(node, parent, if (visible) node.classify() else Decision.Rejected)
+                for (index in 0 until node.childCount) collect(node.getChildAt(index), node, candidates, visible)
             }
+
+            private fun AssistStructure.ViewNode.hasCredentialMetadata(): Boolean =
+                !autofillHints.isNullOrEmpty() || isPasswordField() || isUsernameField() || hasNativeUsernameLabel()
+
+            private fun AssistStructure.ViewNode.classify(): Decision {
+                if (autofillId == null || !isEnabled || !isCredentialTarget()) return Decision.Rejected
+                if (hasHint("one-time-code") || hasHint("smsOTPCode") ||
+                    hasHint("2faAppOTPCode") || hasHint("emailOTPCode")
+                ) return Decision.Rejected
+                if (hasHint(NEW_PASSWORD_HINT) || hasHint(WEB_NEW_PASSWORD_HINT)) {
+                    return Decision.Matched(Role.NEW_PASSWORD)
+                }
+                if (isPasswordConfirmation()) return Decision.Matched(Role.CONFIRMATION)
+                if (hasHint(View.AUTOFILL_HINT_PASSWORD) || hasHint(WEB_CURRENT_PASSWORD_HINT)) {
+                    return Decision.Matched(Role.CURRENT_PASSWORD)
+                }
+                if (isPasswordField()) return Decision.Matched(Role.PASSWORD)
+                if (htmlInfo == null && nativeUsernamePurposeConflict()) return Decision.Rejected
+                if (isUsernameField()) return Decision.Matched(Role.USERNAME)
+                if (!autofillHints.isNullOrEmpty()) return Decision.Rejected
+                return Decision.Unknown
+            }
+
+            private fun AssistStructure.ViewNode.isNativeEditable(): Boolean =
+                htmlInfo == null && autofillId != null && visibility == View.VISIBLE && isEnabled &&
+                    isFocusable && autofillType == View.AUTOFILL_TYPE_TEXT &&
+                    (inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_NULL
+
+            private fun AssistStructure.ViewNode.isNativeEditableText(): Boolean =
+                isNativeEditable() && (inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT
 
             private fun collectDomains(
                 node: AssistStructure.ViewNode,
@@ -369,6 +424,47 @@ class PalladinAutofillService : AutofillService() {
                     else -> false
                 }
             }
+
+            private fun AssistStructure.ViewNode.nativeUsernameLabels(): List<String> =
+                (listOfNotNull(idEntry, hint) + autofillHints.orEmpty()).filter { it.length <= 256 }.map { label ->
+                    label.trim().replace(Regex("([a-z])([A-Z])"), "$1 $2")
+                        .lowercase(java.util.Locale.ROOT).replace(Regex("[_-]+"), " ")
+                        .replace(Regex("\\s+"), " ").replace(Regex("\\s*:\\s*\\*?$|\\s*\\*$"), "").trim()
+                        .replace(Regex("^(enter|type|wpisz|podaj) (?:(your|swój|swoj) )?"), "")
+                }
+
+            private fun AssistStructure.ViewNode.nativeUsernamePurposeConflict(): Boolean =
+                listOfNotNull(idEntry, hint).any { it.length > 256 } || nativeUsernameLabels().any { label ->
+                    label.split(Regex("[^\\p{L}\\p{N}]+"))
+                        .any { it in NON_USERNAME_WORDS }
+                }
+
+            private fun AssistStructure.ViewNode.hasNativeUsernameLabel(): Boolean {
+                if (htmlInfo != null || !autofillHints.isNullOrEmpty() ||
+                    (inputType and InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT ||
+                    nativeUsernamePurposeConflict()
+                ) return false
+                return nativeUsernameLabels().any { label ->
+                    if (label in STRONG_USERNAME_LABELS) true else {
+                        val alternatives = label.split(Regex("\\s+(?:or|lub|albo)\\s+|\\s*/\\s*"))
+                        alternatives.size == 2 && (
+                            alternatives[0] in STRONG_USERNAME_LABELS && alternatives[1] in EMAIL_LABELS ||
+                                alternatives[1] in STRONG_USERNAME_LABELS && alternatives[0] in EMAIL_LABELS
+                            )
+                    }
+                }
+            }
+
+            private val STRONG_USERNAME_LABELS = setOf(
+                "username", "user name", "user id", "login", "nazwa użytkownika", "nazwa uzytkownika",
+            )
+            private val EMAIL_LABELS = setOf("email", "e mail", "email address", "adres email", "adres e mail")
+            private val NON_USERNAME_WORDS = setOf(
+                "search", "szukaj", "wyszukaj", "newsletter", "subscribe", "subscription",
+                "otp", "code", "kod", "pin", "confirm", "confirmation", "repeat",
+                "potwierdź", "potwierdz", "powtórz", "powtorz", "password", "hasło", "haslo",
+                "new", "nowy", "nowa",
+            )
 
             private fun AssistStructure.ViewNode.hasHint(expected: String): Boolean =
                 autofillHints.orEmpty().any { it.equals(expected, ignoreCase = true) } ||

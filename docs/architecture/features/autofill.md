@@ -62,6 +62,57 @@
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
+## Generic native field recognition
+
+`CredentialFieldIds` uses a finite `Matched(role)` / `Unknown` / `Rejected`
+sequence, without package-specific branches. Platform roles take precedence over
+structural and complete-label fallbacks; rejected eligibility or purpose never
+falls through. Structural inference requires one current-password target, one
+unknown editable **text** field under the same direct parent and no other editable
+field or registration role. Numeric, phone and masked-PIN fields count toward
+ambiguity but cannot become inferred usernames.
+
+Complete native labels are an auxiliary finite EN/PL fallback, not universal
+language recognition. Their normalization follows the pinned extension
+[complete-label rules](https://github.com/Palladin-io/palladin-browser-extension/blob/b992d0ea64d9727078619999f682d3cfff650c33/src/content/isolated/control-labels.ts):
+bounded own metadata, whole labels and one unambiguous candidate; no arbitrary
+substring or nearby-label scan. Unknown languages and absent OS callbacks remain
+limitations. API34 typed datasets require separate runtime evidence and are not
+part of this implementation.
+
+A manually requested native form with one focused unknown text target and no
+recognized credential, registration or excluded credential targets can enter a
+separate username-only path. WEB/browser requests are excluded. The manual flag
+is not proof of human intent: app code can request Autofill. After biometrics,
+the provider therefore requires its own username-only confirmation even for an
+OS-verified native app. That one-shot choice binds the original username ID,
+Entry, exact domain and requesting package. Final origin, generation, lease and
+revocation checks remain mandatory. Passwords are stripped before retaining
+chooser records and never included in this path's dataset or Intent. Opening the
+existing aggregate encrypted cache necessarily creates temporary password strings;
+this change does not introduce selective decryption or a new cache format.
+
+Regression provenance: Allegro is user-confirmed working and is not patched.
+Binance remains blocked on a physical trace; no guessed fixture is provided.
+iFirma's test is **synthetic metadata, not a captured AssistStructure**: static
+inspection of version 3.1.16 (5094), package `pl.ifirma.ifirmafaktury`, found
+“Adres e-mail lub login” in its Hermes bundle and the React Native path
+`ReactTextInputManager.setPlaceholder` → `ReactEditText.setPlaceholder` →
+`TextView.setHint`. [Android TextView](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/widget/TextView.java)
+copies hints into `onProvideStructure`. This proves the metadata channel, not the
+live form's props, types, origin or callback. The native harness covers this
+plain-text/no-autofill-hint case, opaque labels next to a password, explicit
+username-only confirmation for verified/unverified native sources, cancellation
+and rejected WEB/password targets. Real iFirma compatibility remains unverified.
+
+The inspected APK SHA-256 is
+`8ee4e3b13437f7930759f093e329bc8e746a7c234411662e46db7c17e7a94715`;
+its signer SHA-256
+`ea5d01274bd745e47af9784222c755cc319a6a3f72e8137417b540324797b07e`
+was verified against first-party [asset links](https://www.ifirma.pl/.well-known/assetlinks.json).
+Public download metadata: `https://d.apkpure.net/b/XAPK/pl.ifirma.ifirmafaktury?version=latest`.
+No APK is redistributed.
+
 ## iOS service matching
 
 Credential lists, QuickType identity selection and the final handoff validate
@@ -342,8 +393,13 @@ field on the username step.
 The parser reads Android autofill hints/input variations and HTML `input`
 `autocomplete` tokens and `type`. Explicit username identifiers (`username`,
 `user_name`, `email`, `email_address`, `login`) are supported as native text-field
-resource names or HTML text-input `name`/`id`. It does not guess that an arbitrary
-text field, search field or preceding sibling is a username. `new-password`
+resource names or HTML text-input `name`/`id`. Native structural inference is
+limited to one current-password target and one otherwise unknown editable text
+field under the same direct parent, without extra editable fields or registration
+roles. A finite complete-label fallback is auxiliary; it does not use arbitrary
+substrings. An unknown focused native text field can be selected only through the
+separate manually requested, provider-confirmed username-only path above. Search,
+OTP and other terminally rejected targets cannot enter these fallbacks. `new-password`
 remains a generation-only target; explicit OTP hints take precedence over a masked
 password input type so an account password cannot be sent to an OTP field.
 Only enabled, visible text-autofill targets are eligible; invisible ancestors
