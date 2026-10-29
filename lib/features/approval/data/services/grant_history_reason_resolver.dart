@@ -19,25 +19,68 @@ import '../models/encrypted_reason_model.dart';
 import 'encrypted_reason_crypto_service.dart';
 
 /// Zero-knowledge implementation backed by the authenticated Vault protocol.
-final class LocalGrantReasonResolver implements GrantReasonResolver {
+final class LocalGrantReasonResolver extends GrantReasonResolver {
   LocalGrantReasonResolver({
     required VaultRemoteDatasource vaults,
     required VaultRotationCryptoService keys,
     required AgentDiscoveryRemote discovery,
     EncryptedReasonCrypto? reasonCrypto,
     Future<String> Function(Uint8List privateKey)? messageKeyFingerprint,
-  }) : _vaults = vaults,
+  }) : _readVault = vaults.getEncryptedVault,
        _keys = keys,
-       _discovery = discovery,
+       _readDiscovery = discovery.list,
        _reasonCrypto = reasonCrypto ?? EncryptedReasonCryptoService(),
        _messageKeyFingerprint =
            messageKeyFingerprint ?? _deriveMessageKeyFingerprint;
 
-  final VaultRemoteDatasource _vaults;
+  final Future<Map<String, dynamic>> Function(String) _readVault;
   final VaultRotationCryptoService _keys;
-  final AgentDiscoveryRemote _discovery;
+  final Future<List<AgentDiscoveryProvisioning>> Function(String)
+  _readDiscovery;
   final EncryptedReasonCrypto _reasonCrypto;
   final Future<String> Function(Uint8List privateKey) _messageKeyFingerprint;
+
+  LocalGrantReasonResolver._withReads(
+    this._keys,
+    this._reasonCrypto,
+    this._messageKeyFingerprint,
+    this._readVault,
+    this._readDiscovery,
+  );
+
+  @override
+  Future<T> withSharedReads<T>(
+    Future<T> Function(GrantReasonResolver) operation,
+  ) async {
+    final vaults = <String, Future<Map<String, dynamic>>>{};
+    final discovery = <String, Future<List<AgentDiscoveryProvisioning>>>{};
+    var active = true;
+    try {
+      return await operation(
+        LocalGrantReasonResolver._withReads(
+          _keys,
+          _reasonCrypto,
+          _messageKeyFingerprint,
+          (id) {
+            if (!active) {
+              throw StateError('Grant presentation read scope closed');
+            }
+            return vaults[id] ??= _readVault(id);
+          },
+          (id) {
+            if (!active) {
+              throw StateError('Grant presentation read scope closed');
+            }
+            return discovery[id] ??= _readDiscovery(id);
+          },
+        ),
+      );
+    } finally {
+      active = false;
+      vaults.clear();
+      discovery.clear();
+    }
+  }
 
   @override
   Future<Map<String, String>> resolve({
@@ -91,7 +134,7 @@ final class LocalGrantReasonResolver implements GrantReasonResolver {
   ) async {
     Uint8List? vaultKey;
     try {
-      final vault = await _vaults.getEncryptedVault(vaultId);
+      final vault = await _readVault(vaultId);
       final memberVaultKey = vault['memberVaultKey'];
       if (memberVaultKey is! Map || vault['organizationId'] is! String) {
         throw const FormatException('Malformed encrypted Vault');
@@ -100,7 +143,7 @@ final class LocalGrantReasonResolver implements GrantReasonResolver {
         Map<String, dynamic>.from(memberVaultKey),
         memberPrivateKey,
       );
-      final discovery = await _discovery.list(vaultId);
+      final discovery = await _readDiscovery(vaultId);
       final context = _VaultReasonContext(
         organizationId: vault['organizationId'] as String,
         vault: vault,

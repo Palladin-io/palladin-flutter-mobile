@@ -59,9 +59,17 @@ reads keyed by Vault shared only within that resolution. Ready rows publish
 independently, including Entry/reason/actor fields before the Agent-name read
 finishes. Agent-name and actor-directory loading run independently and cannot
 occupy a row worker. Actor lookup uses four bounded workers and one shared
-directory read per Vault within the resolution; ready Entry labels and reasons
+directory listing per Vault within the resolution (a listing may span multiple
+HTTP pages); ready Entry labels and reasons
 publish while a directory is pending. Both name paths merge into the latest row
-metadata. There is no new persistent or cross-refresh cache. Hydration merges
+metadata. There is no new persistent or cross-refresh cache. One hydration shares
+only encrypted Vault/discovery read Futures and the existing authenticated
+Entry-list load per Vault across distinct grant rows. Grant detail reads stay
+bounded and progressive; an unreadable row does not hold up ready rows. Each row
+still authenticates its envelope and creates/wipes its own temporary keys.
+The repository scope captures the Member-key generation, checks it around
+reads/projection and rejects escaped readers. On completion or caller failure,
+it waits for in-flight projections before clearing scoped read maps. Hydration merges
 metadata only, retaining read/action changes, and checks both session and feed
 generation before every publication. Approval still refreshes the pending source
 and performs the existing authenticated review in its sheet.

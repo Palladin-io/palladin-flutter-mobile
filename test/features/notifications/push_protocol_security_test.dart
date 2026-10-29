@@ -23,7 +23,12 @@ class _Index extends Mock implements MemberIndexReader {}
 
 class _Repository extends Mock implements NotificationCenterRepository {}
 
-class _Grants extends Mock implements GrantsRepository {}
+class _Grants extends Mock implements GrantsRepository {
+  @override
+  Future<T> withPresentationReads<T>(
+    Future<T> Function(GrantReader) operation,
+  ) => operation(getGrant);
+}
 
 class _Agents extends Mock implements AgentsRepository {}
 

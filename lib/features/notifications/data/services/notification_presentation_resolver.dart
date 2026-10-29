@@ -33,6 +33,28 @@ final class NotificationPresentationResolver {
     required String activeOrganizationId,
     required List<VaultEntity> activeVaults,
     void Function(InboxNotification)? onResolved,
+  }) {
+    Future<List<InboxNotification>> run(GrantReader? readGrant) => _resolve(
+      items: items,
+      unlocked: unlocked,
+      activeAccountId: activeAccountId,
+      activeOrganizationId: activeOrganizationId,
+      activeVaults: activeVaults,
+      onResolved: onResolved,
+      readGrant: readGrant,
+    );
+    final grants = _grants;
+    return grants == null ? run(null) : grants.withPresentationReads(run);
+  }
+
+  Future<List<InboxNotification>> _resolve({
+    required List<InboxNotification> items,
+    required bool unlocked,
+    required String activeAccountId,
+    required String activeOrganizationId,
+    required List<VaultEntity> activeVaults,
+    void Function(InboxNotification)? onResolved,
+    required GrantReader? readGrant,
   }) async {
     if (!unlocked || activeAccountId.isEmpty || activeOrganizationId.isEmpty) {
       return _generic(items);
@@ -69,7 +91,13 @@ final class NotificationPresentationResolver {
         final vaultId = _string(metadata, 'vaultId');
         String? actorId;
         if (vaultId != null) {
-          final grant = await _grantFor(item, metadata, vaultId, grants);
+          final grant = await _grantFor(
+            item,
+            metadata,
+            vaultId,
+            grants,
+            readGrant,
+          );
           if (grant != null) {
             metadata['grantType'] = grant.scope.name;
             metadata['entryId'] = grant.entryId;
@@ -270,6 +298,7 @@ final class NotificationPresentationResolver {
     Map<String, dynamic> metadata,
     String vaultId,
     Map<(String, String), Future<Grant?>> grants,
+    GrantReader? readGrant,
   ) async {
     if (!const {
       'grant_pending',
@@ -279,11 +308,10 @@ final class NotificationPresentationResolver {
     }.contains(item.type)) {
       return null;
     }
-    final repository = _grants;
     final grantId = _string(metadata, 'grantId');
-    if (repository == null || grantId == null) return null;
+    if (readGrant == null || grantId == null) return null;
     final grant = await (grants[(vaultId, grantId)] ??= _readGrant(
-      repository,
+      readGrant,
       vaultId,
       grantId,
     ));
@@ -300,12 +328,12 @@ final class NotificationPresentationResolver {
   }
 
   Future<Grant?> _readGrant(
-    GrantsRepository repository,
+    GrantReader readGrant,
     String vaultId,
     String grantId,
   ) async {
     try {
-      return await repository.getGrant(vaultId, grantId);
+      return await readGrant(vaultId, grantId);
     } catch (_) {
       AppLogger.w('Notifications', 'Grant presentation resolution failed');
       return null;
