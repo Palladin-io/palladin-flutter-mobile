@@ -19,4 +19,5 @@
     <string name="autofill_username_confirm_title">Uzupełnić tylko login?</string>
     <string name="autofill_username_confirm_message">Palladin nie rozpoznał tego pola. Potwierdź, że jest to pole logowania. Uzupełniony zostanie tylko login, nigdy hasło.\n\nAplikacja: %1$s\nDomena wpisu: %2$s</string>
     <string name="autofill_fill_username_once">Uzupełnij login raz</string>
+    <string name="autofill_credential_description">Uzupełnij %1$s, %2$s, %3$s</string>
 </resources>
