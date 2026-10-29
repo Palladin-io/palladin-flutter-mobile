@@ -245,15 +245,14 @@ class PalladinAutofillService : AutofillService() {
                     it.decision != Decision.Rejected && it.node.isPasswordConfirmation()
                 }.mapNotNull { it.node.autofillId }
                 if (usernames.isEmpty() && passwords.size == 1 && newPasswords.isEmpty() && confirmations.isEmpty()) {
-                    val structural = candidates.filter { it.node.isNativeEditable() }
-                        .groupBy { it.parent }.values.mapNotNull { group ->
-                            if (group.size != 2 || group.count {
-                                (it.decision as? Decision.Matched)?.role in setOf(Role.PASSWORD, Role.CURRENT_PASSWORD)
-                            } != 1) null else group.singleOrNull {
-                                it.decision == Decision.Unknown && it.node.isNativeEditableText()
-                            }
-                        }
-                    if (structural.size == 1) usernames += structural.single().node.autofillId!!
+                    val editable = candidates.filter { it.node.isNativeEditable() }
+                    val parent = editable.firstOrNull()?.parent
+                    val candidate = editable.singleOrNull {
+                        it.decision == Decision.Unknown && it.node.isNativeEditableText()
+                    }
+                    if (editable.size == 2 && parent != null &&
+                        editable.all { it.parent === parent } && candidate != null
+                    ) usernames += candidate.node.autofillId!!
                 }
                 if (usernames.isEmpty()) {
                     val labeled = candidates.filter {

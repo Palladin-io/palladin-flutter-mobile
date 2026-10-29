@@ -131,6 +131,20 @@ class CredentialFieldIdsTest {
     }
 
     @Test
+    fun structuralPairCannotIgnoreAnEditableTargetInAnotherParent() {
+        val username = node(inputType = InputType.TYPE_CLASS_TEXT)
+        val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        for (extra in listOf(node(inputType = InputType.TYPE_CLASS_TEXT),
+            node(inputType = InputType.TYPE_CLASS_NUMBER), node(inputType = InputType.TYPE_CLASS_PHONE),
+            node(inputType = InputType.TYPE_CLASS_TEXT, hints = arrayOf("smsOTPCode")))) {
+            val parent = node()
+            `when`(parent.childCount).thenReturn(1)
+            `when`(parent.getChildAt(0)).thenReturn(extra)
+            assertEquals(emptyList<AutofillId>(), parse(username, password, parent).usernameIds)
+        }
+    }
+
+    @Test
     fun rejectedPurposeCannotFallThroughToStructuralInference() {
         val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
         for (purpose in listOf("newsletter", "search", "otp", "confirm")) {

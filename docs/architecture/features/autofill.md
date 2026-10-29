@@ -69,7 +69,7 @@ sequence, without package-specific branches. Platform roles take precedence over
 structural and complete-label fallbacks; rejected eligibility or purpose never
 falls through. Structural inference requires one current-password target, one
 unknown editable **text** field under the same direct parent and no other editable
-field or registration role. Numeric, phone and masked-PIN fields count toward
+field anywhere in the request or registration role. Numeric, phone and masked-PIN fields count toward
 ambiguity but cannot become inferred usernames.
 
 Complete native labels are an auxiliary finite EN/PL fallback, not universal
