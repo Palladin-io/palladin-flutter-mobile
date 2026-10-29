@@ -156,6 +156,17 @@ SHA, checkout path, APK SHA-256 digests, JVM test count and individual observed
 outcomes. The prior provider and keyboard settings are restored in `finally`.
 Do not edit source after this run and still attribute its evidence to a later SHA.
 
+### Generic native compatibility fixtures
+
+`native-username-hint` models the earlier iFirma static placeholder evidence using
+plain text, a generated ID and no semantic hints; it is not a captured real form.
+`native-login-opaque` tests same-parent structural recognition without a known
+label. `native-username-manual` and its `-verified` variant require the public
+manual request, biometrics and a separate **Fill username once** confirmation.
+Their response inspections require exactly the original username target/value,
+with no password target. Additional inspections reject WEB/password targets and
+check cancellation. No Binance fixture or package-specific rule is included.
+
 ### Actual authentication response inspection
 
 `exercise.py --inspect-response` starts the real `AutofillAuthenticationActivity`
@@ -234,7 +245,7 @@ It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clea
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
-Only after enrollment does it seed the biometric-bound cache and run all 24
+Only after enrollment does it seed the biometric-bound cache and run all 33
 response/OS cases. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
