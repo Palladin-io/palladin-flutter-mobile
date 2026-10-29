@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillManager
+import android.view.inputmethod.InputMethodManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -111,6 +112,7 @@ class FormActivity : Activity() {
             layout.addView(Button(this).apply {
                 text = "Verify empty"
                 setOnClickListener {
+                    getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(web.windowToken, 0)
                     web.evaluateJavascript("Array.from(document.querySelectorAll('input')).every(input => input.value === '')") {
                         result.text = "fieldsUnchanged=" + (it == "true")
                     }
@@ -119,6 +121,7 @@ class FormActivity : Activity() {
             layout.addView(Button(this).apply {
                 text = "Verify fill"
                 setOnClickListener {
+                    getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(web.windowToken, 0)
                     val assertion = if (positive) {
                         "document.getElementById('username').value === 'synthetic-user' && " +
                             "(!document.getElementById('password') || document.getElementById('password').value === 'synthetic-only-not-secret')"

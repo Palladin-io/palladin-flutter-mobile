@@ -364,6 +364,11 @@ field equality. Cancellation and expiring the proof while the biometric prompt
 is open must leave all fields empty. A test-only receiver changes the proof's
 monotonic timestamp for expiration; there is no production injection API.
 
+Web verification controls hide the IME through `InputMethodManager` before
+publishing the DOM equality result so the result remains accessible below the
+controls. Repeat validation explicitly refocuses the field and still requires a
+new unlock action and biometric prompt in the same framework session.
+
 Expired and wrong-signer proof inspectors require rejection before authentication;
 they invoke the Activity/verifier directly, not a network fallback. Actual HTTPS,
 DNS/address, MIME/body/JSON and deadline behavior is covered separately by native
