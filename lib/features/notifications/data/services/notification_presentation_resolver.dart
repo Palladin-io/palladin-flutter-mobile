@@ -42,6 +42,24 @@ final class NotificationPresentationResolver {
     final memberNames = <String, Future<Map<String, String>>>{};
     final grants = <(String, String), Future<Grant?>>{};
     final output = List<InboxNotification>.of(prepared);
+    final actorWorkers = List.generate(4, (_) => Future<void>.value());
+    var nextActorWorker = 0;
+    Future<void> resolveActor(
+      int position,
+      String vaultId,
+      String actorId,
+    ) async {
+      final names = await (memberNames[vaultId] ??= _memberNames(vaultId));
+      final actorName = names[actorId];
+      if (actorName == null) return;
+      final item = output[position];
+      final resolved = item.copyWith(
+        metadata: {...item.metadata, 'actorName': actorName},
+      );
+      output[position] = resolved;
+      onResolved?.call(resolved);
+    }
+
     var next = 0;
     Future<void> worker() async {
       while (next < prepared.length) {
@@ -49,6 +67,7 @@ final class NotificationPresentationResolver {
         final item = prepared[position];
         final metadata = Map<String, dynamic>.from(item.metadata);
         final vaultId = _string(metadata, 'vaultId');
+        String? actorId;
         if (vaultId != null) {
           final grant = await _grantFor(item, metadata, vaultId, grants);
           if (grant != null) {
@@ -65,14 +84,7 @@ final class NotificationPresentationResolver {
             if (reason != null && reason.isNotEmpty) {
               metadata['reason'] = reason;
             }
-            final actorId = _actorId(item.type, grant);
-            if (actorId != null) {
-              final names = await (memberNames[vaultId] ??= _memberNames(
-                vaultId,
-              ));
-              final actorName = names[actorId];
-              if (actorName != null) metadata['actorName'] = actorName;
-            }
+            actorId = _actorId(item.type, grant);
           }
           final agentId = _string(metadata, 'agentId');
           final agentName = agentNames[agentId];
@@ -81,6 +93,13 @@ final class NotificationPresentationResolver {
         final resolved = _withMetadata(item, metadata);
         output[position] = resolved;
         onResolved?.call(resolved);
+        if (actorId != null && vaultId != null) {
+          final slot = nextActorWorker++ % actorWorkers.length;
+          final actor = actorId;
+          actorWorkers[slot] = actorWorkers[slot].then(
+            (_) => resolveActor(position, vaultId, actor),
+          );
+        }
       }
     }
 
@@ -99,11 +118,12 @@ final class NotificationPresentationResolver {
       }
     }
 
-    // Agent names cannot occupy the bounded per-row HTTP/crypto workers.
+    // Directory reads cannot occupy the bounded per-row HTTP/crypto workers.
     await Future.wait([
       resolveAgentNames(),
       ...List.generate(items.length.clamp(0, 4), (_) => worker()),
     ]);
+    await Future.wait(actorWorkers);
     return output;
   }
 
