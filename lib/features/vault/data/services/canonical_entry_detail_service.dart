@@ -1420,10 +1420,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         ),
         previousContent: snapshot.payload,
       );
-      final nextAgentLabel =
-          agentLabelOverride ??
-          snapshot.secret['agentLabel'] as String? ??
-          label;
+      // A non-discoverable canonical Entry carries no Agent label; falling
+      // back to the member label would make the MemberSecret invalid.
+      final nextAgentLabel = policy.discoverable
+          ? agentLabelOverride ??
+                snapshot.secret['agentLabel'] as String? ??
+                label
+          : null;
       final canonicalSecret = _canonicalSecret(
         vaultId: expected.vaultId,
         type: type,

@@ -24,9 +24,14 @@ import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_
     as visibility;
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/sign_in_method.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cubit.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 class _Entries extends Mock implements EntryRemoteDatasource {}
+
+class _Repository extends Mock implements EntryRepository {}
 
 class _Vaults extends Mock implements VaultRemoteDatasource {}
 
@@ -748,6 +753,179 @@ void main() {
       ]);
     },
   );
+
+  Map<String, dynamic> privateCredentialSecret() => <String, dynamic>{
+    'schema': MemberSecret.schema,
+    'entryType': 'credential',
+    'memberLabel': 'Private service',
+    'agentLabel': null,
+    'description': null,
+    'icon': null,
+    'color': null,
+    'discoverable': false,
+    'content': {
+      'username': 'me@example.test',
+      'password': '',
+      'url': 'https://example.test',
+      'urlDomain': 'example.test',
+      'totp': null,
+      'notes': null,
+      'customFields': <Object?>[],
+    },
+    'agentFieldAccess': {
+      'memberLabel': 'never',
+      'agentLabel': 'never',
+      'description': 'never',
+      'icon': 'never',
+      'color': 'never',
+      'entryType': 'never',
+      'credential.username': 'onGrantValue',
+      'credential.password': 'never',
+      'credential.url': 'never',
+      'credential.urlDomain': 'never',
+      'credential.totp': 'never',
+      'notes': 'never',
+    },
+  };
+
+  test(
+    'sign-in save on a private Credential keeps it non-discoverable',
+    () async {
+      final privateCredential = privateCredentialSecret();
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      when(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      ).thenAnswer((_) async => privateCredential);
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/update'),
+          statusCode: 200,
+        ),
+      );
+      final cubit = EditEntryCubit(
+        repository: _Repository(),
+        canonicalService: service,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.saveSignInMethod(
+        entry: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Private service',
+          type: EntryType.credential,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        privateKey: Uint8List.fromList(List.filled(32, 7)),
+        binding: const SignInMethodBinding(provider: SignInProvider.google),
+        fieldLabel: 'Sign-in method',
+      );
+
+      expect(cubit.state, isA<EditEntrySuccess>());
+      final sealed =
+          verify(
+                () => crypto.seal(
+                  organizationId: any(named: 'organizationId'),
+                  vaultId: any(named: 'vaultId'),
+                  entryId: any(named: 'entryId'),
+                  revision: any(named: 'revision'),
+                  entryKeyRevision: any(named: 'entryKeyRevision'),
+                  memberIndexRevision: any(named: 'memberIndexRevision'),
+                  agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
+                  entryKeyVersion: any(named: 'entryKeyVersion'),
+                  vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                  vdkVersion: any(named: 'vdkVersion'),
+                  memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                  operation: any(named: 'operation'),
+                  secret: captureAny(named: 'secret'),
+                  vaultKey: any(named: 'vaultKey'),
+                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                  existingEntryDek: any(named: 'existingEntryDek'),
+                ),
+              ).captured.single
+              as MemberSecret;
+      expect(sealed.discoverable, isFalse);
+      expect(sealed.agentLabel, isNull);
+      final field = sealed.content.customFields.single;
+      expect(field.kind, 'palladin.signin.v1');
+      expect(sealed.agentFieldAccess[field.fieldId], AgentFieldAccess.never);
+      expect(VaultPlaintextProjector.agentDiscovery(sealed), isNull);
+    },
+  );
+
+  test('form edit of a private Credential keeps a null Agent label', () async {
+    final privateCredential = privateCredentialSecret();
+    when(
+      () => entries.getCanonicalEntry(vaultId, entryId),
+    ).thenAnswer((_) async => head());
+    when(
+      () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+    ).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/update'),
+        statusCode: 200,
+      ),
+    );
+    final adapted = service.adaptCanonicalSecret(privateCredential);
+    final payload = adapted['content'] as Map<String, dynamic>;
+    // Mirrors EditEntryCubit.updateEntry: the form passes the snapshot's
+    // (null) Agent label and its unchanged policy.
+    await service.update(
+      snapshot: CanonicalEntrySnapshot(
+        entry: head(),
+        secret: adapted,
+        payload: payload,
+      ),
+      expected: EntryEntity(
+        id: entryId,
+        vaultId: vaultId,
+        label: 'Private service',
+        type: EntryType.credential,
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+      ),
+      label: 'Private service',
+      description: '',
+      icon: '',
+      type: EntryType.credential,
+      content: {...payload, 'notes': 'edited'},
+      memberPrivateKey: Uint8List(32),
+      agentLabel: adapted['agentLabel'] as String?,
+    );
+    final sealed =
+        verify(
+              () => crypto.seal(
+                organizationId: any(named: 'organizationId'),
+                vaultId: any(named: 'vaultId'),
+                entryId: any(named: 'entryId'),
+                revision: any(named: 'revision'),
+                entryKeyRevision: any(named: 'entryKeyRevision'),
+                memberIndexRevision: any(named: 'memberIndexRevision'),
+                agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
+                entryKeyVersion: any(named: 'entryKeyVersion'),
+                vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                vdkVersion: any(named: 'vdkVersion'),
+                memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                operation: any(named: 'operation'),
+                secret: captureAny(named: 'secret'),
+                vaultKey: any(named: 'vaultKey'),
+                vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                existingEntryDek: any(named: 'existingEntryDek'),
+              ),
+            ).captured.single
+            as MemberSecret;
+    expect(sealed.discoverable, isFalse);
+    expect(sealed.agentLabel, isNull);
+  });
 
   test('legacy mobile custom field shape is rewritten canonically', () {
     const fieldId = '88888888-8888-4888-8888-888888888888';
