@@ -156,6 +156,17 @@ SHA, checkout path, APK SHA-256 digests, JVM test count and individual observed
 outcomes. The prior provider and keyboard settings are restored in `finally`.
 Do not edit source after this run and still attribute its evidence to a later SHA.
 
+### Generic native compatibility fixtures
+
+`native-username-hint` models the earlier iFirma static placeholder evidence using
+plain text, a generated ID and no semantic hints; it is not a captured real form.
+`native-login-opaque` tests same-parent structural recognition without a known
+label. `native-username-manual` and its `-verified` variant require the public
+manual request, biometrics and a separate **Fill username once** confirmation.
+Their response inspections require exactly the original username target/value,
+with no password target. Additional inspections reject WEB/password targets and
+check cancellation. No Binance fixture or package-specific rule is included.
+
 ### Actual authentication response inspection
 
 `exercise.py --inspect-response` starts the real `AutofillAuthenticationActivity`
@@ -187,6 +198,8 @@ and non-text-container fields. Explicit manual Autofill requests capture a real
 AssistStructure even when an ordinary focus event does not automatically request
 credentials. Unsupported/insecure framework behavior is never reported as a
 successful provider rejection.
+
+The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
 
 On baseline `ca6bb9719386bdbf7986346a3b2bb1aadd661654`, the actual provider incorrectly
 offered a response for native confirmation/hidden/disabled fields and WebView
@@ -237,8 +250,8 @@ It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clea
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
-Only after enrollment does it seed the biometric-bound cache and run all 32
-response/OS cases. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
+Only after enrollment does it seed the biometric-bound cache and run all 41
+response/OS cases. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
 enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
@@ -246,3 +259,5 @@ and successful `validation.json` including APK
 hashes and observed case outcomes. A failed or partial run never creates a
 successful validation report. This CI gate does not establish physical Gboard,
 Samsung Keyboard or third-party application compatibility.
+
+The CI runtime uses Android's supported `-gpu software` mode. `swiftshader_indirect` was deprecated in emulator 36.4.9 ([Android graphics acceleration documentation](https://developer.android.com/studio/run/emulator-acceleration)). Two 37.2.12 runs lost ADB transport with EGL errors; that correlation alone does not establish a renderer or memory root cause. Cleanup records process/ADB state and aggregate memory counters before stopping the synthetic emulator, preserving the original test result.

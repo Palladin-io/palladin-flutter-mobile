@@ -25,6 +25,8 @@ class AutofillAuthenticationActivity : FragmentActivity() {
     private var nativeRecords: MutableList<CachedCredential>? = null
     private var nativeDialog: AlertDialog? = null
     private var manualSelection: ManualAutofillSelection? = null
+    private val requiresUsernameConfirmation: Boolean
+        get() = intent.getBooleanExtra(EXTRA_USERNAME_CONFIRMATION, false)
 
     override fun onDestroy() {
         clearNativeSelection()
@@ -50,6 +52,12 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val mode = runCatching {
             AutofillOriginMode.valueOf(intent.getStringExtra(EXTRA_ORIGIN_MODE).orEmpty())
         }.getOrDefault(AutofillOriginMode.WEB)
+        if (requiresUsernameConfirmation && !validUsernameOnlyTargets(mode,
+                intent.autofillIds(EXTRA_USERNAME_IDS), intent.autofillIds(EXTRA_PASSWORD_IDS),
+                intent.autofillIds(EXTRA_NEW_PASSWORD_IDS))) {
+            finishCanceled()
+            return
+        }
         if (mode != AutofillOriginMode.WEB) {
             if (intent.getStringExtra(EXTRA_DOMAIN) != null ||
                 intent.getStringExtra(EXTRA_WEB_SCHEME) != null || packageName == null ||
@@ -245,8 +253,11 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             finishCanceled()
             return
         }
+        if (requiresUsernameConfirmation) {
+            for (index in records.indices) records[index] = records[index].copy(password = "")
+        }
         nativeRecords = records
-        manualSelection = if (manual) ManualAutofillSelection(requestingPackage) else null
+        manualSelection = if (manual || requiresUsernameConfirmation) ManualAutofillSelection(requestingPackage) else null
         val matches = records.flatMap { record ->
             record.domains.filter { domain ->
                 AutoFillCacheStore.normalizeDomain(domain) == domain && (manual || domain in domains)
@@ -289,10 +300,10 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             this.adapter = adapter
             setOnItemClickListener { _, _, position, _ ->
                 val (record, domain) = visible[position]
-                if (manual) {
+                if (manual || requiresUsernameConfirmation) {
                     manualSelection?.select(record.id, domain)
                     nativeDialog?.dismiss()
-                    showManualConfirmation(operation, requestingPackage, record, domain)
+                    showSelectionConfirmation(operation, requestingPackage, record, domain, domains, manual)
                 } else {
                     completeNativeSelection(operation, requestingPackage, record, domain, domains)
                 }
@@ -323,17 +334,24 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             }
     }
 
-    private fun showManualConfirmation(
+    private fun showSelectionConfirmation(
         operation: AutoFillUnwrapOperation,
         requestingPackage: String,
         record: CachedCredential,
         domain: String,
+        requestDomains: Set<String>,
+        manual: Boolean,
     ) {
+        val message = if (requiresUsernameConfirmation) {
+            getString(R.string.autofill_username_confirm_message, requestingPackage, domain) +
+                if (manual) "\n\n" + getString(R.string.autofill_manual_confirm_message, requestingPackage, domain) else ""
+        } else getString(R.string.autofill_manual_confirm_message, requestingPackage, domain)
         nativeDialog = AlertDialog.Builder(this)
-            .setTitle(R.string.autofill_manual_confirm_title)
-            .setMessage(getString(R.string.autofill_manual_confirm_message, requestingPackage, domain))
-            .setPositiveButton(R.string.autofill_fill_once) { _, _ ->
-                completeManualSelection(operation, requestingPackage, record, domain)
+            .setTitle(if (requiresUsernameConfirmation) R.string.autofill_username_confirm_title else R.string.autofill_manual_confirm_title)
+            .setMessage(message)
+            .setPositiveButton(if (requiresUsernameConfirmation) R.string.autofill_fill_username_once else R.string.autofill_fill_once) { _, _ ->
+                if (manual) completeManualSelection(operation, requestingPackage, record, domain)
+                else completeNativeSelection(operation, requestingPackage, record, domain, requestDomains)
             }
             .setNegativeButton(R.string.autofill_cancel) { _, _ -> finishCanceled() }
             .setOnCancelListener { finishCanceled() }
@@ -372,6 +390,10 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val passwords = intent.autofillIds(EXTRA_PASSWORD_IDS)
         val usernames = intent.autofillIds(EXTRA_USERNAME_IDS)
         if (passwords.isEmpty() && usernames.isEmpty()) return null
+        if (requiresUsernameConfirmation && !validUsernameOnlyTargets(
+                runCatching { AutofillOriginMode.valueOf(intent.getStringExtra(EXTRA_ORIGIN_MODE).orEmpty()) }
+                    .getOrDefault(AutofillOriginMode.WEB),
+                usernames, passwords, intent.autofillIds(EXTRA_NEW_PASSWORD_IDS))) return null
         val presentation = autofillCredentialPresentation(this, record.username, record.label, domain)
         val dataset = authenticatedAutofillDataset(this, intent, presentation, record.username, record.label, domain)
         usernames.forEach {
@@ -408,6 +430,9 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val handedOff = runCatching {
             cacheStore.withRevalidatedCredentials(operation.generation, listOf(record)) {
                 require(stillAuthorized())
+                if (requiresUsernameConfirmation) {
+                    require(manualSelection?.confirm(record.id, domain, requestingPackage) == true)
+                }
                 clearNativeSelection()
                 setResult(
                     Activity.RESULT_OK,
@@ -424,7 +449,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         domain: String,
         requestingPackage: String,
     ) {
-        if (!webOriginStillVerified(requestingPackage, domain)) {
+        if (requiresUsernameConfirmation || !webOriginStillVerified(requestingPackage, domain)) {
             cacheStore.quarantine(operation.generation)
             finishCanceled()
             return
@@ -519,11 +544,20 @@ class AutofillAuthenticationActivity : FragmentActivity() {
     }
 
     companion object {
+        internal fun validUsernameOnlyTargets(
+            mode: AutofillOriginMode,
+            usernames: List<AutofillId>,
+            passwords: List<AutofillId>,
+            newPasswords: List<AutofillId>,
+        ): Boolean = mode != AutofillOriginMode.WEB && usernames.size == 1 &&
+            passwords.isEmpty() && newPasswords.isEmpty()
+
         const val EXTRA_ORIGIN_MODE = "palladin.autofill.origin_mode"
         const val EXTRA_NATIVE_DOMAINS = "palladin.autofill.native_domains"
         const val EXTRA_WEB_SCHEME = "palladin.autofill.web_scheme"
         const val EXTRA_DOMAIN = "palladin.autofill.domain"
         const val EXTRA_PACKAGE_NAME = "palladin.autofill.package_name"
+        const val EXTRA_USERNAME_CONFIRMATION = "palladin.autofill.username_confirmation"
         const val EXTRA_USERNAME_IDS = "palladin.autofill.username_ids"
         const val EXTRA_PASSWORD_IDS = "palladin.autofill.password_ids"
         const val EXTRA_NEW_PASSWORD_IDS = "palladin.autofill.new_password_ids"

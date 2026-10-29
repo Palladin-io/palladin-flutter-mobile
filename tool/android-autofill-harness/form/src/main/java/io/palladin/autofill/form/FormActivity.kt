@@ -28,17 +28,18 @@ class FormActivity : Activity() {
         val result = TextView(this)
         val evidence = TextView(this)
         val manager = getSystemService(AutofillManager::class.java)
-        val positive = mode in setOf("native-login", "native-username", "web-login", "web-username")
+        val positive = mode in setOf("native-login", "native-username", "native-username-hint", "native-login-opaque", "native-username-manual", "native-username-manual-verified", "web-login", "web-username")
         var requested = false
         var unavailable = false
         var shown = false
         var enabledAtRequest = false
         var domReady = !mode.startsWith("web")
         var focusVerified = false
+        var noneditableTarget = false
         var unavailableEvents = 0
         var shownEvents = 0
         fun publishEvidence() {
-            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest domReady=$domReady focusVerified=$focusVerified unavailableEvents=$unavailableEvents shownEvents=$shownEvents"
+            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest domReady=$domReady focusVerified=$focusVerified unavailableEvents=$unavailableEvents shownEvents=$shownEvents noneditableTarget=$noneditableTarget"
         }
         fun observe(event: Int) {
             if (event == AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE) { unavailable = true; unavailableEvents++ }
@@ -120,26 +121,49 @@ class FormActivity : Activity() {
                 setAutofillHints(View.AUTOFILL_HINT_USERNAME)
             }
             when (mode) {
+                "native-username-hint" -> {
+                    username.inputType = InputType.TYPE_CLASS_TEXT
+                    username.setAutofillHints()
+                    username.hint = "Adres e-mail lub login"
+                }
+                "native-username-manual", "native-username-manual-verified", "native-login-opaque" -> {
+                    username.inputType = InputType.TYPE_CLASS_TEXT
+                    username.setAutofillHints()
+                    username.hint = "識別子"
+                }
                 "native-search" -> { username.id = R.id.search; username.inputType = InputType.TYPE_CLASS_TEXT; username.setAutofillHints("search") }
                 "native-otp" -> { username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints("smsOTPCode") }
                 "native-confirm" -> { username.id = R.id.confirm_password; username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints(View.AUTOFILL_HINT_PASSWORD) }
                 "native-hidden" -> username.visibility = View.INVISIBLE
                 "native-disabled" -> username.isEnabled = false
             }
-            val password = if (mode == "native-login") EditText(this).apply {
+            if (mode in setOf("native-username-hint", "native-username-manual",
+                    "native-username-manual-verified", "native-login-opaque")) {
+                check(username.autofillHints.isNullOrEmpty()) { "Synthetic no-hint fixture is malformed" }
+            }
+            val password = if (mode in setOf("native-login", "native-login-opaque")) EditText(this).apply {
                 id = View.generateViewId()
                 hint = "Synthetic password"
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                 setAutofillHints(View.AUTOFILL_HINT_PASSWORD)
             } else null
-            val focusTarget = if (mode in setOf("native-hidden", "native-disabled", "native-container")) EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_TEXT
-                hint = "Synthetic probe"
-            } else username
+            val focusTarget: TextView = when (mode) {
+                "native-container" -> TextView(this).apply {
+                    text = "Synthetic label"
+                    isFocusableInTouchMode = true
+                    importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+                    setAutofillHints(View.AUTOFILL_HINT_USERNAME)
+                    check(autofillType == View.AUTOFILL_TYPE_NONE && inputType == InputType.TYPE_NULL)
+                    noneditableTarget = true
+                }
+                "native-hidden", "native-disabled" -> EditText(this).apply {
+                    inputType = InputType.TYPE_CLASS_TEXT
+                    hint = "Synthetic probe"
+                }
+                else -> username
+            }
             if (focusTarget !== username) layout.addView(focusTarget)
-            if (mode == "native-container") {
-                layout.addView(TextView(this).apply { text = "Synthetic label"; setAutofillHints(View.AUTOFILL_HINT_USERNAME) })
-            } else layout.addView(username)
+            if (mode != "native-container") layout.addView(username)
             password?.let(layout::addView)
             layout.addView(Button(this).apply {
                 text = "Request Autofill"
@@ -155,7 +179,9 @@ class FormActivity : Activity() {
                         "fillVerified=" + (username.text.toString() == "synthetic-user" &&
                             (password == null || password.text.toString() == "synthetic-only-not-secret"))
                     } else "fieldsUnchanged=" + (username.text.isEmpty() &&
-                        (password == null || password.text.isEmpty()) && focusTarget.text.isEmpty())
+                        (password == null || password.text.isEmpty()) &&
+                        (if (mode == "native-container") focusTarget.text.toString() == "Synthetic label"
+                         else focusTarget.text.isEmpty()))
                 }
             })
         }
