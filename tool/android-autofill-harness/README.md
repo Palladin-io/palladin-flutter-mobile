@@ -252,8 +252,8 @@ It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clea
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
-Only after enrollment does it seed the biometric-bound cache and run all 41
-response/OS cases. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
+Only after enrollment does it seed the biometric-bound cache and run the complete
+response/OS matrix. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
 enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
@@ -328,7 +328,7 @@ failed before the repeated handoffs. The software run observed an unavailable
 cache after an asynchronous seed launch; the swiftshader run offered a response
 but exposed no accessible unlock row. It does not prove a renderer fix. The
 experimental probe was removed rather than becoming an alternative acceptance
-path. Full validation remains the unchanged 41-case validator; local API 35
+path. Full validation retains all original cases and the later regressions below; local API 35
 ARM64 evidence must identify its emulator version and clean source SHA, and must
 not be described as a successful Linux x86 run.
 
@@ -347,7 +347,7 @@ Observed physical metadata regressions: [Binance virtual username](observed-bina
 
 ### Exact-host credential-delegation regressions
 
-API31+ adds six cases to the existing 46-case matrix. `--mode web-username
+API31+ adds DAL and app-WebView result-contract cases to the existing matrix. `--mode web-username
 --dal-proof valid` uses a second strictly local WebView document at
 `https://example.com/`; the form APK has no OS-verified association for that host.
 Its content is intercepted locally, never fetched. The provider's merged manifest
@@ -370,4 +370,8 @@ DNS/address, MIME/body/JSON and deadline behavior is covered separately by nativ
 JVM tests. Every synthetic launcher also executes valid and malformed statements
 through the production parser on the device's actual JsonReader before cache seed.
 This split does not claim that a live merchant endpoint or physical keyboard was
-tested. The API31+ authoritative matrix now contains 52 cases.
+tested. The API31+ authoritative matrix now contains 59 cases. It additionally checks
+same-session WebView repeat authentication, picker cancellation, proof expiry
+after authentication, revoke before selection, and browser-source legacy
+FillResponse results (using the installed system Chrome identity only in the
+response inspector; no live browser page or network).

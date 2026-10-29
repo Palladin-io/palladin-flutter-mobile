@@ -705,3 +705,16 @@ The unit harness loads only the real Android 14 streaming-reader classes from a
 pinned test-only android-all artifact, ahead of throwing SDK stubs. These classes
 are not compiled into the provider/application APK; strict parser tests execute
 actual reader methods and do not mock parsing.
+
+
+App-embedded WebViews on API31+ use the same locked, null-valued dataset
+presentation and ephemeral selected-Dataset handoff as native app fields. A
+same-WebView emulator comparison showed response-level authentication produced
+no initial inline row while dataset-level authentication rendered the unlock
+chip. This is separate from the missing DAL origin authority. After biometrics,
+the existing picker shows only records matching the original exact reported WEB
+host; it never substitutes OS native domains or a manual unknown-origin choice.
+The original immutable Intent binds the expected authentication result shape.
+The final selection rechecks that WEB authority and generation/lease/revoke state
+inside the existing handoff lock. Browser/Chrome, API26–30, generation and save
+contracts retain their prior response/authority paths.

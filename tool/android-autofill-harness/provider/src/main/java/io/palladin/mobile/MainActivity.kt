@@ -21,6 +21,8 @@ import android.view.autofill.AutofillValue
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import android.widget.EditText
+import io.palladin.mobile.autofill.AutofillOriginPolicy
+import io.palladin.mobile.autofill.AutofillOriginVerifier
 import io.palladin.mobile.autofill.AutofillAuthenticationActivity
 import android.widget.TextView
 import io.palladin.mobile.autofill.AutoFillCacheStore
@@ -100,6 +102,9 @@ class MainActivity : Activity() {
   expectInline = inlineMode == "supported"
   val style = if (expectInline) UiVersions.newStylesBuilder().addStyle(InlineSuggestionUi.newStyleBuilder().build()).build() else Bundle()
   expectedInlineSpec = InlinePresentationSpec.Builder(Size(40, 40), Size(600, 80)).setStyle(style).build()
+  val sourcePackage = if (intent.getBooleanExtra("browserSource", false)) "com.android.chrome" else "io.palladin.autofill.harness.form"
+  val browser = AutofillOriginVerifier(this).isBrowser(sourcePackage)
+  check(browser == intent.getBooleanExtra("browserSource", false))
   recordPhase("AUTH_LAUNCHED")
   startActivityForResult(Intent(this, AutofillAuthenticationActivity::class.java).apply {
    if (inlineMode != "absent") {
@@ -120,7 +125,9 @@ class MainActivity : Activity() {
      AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, if (mode == "web-http") "http" else "https",
     )
    }
-   putExtra(AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME, "io.palladin.autofill.harness.form")
+   putExtra(AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME, sourcePackage)
+   putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION,
+    AutofillOriginPolicy.usesDatasetAuthentication(Build.VERSION.SDK_INT, browser, false))
    putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_USERNAME_IDS, usernames)
    putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS, passwords)
   }, 1)
@@ -131,7 +138,7 @@ class MainActivity : Activity() {
   super.onActivityResult(requestCode, resultCode, data)
   recordPhase("RESULT_STARTED")
   val result = data?.getParcelableExtra<android.os.Parcelable>(AutofillManager.EXTRA_AUTHENTICATION_RESULT)
-  val direct = Build.VERSION.SDK_INT >= 31 && intent.getStringExtra("inspectResponse")?.startsWith("native") == true
+  val direct = Build.VERSION.SDK_INT >= 31 && !intent.getBooleanExtra("browserSource", false)
   val response = result as? FillResponse
   @Suppress("UNCHECKED_CAST")
   val datasets = if (direct) listOfNotNull(result as? Dataset) else

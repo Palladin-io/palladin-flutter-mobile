@@ -173,7 +173,11 @@ class PalladinAutofillService : AutofillService() {
             return
         }
 
+        val datasetAuthentication = AutofillOriginPolicy.usesDatasetAuthentication(
+            Build.VERSION.SDK_INT, verifier.isBrowser(requestingPackage), generate,
+        )
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
+            putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION, datasetAuthentication)
             putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, saveRequestId)
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
             putExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, schemes.firstOrNull())
@@ -216,7 +220,7 @@ class PalladinAutofillService : AutofillService() {
         )
         val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), saveRequestId)
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && origin.requiresSelection && !generate) {
+        if (datasetAuthentication) {
             val locked = Dataset.Builder(presentation).setAuthentication(pendingIntent.intentSender)
             fields.allIds.forEach { locked.setValue(it, null, presentation) }
             if (inlinePresentation != null) locked.setInlinePresentation(inlinePresentation)

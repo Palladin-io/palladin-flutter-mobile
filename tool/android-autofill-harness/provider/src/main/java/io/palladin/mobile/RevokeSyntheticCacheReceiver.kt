@@ -15,6 +15,7 @@ class RevokeSyntheticCacheReceiver : BroadcastReceiver() {
         }
         if (intent.action == "io.palladin.autofill.harness.REVOKE") {
             AutoFillCacheStore(context).revokeAccess()
+            resultCode = 1
         }
     }
 }

@@ -103,6 +103,12 @@ class FormActivity : Activity() {
                 }
             })
             layout.addView(Button(this).apply {
+                text = "Clear fields"
+                setOnClickListener {
+                    web.evaluateJavascript("Array.from(document.querySelectorAll('input')).forEach(input => {input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));})", null)
+                }
+            })
+            layout.addView(Button(this).apply {
                 text = "Verify empty"
                 setOnClickListener {
                     web.evaluateJavascript("Array.from(document.querySelectorAll('input')).every(input => input.value === '')") {
