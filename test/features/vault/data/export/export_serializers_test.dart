@@ -59,6 +59,82 @@ void main() {
     expect(staging.appendSizes.every((size) => size < 256 * 1024), isTrue);
   });
 
+  test('CSV neutralises formula-leading metadata cells', () async {
+    final staging = _MemoryStaging();
+    final writer = ProtectedExportWriter(
+      staging: staging,
+      format: ExportFormat.csv,
+    );
+    await writer.start(vaultId: 'v-1', vaultName: 'Personal');
+    for (final name in ['=1+1', '+SUM(A1)', '-2', '@cmd', '\tx', '\rx']) {
+      await writer.write(
+        ExportRecord(
+          entryId: 'e-1',
+          name: name,
+          entryType: '0',
+          lifecycle: 'active',
+          revision: '1',
+          payload: const {},
+        ),
+      );
+    }
+    await writer.write(
+      ExportRecord(
+        entryId: 'e-2',
+        name: '=HYPERLINK("https://evil.test","x")',
+        entryType: '0',
+        lifecycle: 'active',
+        revision: '1',
+        payload: const {},
+      ),
+    );
+    await writer.finish();
+    final rows = staging.text.split('\r\n');
+    expect(rows[1], "e-1,'=1+1,0,active,1,false,{}");
+    expect(rows[2], "e-1,'+SUM(A1),0,active,1,false,{}");
+    expect(rows[3], "e-1,'-2,0,active,1,false,{}");
+    expect(rows[4], "e-1,'@cmd,0,active,1,false,{}");
+    expect(rows[5], "e-1,'\tx,0,active,1,false,{}");
+    expect(rows[6], "e-1,\"'\rx\",0,active,1,false,{}");
+    expect(
+      rows[7],
+      'e-2,"\'=HYPERLINK(""https://evil.test"",""x"")",0,active,1,false,{}',
+    );
+  });
+
+  test('CSV keeps secret values byte-exact', () async {
+    final staging = _MemoryStaging();
+    final writer = ProtectedExportWriter(
+      staging: staging,
+      format: ExportFormat.csv,
+    );
+    await writer.start(vaultId: 'v-1', vaultName: 'Personal');
+    const payload = {
+      'password': '=cmd|"/c calc"!A0',
+      'totp': '+JBSWY3DPEHPK3PXP',
+      'value': '-secret',
+    };
+    await writer.write(
+      ExportRecord(
+        entryId: 'e-1',
+        name: 'Plain',
+        entryType: '1',
+        lifecycle: 'active',
+        revision: '1',
+        payload: payload,
+      ),
+    );
+    await writer.finish();
+    final row = staging.text.split('\r\n')[1];
+    final payloadCell = row.substring('e-1,Plain,1,active,1,false,'.length);
+    expect(payloadCell, startsWith('"'));
+    final unquoted = payloadCell
+        .substring(1, payloadCell.length - 1)
+        .replaceAll('""', '"');
+    expect(unquoted, jsonEncode(payload));
+    expect(jsonDecode(unquoted), payload);
+  });
+
   test('aborts staging when byte limit is exceeded', () async {
     final staging = _MemoryStaging();
     final writer = ProtectedExportWriter(

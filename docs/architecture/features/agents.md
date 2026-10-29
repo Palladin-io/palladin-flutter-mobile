@@ -13,7 +13,7 @@ Agent lifecycle: approve pending agents, deactivate, reactivate, edit.
   concurrent consumers still share that operation, while a push/resume
   invalidation received during it queues at most one trailing quiet refresh so
   a response snapshotted before the event cannot leave the list stale.
-- **Exports:** `AgentAvatar` is reused by `grants` and `notifications`; `AgentStatusBadge` shares its shape with `api_keys`' `ApiKeyStatusBadge` (extract `StatusPill`).
+- **Exports:** `AgentAvatar` is reused by `grants` and `notifications`; it renders glyph keys and uploaded `public-asset:` icons (fetched only from the configured API via `PublicAssetImage`) and shows the initials avatar for any raw `https`/`http`/`file` URL; `AgentStatusBadge` shares its shape with `api_keys`' `ApiKeyStatusBadge` (extract `StatusPill`).
 
 **Cross-feature deps:** consumed by `grants`, `notifications` (which reuse `AgentAvatar` + the approve/deactivate sheets).
 
