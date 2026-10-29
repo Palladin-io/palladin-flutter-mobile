@@ -140,6 +140,13 @@ def negative_outcome(diagnosis, tree, selected_provider, mode):
         count = state.get('unavailableEvents', '')
         assert count.isdigit() and int(count) > 0, 'Missing current system-unavailable event count'
         return 'SYSTEM_UNAVAILABLE'
+    if mode == 'native-container':
+        assert state.get('noneditableTarget') == 'true', 'Target was not proven noneditable'
+        assert any(node.get('package') == form and node.get('class') == 'android.widget.TextView'
+                   and node.get('focused') == 'true' and node.get('text') == 'Synthetic label'
+                   for node in tree), 'Focused noneditable target is missing'
+        assert state.get('unavailable') == 'false' and state.get('unavailableEvents') == '0'
+        return 'PLATFORM_INELIGIBLE'
     assert mode.startswith('web') and state.get('unavailable') == 'false' and state.get('unavailableEvents') == '0', 'Missing current system-unavailable callback'
     return 'PLATFORM_NO_RESPONSE'
 
@@ -284,7 +291,7 @@ try:
                          'Negative fixture fields were not empty')
                 selected = command('shell', 'settings', 'get', 'secure', 'autofill_service').strip()
                 observations.append(negative_outcome(diagnosis, nodes(), selected, args.mode))
-            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'PLATFORM_NO_RESPONSE') if value in observations))
+            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'PLATFORM_NO_RESPONSE', 'PLATFORM_INELIGIBLE') if value in observations))
         else:
             assert 'result=' + args.expected in diagnosis, 'Unexpected provider outcome: ' + diagnosis
             outcome = args.expected

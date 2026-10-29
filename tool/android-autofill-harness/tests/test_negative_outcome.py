@@ -13,8 +13,11 @@ class NegativeOutcomeTests(unittest.TestCase):
 
     def check(self, diagnosis='No services match', selected='provider/service', unchanged=True, auth=False, mode='native-search', **overrides):
         state = dict(requestIssued='true', unavailable='true', uiShown='false', enabled='true', domReady='true', focusVerified='true', unavailableEvents='1', shownEvents='0')
+        target = overrides.pop('target', True)
         state.update(overrides)
         nodes = [ET.Element('node', {'package': 'fixture', 'text': ' '.join(f'{key}={value}' for key, value in state.items())}), ET.Element('node', {'package': 'fixture', 'text': 'fieldsUnchanged=' + str(unchanged).lower()})]
+        if mode == 'native-container' and target:
+            nodes.append(ET.Element('node', {'package': 'fixture', 'class': 'android.widget.TextView', 'focused': 'true', 'text': 'Synthetic label'}))
         if auth:
             nodes.append(ET.Element('node', {'package': 'provider'}))
         return self.namespace['negative_outcome'](diagnosis, nodes, selected, mode)
@@ -31,3 +34,11 @@ class NegativeOutcomeTests(unittest.TestCase):
                 self.check(mode='web-search', unavailable='false', unavailableEvents='0', **overrides)
         with self.assertRaises(AssertionError):
             self.check(unavailable='false', unavailableEvents='0')
+
+    def test_noneditable_container_no_callback_requires_exact_target_evidence(self):
+        self.assertEqual(self.check(mode='native-container', unavailable='false', unavailableEvents='0', noneditableTarget='true'), 'PLATFORM_INELIGIBLE')
+        for overrides in ({'noneditableTarget': 'false'}, {'target': False}, {'focusVerified': 'false'}, {'enabled': 'false'}, {'requestIssued': 'false'}, {'uiShown': 'true'}, {'shownEvents': '1'}, {'selected': 'other/service'}, {'unchanged': False}, {'auth': True}, {'diagnosis': 'result=RESPONSE_OFFERED'}):
+            options = dict(noneditableTarget='true')
+            options.update(overrides)
+            with self.subTest(overrides=overrides), self.assertRaises(AssertionError):
+                self.check(mode='native-container', unavailable='false', unavailableEvents='0', **options)

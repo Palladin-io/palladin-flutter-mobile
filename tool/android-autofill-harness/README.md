@@ -199,7 +199,7 @@ AssistStructure even when an ordinary focus event does not automatically request
 credentials. Unsupported/insecure framework behavior is never reported as a
 successful provider rejection.
 
-The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
+The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
 
 On baseline `ca6bb9719386bdbf7986346a3b2bb1aadd661654`, the actual provider incorrectly
 offered a response for native confirmation/hidden/disabled fields and WebView

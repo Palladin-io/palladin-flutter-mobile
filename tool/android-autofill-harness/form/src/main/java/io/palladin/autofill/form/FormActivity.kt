@@ -35,10 +35,11 @@ class FormActivity : Activity() {
         var enabledAtRequest = false
         var domReady = !mode.startsWith("web")
         var focusVerified = false
+        var noneditableTarget = false
         var unavailableEvents = 0
         var shownEvents = 0
         fun publishEvidence() {
-            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest domReady=$domReady focusVerified=$focusVerified unavailableEvents=$unavailableEvents shownEvents=$shownEvents"
+            evidence.text = "requestIssued=$requested unavailable=$unavailable uiShown=$shown enabled=$enabledAtRequest domReady=$domReady focusVerified=$focusVerified unavailableEvents=$unavailableEvents shownEvents=$shownEvents noneditableTarget=$noneditableTarget"
         }
         fun observe(event: Int) {
             if (event == AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE) { unavailable = true; unavailableEvents++ }
@@ -153,6 +154,7 @@ class FormActivity : Activity() {
                     importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
                     setAutofillHints(View.AUTOFILL_HINT_USERNAME)
                     check(autofillType == View.AUTOFILL_TYPE_NONE && inputType == InputType.TYPE_NULL)
+                    noneditableTarget = true
                 }
                 "native-hidden", "native-disabled" -> EditText(this).apply {
                     inputType = InputType.TYPE_CLASS_TEXT
