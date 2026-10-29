@@ -122,12 +122,12 @@ class FormActivity : Activity() {
             when (mode) {
                 "native-username-hint" -> {
                     username.inputType = InputType.TYPE_CLASS_TEXT
-                    username.setAutofillHints(null)
+                    username.setAutofillHints()
                     username.hint = "Adres e-mail lub login"
                 }
                 "native-username-manual", "native-username-manual-verified", "native-login-opaque" -> {
                     username.inputType = InputType.TYPE_CLASS_TEXT
-                    username.setAutofillHints(null)
+                    username.setAutofillHints()
                     username.hint = "識別子"
                 }
                 "native-search" -> { username.id = R.id.search; username.inputType = InputType.TYPE_CLASS_TEXT; username.setAutofillHints("search") }
@@ -135,6 +135,10 @@ class FormActivity : Activity() {
                 "native-confirm" -> { username.id = R.id.confirm_password; username.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; username.setAutofillHints(View.AUTOFILL_HINT_PASSWORD) }
                 "native-hidden" -> username.visibility = View.INVISIBLE
                 "native-disabled" -> username.isEnabled = false
+            }
+            if (mode in setOf("native-username-hint", "native-username-manual",
+                    "native-username-manual-verified", "native-login-opaque")) {
+                check(username.autofillHints.isNullOrEmpty()) { "Synthetic no-hint fixture is malformed" }
             }
             val password = if (mode in setOf("native-login", "native-login-opaque")) EditText(this).apply {
                 id = View.generateViewId()

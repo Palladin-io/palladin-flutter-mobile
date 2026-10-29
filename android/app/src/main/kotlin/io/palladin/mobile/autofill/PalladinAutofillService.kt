@@ -323,6 +323,7 @@ class PalladinAutofillService : AutofillService() {
 
             private fun AssistStructure.ViewNode.classify(): Decision {
                 if (autofillId == null || !isEnabled || !isCredentialTarget()) return Decision.Rejected
+                if (autofillHints?.any { it == null } == true) return Decision.Rejected
                 if (hasHint("one-time-code") || hasHint("smsOTPCode") ||
                     hasHint("2faAppOTPCode") || hasHint("emailOTPCode")
                 ) return Decision.Rejected

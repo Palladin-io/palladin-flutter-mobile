@@ -145,6 +145,21 @@ class CredentialFieldIdsTest {
     }
 
     @Test
+    fun malformedNullHintsDoNotCrashOrEnableAnyFallback() {
+        for (hints in listOf(arrayOf<String?>(null), arrayOf(View.AUTOFILL_HINT_USERNAME, null))) {
+            @Suppress("UNCHECKED_CAST")
+            val field = node(inputType = InputType.TYPE_CLASS_TEXT, hints = hints as Array<String>)
+            `when`(field.hint).thenReturn("Adres e-mail lub login")
+            `when`(field.isFocused).thenReturn(true)
+            assertEquals(emptyList<AutofillId>(), parse(field).allIds)
+            assertEquals(emptyList<AutofillId>(), PalladinAutofillService.CredentialFieldIds.from(
+                structure(field), manualRequest = true).allIds)
+            val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+            assertEquals(emptyList<AutofillId>(), parse(field, password).usernameIds)
+        }
+    }
+
+    @Test
     fun rejectedPurposeCannotFallThroughToStructuralInference() {
         val password = node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
         for (purpose in listOf("newsletter", "search", "otp", "confirm")) {
