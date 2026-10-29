@@ -52,14 +52,12 @@ void main() {
     expect(adapter.capturedPath, isNot(contains(password)));
   });
 
-  test(
-    'reports pwned when the suffix is present with a non-zero count',
-    () async {
-      final adapter = _FakeAdapter('AAAA:1\r\n$suffix:99\r\nBBBB:3\r\n');
-      final result = await HibpService(dio: dioWith(adapter)).check(password);
-      expect(result, HibpResult.pwned);
-    },
-  );
+  test('reports pwned when the suffix is present with a non-zero count',
+      () async {
+    final adapter = _FakeAdapter('AAAA:1\r\n$suffix:99\r\nBBBB:3\r\n');
+    final result = await HibpService(dio: dioWith(adapter)).check(password);
+    expect(result, HibpResult.pwned);
+  });
 
   test('reports notFound when the suffix is absent', () async {
     final adapter = _FakeAdapter('AAAA:1\nBBBB:3\n');
