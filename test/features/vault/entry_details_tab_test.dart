@@ -898,5 +898,76 @@ void main() {
       });
       expect(cubit.isClosed, isFalse);
     });
+
+    testWidgets('a failed save keeps the displayed details and edit base', (
+      tester,
+    ) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      final (:cubit, :canonical) = await pumpTab(
+        tester,
+        entry: credential,
+        payload: payloadWith(const []),
+      );
+      expect(find.text('qa@example.test'), findsOneWidget);
+      when(
+        () => canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer(
+        (_) async => CanonicalEntrySnapshot(
+          entry: {'currentRevision': '1'},
+          payload: payloadWith(const []),
+          secret: {
+            'entryType': EntryType.credential.toWire(),
+            'memberLabel': 'Example',
+            'agentLabel': 'Example',
+            'agentVisibilityPolicy': {
+              'discoverable': true,
+              'fields': {'agentLabel': 'discovery', 'username': 'discovery'},
+            },
+          },
+        ),
+      );
+      when(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      ).thenThrow(
+        const CanonicalEntryDetailException(CanonicalEntryDetailError.network),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('entry-sign-in-method-edit')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GitHub').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.entrySaveAction));
+      await tester.pumpAndSettle();
+
+      expect(cubit.state, isA<EditEntryError>());
+      expect(find.text('qa@example.test'), findsOneWidget);
+      expect(await rowText(tester), l10n.entrySignInMethodNotSet);
+      expect(cubit.hasCanonicalSnapshot, isTrue);
+      ScaffoldMessenger.of(
+        tester.element(find.byType(EntryDetailsTab)),
+      ).removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+      await enterEdit(tester);
+      final username = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'qa@example.test'),
+      );
+      expect(username.controller?.text, 'qa@example.test');
+    });
   });
 }

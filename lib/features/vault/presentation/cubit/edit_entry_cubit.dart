@@ -227,7 +227,8 @@ class EditEntryCubit extends Cubit<EditEntryState> {
   /// The change is applied to a freshly authenticated canonical head, which
   /// also becomes the optimistic base revision. Every other field, policy and
   /// presentation value is carried over unchanged; the new field is `never`
-  /// visible to Agents.
+  /// visible to Agents. The displayed snapshot stays intact until success, so
+  /// a failed save leaves the details and the Edit base usable.
   Future<void> saveSignInMethod({
     required EntryEntity entry,
     required Uint8List privateKey,
@@ -238,19 +239,13 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     _updateInFlight = true;
     final epoch = _sensitiveEpoch;
     emit(const EditEntryLoading());
+    CanonicalEntrySnapshot? fresh;
     try {
-      final fresh = await canonicalService.reveal(
+      fresh = await canonicalService.reveal(
         expected: entry,
         memberPrivateKey: privateKey,
       );
-      if (epoch != _sensitiveEpoch || isClosed) {
-        fresh.payload.clear();
-        fresh.secret.clear();
-        fresh.entry.clear();
-        return;
-      }
-      _wipeSnapshot();
-      _snapshot = fresh;
+      if (epoch != _sensitiveEpoch || isClosed) return;
       final secret = fresh.secret;
       final rawPolicy = secret['agentVisibilityPolicy'];
       if (secret['entryType'] != EntryType.credential.toWire() ||
@@ -312,6 +307,11 @@ class EditEntryCubit extends Cubit<EditEntryState> {
       );
       emit(const EditEntryError(EntryErrorKind.unknown));
     } finally {
+      // The fresh head is only this operation's base; the presentation keeps
+      // its own snapshot, which must not be cleared by a failed save.
+      fresh?.payload.clear();
+      fresh?.secret.clear();
+      fresh?.entry.clear();
       _updateInFlight = false;
     }
   }
