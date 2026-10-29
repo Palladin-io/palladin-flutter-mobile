@@ -142,10 +142,41 @@ the library route and are cleared on lock even while the Vaults segment is activ
   Inbox View Access selects Agents immediately; ordinary Entry/Vault navigation
   still starts on Details/Entries. Vault links encode this as `?tab=agents`.
 
-- The canonical-to-form adapter maps `customFields` to the form's `fields` shape once, including stable ids, kind/type and index-visibility flags. Detail, local-cache reveal and grant projection share that adapter. Edits remove policy entries for fields absent from the new schema while preserving access modes for surviving fields; this does not change the retained owner selection on a grant.
+- The canonical-to-form adapter maps `customFields` to the form's `fields` shape once, including stable ids, type and the legacy index-visibility flag. Detail, local-cache reveal and grant projection share that adapter. Edits remove policy entries for fields absent from the new schema while preserving access modes for surviving fields; this does not change the retained owner selection on a grant.
+- Canonical custom fields follow the shared `@palladin/crypto` MemberSecret schema exactly: `{id: "custom:<uuid>", label, type, value}`, with the same `custom:<uuid>` key in `agentFieldAccess`. Readers (adapter, byte-level grant projection, wire grant projection) also accept the legacy mobile shape (bare id, `kind`, `includeInMemberIndex`), so older mobile-written entries still open; every write emits only the canonical shape. Unknown/non-standard types (for example `palladin.signin.v1` or a future type) parse, are preserved unchanged across edits and accept only `never` Agent access, so they never reach Discovery, grants or MemberIndex. MemberIndex custom entries are still selected only by the legacy local `includeInMemberIndex` flag; canonical fields without it are never added. This is intentionally narrower than the canonical TS projection, which indexes every text/multiline field.
 - Entry Detail renders the already-decrypted in-memory MemberIndex first and automatically authenticates and decrypts MemberSecret on entry. Sensitive values remain masked and are revealed per field. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
 - A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.
 - HTTP `409` is a dedicated edit-conflict state rather than a generic validation error. Lock, background and widget disposal drop decrypted Cubit state, controller values, reveal flags and TOTP state; keys and temporary plaintext byte buffers are wiped in `finally` paths.
+
+### Federated sign-in method binding
+
+A Credential can remember the external provider the user signs in with
+(`google | apple | microsoft | github | facebook`) and an optional provider
+account. It is one canonical `palladin.signin.v1` custom field in the encrypted
+MemberSecret with value `{provider, account}` (account NFC, trimmed, 1..256
+UTF-16 code units, or `null`), Agent access `never`, and no MemberIndex entry.
+
+- `SignInMethodField` (`domain/entities/sign_in_method.dart`) strictly parses
+  the binding into recognized / unrecognized / absent / ambiguous (more than
+  one field). Non-Credential Entries are treated as absent; the field is still
+  preserved. Unrecognized or ambiguous bindings are shown neutrally and never
+  used.
+- Entry Details (read-only view) shows a "Sign-in method" row with the
+  provider and account, or "Account not specified". Its edit action opens
+  `SignInMethodSheet` (`AppDropdownField` provider, optional
+  `OnboardingTextField` account, `SheetActionButtons`, explicit remove).
+- `EditEntryCubit.saveSignInMethod` re-reveals the authenticated canonical
+  head, uses it as the optimistic base, removes every existing binding field,
+  writes at most one new field with a fresh UUID v4 and the localized label,
+  sets its policy to `never`, and saves through the ordinary canonical
+  Credential update with every other field, policy, label, icon and Agent
+  label unchanged. `409` remains a conflict; a locked Vault cannot edit.
+- This save does not apply the Edit form's non-empty username/password rule,
+  so an OAuth-only Credential created elsewhere can carry a binding. The Add
+  Credential form does not offer the binding (it still requires a password);
+  set it from Entry Details after creation.
+- Mobile never observes provider sign-ins elsewhere; see
+  [System AutoFill](autofill.md#federated-sign-in-methods).
 
 ### Entry Agent policy and exact-revision grants
 

@@ -35,7 +35,9 @@ class EntryFieldRow extends StatelessWidget {
 
   /// Null hides the eye toggle (non-secret fields are always visible).
   final VoidCallback? onToggleReveal;
-  final VoidCallback onCopy;
+
+  /// Null hides the copy action (status rows without a copyable value).
+  final VoidCallback? onCopy;
   final Widget? extraTrailing;
   final bool multiline;
 
@@ -83,13 +85,15 @@ class EntryFieldRow extends StatelessWidget {
               tooltip: l10n.vaultRevealValue,
               onPressed: onToggleReveal!,
             ),
-          if (onToggleReveal != null) const SizedBox(width: AppSpacing.xs),
-          EntrySmallIconButton(
-            icon: Icons.content_copy,
-            size: actionIconSize,
-            tooltip: l10n.vaultCopyValue,
-            onPressed: onCopy,
-          ),
+          if (onToggleReveal != null && onCopy != null)
+            const SizedBox(width: AppSpacing.xs),
+          if (onCopy != null)
+            EntrySmallIconButton(
+              icon: Icons.content_copy,
+              size: actionIconSize,
+              tooltip: l10n.vaultCopyValue,
+              onPressed: onCopy!,
+            ),
           if (extraTrailing != null) ...[
             const SizedBox(width: AppSpacing.xs),
             extraTrailing!,

@@ -5048,4 +5048,74 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get autoFillSaveUnavailable =>
       'Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj.';
+
+  @override
+  String get entrySignInMethodLabel => 'Metoda logowania';
+
+  @override
+  String get entrySignInMethodNotSet => 'Nie ustawiono';
+
+  @override
+  String entrySignInMethodWithAccount(String provider, String account) {
+    return '$provider · $account';
+  }
+
+  @override
+  String entrySignInMethodNoAccount(String provider) {
+    return '$provider · Nie podano konta';
+  }
+
+  @override
+  String get entrySignInMethodUnrecognized =>
+      'Zapisano w formacie nierozpoznawanym przez tę aplikację';
+
+  @override
+  String get entrySignInMethodAmbiguous =>
+      'Zapisano więcej niż jedną metodę logowania';
+
+  @override
+  String get entrySignInMethodEdit => 'Edytuj metodę logowania';
+
+  @override
+  String get entrySignInMethodHint =>
+      'Zapamiętaj, przez którego dostawcę logujesz się do tego serwisu. Palladin nie loguje się za Ciebie i nie wykrywa logowań przez dostawców w innych aplikacjach ani przeglądarkach.';
+
+  @override
+  String get entrySignInMethodProvider => 'Dostawca';
+
+  @override
+  String get entrySignInMethodChooseProvider => 'Wybierz dostawcę';
+
+  @override
+  String get entrySignInMethodAccount => 'Konto u dostawcy (opcjonalnie)';
+
+  @override
+  String get entrySignInMethodAccountHint => 'nazwa@example.com';
+
+  @override
+  String get entrySignInMethodAccountTooLong => 'Użyj maksymalnie 256 znaków.';
+
+  @override
+  String get entrySignInMethodRemove => 'Usuń metodę logowania';
+
+  @override
+  String get entrySignInMethodSaved => 'Zapisano metodę logowania';
+
+  @override
+  String get entrySignInMethodRemoved => 'Usunięto metodę logowania';
+
+  @override
+  String get signInProviderGoogle => 'Google';
+
+  @override
+  String get signInProviderApple => 'Apple';
+
+  @override
+  String get signInProviderMicrosoft => 'Microsoft';
+
+  @override
+  String get signInProviderGithub => 'GitHub';
+
+  @override
+  String get signInProviderFacebook => 'Facebook';
 }

@@ -41,7 +41,10 @@ Map<String, AgentFieldAccess> newEntryFieldAccess(
       _ => AgentFieldAccess.onGrantValue,
     },
   for (final field in content.customFields)
-    field.fieldId: field.kind == 'totp'
+    field.fieldId:
+        !const {'text', 'multiline', 'concealed', 'totp'}.contains(field.kind)
+        ? AgentFieldAccess.never
+        : field.kind == 'totp'
         ? AgentFieldAccess.onGrantDerived
         : type == VaultEntryType.creditCard
         ? AgentFieldAccess.onGrantRuntime

@@ -771,10 +771,16 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         ? custom
               .whereType<Map>()
               .map(
+                // Canonical fields use `custom:<uuid>` + `type`; entries written
+                // by older mobile builds use a bare id + `kind`. The member-index
+                // flag exists only in that legacy shape and is never inferred.
                 (field) => <String, dynamic>{
-                  'id': field['id'],
+                  'id': switch (field['id']) {
+                    final String id => VaultCustomField.bareId(id),
+                    final other => other,
+                  },
                   'label': field['label'],
-                  'type': field['kind'],
+                  'type': VaultCustomField.wireType(field),
                   'value': field['value'],
                   'agentVisible': field['includeInMemberIndex'] == true,
                 },
@@ -2217,7 +2223,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         .whereType<Map>()
         .map(
           (field) => VaultCustomField(
-            id: field['id'] as String,
+            id: VaultCustomField.bareId(field['id'] as String),
             label: field['label'] as String? ?? '',
             kind: field['type'] as String,
             value: field['value'],

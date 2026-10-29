@@ -624,3 +624,24 @@ Flutter tests cover explicit confirmation and session guards, including a real
 loopback 401 refresh race. They do not constitute physical-device OS save UI
 acceptance. The Android save trigger, deferred app launch and unlocked
 confirmation must also be exercised on a synthetic device fixture before release.
+
+## Federated sign-in methods
+
+A Credential may remember the external OAuth/social provider (Google, Apple,
+Microsoft, GitHub, Facebook) and provider account the user signs in with,
+stored as one `palladin.signin.v1` custom field inside the encrypted
+MemberSecret (see [vault](vault.md#federated-sign-in-method-binding)). Mobile
+supports only explicit management of that binding in Entry Details: choose,
+change, remember and remove it. It syncs with Web and the browser extension
+through the ordinary encrypted Entry.
+
+System AutoFill does not read, suggest or fill this binding. iOS and Android
+credential providers run sandboxed and receive only the OS-reported service
+identifiers and form fields; they cannot observe OAuth redirects, provider
+buttons, sign-in flows or provider sessions in other apps, Safari, Chrome or
+other browsers, and Palladin does not try to. No native AutoFill code, cache
+record or provider-session data is involved. Credentials with an empty
+password (for example OAuth-only accounts) remain excluded from the native
+AutoFill cache exactly as before (`AutofillCacheService` skips them and
+`AutofillRecord` rejects them), and AutoFill saving still requires a non-empty
+password.

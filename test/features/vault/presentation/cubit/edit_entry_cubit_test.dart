@@ -7,7 +7,9 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/sign_in_method.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cubit.dart';
@@ -50,6 +52,9 @@ void main() {
     registerFallbackValue(snapshot());
     registerFallbackValue(EntryType.key);
     registerFallbackValue(<String, dynamic>{});
+    registerFallbackValue(
+      AgentVisibilityPolicy(discoverable: false, fields: const {}),
+    );
   });
 
   setUp(() {
@@ -444,5 +449,250 @@ void main() {
       act: (cubit) => cubit.deleteEntry(vaultId: 'v-1', entryId: 'e-1'),
       expect: () => [isA<EditEntryLoading>(), isA<EditEntryDeleted>()],
     );
+  });
+
+  group('EditEntryCubit sign-in method', () {
+    const otherId = '44444444-4444-4444-8444-444444444444';
+    const oldId = '55555555-5555-4555-8555-555555555555';
+    const futureId = '66666666-6666-4666-8666-666666666666';
+    final credential = EntryEntity(
+      id: 'e-2',
+      vaultId: 'v-1',
+      label: 'Example',
+      type: EntryType.credential,
+      createdAt: DateTime.utc(2026, 4, 1),
+      updatedAt: DateTime.utc(2026, 4, 20),
+    );
+
+    CanonicalEntrySnapshot credentialSnapshot({
+      int entryType = 1,
+      List<Map<String, dynamic>>? fields,
+    }) => CanonicalEntrySnapshot(
+      entry: <String, dynamic>{'currentRevision': '9'},
+      payload: <String, dynamic>{
+        'username': 'qa@example.test',
+        'password': '',
+        'url': 'https://example.test',
+        'urlDomain': 'example.test',
+        'totp': null,
+        'notes': 'keep',
+        'fields':
+            fields ??
+            [
+              {
+                'id': otherId,
+                'label': 'Team',
+                'type': 'text',
+                'value': 'qa',
+                'agentVisible': false,
+              },
+              {
+                'id': oldId,
+                'label': 'Old',
+                'type': 'palladin.signin.v1',
+                'value': {'provider': 'google', 'account': null},
+                'agentVisible': false,
+              },
+              {
+                'id': futureId,
+                'label': 'Future',
+                'type': 'palladin.future.v9',
+                'value': {'x': 1},
+                'agentVisible': false,
+              },
+            ],
+      },
+      secret: <String, dynamic>{
+        'entryType': entryType,
+        'memberLabel': 'Example',
+        'agentLabel': 'Example agent',
+        'description': 'Desc',
+        'iconReference': 'key',
+        'agentVisibilityPolicy': {
+          'discoverable': true,
+          'fields': {
+            'agentLabel': 'discovery',
+            'username': 'discovery',
+            'password': 'onGrantValue',
+            otherId: 'onGrantValue',
+            oldId: 'never',
+            futureId: 'never',
+          },
+        },
+      },
+    );
+
+    void stubReveal(CanonicalEntrySnapshot value) => when(
+      () => canonical.reveal(
+        expected: any(named: 'expected'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((_) async => value);
+
+    void stubUpdate() => when(
+      () => canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).thenAnswer((_) async => credential);
+
+    List<dynamic> captureUpdate() => verify(
+      () => canonical.update(
+        snapshot: captureAny(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: captureAny(named: 'label'),
+        description: captureAny(named: 'description'),
+        icon: captureAny(named: 'icon'),
+        type: captureAny(named: 'type'),
+        content: captureAny(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: captureAny(named: 'agentVisibilityPolicy'),
+        agentLabel: captureAny(named: 'agentLabel'),
+      ),
+    ).captured;
+
+    test(
+      'replaces every binding on a fresh head and preserves the rest',
+      () async {
+        final fresh = credentialSnapshot();
+        stubReveal(fresh);
+        stubUpdate();
+        final cubit = buildCubit();
+        await cubit.saveSignInMethod(
+          entry: credential,
+          privateKey: privateKey,
+          binding: const SignInMethodBinding(
+            provider: SignInProvider.github,
+            account: 'octo',
+          ),
+          fieldLabel: 'Sign-in method',
+        );
+        expect(cubit.state, isA<EditEntrySuccess>());
+        final captured = captureUpdate();
+        expect(identical(captured[0], fresh), isTrue);
+        expect(captured.sublist(1, 5), [
+          'Example',
+          'Desc',
+          'key',
+          EntryType.credential,
+        ]);
+        final content = captured[5] as Map<String, dynamic>;
+        expect(content['password'], '');
+        expect(content['notes'], 'keep');
+        final fields = (content['fields'] as List).cast<Map<String, dynamic>>();
+        expect(fields.map((field) => field['id']).take(2), [otherId, futureId]);
+        expect(fields[1]['value'], {'x': 1});
+        expect(fields, hasLength(3));
+        final created = fields.last;
+        expect(created['type'], 'palladin.signin.v1');
+        expect(created['label'], 'Sign-in method');
+        expect(created['value'], {'provider': 'github', 'account': 'octo'});
+        expect(
+          RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          ).hasMatch(created['id'] as String),
+          isTrue,
+        );
+        final policy = captured[6] as AgentVisibilityPolicy;
+        expect(policy.discoverable, isTrue);
+        expect(policy.fields[created['id']], AgentFieldAccess.never);
+        expect(policy.fields.containsKey(oldId), isFalse);
+        expect(policy.fields[otherId], AgentFieldAccess.onGrantValue);
+        expect(policy.fields[futureId], AgentFieldAccess.never);
+        expect(policy.fields['username'], AgentFieldAccess.discovery);
+        expect(captured[7], 'Example agent');
+        await cubit.close();
+      },
+    );
+
+    test('a null binding removes every sign-in field', () async {
+      stubReveal(credentialSnapshot());
+      stubUpdate();
+      final cubit = buildCubit();
+      await cubit.saveSignInMethod(
+        entry: credential,
+        privateKey: privateKey,
+        binding: null,
+        fieldLabel: 'Sign-in method',
+      );
+      final captured = captureUpdate();
+      final fields = ((captured[5] as Map)['fields'] as List)
+          .cast<Map<String, dynamic>>();
+      expect(fields.map((field) => field['id']), [otherId, futureId]);
+      final policy = captured[6] as AgentVisibilityPolicy;
+      expect(policy.fields.containsKey(oldId), isFalse);
+      await cubit.close();
+    });
+
+    test('rejects a non-Credential head without writing', () async {
+      stubReveal(credentialSnapshot(entryType: 0, fields: const []));
+      final cubit = buildCubit();
+      await cubit.saveSignInMethod(
+        entry: credential,
+        privateKey: privateKey,
+        binding: const SignInMethodBinding(provider: SignInProvider.google),
+        fieldLabel: 'Sign-in method',
+      );
+      expect(
+        cubit.state,
+        isA<EditEntryError>().having(
+          (state) => state.kind,
+          'kind',
+          EntryErrorKind.validation,
+        ),
+      );
+      verifyNever(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      );
+      await cubit.close();
+    });
+
+    test('an optimistic conflict surfaces as a conflict state', () async {
+      stubReveal(credentialSnapshot());
+      when(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      ).thenThrow(
+        const CanonicalEntryDetailException(CanonicalEntryDetailError.conflict),
+      );
+      final cubit = buildCubit();
+      await cubit.saveSignInMethod(
+        entry: credential,
+        privateKey: privateKey,
+        binding: const SignInMethodBinding(provider: SignInProvider.apple),
+        fieldLabel: 'Sign-in method',
+      );
+      expect(cubit.state, isA<EditEntryConflict>());
+      await cubit.close();
+    });
   });
 }

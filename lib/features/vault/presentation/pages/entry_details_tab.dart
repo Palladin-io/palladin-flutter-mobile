@@ -27,6 +27,7 @@ import '../../data/services/script_access_impact_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/sign_in_method.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../cubit/edit_entry_cubit.dart';
@@ -39,6 +40,7 @@ import '../widgets/entry_notes_section.dart';
 import '../widgets/script_editor_field.dart';
 import '../widgets/script_parameters_editor.dart';
 import '../widgets/script_refs_editor.dart';
+import '../widgets/sign_in_method_sheet.dart';
 import '../widgets/totp_display.dart';
 import '../widgets/totp_section.dart';
 import '../widgets/vault_visuals.dart';
@@ -107,6 +109,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _uploadingIcon = false;
   bool _reservingIcon = false;
   bool _submitInFlight = false;
+  bool _savingSignInMethod = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
@@ -1105,6 +1108,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             ),
           );
         }
+        addField(_signInMethodField(entry, payload, l10n));
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
       case EntryType.creditCard:
@@ -1234,6 +1238,111 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         ),
       ],
     );
+  }
+
+  /// Read-only "Sign-in method" row. Unrecognized or ambiguous bindings are
+  /// shown neutrally and never offered as a usable value.
+  Widget _signInMethodField(
+    EntryEntity entry,
+    Map<String, dynamic> payload,
+    AppLocalizations l10n,
+  ) {
+    final state = SignInMethodField.read(
+      entryType: entry.type,
+      fields: CustomField.listFromPayload(payload),
+    );
+    final account = state is SignInMethodRecognized
+        ? state.binding.account
+        : null;
+    final value = switch (state) {
+      SignInMethodRecognized(:final binding) when account != null =>
+        l10n.entrySignInMethodWithAccount(
+          signInProviderName(l10n, binding.provider),
+          account,
+        ),
+      SignInMethodRecognized(:final binding) => l10n.entrySignInMethodNoAccount(
+        signInProviderName(l10n, binding.provider),
+      ),
+      SignInMethodUnrecognized() => l10n.entrySignInMethodUnrecognized,
+      SignInMethodAmbiguous() => l10n.entrySignInMethodAmbiguous,
+      SignInMethodAbsent() => l10n.entrySignInMethodNotSet,
+    };
+    return _ReadOnlyField(
+      label: l10n.entrySignInMethodLabel,
+      row: EntryFieldRow(
+        key: const ValueKey('entry-sign-in-method'),
+        icon: Icons.login,
+        value: value,
+        isMasked: false,
+        revealed: true,
+        onToggleReveal: null,
+        onCopy: account == null
+            ? null
+            : () => _copy(account, l10n.entrySignInMethodLabel),
+        extraTrailing: EntrySmallIconButton(
+          key: const ValueKey('entry-sign-in-method-edit'),
+          icon: Icons.edit_outlined,
+          tooltip: l10n.entrySignInMethodEdit,
+          onPressed: () => _editSignInMethod(entry, state),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editSignInMethod(
+    EntryEntity entry,
+    SignInMethodState current,
+  ) async {
+    if (_savingSignInMethod) return;
+    final l10n = AppLocalizations.of(context)!;
+    final choice = await SignInMethodSheet.show(
+      context,
+      initial: current is SignInMethodRecognized ? current.binding : null,
+      canRemove: current is! SignInMethodAbsent,
+    );
+    if (choice == null || !mounted || _editMode) return;
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+      _showSnackBar(l10n.entryErrorCrypto);
+      return;
+    }
+    final cubit = context.read<EditEntryCubit>();
+    final epoch = _plaintextEpoch;
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    setState(() => _savingSignInMethod = true);
+    try {
+      await cubit.saveSignInMethod(
+        entry: entry,
+        privateKey: keyCopy,
+        binding: choice.binding,
+        fieldLabel: l10n.entrySignInMethodLabel,
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+      if (mounted) setState(() => _savingSignInMethod = false);
+    }
+    if (!mounted || epoch != _plaintextEpoch) return;
+    switch (cubit.state) {
+      case EditEntrySuccess(entry: final updated):
+        widget.onUpdated(updated);
+        _showSnackBar(
+          choice.binding == null
+              ? l10n.entrySignInMethodRemoved
+              : l10n.entrySignInMethodSaved,
+        );
+        await _requestReveal(expected: updated, forceRemote: true);
+        if (!mounted) return;
+        if (cubit.state case EditEntryReady(:final entry, :final payload)) {
+          setState(() => _adoptRevealed(entry, payload));
+        }
+      case EditEntryConflict():
+        _showSnackBar(l10n.entryErrorConflict);
+        await _requestReveal(forceRemote: true);
+      case EditEntryError(:final kind):
+        _showSnackBar(EntryFormUtils.errorMessage(l10n, kind));
+      default:
+        break;
+    }
   }
 
   void _toggleCustomReveal(String id) {
