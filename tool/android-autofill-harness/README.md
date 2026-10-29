@@ -342,3 +342,32 @@ into this isolated debug provider to commit the real cache revocation while the
 confirmation remains foreground. It is absent from the production manifest.
 The authoritative matrix runs revoke last because it deliberately invalidates
 the synthetic cache. No scenario uses real credentials or logs field values.
+
+Observed physical metadata regressions: [Binance virtual username](observed-binance.md).
+
+### Exact-host credential-delegation regressions
+
+API31+ adds six cases to the existing 46-case matrix. `--mode web-username
+--dal-proof valid` uses a second strictly local WebView document at
+`https://example.com/`; the form APK has no OS-verified association for that host.
+Its content is intercepted locally, never fetched. The provider's merged manifest
+explicitly removes the library-contributed INTERNET permission.
+
+The debug-only `SyntheticCredentialAssociation` substitutes only the successful
+network-proof step: it reads the real installed form APK identity and puts that
+exact key into the production process-memory proof cache. It does not bypass the
+production verifier, parser, service, biometric Activity, lease or final dataset
+checks. Response inspection requires the original username-only IDs and synthetic
+value, no password, and the expected exact-host presentation. The actual OS case
+requires Service → biometric authentication → returned credential selection →
+field equality. Cancellation and expiring the proof while the biometric prompt
+is open must leave all fields empty. A test-only receiver changes the proof's
+monotonic timestamp for expiration; there is no production injection API.
+
+Expired and wrong-signer proof inspectors require rejection before authentication;
+they invoke the Activity/verifier directly, not a network fallback. Actual HTTPS,
+DNS/address, MIME/body/JSON and deadline behavior is covered separately by native
+JVM tests. Every synthetic launcher also executes valid and malformed statements
+through the production parser on the device's actual JsonReader before cache seed.
+This split does not claim that a live merchant endpoint or physical keyboard was
+tested. The API31+ authoritative matrix now contains 52 cases.

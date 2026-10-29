@@ -160,6 +160,17 @@ String _generate() {
     buffer.writeln();
   }
 
+  buffer
+    ..writeln('## Native Android credential-association dependencies')
+    ..writeln()
+    ..writeln('The following notice is also bundled in the Android APK assets.')
+    ..writeln()
+    ..writeln(
+      File(
+        'android/app/src/main/assets/third_party_licenses/credential-association.txt',
+      ).readAsStringSync(),
+    );
+
   return buffer.toString();
 }
 

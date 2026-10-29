@@ -15,7 +15,8 @@ parser.add_argument('--serial', required=True)
 parser.add_argument('--mode', choices=['native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'], required=True)
 parser.add_argument('--expected', choices=['RESPONSE_OFFERED', 'REJECTED', 'NO_RESPONSE'], default='RESPONSE_OFFERED')
 parser.add_argument('--fill', action='store_true')
-parser.add_argument('--handoff-check', choices=['cancel-biometric', 'cancel-picker', 'cancel-confirmation', 'revoke', 'repeat'])
+parser.add_argument('--handoff-check', choices=['cancel-biometric', 'cancel-picker', 'cancel-confirmation', 'revoke', 'repeat', 'expire-proof'])
+parser.add_argument('--dal-proof', choices=['valid', 'expired', 'wrong-signer'])
 parser.add_argument('--inspect-response', action='store_true')
 parser.add_argument('--inline-mode', choices=['supported', 'absent', 'unsupported'], default='supported')
 args = parser.parse_args()
@@ -23,6 +24,10 @@ if not args.serial.startswith('emulator-'):
     raise RuntimeError('This harness only operates on an emulator')
 if not __debug__:
     raise RuntimeError('Run without Python optimization so every field assertion is checked')
+if args.dal_proof and (args.mode != 'web-username' or (args.dal_proof != 'valid' and not args.inspect_response)):
+    raise RuntimeError('DAL proof variants use only the bounded username inspector/positive fixture')
+if args.handoff_check == 'expire-proof' and args.dal_proof != 'valid':
+    raise RuntimeError('Proof expiry requires the synthetic DAL fixture')
 adb = os.environ.get('ADB', 'adb')
 form = 'io.palladin.autofill.harness.form'
 provider = 'io.palladin.autofill.harness.provider'
@@ -180,6 +185,9 @@ def authenticate():
     if args.handoff_check == 'cancel-biometric':
         command('shell', 'input', 'keyevent', '4')
         return
+    if args.handoff_check == 'expire-proof':
+        expiry = command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.EXPIRE_ASSOCIATION')
+        assert 'Broadcast completed: result=1' in expiry, 'Synthetic proof expiry was not acknowledged'
     command('emu', 'finger', 'touch', '1')
     command('emu', 'finger', 'remove')
     if args.mode.startswith('native'):
@@ -294,17 +302,18 @@ def record_failure():
 
 
 try:
-    command('shell', 'pm', 'set-app-links', '--package', form, '2' if args.mode.startswith('web') or args.mode == 'native-username-manual-verified' else '0', 'fixture.invalid')
+    command('shell', 'pm', 'set-app-links', '--package', form, '2' if not args.dal_proof and (args.mode.startswith('web') or args.mode == 'native-username-manual-verified') else '0', 'fixture.invalid')
     command('shell', 'am', 'force-stop', form)
     command('shell', 'am', 'force-stop', provider)
+    dal_arguments = ['--es', 'dalProof', args.dal_proof] if args.dal_proof else []
     if args.inspect_response:
         if args.mode not in ('native-login', 'native-username', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'native-username-manual', 'native-username-manual-verified', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'):
             raise RuntimeError('Response inspection uses the four credential fixtures')
         prior_policy = command('shell', 'settings', 'get', 'global', 'hidden_api_policy').strip()
         try:
             command('shell', 'settings', 'put', 'global', 'hidden_api_policy', '1')
-            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode, '--es', 'inlineMode', args.inline_mode)
-            if args.mode in ('web-http', 'web-missing', 'native-username-manual-password', 'web-username-manual'):
+            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode, '--es', 'inlineMode', args.inline_mode, *dal_arguments)
+            if args.dal_proof in ('expired', 'wrong-signer') or args.mode in ('web-http', 'web-missing', 'native-username-manual-password', 'web-username-manual'):
                 wait_for(lambda tree: any(n.get('text') == 'responseRejected=true' for n in tree),
                          'Invalid scheme rejection result not observed')
                 print(args.mode + ': no authentication result PASS')
@@ -325,7 +334,10 @@ try:
         case_started_ms = None
         if args.mode.startswith('native'):
             case_started_ms = math.ceil(float(command('shell', 'cat', '/proc/uptime').split()[0]) * 1000) + 10
-        command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode)
+        if args.dal_proof:
+            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', *dal_arguments)
+            wait_for(lambda tree: any(n.get('text') == 'Synthetic encrypted cache ready' for n in tree), 'DAL synthetic proof/cache setup failed')
+        command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode, *(['--ez', 'dalFixture', 'true'] if args.dal_proof else []))
         positive = args.mode in ('native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username')
         focus_field(required=positive)
         if not positive or args.mode in ('native-username-manual', 'native-username-manual-verified'):
@@ -378,7 +390,7 @@ try:
             authenticate()
             direct_native = args.mode.startswith('native') and int(command('shell', 'getprop', 'ro.build.version.sdk')) >= 31
             if args.handoff_check and args.handoff_check != 'repeat':
-                assert direct_native, 'Handoff checks require native API31+'
+                assert direct_native or args.dal_proof == 'valid' and args.handoff_check in ('cancel-biometric', 'expire-proof'), 'Unsupported handoff check'
                 assert tap_text('Verify empty'), 'Empty field control missing'
                 wait_for(lambda tree: any(n.get('text') == 'fieldsUnchanged=true' for n in tree),
                          'Canceled or revoked operation filled fields')

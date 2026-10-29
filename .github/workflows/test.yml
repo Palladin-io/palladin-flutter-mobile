@@ -141,7 +141,7 @@ jobs:
           test -e /dev/kvm
           sudo chown "$(id -u):$(id -g)" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-37.0' 'platforms;android-36' 'build-tools;36.0.0' 'emulator' 'system-images;android-35;google_apis;x86_64'
           "$ANDROID_HOME/emulator/emulator" -accel-check
           curl --fail --location --silent --show-error --max-time 180 \
             https://services.gradle.org/distributions/gradle-8.14-bin.zip \
@@ -268,7 +268,7 @@ jobs:
           test -e /dev/kvm
           sudo chown "$(id -u):$(id -g)" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.0.0' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-37.0' 'platforms;android-36' 'build-tools;36.0.0' 'emulator' 'system-images;android-35;google_apis;x86_64'
           "$ANDROID_HOME/emulator/emulator" -accel-check
           curl --fail --location --silent --show-error --max-time 180 \
             https://services.gradle.org/distributions/gradle-8.14-bin.zip \

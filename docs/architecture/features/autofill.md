@@ -656,3 +656,52 @@ confirmation must also be exercised on a synthetic device fixture before release
 ### Android debug identity
 
 Android debug builds use `Palladin (Debug)` for the launcher and system AutoFill provider label. English and Polish unlock, biometric and generation prompts also identify the debug build, including the public inline suggestion and dropdown paths. These resources live only in `src/debug`; release labels remain unchanged. The label does not select a backend environment.
+
+
+### Exact-host credential delegation for app WebViews
+
+On API 31+, a recognized current-credential form in a non-browser app may report
+an HTTPS host absent from that package's OS App Links. Credential fill can use a
+direct `https://<exact-host>/.well-known/assetlinks.json` statement containing
+`delegate_permission/common.get_login_creds`, `android_app`, the exact package,
+and every current installed APK signing certificate. Historical signer lineage,
+sibling/root domains, `handle_all_urls` alone and transitive `include` statements
+do not supply this authority. Existing OS/browser checks remain first; disabled
+link handling and unavailable OS association state are not overridden. Native
+manual selection, password generation and SaveInfo/save authorization are unchanged.
+
+The request runs off the UI thread. Its three-second deadline includes queue and
+DNS time; two workers and two queued requests bound stuck platform DNS calls.
+Cancellation/timeout removes queued work, cancels HTTP and permits exactly one
+completion. Late success cannot publish a proof. OkHttp receives only the resolved
+public IP addresses checked for that exact hostname, avoiding a second DNS lookup.
+TLS hostname/trust validation stays with the library/platform. No redirects,
+proxies, cookies, authorization headers, response disk cache, logging or intermediary
+lookup service are used. Only status 200, application/json, identity encoding and
+at most 64 KiB of strict UTF-8 JSON are accepted. Duplicate keys, malformed JSON,
+mixed include/authority statements and excessive structure fail closed. Standalone
+include statements are ignored without fetching; unrelated bounded JSON metadata
+is permitted but cannot supply authority.
+
+A maximum of 32 positive proofs lives only in process memory, for 60 seconds of
+monotonic time. Its key is exact host/package/current signer set. Before biometric
+entry and final credential handoff the app reads the current installed identity,
+checks the proof lifetime and OS policy again, and retains existing cache generation,
+lease, lock/revoke and exact credential-domain checks. An expired proof cancels the
+operation rather than performing UI-thread networking or silently extending authority.
+Private/special-use destinations, including NAT64/transition prefixes, are rejected;
+offline operation needs existing OS authority or a still-valid memory proof.
+
+Primary contracts: [Google credential-sharing setup](https://developers.google.com/identity/credential-sharing/set-up)
+and [DAL consumers and principals](https://developers.google.com/identity/credential-sharing/digital-asset-links).
+The observed Binance case and counterfactual regressions are documented in
+[`observed-binance.md`](../../../tool/android-autofill-harness/observed-binance.md).
+
+OkHttp is pinned to 5.5.1, whose security update blocks compromised eMudhra
+intermediates. Its Android artifact requires compileSdk 37; target/min SDK remain
+unchanged. Existing AGP 8.11.1 emits an unsupported-compile-SDK warning (not
+suppressed); successful compilation/runtime evidence is required before release.
+The unit harness loads only the real Android 14 streaming-reader classes from a
+pinned test-only android-all artifact, ahead of throwing SDK stubs. These classes
+are not compiled into the provider/application APK; strict parser tests execute
+actual reader methods and do not mock parsing.

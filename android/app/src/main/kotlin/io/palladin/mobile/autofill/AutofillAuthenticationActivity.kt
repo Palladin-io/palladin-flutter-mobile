@@ -230,7 +230,10 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
     private fun webOriginStillVerified(requestingPackage: String, domain: String): Boolean =
         AutofillOriginPolicy.isSecureWebScheme(intent.getStringExtra(EXTRA_WEB_SCHEME)) &&
-            AutofillOriginVerifier(this).isVerified(requestingPackage, domain)
+            AutofillOriginVerifier(this).let { verifier ->
+                if (intent.getBooleanExtra(EXTRA_GENERATE, false)) verifier.isVerified(requestingPackage, domain)
+                else verifier.credentialFillStatus(requestingPackage, domain) == OriginStatus.VERIFIED
+            }
 
     private fun nativeOriginStillVerified(requestingPackage: String, domains: Set<String>): Boolean =
         domains.isNotEmpty() && AutofillOriginVerifier(this)

@@ -28,6 +28,7 @@ import java.time.Instant
 
 /** Debug-only launcher seeds the real encrypted cache with synthetic records. */
 class MainActivity : Activity() {
+ private val fixtureHost: String get() = if (intent.hasExtra("dalProof")) SyntheticCredentialAssociation.HOST else "fixture.invalid"
  private val phases = mutableListOf<String>()
  private var collectingDiagnostics = false
  private var expectInline = true
@@ -52,6 +53,7 @@ class MainActivity : Activity() {
    Thread.setDefaultUncaughtExceptionHandler(syntheticFailureHandler(prior) { recordPhase("UNCAUGHT", it) })
   }
   val status = runCatching {
+   verifyCredentialStatementParser()
    val store = AutoFillCacheStore(this)
    val session = store.beginSession()
    val issuedAt = Instant.now().minusSeconds(10)
@@ -67,12 +69,23 @@ class MainActivity : Activity() {
     "records" to listOf(mapOf("id" to "synthetic-entry", "organizationId" to "synthetic-org",
      "vaultId" to "synthetic-vault", "revision" to "1", "keyVersion" to 1,
      "label" to "Synthetic fixture", "username" to "synthetic-user", "password" to "synthetic-only-not-secret",
-     "domains" to listOf("fixture.invalid")))
+     "domains" to listOf(fixtureHost)))
    ), session)
+   intent.getStringExtra("dalProof")?.let { SyntheticCredentialAssociation.configure(this, it) }
    "Synthetic encrypted cache ready"
   }.getOrElse { "Synthetic setup failed: " + it.javaClass.simpleName }
   setContentView(TextView(this).apply { text = status; textSize = 22f })
   if (status == "Synthetic encrypted cache ready") intent.getStringExtra("inspectResponse")?.let(::inspectResponse)
+ }
+
+ private fun verifyCredentialStatementParser() {
+  val signer = List(32) { "AB" }.joinToString(":")
+  val statement = """[{"relation":["delegate_permission/common.get_login_creds"],"target":{"namespace":"android_app","package_name":"synthetic.app","sha256_cert_fingerprints":["$signer"]},"metadata":{"enabled":true,"version":1,"optional":null}}]"""
+  check(io.palladin.mobile.autofill.CredentialAssetLinks.authorizes(statement, "synthetic.app", setOf(signer)))
+  for (invalid in listOf(statement + "[]", statement.replace("\"relation\":", "\"relation\":[],\"relation\":"),
+   statement.replace("delegate_permission/common.get_login_creds", "delegate_permission/common.handle_all_urls"))) {
+   check(!io.palladin.mobile.autofill.CredentialAssetLinks.authorizes(invalid, "synthetic.app", setOf(signer)))
+  }
  }
 
  private fun inspectResponse(mode: String) {
@@ -102,7 +115,7 @@ class MainActivity : Activity() {
     AutofillAuthenticationActivity.EXTRA_NATIVE_DOMAINS, arrayListOf("fixture.invalid"))
 
    if (mode.startsWith("web")) {
-    putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, "fixture.invalid")
+    putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, fixtureHost)
     if (mode != "web-missing") putExtra(
      AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, if (mode == "web-http") "http" else "https",
     )
@@ -138,14 +151,14 @@ class MainActivity : Activity() {
   val inlineVerified = dropdown != null && if (expectInline) {
    inline != null && inline.inlinePresentationSpec == expectedInlineSpec &&
     inlineContent?.title?.toString() == "synthetic-user" &&
-    inlineContent.subtitle?.toString() == "fixture.invalid" &&
+    inlineContent.subtitle?.toString() == fixtureHost &&
     inlineContent.startIcon != null && inlineContent.contentDescription?.contains("Synthetic fixture") == true
   } else inline == null
   val verified = handoffVerified && inlineVerified && requestCode == 1 && resultCode == RESULT_OK && datasets.size == 1 &&
    ids.size == expectedFields.size && values.size == ids.size && ids.toSet() == expectedFields.keys &&
    ids.zip(values).all { (id, value) -> value?.textValue?.toString() == expectedFields[id] }
   val rejected = requestCode == 1 && resultCode == RESULT_CANCELED && result == null
-  val status = if (intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
+  val status = if (intent.getStringExtra("dalProof") in setOf("expired", "wrong-signer") || intent.getStringExtra("inspectResponse") in setOf("web-http", "web-missing", "web-empty", "native-empty", "native-username-manual-password", "web-username-manual", "native-username-manual-cancel")) {
    "responseRejected=$rejected"
   } else "responseVerified=$verified"
   recordPhase(if (verified) "RESULT_VERIFIED" else if (rejected) "RESULT_REJECTED" else "RESULT_MISMATCH")

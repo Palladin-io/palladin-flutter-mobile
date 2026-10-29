@@ -72,7 +72,8 @@ class FormActivity : Activity() {
                 "web-disabled" -> "<input id='probe'><input type='text' autocomplete='username' disabled>"
                 else -> "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>"
             }
-            val fixtureUrl = if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
+            val dalFixture = intent.getBooleanExtra("dalFixture", false)
+            val fixtureUrl = if (dalFixture) "https://example.com/" else if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
             val html = "<html><meta name='viewport' content='width=device-width'><body><form>" +
                 usernameHtml + password + "</form></body></html>"
             web.webViewClient = object : WebViewClient() {
@@ -83,7 +84,7 @@ class FormActivity : Activity() {
                     }
                 }
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
-                    val content = fixtureContent(request.url.toString(), html)
+                    val content = fixtureContent(request.url.toString(), html, dalFixture)
                     return WebResourceResponse(
                         "text/html", "UTF-8", if (content == null) 404 else 200,
                         if (content == null) "Not Found" else "OK", emptyMap(),
@@ -98,6 +99,14 @@ class FormActivity : Activity() {
                     web.evaluateJavascript("(function(){const field=document.querySelector('input:not([disabled]):not([type=hidden])');if(field)field.focus();return !!field && document.activeElement===field;})()") {
                         focusVerified = it == "true"
                         request(web)
+                    }
+                }
+            })
+            layout.addView(Button(this).apply {
+                text = "Verify empty"
+                setOnClickListener {
+                    web.evaluateJavascript("Array.from(document.querySelectorAll('input')).every(input => input.value === '')") {
+                        result.text = "fieldsUnchanged=" + (it == "true")
                     }
                 }
             })
