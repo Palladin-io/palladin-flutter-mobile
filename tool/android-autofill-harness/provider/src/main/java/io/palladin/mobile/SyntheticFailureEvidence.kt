@@ -8,14 +8,22 @@ internal fun syntheticFailureEvidence(phases: List<String>, error: Throwable?): 
     fun symbol(value: String): String = value.takeIf {
         it.length <= 160 && it.matches(Regex("[A-Za-z0-9_.$<>]+"))
     } ?: "invalid"
-    return JSONObject().put("phases", JSONArray(phases.filter { it in allowedPhases }.takeLast(16))).apply {
-        if (error != null) {
-            put("exceptionClass", symbol(error.javaClass.name))
-            put("frames", JSONArray(error.stackTrace.take(12).map {
-                JSONObject().put("class", symbol(it.className)).put("method", symbol(it.methodName)).put("line", it.lineNumber)
-            }))
-        }
+    fun metadata(failure: Throwable) = JSONObject()
+        .put("exceptionClass", symbol(failure.javaClass.name))
+        .put("frames", JSONArray(failure.stackTrace.take(12).map {
+            JSONObject().put("class", symbol(it.className)).put("method", symbol(it.methodName)).put("line", it.lineNumber)
+        }))
+    val report = error?.let(::metadata) ?: JSONObject()
+    report.put("phases", JSONArray(phases.filter { it in allowedPhases }.takeLast(16)))
+    val causes = JSONArray()
+    val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
+    if (error != null) seen.add(error)
+    var cause = error?.cause
+    while (cause != null && causes.length() < 2 && seen.add(cause)) {
+        causes.put(metadata(cause))
+        cause = cause.cause
     }
+    return report.put("causes", causes)
 }
 
 internal fun syntheticFailureHandler(

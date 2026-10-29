@@ -33,4 +33,22 @@ class SyntheticFailureEvidenceTest {
         handler.uncaughtException(Thread.currentThread(), failure)
         assertSame(failure, delegated)
     }
+    @Test fun causesAreBoundedAndNeverExportMessagesOrFileNames() {
+        var failure: Throwable = IllegalArgumentException("inner secret")
+        repeat(8) {
+            failure = IllegalStateException("outer secret", failure).also {
+                it.stackTrace = arrayOf(StackTraceElement("test.Safe", "call", "SECRET_CAUSE_FILE", 1))
+            }
+        }
+        val report = syntheticFailureEvidence(emptyList(), failure)
+        assertEquals(2, report.getJSONArray("causes").length())
+        assertFalse(report.toString().contains("secret"))
+        assertFalse(report.toString().contains("SECRET_CAUSE_FILE"))
+        val first = IllegalStateException("cycle secret")
+        val second = IllegalArgumentException("cycle secret")
+        first.initCause(second)
+        second.initCause(first)
+        assertEquals(1, syntheticFailureEvidence(emptyList(), first).getJSONArray("causes").length())
+    }
+
 }
