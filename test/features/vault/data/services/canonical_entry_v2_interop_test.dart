@@ -99,6 +99,15 @@ void main() {
     'memberKeyGeneration': 3,
     'binding': {'wrappingVaultKeyVersion': 4},
   };
+  Map<String, dynamic> memberVaultKey(String wrappedVaultId) => {
+    'wrappedVaultKey': {
+      'descriptor': {
+        'scope': {'organizationId': orgId, 'vaultId': wrappedVaultId},
+        'wrappedKeyVersion': 4,
+        'memberKeyGeneration': 3,
+      },
+    },
+  };
   Map<String, dynamic> head({int state = 1}) => {
     'organizationId': orgId,
     'vaultId': vaultId,
@@ -192,7 +201,7 @@ void main() {
         'organizationId': orgId,
         'memberKeyGeneration': 3,
         'currentKeyEpoch': {'vaultKeyVersion': 4, 'vdkVersion': 6},
-        'memberVaultKey': <String, dynamic>{},
+        'memberVaultKey': memberVaultKey(vaultId),
         'discoveryKey': <String, dynamic>{},
       },
     );
@@ -1014,7 +1023,28 @@ void main() {
       );
     }
 
-    test('Vault key wrapper opened for another Vault', () async {
+    test('Vault key wrapper for another Vault is never opened', () async {
+      when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
+        (_) async => {
+          'organizationId': orgId,
+          'memberKeyGeneration': 3,
+          'currentKeyEpoch': {'vaultKeyVersion': 4, 'vdkVersion': 6},
+          'memberVaultKey': memberVaultKey(otherVaultId),
+          'discoveryKey': <String, dynamic>{},
+        },
+      );
+      await expectRejectedBeforeSeal(head());
+      verifyNever(
+        () => vaultCrypto.openVaultProjection(
+          json: any(named: 'json'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      );
+    });
+
+    test('opened Vault key for another Vault is rejected and wiped', () async {
+      final openedKey = Uint8List.fromList(List.filled(32, 7));
+      final openedDiscoveryKey = Uint8List.fromList(List.filled(32, 9));
       when(
         () => vaultCrypto.openVaultProjection(
           json: any(named: 'json'),
@@ -1024,8 +1054,8 @@ void main() {
         (_) async => OpenedVaultProjection(
           organizationId: orgId,
           vaultId: otherVaultId,
-          vaultKey: Uint8List(32),
-          vaultDiscoveryKey: Uint8List(32),
+          vaultKey: openedKey,
+          vaultDiscoveryKey: openedDiscoveryKey,
           metadata: const MemberVaultMetadata(
             name: 'Other',
             description: null,
@@ -1050,6 +1080,8 @@ void main() {
         ),
       );
       await expectRejectedBeforeSeal(head());
+      expect(openedKey, everyElement(0));
+      expect(openedDiscoveryKey, everyElement(0));
     });
   });
 

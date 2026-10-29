@@ -905,6 +905,50 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     );
   }
 
+  /// The member VK wrapper scope is self-described, so it is bound to the
+  /// request authority before unwrapping and again on the opened result.
+  void _requireVaultKeyWrapperDescriptor(
+    Map<String, dynamic> vault,
+    ({String organizationId, int memberKeyGeneration, int vaultKeyVersion})
+    authority,
+    String expectedVaultId,
+  ) {
+    final descriptor = _map(
+      _map(_map(vault, 'memberVaultKey'), 'wrappedVaultKey'),
+      'descriptor',
+    );
+    final scope = _map(descriptor, 'scope');
+    _requireVaultKeyWrapperScope(
+      organizationId: scope['organizationId'],
+      vaultId: scope['vaultId'],
+      wrappedKeyVersion: descriptor['wrappedKeyVersion'],
+      memberKeyGeneration: descriptor['memberKeyGeneration'],
+      authority: authority,
+      expectedVaultId: expectedVaultId,
+    );
+  }
+
+  void _requireVaultKeyWrapperScope({
+    required Object? organizationId,
+    required Object? vaultId,
+    required Object? wrappedKeyVersion,
+    required Object? memberKeyGeneration,
+    required ({
+      String organizationId,
+      int memberKeyGeneration,
+      int vaultKeyVersion,
+    })
+    authority,
+    required String expectedVaultId,
+  }) {
+    if (organizationId != authority.organizationId ||
+        vaultId != expectedVaultId ||
+        wrappedKeyVersion != authority.vaultKeyVersion ||
+        memberKeyGeneration != authority.memberKeyGeneration) {
+      throw const FormatException('Vault key wrapper scope mismatch');
+    }
+  }
+
   Future<EntryEntity> update({
     required CanonicalEntrySnapshot snapshot,
     required EntryEntity expected,
@@ -976,20 +1020,21 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           maximumMemberKeyGeneration: generation,
           expectedWrappingVaultKeyVersion: authority.vaultKeyVersion,
         );
+        _requireVaultKeyWrapperDescriptor(vault, authority, expected.vaultId);
         final openedVault = await canonicalVaultCrypto.openVaultProjection(
           json: vault,
           memberPrivateKey: memberPrivateKey,
         );
         vaultKey = openedVault.vaultKey;
-        // The wrapper scope is self-described; bind it to the edited Vault.
-        if (openedVault.organizationId != organizationId ||
-            openedVault.vaultId != expected.vaultId ||
-            openedVault.wrapper.wrappedKeyVersion !=
-                authority.vaultKeyVersion ||
-            openedVault.wrapper.memberKeyGeneration != generation) {
-          throw const FormatException('Vault key wrapper scope mismatch');
-        }
         discoveryKey = openedVault.vaultDiscoveryKey;
+        _requireVaultKeyWrapperScope(
+          organizationId: openedVault.organizationId,
+          vaultId: openedVault.vaultId,
+          wrappedKeyVersion: openedVault.wrapper.wrappedKeyVersion,
+          memberKeyGeneration: openedVault.wrapper.memberKeyGeneration,
+          authority: authority,
+          expectedVaultId: expected.vaultId,
+        );
         if (discoveryKey == null) {
           throw const FormatException('Missing Vault discovery key');
         }
@@ -1509,7 +1554,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         memberPrivateKey: memberPrivateKey,
       );
       final vault = await _vaults.getEncryptedVault(expected.vaultId);
-      _validateCanonicalAuthority(vault, snapshot.entry, expected);
+      final authority = _validateCanonicalAuthority(
+        vault,
+        snapshot.entry,
+        expected,
+      );
       final vaultCrypto = _vaultCrypto;
       final entryCrypto = _entryV2;
       if (vaultCrypto == null || entryCrypto == null) {
@@ -1517,14 +1566,19 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'Canonical deletion requires current crypto',
         );
       }
+      _requireVaultKeyWrapperDescriptor(vault, authority, expected.vaultId);
       opened = await vaultCrypto.openVaultProjection(
         json: vault,
         memberPrivateKey: memberPrivateKey,
       );
-      if (opened.organizationId != snapshot.entry['organizationId'] ||
-          opened.vaultId != expected.vaultId) {
-        throw const FormatException('Vault scope mismatch');
-      }
+      _requireVaultKeyWrapperScope(
+        organizationId: opened.organizationId,
+        vaultId: opened.vaultId,
+        wrappedKeyVersion: opened.wrapper.wrappedKeyVersion,
+        memberKeyGeneration: opened.wrapper.memberKeyGeneration,
+        authority: authority,
+        expectedVaultId: expected.vaultId,
+      );
       final policy = AgentVisibilityPolicy.fromJson(
         expected.type,
         Map<String, dynamic>.from(
