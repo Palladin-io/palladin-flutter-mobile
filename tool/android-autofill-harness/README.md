@@ -318,22 +318,14 @@ Launcher ANR, or any provider, System UI or unknown ANR, remains a failure.
 This handles a documented disposable-emulator boot obstruction, not an
 application crash or a failed presentation assertion.
 
-### Bounded transport comparison (not acceptance)
+### Renderer investigation limit
 
-The explicit `autofill_transport_probe=true` workflow input builds the synthetic
-APKs once, then compares `software` and Android's supported `swiftshader` mode
-on two separate fresh API35 x86 AVDs on the same disposable runner. Each renderer
-runs five web-login/web-username pairs, stopping at its first failure. The other
-renderer runs only after the previous emulator is stopped and its transport is
-gone. No snapshots or guest data are reused; emulator/image/APK hashes and each
-failure are retained. DeviceConfig synchronization remains isolated.
-
-Requesting both full AutoFill validation and the probe fails before setup. The
-probe has a distinct diagnostic job name. This opt-in uses separate
-`autofill-transport-probe-*` artifacts and `probe.json`;
-it never creates `validation.json` and cannot substitute for the full41-case
-gate. It changes neither the default full validation nor release workflows.
-The comparison tests a renderer hypothesis prompted by repeated ADB loss with a
-live emulator process; EGL messages alone do not prove the cause. Official
-[graphics documentation](https://developer.android.com/studio/run/emulator-acceleration)
-lists both supported modes. No emulator version change accompanies this probe.
+The bounded renderer comparison at `ab5b20fbb37cd4f606bab038640a7c6c0738e279`
+was inconclusive: both fresh Linux x86 emulators retained ADB connectivity but
+failed before the repeated handoffs. The software run observed an unavailable
+cache after an asynchronous seed launch; the swiftshader run offered a response
+but exposed no accessible unlock row. It does not prove a renderer fix. The
+experimental probe was removed rather than becoming an alternative acceptance
+path. Full validation remains the unchanged 41-case validator; local API 35
+ARM64 evidence must identify its emulator version and clean source SHA, and must
+not be described as a successful Linux x86 run.
