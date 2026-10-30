@@ -164,7 +164,7 @@ GoRouter createRouter(
 
   return GoRouter(
     navigatorKey: navigatorKey,
-    initialLocation: '/startup',
+    initialLocation: '/login',
     overridePlatformDefaultLocation: true,
     refreshListenable: Listenable.merge([
       _AuthBlocListenable(authBloc),
