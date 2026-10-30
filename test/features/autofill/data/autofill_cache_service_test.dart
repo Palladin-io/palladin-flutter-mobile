@@ -1038,6 +1038,57 @@ void main() {
     },
   );
 
+  test('renewed same-authority leases retain the earliest expiry', () async {
+    when(() => memberIndex.entries('vault-1')).thenReturn([
+      _indexEntry('entry-1'),
+      _indexEntry('entry-2'),
+      _indexEntry('entry-3'),
+    ]);
+    final earliest = _accessContext();
+    for (final hours in [
+      [0, 1, 2],
+      [2, 1, 0],
+    ]) {
+      var position = 0;
+      when(
+        () => localEntries.revealCurrentWithAuthority(
+          vaultId: 'vault-1',
+          entryId: any(named: 'entryId'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer(
+        (invocation) async => _revealFor(
+          entryId: invocation.namedArguments[#entryId]! as String,
+          accessContext: _accessContext(
+            issuedAt: earliest.issuedAt.add(Duration(hours: hours[position++])),
+          ),
+        ),
+      );
+      await service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: const ['vault-1'],
+      );
+      final payload =
+          verify(
+                () => bridge.replaceCache(
+                  captureAny(),
+                  sessionToken: any(named: 'sessionToken'),
+                ),
+              ).captured.single
+              as AutoFillCachePayload;
+      final vault = payload.manifest.vaults['vault-1']!;
+      expect(vault.issuedAt, earliest.issuedAt);
+      expect(vault.notAfter, earliest.notAfter);
+      expect(payload.records, hasLength(3));
+    }
+    verifyNever(
+      () => indexPreparation.prepare(
+        any(),
+        ensureFresh: any(named: 'ensureFresh'),
+      ),
+    );
+  });
+
   test(
     'every full Vault access-context field is independently consistent',
     () async {
@@ -1048,8 +1099,10 @@ void main() {
             _accessContext(memberRecipientKeyVersion: 6),
         'memberRecipientKeyFingerprint': () =>
             _accessContext(memberRecipientKeyFingerprint: 'other-fingerprint'),
-        'issuedAt': () =>
-            _accessContext(issuedAt: DateTime.utc(2026, 8, 29, 1)),
+        'invalid lease duration': () =>
+            _accessContext(notAfter: DateTime.utc(2026, 8, 31)),
+        'nonoverlapping lease': () =>
+            _accessContext(issuedAt: DateTime.utc(2026, 8, 30)),
       };
       when(
         () => memberIndex.entries('vault-1'),
@@ -1297,6 +1350,7 @@ MemberOfflineAccessContext _accessContext({
   String offlinePolicy = '24h',
   String vaultId = 'vault-1',
   DateTime? issuedAt,
+  DateTime? notAfter,
 }) => MemberOfflineAccessContext(
   contextVersion: contextVersion,
   principalId: 'principal-1',
@@ -1311,12 +1365,14 @@ MemberOfflineAccessContext _accessContext({
   offlinePolicy: offlinePolicy,
   offlinePolicyVersion: 3,
   issuedAt: issuedAt ?? DateTime.utc(2026, 8, 29),
-  notAfter: (issuedAt ?? DateTime.utc(2026, 8, 29)).add(switch (offlinePolicy) {
-    '1h' => const Duration(hours: 1),
-    '4h' => const Duration(hours: 4),
-    '24h' => const Duration(hours: 24),
-    _ => Duration.zero,
-  }),
+  notAfter:
+      notAfter ??
+      (issuedAt ?? DateTime.utc(2026, 8, 29)).add(switch (offlinePolicy) {
+        '1h' => const Duration(hours: 1),
+        '4h' => const Duration(hours: 4),
+        '24h' => const Duration(hours: 24),
+        _ => Duration.zero,
+      }),
 );
 
 AutoFillCachePayload _payload() => AutoFillCachePayload(

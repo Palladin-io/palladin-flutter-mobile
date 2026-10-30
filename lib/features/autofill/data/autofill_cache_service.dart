@@ -454,6 +454,9 @@ final class _AutoFillManifestBuilder {
     required String revision,
     required int keyVersion,
   }) {
+    if (context.notAfter != context.issuedAt.add(context.leaseDuration)) {
+      throw const FormatException('Invalid AutoFill authority lease');
+    }
     final profile = _profile;
     if (profile != null && !_sameProfile(profile, context)) {
       throw const FormatException('AutoFill profile authority mismatch');
@@ -463,7 +466,12 @@ final class _AutoFillManifestBuilder {
       throw const FormatException('AutoFill Vault authority mismatch');
     }
     _profile ??= context;
-    _vaultContexts[context.vaultId] = context;
+    // Renewal can occur between local reads. Keep an authenticated whole
+    // context with the earliest expiry, never extend any Entry's lease.
+    if (currentVault == null ||
+        context.notAfter.isBefore(currentVault.notAfter)) {
+      _vaultContexts[context.vaultId] = context;
+    }
     final entries = _entries.putIfAbsent(
       context.vaultId,
       () => <String, AutoFillEntryAuthority>{},
@@ -534,6 +542,6 @@ final class _AutoFillManifestBuilder {
       left.memberRecipientKeyVersion == right.memberRecipientKeyVersion &&
       left.memberRecipientKeyFingerprint ==
           right.memberRecipientKeyFingerprint &&
-      left.issuedAt == right.issuedAt &&
-      left.notAfter == right.notAfter;
+      left.issuedAt.isBefore(right.notAfter) &&
+      right.issuedAt.isBefore(left.notAfter);
 }
