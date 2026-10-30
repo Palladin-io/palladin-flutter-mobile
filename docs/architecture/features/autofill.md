@@ -266,7 +266,8 @@ References: [Android provider activation](https://developer.android.com/identity
    with that authority; self-consistent substituted records are rejected.
    Cache v1 has no lease or independent authority and is purged, never migrated.
    A same-authority lease may renew between local Entry reads. Publication
-   accepts overlapping leases only when every non-temporal Vault/profile binding
+   accepts leases with one common validity window (latest start before earliest
+   expiry across all entries) only when every non-temporal Vault/profile binding
    remains equal and every lease has its exact policy duration. It retains the
    complete authenticated context with the earliest expiry; it never synthesizes
    or extends a lease. Native publication and final handoff still reject expiry.

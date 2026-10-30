@@ -1089,6 +1089,50 @@ void main() {
     );
   });
 
+  test('all renewed leases must share one common validity window', () async {
+    when(() => memberIndex.entries('vault-1')).thenReturn([
+      _indexEntry('entry-1'),
+      _indexEntry('entry-2'),
+      _indexEntry('entry-3'),
+    ]);
+    for (final starts in [
+      [604, 574, 542],
+      [542, 574, 604],
+    ]) {
+      var position = 0;
+      when(
+        () => localEntries.revealCurrentWithAuthority(
+          vaultId: 'vault-1',
+          entryId: any(named: 'entryId'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer(
+        (invocation) async => _revealFor(
+          entryId: invocation.namedArguments[#entryId]! as String,
+          accessContext: _accessContext(
+            offlinePolicy: '1h',
+            issuedAt: DateTime.utc(
+              2026,
+              8,
+              29,
+            ).add(Duration(minutes: starts[position++])),
+          ),
+        ),
+      );
+      await expectLater(
+        service.synchronizePrepared(
+          privateKey: Uint8List(32),
+          vaultIds: const ['vault-1'],
+        ),
+        throwsFormatException,
+      );
+    }
+    verifyNever(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    );
+  });
+
   test(
     'every full Vault access-context field is independently consistent',
     () async {

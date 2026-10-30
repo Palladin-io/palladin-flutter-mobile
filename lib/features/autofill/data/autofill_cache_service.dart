@@ -446,6 +446,7 @@ class AutoFillCacheService
 final class _AutoFillManifestBuilder {
   MemberOfflineAccessContext? _profile;
   final Map<String, MemberOfflineAccessContext> _vaultContexts = {};
+  final Map<String, DateTime> _latestIssuedAt = {};
   final Map<String, Map<String, AutoFillEntryAuthority>> _entries = {};
 
   void add({
@@ -465,6 +466,19 @@ final class _AutoFillManifestBuilder {
     if (currentVault != null && !_sameVault(currentVault, context)) {
       throw const FormatException('AutoFill Vault authority mismatch');
     }
+    final previousStart = _latestIssuedAt[context.vaultId];
+    final latestStart =
+        previousStart != null && previousStart.isAfter(context.issuedAt)
+        ? previousStart
+        : context.issuedAt;
+    final earliestEnd =
+        currentVault != null && currentVault.notAfter.isBefore(context.notAfter)
+        ? currentVault.notAfter
+        : context.notAfter;
+    if (!latestStart.isBefore(earliestEnd)) {
+      throw const FormatException('Disjoint AutoFill authority leases');
+    }
+    _latestIssuedAt[context.vaultId] = latestStart;
     _profile ??= context;
     // Renewal can occur between local reads. Keep an authenticated whole
     // context with the earliest expiry, never extend any Entry's lease.
@@ -541,7 +555,5 @@ final class _AutoFillManifestBuilder {
       left.vaultKeyVersion == right.vaultKeyVersion &&
       left.memberRecipientKeyVersion == right.memberRecipientKeyVersion &&
       left.memberRecipientKeyFingerprint ==
-          right.memberRecipientKeyFingerprint &&
-      left.issuedAt.isBefore(right.notAfter) &&
-      right.issuedAt.isBefore(left.notAfter);
+          right.memberRecipientKeyFingerprint;
 }
