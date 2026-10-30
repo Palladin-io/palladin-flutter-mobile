@@ -78,6 +78,12 @@ metadata only, retaining read/action changes, and checks both session and feed
 generation before every publication. Approval still refreshes the pending source
 and performs the existing authenticated review in its sheet.
 
+Foreground repair uses the same refresh path before the Inbox has ever opened
+and after unlock. A successful structural refresh marks the feed loaded immediately;
+new or redacted rows publish ready metadata progressively instead of waiting for
+all grants and optional Agent/directory reads. Session/feed generation checks apply
+to every incremental publication, retaining concurrent read/action changes.
+
 Quiet refresh keeps the previous same-record presentation visible until freshly
 resolved replacements are ready, then publishes the replacement atomically.
 It never merges old decrypted reasons or labels into the new payload. Missing,

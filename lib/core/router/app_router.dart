@@ -46,6 +46,7 @@ import '../../features/vault/data/services/entry_sharing/entry_share_recipient_a
 import '../../config/env_config.dart';
 import '../di/injection.dart';
 import '../permissions.dart';
+import '../widgets/privacy_cover.dart';
 import 'shell_tab_page.dart';
 
 /// Centralized route paths and builders, so widgets navigate via
@@ -189,6 +190,14 @@ GoRouter createRouter(
       final isOnUnlockPage = location == '/unlock';
       final isOnRecoveryPage = location == '/recovery';
 
+      // Stored-session restoration has not decided between login and unlock.
+      // Keep public links usable, but never render a misleading login form.
+      if (authState is AuthInitial &&
+          !isOnRegisterPage &&
+          !isVerificationDeepLink) {
+        return location == '/startup' ? null : '/startup';
+      }
+
       final isAuthenticated = authState is AuthAuthenticated;
 
       // Keep the verification gate stable while logout cleanup is running.
@@ -229,7 +238,8 @@ GoRouter createRouter(
         return '/unlock';
       }
 
-      if (location == '/privacy-choices' ||
+      if (location == '/startup' ||
+          location == '/privacy-choices' ||
           isOnLoginPage ||
           isOnRegisterPage ||
           isOnVerifyEmailPage ||
@@ -244,6 +254,11 @@ GoRouter createRouter(
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/startup',
+        builder: (_, _) =>
+            const Scaffold(body: Stack(children: [PrivacyCover()])),
+      ),
       GoRoute(
         path: AppRoutes.entryShare,
         builder: (context, _) => sharingIngress == null

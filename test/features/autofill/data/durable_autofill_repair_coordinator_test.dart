@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/autofill/data/durable_autofill_repair_coordinator.dart';
@@ -393,6 +394,177 @@ void main() {
 
     await coordinator.drainPending();
     expect(calls, 2);
+  });
+
+  test(
+    'foreground failure without a commit retries native publication once',
+    () {
+      fakeAsync((clock) {
+        var attempts = 0;
+        var available = false;
+        when(
+          () => autoFill.synchronizePrepared(
+            privateKey: any(named: 'privateKey'),
+            vaultIds: any(named: 'vaultIds'),
+          ),
+        ).thenAnswer((invocation) async {
+          attempts++;
+          expect(invocation.namedArguments[#vaultIds], {'vault-a', 'vault-b'});
+          if (attempts == 1) throw StateError('transient native failure');
+          available = true;
+        });
+        coordinator
+            .synchronizePreparedIfAllowed(
+              privateKey: session!.privateKey,
+              vaultIds: const ['vault-a', 'vault-b'],
+            )
+            .catchError((Object error) {
+              expect(error, isStateError);
+              return false;
+            });
+        clock.flushMicrotasks();
+        expect(available, isFalse);
+        clock.elapse(const Duration(hours: 1));
+        expect(available, isTrue);
+        expect(attempts, 2);
+        clock.elapse(const Duration(hours: 4));
+        expect(attempts, 2);
+        verifyNever(() => indexes.waitForCurrent(any()));
+      });
+    },
+  );
+
+  test('successful foreground repair cancels its pending retry', () {
+    fakeAsync((clock) {
+      var attempts = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) async {
+        attempts++;
+        if (attempts == 1) throw StateError('transient native failure');
+      });
+      coordinator
+          .synchronizePreparedIfAllowed(
+            privateKey: session!.privateKey,
+            vaultIds: const ['vault-a'],
+          )
+          .catchError((Object _) => false);
+      clock.flushMicrotasks();
+      coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a', 'vault-b'],
+      );
+      clock.flushMicrotasks();
+      clock.elapse(const Duration(hours: 2));
+      expect(attempts, 2);
+    });
+  });
+
+  test('permanent foreground failure has only one automatic retry', () {
+    fakeAsync((clock) {
+      var attempts = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) async {
+        attempts++;
+        throw StateError('native unavailable');
+      });
+      coordinator
+          .synchronizePreparedIfAllowed(
+            privateKey: session!.privateKey,
+            vaultIds: const ['vault-a'],
+          )
+          .catchError((Object _) => false);
+      clock.flushMicrotasks();
+      clock.elapse(const Duration(hours: 5));
+      expect(attempts, 2);
+    });
+  });
+
+  for (final change in ['lock', 'identity', 'principal', 'deny', 'dispose']) {
+    test('foreground retry stops after $change', () {
+      fakeAsync((clock) {
+        var attempts = 0;
+        when(
+          () => autoFill.synchronizePrepared(
+            privateKey: any(named: 'privateKey'),
+            vaultIds: any(named: 'vaultIds'),
+          ),
+        ).thenAnswer((_) async {
+          attempts++;
+          throw StateError('native unavailable');
+        });
+        coordinator
+            .synchronizePreparedIfAllowed(
+              privateKey: session!.privateKey,
+              vaultIds: const ['vault-a'],
+            )
+            .catchError((Object _) => false);
+        clock.flushMicrotasks();
+        switch (change) {
+          case 'lock':
+            coordinator.clearSession();
+            session = null;
+          case 'identity':
+            session = AutoFillRepairSession(
+              principalId: 'principal-1',
+              identity: Object(),
+              privateKey: Uint8List(32),
+            );
+          case 'principal':
+            session = AutoFillRepairSession(
+              principalId: 'principal-2',
+              identity: sessionIdentity,
+              privateKey: Uint8List(32),
+            );
+          case 'deny':
+            coordinator.suspendRepairs();
+          case 'dispose':
+            unawaited(coordinator.dispose());
+        }
+        clock.elapse(const Duration(hours: 2));
+        expect(attempts, 1);
+      });
+    });
+  }
+
+  test('failed owned deny is never converted into an ownerless retry', () {
+    fakeAsync((clock) {
+      var attempts = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) async {
+        attempts++;
+        throw StateError('native unavailable');
+      });
+      final deny = coordinator.suspendRepairs();
+      coordinator
+          .synchronizePreparedIfAllowed(
+            privateKey: session!.privateKey,
+            vaultIds: const ['vault-a'],
+            releasingDenies: {deny},
+          )
+          .catchError((Object _) => false);
+      clock.flushMicrotasks();
+      clock.elapse(const Duration(hours: 2));
+      coordinator
+          .synchronizePreparedIfAllowed(
+            privateKey: session!.privateKey,
+            vaultIds: const ['vault-a'],
+          )
+          .then((result) => expect(result, isFalse));
+      clock.flushMicrotasks();
+      expect(attempts, 1);
+    });
   });
 
   test('session replacement aborts the old in-flight repair', () async {

@@ -182,16 +182,23 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   ) async {
     await _resolve(
       items,
-      onResolved: (resolved) {
-        if (!_current(generation) || feed != _feedGeneration) return;
-        final index = state.items.indexWhere((item) => item.id == resolved.id);
-        if (index < 0) return;
-        final updated = [...state.items];
-        // Read/action mutations may have happened while presentation was loading.
-        updated[index] = updated[index].copyWith(metadata: resolved.metadata);
-        emit(state.copyWith(items: updated));
-      },
+      onResolved: (resolved) =>
+          _publishPresentation(resolved, generation, feed),
     );
+  }
+
+  void _publishPresentation(
+    InboxNotification resolved,
+    int generation,
+    int feed,
+  ) {
+    if (!_current(generation) || feed != _feedGeneration) return;
+    final index = state.items.indexWhere((item) => item.id == resolved.id);
+    if (index < 0) return;
+    final updated = [...state.items];
+    // Read/action mutations may have happened while presentation was loading.
+    updated[index] = updated[index].copyWith(metadata: resolved.metadata);
+    emit(state.copyWith(items: updated));
   }
 
   /// Ids already marked read via [markReadOnView] — prevents the optimistic
@@ -337,6 +344,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       final summary = results[1] as NotificationSummary;
       final remoteItems = _prepare(page.items);
       final previousById = {for (final item in state.items) item.id: item};
+      final retainedPresentationIds = <String>{};
       final visibleItems = remoteItems
           .map((remote) {
             final previous = previousById[remote.id];
@@ -349,6 +357,14 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
                 (remote.entryId == null ||
                     remote.entryId == previous.entryId) &&
                 (!remote.isCollapsedPending || previous.isCollapsedPending)) {
+              if (const [
+                'reason',
+                'entryLabel',
+                'actorName',
+                'agentName',
+              ].any((key) => previous.metadata[key] is String)) {
+                retainedPresentationIds.add(remote.id);
+              }
               return remote.copyWith(metadata: previous.metadata);
             }
             return remote;
@@ -358,6 +374,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       // cover new arrivals and are not overwritten by this older summary.
       emit(
         state.copyWith(
+          status: NotificationCenterStatus.loaded,
           items: _applyLocalResolutions(visibleItems),
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
@@ -367,7 +384,16 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         ),
       );
       final beforeResolution = {for (final item in state.items) item.id: item};
-      final resolved = await _resolve(page.items);
+      final resolved = await _resolve(
+        page.items,
+        onResolved: (item) {
+          // Warm rows keep their complete snapshot until the replacement is
+          // ready. Cold/new rows have nothing to retain and hydrate progressively.
+          if (!retainedPresentationIds.contains(item.id)) {
+            _publishPresentation(item, generation, feed);
+          }
+        },
+      );
       if (!_current(generation) || feed != _feedGeneration) return;
       final currentById = {for (final item in state.items) item.id: item};
       final items = _applyLocalResolutions([

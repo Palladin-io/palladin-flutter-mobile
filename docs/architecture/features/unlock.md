@@ -11,6 +11,8 @@ Master-password unlock with a biometric shortcut.
   instead of rotating the authentication-entry messages.
   When available, the biometric action is a separate middle section with equal
   flexible space between the Unlock action and the forgot-password controls.
+  Its 40px fingerprint sits inside a 72×72 logical-pixel touch target with a
+  localized tooltip/accessibility label. The target is disabled while unlocking.
   The body remains scrollable on compact screens and when the keyboard opens.
 - **Layering:** full data / domain / presentation split. `IdentityKdfService`
   owns the frozen password-only v1 Argon2id + HKDF contract;
