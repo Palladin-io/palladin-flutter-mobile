@@ -520,6 +520,20 @@ Reference: [Android inline autofill guide](https://developer.android.com/identit
 Android API compilation checks the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
 
+## Foreground cache repair recovery
+
+A failed ownerless foreground native-cache publication receives at most one
+local automatic retry after the coordinator delay. The retry resolves the
+current unlocked session and current complete Vault set when it runs; its timer
+retains no private key. Lock/session replacement, a changed principal, disposal
+or an intervening mutation/invalidation deny suppress it. A successful foreground
+repair cancels the queued retry. Caller-owned denies retain their own repair path;
+this fallback never releases them. A second failure waits for a real lifecycle or
+durable-update event rather than polling indefinitely. Cache clearing, lease,
+generation and revocation checks remain unchanged, and repair performs no HTTP.
+This closes a recovery gap after a transient publication failure; it does not
+establish the cause of any particular third-party application's missing prompt.
+
 ## Android last-request diagnosis
 
 While the production service is alive, authorized adb users can inspect its last
