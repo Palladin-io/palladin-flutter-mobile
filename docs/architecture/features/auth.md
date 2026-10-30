@@ -126,3 +126,14 @@ also carries its original unlock-session guard through token lookup and 401
 retry; an AutoFill save additionally revalidates native source authority before
 transport. Retry uses request-only authentication on a cloned client so a
 canceled retry cannot deadlock behind the original queued error handler.
+
+## Session restoration
+
+Cold startup stays on `/startup` with the existing opaque brand cover while
+`AuthInitial` resolves stored authentication. Login controls are not mounted
+until the check reports no session; a restored session still starts Vault-locked
+and follows the ordinary onboarding, verification and unlock guards. Public
+sharing, registration and verification-token links keep their existing access.
+An initial storage failure leaves the cover via `AuthError` and the login guard;
+it does not delete tokens or grant Vault access. This is state-driven, with no
+minimum splash delay or new persistent state.
