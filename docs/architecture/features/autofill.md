@@ -133,6 +133,13 @@ plain-text/no-autofill-hint case, opaque labels next to a password, explicit
 username-only confirmation for verified/unverified native sources, cancellation
 and rejected WEB/password targets. Real iFirma compatibility remains unverified.
 
+A later physical metadata-only trace of iFirma build 5094 captured explicit
+`username` and `password` hints with native input types 33 and 129, plus a disabled
+extra text field. Both are recognized by the unchanged parser. The reduced
+[observed fixture](../../../tool/android-autofill-harness/observed-ifirma.md)
+distinguishes this evidence from the earlier placeholder-only synthetic test;
+it does not prove release-provider callback or successful UI/fill on the phone.
+
 The inspected APK SHA-256 is
 `8ee4e3b13437f7930759f093e329bc8e746a7c234411662e46db7c17e7a94715`;
 its signer SHA-256
