@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,11 @@ import 'package:mobile_palladin/features/notifications/domain/repositories/notif
 import 'package:mobile_palladin/features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+
+import 'package:mobile_palladin/features/agents/data/datasources/agents_remote_data_source.dart';
+import 'package:mobile_palladin/features/agents/data/repositories/agents_repository_impl.dart';
+import 'package:mobile_palladin/features/notifications/data/datasources/notification_center_remote_datasource.dart';
+import 'package:mobile_palladin/features/notifications/data/repositories/notification_center_repository_impl.dart';
 
 import '../../support/member_directory_fixture.dart';
 
@@ -108,6 +115,229 @@ void main() {
     );
   });
   tearDown(() => cubit.close());
+
+  for (final start in ['cold', 'after lock']) {
+    test(
+      'foreground refresh $start publishes ready rows before slow names',
+      () async {
+        when(
+          () => repository.list(),
+        ).thenAnswer((_) async => NotificationPage(items: [_item('fast')]));
+        when(
+          () => grants.getGrant('vault', 'fast'),
+        ).thenAnswer((_) async => _grant('fast'));
+        if (start == 'after lock') {
+          await cubit.load();
+          cubit.lock();
+          cubit.configureUnlockedResolution(
+            activeAccountId: 'account',
+            activeOrganizationId: 'org',
+            activeVaults: [
+              VaultEntity(
+                id: 'vault',
+                name: 'Vault',
+                grantMode: GrantMode.granular,
+                createdAt: DateTime(2026),
+                updatedAt: DateTime(2026),
+                entryCount: 0,
+                activeGrantCount: 0,
+                memberCount: 1,
+              ),
+            ],
+          );
+          clearInteractions(repository);
+          clearInteractions(grants);
+        }
+        final slowNames = Completer<List<Agent>>();
+        when(() => agents.listAgents()).thenAnswer((_) => slowNames.future);
+        final refresh = cubit.refresh();
+        await Future<void>.delayed(Duration.zero);
+        final beforeNames = cubit.state;
+        slowNames.complete([]);
+        await refresh;
+        expect(beforeNames.status, NotificationCenterStatus.loaded);
+        expect(beforeNames.items.single.metadata['reason'], 'Reason fast');
+        expect(beforeNames.items.single.metadata['actorName'], isNot('FORGED'));
+        verify(() => repository.list()).called(1);
+        verify(() => repository.summary()).called(1);
+        verify(() => grants.getGrant('vault', 'fast')).called(1);
+      },
+    );
+  }
+
+  test(
+    'refresh of an existing structural row still hydrates progressively',
+    () async {
+      when(
+        () => repository.list(),
+      ).thenAnswer((_) async => NotificationPage(items: [_item('same')]));
+      final firstGrant = Completer<Grant>();
+      final slowNames = Completer<List<Agent>>();
+      when(() => agents.listAgents()).thenAnswer((_) => slowNames.future);
+      when(
+        () => grants.getGrant('vault', 'same'),
+      ).thenAnswer((_) => firstGrant.future);
+      final firstRefresh = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.items.single.metadata['reason'], isNull);
+      when(
+        () => grants.getGrant('vault', 'same'),
+      ).thenAnswer((_) async => _grant('same'));
+      final nextRefresh = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+      final beforeNames = cubit.state;
+      firstGrant.complete(_grant('same', reason: 'Obsolete reason'));
+      slowNames.complete([]);
+      await Future.wait([firstRefresh, nextRefresh]);
+      expect(beforeNames.items.single.metadata['reason'], 'Reason same');
+      expect(cubit.state.items.single.metadata['reason'], 'Reason same');
+    },
+  );
+
+  test(
+    'cold refresh exposes ready reasons while real HTTP agent read is held',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final dio = Dio(
+        BaseOptions(baseUrl: 'http://${server.address.address}:${server.port}'),
+      );
+      final releaseAgent = Completer<void>();
+      final agentRequested = Completer<void>();
+      final requests = <String, int>{};
+      server.listen((request) async {
+        final path = request.uri.path;
+        requests[path] = (requests[path] ?? 0) + 1;
+        final Object body;
+        if (path == '/api/notifications') {
+          body = {
+            'items': [
+              for (var i = 0; i < 8; i++)
+                {
+                  'id': 'row-$i',
+                  'subjectId': 'row-$i',
+                  'type': 'grant_approved',
+                  'category': 'update',
+                  'occurredAt': '2026-10-30T00:00:00Z',
+                  'metadata': {
+                    'vaultId': 'vault',
+                    'grantId': 'row-$i',
+                    'agentId': 'agent',
+                  },
+                },
+            ],
+          };
+        } else if (path == '/api/notifications/summary') {
+          body = {'unreadCount': 8, 'pendingActionCount': 0};
+        } else if (path == '/api/agents') {
+          agentRequested.complete();
+          await releaseAgent.future;
+          body = {'items': <Object>[]};
+        } else {
+          request.response.statusCode = 404;
+          body = {};
+        }
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode(body));
+        await request.response.close();
+      });
+      await cubit.close();
+      cubit = NotificationCenterCubit(
+        repository: NotificationCenterRepositoryImpl(
+          NotificationCenterRemoteDatasource(dio),
+        ),
+        resolver: NotificationPresentationResolver(
+          index: index,
+          grants: grants,
+          agents: AgentsRepositoryImpl(AgentsRemoteDataSource(dio)),
+        ),
+      );
+      cubit.configureUnlockedResolution(
+        activeAccountId: 'account',
+        activeOrganizationId: 'org',
+        activeVaults: [
+          VaultEntity(
+            id: 'vault',
+            name: 'Vault',
+            grantMode: GrantMode.granular,
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+            entryCount: 0,
+            activeGrantCount: 0,
+            memberCount: 1,
+          ),
+        ],
+      );
+      when(() => grants.getGrant('vault', any())).thenAnswer(
+        (call) async => _grant(call.positionalArguments[1] as String),
+      );
+      final ready = cubit.stream.firstWhere(
+        (state) =>
+            state.status == NotificationCenterStatus.loaded &&
+            state.items.length == 8 &&
+            state.items.every((item) => item.metadata['reason'] != null),
+      );
+      var completed = false;
+      final refreshing = cubit.refresh().then((_) => completed = true);
+      try {
+        await agentRequested.future.timeout(const Duration(seconds: 5));
+        await ready.timeout(const Duration(seconds: 5));
+        expect(completed, false);
+        expect(requests, {
+          '/api/notifications': 1,
+          '/api/notifications/summary': 1,
+          '/api/agents': 1,
+        });
+        verify(() => grants.getGrant('vault', any())).called(8);
+      } finally {
+        releaseAgent.complete();
+        await refreshing;
+        dio.close(force: true);
+        await server.close(force: true);
+      }
+    },
+  );
+
+  for (final boundary in ['lock', 'reset', 'account', 'newer feed']) {
+    test(
+      'cold refresh ignores progressive completion after $boundary',
+      () async {
+        when(
+          () => repository.list(),
+        ).thenAnswer((_) async => NotificationPage(items: [_item('slow')]));
+        final slow = Completer<Grant>();
+        when(
+          () => grants.getGrant('vault', 'slow'),
+        ).thenAnswer((_) => slow.future);
+        final refreshing = cubit.refresh();
+        await Future<void>.delayed(Duration.zero);
+        switch (boundary) {
+          case 'lock':
+            cubit.lock();
+          case 'reset':
+            cubit.reset();
+          case 'account':
+            cubit.configureUnlockedResolution(
+              activeAccountId: 'other',
+              activeOrganizationId: 'other-org',
+              activeVaults: [],
+            );
+          case 'newer feed':
+            when(
+              () => repository.list(),
+            ).thenAnswer((_) async => const NotificationPage(items: []));
+            await cubit.refresh();
+        }
+        final settled = cubit.state;
+        slow.complete(_grant('slow'));
+        await refreshing;
+        expect(identical(cubit.state, settled), true);
+        expect(
+          cubit.state.items.every((item) => item.metadata['reason'] == null),
+          true,
+        );
+      },
+    );
+  }
 
   test(
     'quiet refresh retains resolved rows until fresh presentation is ready',
