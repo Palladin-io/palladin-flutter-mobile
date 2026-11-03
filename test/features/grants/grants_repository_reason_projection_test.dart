@@ -10,17 +10,260 @@ import 'package:mobile_palladin/features/grants/data/repositories/grants_reposit
 import 'package:mobile_palladin/features/grants/data/services/grant_entry_label_resolver.dart';
 import 'package:mobile_palladin/features/grants/data/services/grant_reason_resolver.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
+import 'package:mobile_palladin/features/notifications/data/services/notification_presentation_resolver.dart';
+import 'package:mobile_palladin/features/notifications/domain/entities/inbox_notification.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_entry_list_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
 class _Remote extends Mock implements GrantsRemoteDatasource {}
 
-class _Reasons extends Mock implements GrantReasonResolver {}
+class _Reasons extends Mock implements GrantReasonResolver {
+  @override
+  Future<T> withSharedReads<T>(
+    Future<T> Function(GrantReasonResolver) operation,
+  ) => operation(this);
+}
 
 class _Entries extends Mock implements MemberEntryListLoader {}
 
+class _Index extends Mock implements MemberIndexReader {}
+
 void main() {
   setUpAll(() => registerFallbackValue(Uint8List(0)));
+
+  test(
+    'Inbox batches same-Vault grant projections without repeated sync',
+    () async {
+      final remote = _Remote();
+      final reasons = _Reasons();
+      final entries = _Entries();
+      final index = _Index();
+      final session = VaultSessionStore()..setMemberPrivateKey(Uint8List(32));
+      addTearDown(session.clear);
+      final models = List.generate(
+        8,
+        (i) => GrantModel(
+          id: 'grant-$i',
+          vaultId: 'vault',
+          agentId: 'agent',
+          status: 'active',
+          type: GrantScope.granular,
+          createdAt: '2026-08-07T10:00:00Z',
+          entryId: 'entry-$i',
+        ),
+      );
+      final indexEntries = List.generate(
+        8,
+        (i) => _memberIndexEntry('entry-$i', 'Entry $i'),
+      );
+      var projectionCalls = 0;
+      var entryLoads = 0;
+      var grantReads = 0;
+      when(() => remote.getGrant('vault', any())).thenAnswer((call) async {
+        grantReads++;
+        return models.firstWhere((m) => m.id == call.positionalArguments[1]);
+      });
+      when(
+        () => reasons.resolve(
+          grants: any(named: 'grants'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((call) async {
+        projectionCalls++;
+        return {
+          for (final m in call.namedArguments[#grants] as List<GrantModel>)
+            m.id: 'Reason ${m.id}',
+        };
+      });
+      when(
+        () => entries.load(
+          vaultId: 'vault',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async {
+        entryLoads++;
+        return indexEntries;
+      });
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(indexEntries);
+      final resolver = NotificationPresentationResolver(
+        index: index,
+        grants: GrantsRepositoryImpl(
+          remote,
+          reasonResolver: reasons,
+          entryLabelResolver: GrantEntryLabelResolver(entries: entries),
+          vaultSessionStore: session,
+        ),
+      );
+      final result = await resolver.resolve(
+        items: [
+          for (final m in models)
+            InboxNotification(
+              id: m.id,
+              type: 'grant_approved',
+              category: NotificationCategory.update,
+              titleKey: '',
+              metadata: {
+                'vaultId': 'vault',
+                'grantId': m.id,
+                'agentId': 'agent',
+              },
+              actionState: NotificationActionState.none,
+              occurredAt: DateTime(2026),
+            ),
+        ],
+        unlocked: true,
+        activeAccountId: 'account',
+        activeOrganizationId: 'org',
+        activeVaults: [
+          VaultEntity(
+            id: 'vault',
+            name: 'Vault',
+            grantMode: GrantMode.granular,
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+            entryCount: 8,
+            activeGrantCount: 8,
+            memberCount: 1,
+          ),
+        ],
+      );
+      expect(
+        result.map((r) => r.metadata['reason']),
+        models.map((m) => 'Reason ${m.id}'),
+      );
+      expect(
+        result.map((r) => r.metadata['entryLabel']),
+        List.generate(8, (i) => 'Entry $i'),
+      );
+      expect(grantReads, 8);
+      expect(
+        projectionCalls,
+        8,
+        reason: 'Per-row crypto projection remains independent',
+      );
+      expect(
+        entryLoads,
+        1,
+        reason: 'One page must synchronize each Vault once',
+      );
+    },
+  );
+
+  test(
+    'closing a failed scope waits for in-flight projection and wipes its key',
+    () async {
+      final remote = _Remote();
+      final reasons = _Reasons();
+      final session = VaultSessionStore()
+        ..setMemberPrivateKey(Uint8List.fromList(List.filled(32, 7)));
+      addTearDown(session.clear);
+      final pending = Completer<Map<String, String>>();
+      Uint8List? heldKey;
+      when(() => remote.getGrant('vault', 'grant')).thenAnswer(
+        (_) async => GrantModel(
+          id: 'grant',
+          vaultId: 'vault',
+          agentId: 'agent',
+          status: 'active',
+          type: GrantScope.full,
+          createdAt: '2026-08-07T10:00:00Z',
+        ),
+      );
+      when(
+        () => reasons.resolve(
+          grants: any(named: 'grants'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((call) {
+        heldKey = call.namedArguments[#memberPrivateKey] as Uint8List;
+        return pending.future;
+      });
+      final repository = GrantsRepositoryImpl(
+        remote,
+        reasonResolver: reasons,
+        vaultSessionStore: session,
+      );
+      Future<Grant>? inFlight;
+      final scope = repository.withPresentationReads<void>((read) async {
+        inFlight = read('vault', 'grant');
+        await Future<void>.delayed(Duration.zero);
+        throw StateError('synthetic caller cancellation');
+      });
+      var finished = false;
+      final checkedScope = expectLater(
+        scope,
+        throwsStateError,
+      ).whenComplete(() => finished = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(heldKey, isNotNull);
+      expect(finished, false);
+      pending.complete({'grant': 'Synthetic reason'});
+      await checkedScope;
+      await expectLater(inFlight!, throwsStateError);
+      expect(heldKey, everyElement(0));
+    },
+  );
+
+  for (final boundary in ['lock', 'replacement']) {
+    test(
+      'scope drops a delayed grant before decryption after $boundary',
+      () async {
+        final remote = _Remote();
+        final reasons = _Reasons();
+        final session = VaultSessionStore()..setMemberPrivateKey(Uint8List(32));
+        addTearDown(session.clear);
+        final pending = Completer<GrantModel>();
+        when(
+          () => remote.getGrant('vault', 'grant'),
+        ).thenAnswer((_) => pending.future);
+        final repository = GrantsRepositoryImpl(
+          remote,
+          reasonResolver: reasons,
+          vaultSessionStore: session,
+        );
+        final scope = repository.withPresentationReads(
+          (read) => read('vault', 'grant'),
+        );
+        final checked = expectLater(scope, throwsStateError);
+        if (boundary == 'lock') {
+          session.clear();
+        } else {
+          session.setMemberPrivateKey(Uint8List.fromList(List.filled(32, 1)));
+        }
+        pending.complete(
+          GrantModel(
+            id: 'grant',
+            vaultId: 'vault',
+            agentId: 'agent',
+            status: 'active',
+            type: GrantScope.full,
+            createdAt: '2026-08-07T10:00:00Z',
+          ),
+        );
+        await checked;
+        verifyNever(
+          () => reasons.resolve(
+            grants: any(named: 'grants'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        );
+      },
+    );
+  }
+
+  test('escaped reader cannot fetch after its operation completes', () async {
+    final remote = _Remote();
+    final repository = GrantsRepositoryImpl(remote);
+    late Future<Grant> Function(String, String) escaped;
+    await repository.withPresentationReads<void>((read) async {
+      escaped = read;
+    });
+    await expectLater(escaped('vault', 'grant'), throwsStateError);
+    verifyNever(() => remote.getGrant(any(), any()));
+  });
 
   test('full refresh projects locally decrypted reason into Grant', () async {
     final remote = _Remote();

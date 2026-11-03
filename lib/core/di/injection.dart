@@ -758,7 +758,7 @@ void configureDependencies(EnvConfig config) {
       index: getIt<MemberSyncService>(),
       grants: getIt<GrantsRepository>(),
       agents: getIt<AgentsRepository>(),
-      vaultMembers: getIt<VaultMembersRepository>(),
+      memberDirectory: getIt<OrganizationMemberDirectoryService>(),
     ),
   );
   getIt.registerLazySingleton<NotificationSharingEntryResolver>(

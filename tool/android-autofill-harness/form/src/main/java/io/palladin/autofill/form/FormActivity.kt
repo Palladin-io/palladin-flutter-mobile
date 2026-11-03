@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillManager
+import android.view.inputmethod.InputMethodManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -72,7 +73,8 @@ class FormActivity : Activity() {
                 "web-disabled" -> "<input id='probe'><input type='text' autocomplete='username' disabled>"
                 else -> "<input id='username' type='email' autocomplete='username' placeholder='Synthetic username'>"
             }
-            val fixtureUrl = if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
+            val dalFixture = intent.getBooleanExtra("dalFixture", false)
+            val fixtureUrl = if (dalFixture) "https://example.com/" else if (mode == "web-http") "http://fixture.invalid/" else "https://fixture.invalid/"
             val html = "<html><meta name='viewport' content='width=device-width'><body><form>" +
                 usernameHtml + password + "</form></body></html>"
             web.webViewClient = object : WebViewClient() {
@@ -83,7 +85,7 @@ class FormActivity : Activity() {
                     }
                 }
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
-                    val content = fixtureContent(request.url.toString(), html)
+                    val content = fixtureContent(request.url.toString(), html, dalFixture)
                     return WebResourceResponse(
                         "text/html", "UTF-8", if (content == null) 404 else 200,
                         if (content == null) "Not Found" else "OK", emptyMap(),
@@ -102,8 +104,24 @@ class FormActivity : Activity() {
                 }
             })
             layout.addView(Button(this).apply {
+                text = "Clear fields"
+                setOnClickListener {
+                    web.evaluateJavascript("Array.from(document.querySelectorAll('input')).forEach(input => {input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));})", null)
+                }
+            })
+            layout.addView(Button(this).apply {
+                text = "Verify empty"
+                setOnClickListener {
+                    getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(web.windowToken, 0)
+                    web.evaluateJavascript("Array.from(document.querySelectorAll('input')).every(input => input.value === '')") {
+                        result.text = "fieldsUnchanged=" + (it == "true")
+                    }
+                }
+            })
+            layout.addView(Button(this).apply {
                 text = "Verify fill"
                 setOnClickListener {
+                    getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(web.windowToken, 0)
                     val assertion = if (positive) {
                         "document.getElementById('username').value === 'synthetic-user' && " +
                             "(!document.getElementById('password') || document.getElementById('password').value === 'synthetic-only-not-secret')"

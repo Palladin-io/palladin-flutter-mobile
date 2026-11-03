@@ -16,6 +16,15 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
   mapping it into the in-memory `Grant` presentation entity. Temporary key and
   plaintext byte buffers are wiped; failures hide only the reason, never the
   structural grant row. No plaintext reason is persisted or logged.
+- **Inbox presentation read scope:** `withPresentationReads` coalesces encrypted
+  Vault and public discovery reads, and authenticated Entry-list loads, only
+  within one hydration. Concurrent and later hydrations own separate maps.
+  Every Grant still has its own authenticated reason projection and temporary
+  key buffers; cryptographic contexts and keys are not shared across rows.
+  Generation checks reject reads after lock/key replacement and prevent late
+  results from escaping. Scope completion, including caller failure, waits for
+  started reads to finish their cleanup before releasing the read maps.
+  Single Grant and list callers retain their existing behavior.
 - **Local Entry labels:** management DTOs carry only the structural `vaultId`
   and `entryId`. `GrantEntryLabelResolver` groups rows by Vault and resolves
   each label from the locally decrypted, runtime-only `MemberIndex`; a

@@ -49,6 +49,8 @@ jobs:
       with:
         flutter-version: 3.41.4
         cache: true
+    - name: Install Android compile SDK
+      run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0"'
     - name: Prepare Android signing
       env:
         ANDROID_UPLOAD_KEYSTORE_BASE64: "${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64

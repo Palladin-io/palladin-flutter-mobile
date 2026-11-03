@@ -10,7 +10,12 @@ import android.content.pm.verify.domain.DomainVerificationUserState
 import android.os.Build
 
 /** Verifies that a requesting Android package is authorized for a web domain. */
-internal class AutofillOriginVerifier(private val context: Context) {
+internal class AutofillOriginVerifier(
+    private val context: Context,
+    private val credentialProof: (String, String) -> Boolean = { packageName, host ->
+        CredentialAssociationIdentity.isVerified(context, packageName, host)
+    },
+) {
     fun isVerified(packageName: String, domain: String): Boolean {
         return status(packageName, domain) == OriginStatus.VERIFIED
     }
@@ -29,6 +34,14 @@ internal class AutofillOriginVerifier(private val context: Context) {
         } else {
             OriginStatus.UNVERIFIED
         }
+    }
+
+    fun credentialFillStatus(packageName: String, domain: String): OriginStatus {
+        val platform = status(packageName, domain)
+        if (platform != OriginStatus.UNVERIFIED || isBrowser(packageName)) return platform
+        return if (credentialProof(packageName, domain)) {
+            OriginStatus.VERIFIED
+        } else platform
     }
 
     fun nativeDomains(
