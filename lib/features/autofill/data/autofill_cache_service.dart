@@ -1,4 +1,6 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import '../domain/autofill_preparation.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../vault/data/models/member_sync_models.dart';
@@ -32,6 +34,71 @@ class AutoFillCacheService
   final AutoFillCacheBridge _bridge;
   final MemberIndexReader _memberIndex;
 
+  final _preparation = ValueNotifier<AutoFillPreparation>(
+    const AutoFillPreparation(AutoFillPreparationPhase.unknown),
+  );
+  ValueListenable<AutoFillPreparation> get preparation => _preparation;
+  Future<void> Function()? onRetryPreparation;
+  bool _preparationVisible = false;
+  bool _retryPending = false;
+  int _statusRevision = 0;
+
+  /// Ordinary app lock does not revoke the independently protected native cache.
+  void suspendPreparation() {
+    _preparationVisible = false;
+    ++_statusRevision;
+    _preparation.value = const AutoFillPreparation(
+      AutoFillPreparationPhase.unknown,
+    );
+  }
+
+  int beginSourcePreparation() {
+    if (_preparationVisible &&
+        !_accessRevoked &&
+        (_preparation.value.phase == AutoFillPreparationPhase.unknown ||
+            _preparation.value.phase == AutoFillPreparationPhase.failed)) {
+      _report(
+        _generation,
+        const AutoFillPreparation(AutoFillPreparationPhase.preparing),
+      );
+    }
+    return ++_statusRevision;
+  }
+
+  void sourcePreparationFailed(int revision) {
+    if (revision == _statusRevision) {
+      _report(
+        _generation,
+        const AutoFillPreparation(AutoFillPreparationPhase.failed),
+      );
+    }
+  }
+
+  Future<void> retryPreparation() async {
+    if (_retryPending ||
+        !_preparationVisible ||
+        _preparation.value.phase != AutoFillPreparationPhase.failed) {
+      return;
+    }
+    final retry = onRetryPreparation;
+    if (retry == null) return;
+    _retryPending = true;
+    final revision = _statusRevision;
+    try {
+      await retry();
+    } catch (_) {
+      sourcePreparationFailed(revision);
+    } finally {
+      _retryPending = false;
+    }
+  }
+
+  void _report(int generation, AutoFillPreparation status) {
+    if (!_preparationVisible || generation != _generation) return;
+    ++_statusRevision;
+    _preparation.value = status;
+  }
+
   Future<void> _pendingOperation = Future<void>.value();
   Future<void> _sessionActivation = Future<void>.value();
   int _generation = 0;
@@ -42,8 +109,21 @@ class AutoFillCacheService
   int? _sessionToken;
   int? _cleanupToken;
 
+  /// Called only after the app has rechecked its current unlocked session.
+  Future<void> ensurePreparationSession() async {
+    if (_accessRevoked) {
+      await beginSession();
+      await _sessionActivation;
+    }
+  }
+
   Future<void> beginSession() {
     ++_generation;
+    _preparationVisible = true;
+    _report(
+      _generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.preparing),
+    );
     final sessionGeneration = ++_sessionGeneration;
     _accessRevoked = false;
     _nativeBridgeUnavailable = false;
@@ -57,6 +137,10 @@ class AutoFillCacheService
   Future<void> synchronize({required Uint8List privateKey}) {
     if (privateKey.isEmpty || _accessRevoked) return Future<void>.value();
     final generation = ++_generation;
+    _report(
+      generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.preparing),
+    );
     final activation = _sessionActivation;
     return _bestEffort(
       _enqueue(() async {
@@ -73,11 +157,13 @@ class AutoFillCacheService
           ensureFreshIndex: false,
         );
       }),
+      generation: generation,
     );
   }
 
   @override
   Future<void> revokeAccess() async {
+    suspendPreparation();
     final operationGeneration = ++_generation;
     ++_sessionGeneration;
     _accessRevoked = true;
@@ -111,11 +197,20 @@ class AutoFillCacheService
 
   @override
   Future<void> clear() async {
+    _report(
+      _generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.unknown),
+    );
     // A mutation can race the fire-and-forget unlock synchronization. Await
     // the raw activation future so a failed native session cannot turn this
     // security boundary into a successful no-op.
     await _sessionActivation;
     ++_generation;
+    // A queued acknowledgement may have completed during activation's await.
+    _report(
+      _generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.unknown),
+    );
     final token = _sessionToken ?? _cleanupToken;
     if (token == null) {
       if (_nativeBridgeUnavailable) return;
@@ -142,6 +237,10 @@ class AutoFillCacheService
     if (privateKey.isEmpty) return clear();
     if (_accessRevoked) return Future<void>.value();
     final generation = ++_generation;
+    _report(
+      generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.preparing),
+    );
     final activation = _sessionActivation;
     return _bestEffort(
       _enqueue(() async {
@@ -158,6 +257,7 @@ class AutoFillCacheService
           ensureFreshIndex: true,
         );
       }),
+      generation: generation,
     );
   }
 
@@ -178,33 +278,45 @@ class AutoFillCacheService
     }
     if (_accessRevoked) return;
     final generation = ++_generation;
+    _report(
+      generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.preparing),
+    );
     final activation = _sessionActivation;
     final preparedVaultIds = Set<String>.unmodifiable(vaultIds);
-    await _enqueue(() async {
-      await activation;
-      if (_accessRevoked) return;
-      if (generation != _generation) {
-        throw StateError('AutoFill repair was superseded');
-      }
-      final sessionToken = _sessionToken;
-      if (sessionToken == null) {
-        throw StateError('AutoFill cache session is unavailable');
-      }
-      await _clearNative(sessionToken);
-      if (_accessRevoked) return;
-      if (generation != _generation) {
-        throw StateError('AutoFill repair was superseded');
-      }
-      final completed = await _replaceFromCurrentIndexes(
-        privateKey,
+    try {
+      await _enqueue(() async {
+        await activation;
+        if (_accessRevoked) return;
+        if (generation != _generation) {
+          throw StateError('AutoFill repair was superseded');
+        }
+        final sessionToken = _sessionToken;
+        if (sessionToken == null) {
+          throw StateError('AutoFill cache session is unavailable');
+        }
+        await _clearNative(sessionToken);
+        if (_accessRevoked) return;
+        if (generation != _generation) {
+          throw StateError('AutoFill repair was superseded');
+        }
+        final completed = await _replaceFromCurrentIndexes(
+          privateKey,
+          generation,
+          sessionToken,
+          preparedVaultIds,
+        );
+        if (!completed) {
+          throw StateError('AutoFill repair was superseded');
+        }
+      });
+    } catch (_) {
+      _report(
         generation,
-        sessionToken,
-        preparedVaultIds,
+        const AutoFillPreparation(AutoFillPreparationPhase.failed),
       );
-      if (!completed) {
-        throw StateError('AutoFill repair was superseded');
-      }
-    });
+      rethrow;
+    }
   }
 
   Future<void> _activateSession(int generation) async {
@@ -225,12 +337,20 @@ class AutoFillCacheService
       _sessionToken = token;
     } on MissingPluginException {
       if (generation == _sessionGeneration) {
+        _report(
+          _generation,
+          const AutoFillPreparation(AutoFillPreparationPhase.unknown),
+        );
         _accessRevoked = true;
         _nativeBridgeUnavailable = true;
       }
       return;
     } catch (_) {
       if (generation == _sessionGeneration) {
+        _report(
+          _generation,
+          const AutoFillPreparation(AutoFillPreparationPhase.failed),
+        );
         _accessRevoked = true;
         _nativeBridgeUnavailable = false;
       }
@@ -263,10 +383,16 @@ class AutoFillCacheService
     }
   }
 
-  Future<void> _bestEffort(Future<void> operation) async {
+  Future<void> _bestEffort(Future<void> operation, {int? generation}) async {
     try {
       await operation;
     } catch (error) {
+      if (generation != null) {
+        _report(
+          generation,
+          const AutoFillPreparation(AutoFillPreparationPhase.failed),
+        );
+      }
       AppLogger.w(
         'AutoFill',
         'Cache synchronization aborted: ${error.runtimeType}',
@@ -299,6 +425,10 @@ class AutoFillCacheService
     } on MissingPluginException {
       // Unit/widget test hosts do not install the native bridge.
     } catch (error) {
+      _report(
+        generation,
+        const AutoFillPreparation(AutoFillPreparationPhase.failed),
+      );
       // Keep errors typed-only: platform exceptions can contain native data.
       AppLogger.w(
         'AutoFill',
@@ -315,17 +445,30 @@ class AutoFillCacheService
   ) async {
     final records = <AutoFillRecord>[];
     final authority = _AutoFillManifestBuilder();
-    for (final vaultId in vaultIds) {
+    final eligibleByVault = {
+      for (final vaultId in vaultIds)
+        vaultId: {
+          for (final entry in _memberIndex.entries(vaultId))
+            if (!entry.corrupt &&
+                entry.state == MemberEntryState.active &&
+                entry.entryType == EntryType.credential.toWire() &&
+                entry.autofillDomains.isNotEmpty)
+              entry.entryId: entry,
+        },
+    };
+    final total = eligibleByVault.values.fold<int>(
+      0,
+      (sum, entries) => sum + entries.length,
+    );
+    var examined = 0;
+    _report(
+      generation,
+      AutoFillPreparation(AutoFillPreparationPhase.preparing, total: total),
+    );
+    for (final vault in eligibleByVault.entries) {
       if (_accessRevoked || generation != _generation) return false;
-      final eligible = {
-        for (final entry in _memberIndex.entries(vaultId))
-          if (!entry.corrupt &&
-              entry.state == MemberEntryState.active &&
-              entry.entryType == EntryType.credential.toWire() &&
-              entry.autofillDomains.isNotEmpty)
-            entry.entryId: entry,
-      };
-      if (eligible.isEmpty) continue;
+      final vaultId = vault.key;
+      final eligible = vault.value;
       for (final index in eligible.values) {
         LocalCurrentEntryReveal? revealed;
         try {
@@ -381,14 +524,50 @@ class AutoFillCacheService
           );
         } finally {
           revealed?.clear();
+          ++examined;
+          _report(
+            generation,
+            AutoFillPreparation(
+              AutoFillPreparationPhase.preparing,
+              examined: examined,
+              total: total,
+            ),
+          );
         }
       }
     }
     if (_accessRevoked || generation != _generation) return false;
-    if (records.isEmpty) return true;
+    if (records.isEmpty) {
+      _report(
+        generation,
+        AutoFillPreparation(
+          AutoFillPreparationPhase.empty,
+          examined: examined,
+          total: total,
+        ),
+      );
+      return true;
+    }
+    _report(
+      generation,
+      AutoFillPreparation(
+        AutoFillPreparationPhase.publishing,
+        examined: examined,
+        total: total,
+      ),
+    );
     await _bridge.replaceCache(
       AutoFillCachePayload(manifest: authority.build(), records: records),
       sessionToken: sessionToken,
+    );
+    if (_accessRevoked || generation != _generation) return false;
+    _report(
+      generation,
+      AutoFillPreparation(
+        AutoFillPreparationPhase.ready,
+        examined: examined,
+        total: total,
+      ),
     );
     AppLogger.i('AutoFill', 'Native cache synchronized');
     return true;

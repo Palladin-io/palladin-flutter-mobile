@@ -37,6 +37,7 @@ import '../cubit/search_cubit.dart';
 import '../cubit/search_state.dart';
 import '../cubit/search_session_controller.dart';
 import '../../../autofill/presentation/widgets/autofill_setup_card.dart';
+import '../../../autofill/presentation/widgets/autofill_preparation_card.dart';
 import '../widgets/onboarding_checklist.dart';
 import '../widgets/unknown_agent_card.dart';
 
@@ -556,6 +557,7 @@ class _DashboardViewState extends State<_DashboardView> {
                     children: [
                       BiometricSetupCard(hideWhenHandled: true),
                       AutoFillSetupCard(hideWhenEnabled: true),
+                      AutoFillPreparationCard(hideWhenReady: true),
                     ],
                   ),
                 ),

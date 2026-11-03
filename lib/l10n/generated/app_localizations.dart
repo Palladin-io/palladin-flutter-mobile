@@ -8839,6 +8839,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The login could not be saved safely. Try again or cancel.'**
   String get autoFillSaveUnavailable;
+
+  /// No description provided for @autofillPreparationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoFill passwords'**
+  String get autofillPreparationTitle;
+
+  /// No description provided for @autofillPreparationWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing saved passwords… You can keep using Palladin.'**
+  String get autofillPreparationWaiting;
+
+  /// No description provided for @autofillPreparationProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing {examined} of {total} entries'**
+  String autofillPreparationProgress(int examined, int total);
+
+  /// No description provided for @autofillPreparationPublishing.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving passwords to the system provider…'**
+  String get autofillPreparationPublishing;
+
+  /// No description provided for @autofillPreparationReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords are prepared. Filling still requires system provider selection and authorization.'**
+  String get autofillPreparationReady;
+
+  /// No description provided for @autofillPreparationEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No eligible saved passwords to prepare. Add a login with a website address to a Vault that allows offline access.'**
+  String get autofillPreparationEmpty;
+
+  /// No description provided for @autofillPreparationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not prepare passwords. Try again while Palladin is unlocked.'**
+  String get autofillPreparationFailed;
+
+  /// No description provided for @autofillPreparationUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Palladin to check and prepare saved passwords.'**
+  String get autofillPreparationUnknown;
 }
 
 class _AppLocalizationsDelegate
