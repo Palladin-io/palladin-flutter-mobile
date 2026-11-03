@@ -111,3 +111,19 @@ class LauncherAnrTests(unittest.TestCase):
             invalid = self.dialog()
             invalid[1].set(attribute, value)
             self.assertIsNone(exercise.launcher_anr_close(invalid))
+
+    def test_only_exact_sdk_setup_system_dialog_can_be_dismissed(self):
+        title = "com.google.android.googlesdksetup isn't responding"
+        nodes = self.dialog(title)
+        self.assertIs(exercise.sdk_setup_anr_close(nodes), nodes[1])
+        for other in ("Palladin isn't responding", "System UI isn't responding", "Other isn't responding", "Pixel Launcher isn't responding", title + " extra"):
+            self.assertIsNone(exercise.sdk_setup_anr_close(self.dialog(other)))
+        self.assertIsNone(exercise.sdk_setup_anr_close(nodes + [nodes[1]]))
+        self.assertIsNone(exercise.sdk_setup_anr_close(nodes + self.dialog(title)))
+        self.assertIsNone(exercise.sdk_setup_anr_close(nodes + self.dialog("Other isn't responding")))
+        for index, attribute, value in ((0, 'package', exercise.PROVIDER), (1, 'package', exercise.PROVIDER),
+                (1, 'enabled', 'false'), (1, 'bounds', ''), (1, 'bounds', '[70,898][70,1024]'),
+                (1, 'bounds', '[70,1024][1010,898]'), (1, 'class', 'android.view.View')):
+            invalid = self.dialog(title)
+            invalid[index].set(attribute, value)
+            self.assertIsNone(exercise.sdk_setup_anr_close(invalid))

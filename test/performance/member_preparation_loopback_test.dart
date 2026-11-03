@@ -20,9 +20,20 @@ void main() {
         ),
       );
       try {
-        final results = await benchmark.runBenchmark(repetitions: 1);
-        expect(results, hasLength(4));
-        expect(results.every((result) => result['entries'] == 160), isTrue);
+        final results = await benchmark.runBenchmark(
+          repetitions: 1,
+          incremental: true,
+        );
+        expect(results, hasLength(7));
+        expect(
+          results.take(4).every((result) => result['entries'] == 160),
+          isTrue,
+        );
+        final updates = results.skip(4).toList();
+        expect(updates.map((row) => row['reveals']), [160, 1, 0]);
+        expect(updates.map((row) => row['upserts']), [160, 1, 0]);
+        expect(updates.map((row) => row['removals']), [0, 0, 1]);
+        expect(updates.every((row) => row['httpRequests'] == 0), isTrue);
       } finally {
         SodiumProvider.debugOverride = null;
       }

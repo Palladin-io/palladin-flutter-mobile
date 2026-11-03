@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../domain/autofill_incremental.dart';
+
 /// Native cache action required after persisted vault content changes.
 enum AutoFillMutationAction {
   /// Revoke the old cache immediately without rebuilding it yet.
@@ -22,6 +24,9 @@ class AutoFillMutationNotifier {
       StreamController<AutoFillMutationAction>.broadcast(sync: true);
   final Set<int> _activeMutations = {};
   AutoFillMutationHandler? _handler;
+  Set<AutoFillEntryCoordinate>? _batchScope;
+  Set<AutoFillEntryCoordinate>? get currentMutationScope =>
+      _batchScope == null ? null : Set.unmodifiable(_batchScope!);
   var _nextMutationId = 0;
   var _batchAmbiguous = false;
   var _batchHasDefinitiveResult = false;
@@ -44,6 +49,7 @@ class AutoFillMutationNotifier {
 
   /// Revokes the old cache before a multi-step mutation can continue.
   Future<void> notifyInvalidated() {
+    _batchScope = null;
     if (_activeMutations.isEmpty) {
       _batchAmbiguous = false;
       _batchHasDefinitiveResult = false;
@@ -54,6 +60,7 @@ class AutoFillMutationNotifier {
   /// Rebuilds the cache after the persisted mutation is complete.
   Future<void> notifyChanged() {
     if (_activeMutations.isNotEmpty) return Future<void>.value();
+    _batchScope = null;
     // A standalone definitive mutation starts a fresh batch. A previous
     // ambiguous batch must not suppress a later authoritative rebuild.
     _batchAmbiguous = false;
@@ -67,10 +74,18 @@ class AutoFillMutationNotifier {
   /// the entire active batch ends definitively. If any result is ambiguous,
   /// the batch leaves AutoFill empty; the next newly-started mutation creates
   /// a fresh batch that may rebuild from authoritative server state.
-  Future<AutoFillMutationLease> beginMutation() async {
+  Future<AutoFillMutationLease> beginMutation({
+    Set<AutoFillEntryCoordinate>? scope,
+  }) async {
     if (_activeMutations.isEmpty) {
+      _batchScope = scope == null ? null : Set.of(scope);
       _batchAmbiguous = false;
       _batchHasDefinitiveResult = false;
+    }
+    if (scope == null) {
+      _batchScope = null;
+    } else {
+      _batchScope?.addAll(scope);
     }
     final id = ++_nextMutationId;
     _activeMutations.add(id);
@@ -92,7 +107,9 @@ class AutoFillMutationNotifier {
     if (!_activeMutations.remove(id)) return;
     _batchAmbiguous = _batchAmbiguous || ambiguous;
     _batchHasDefinitiveResult = _batchHasDefinitiveResult || !ambiguous;
-    if (_activeMutations.isEmpty && !_batchAmbiguous) await notifyChanged();
+    if (_activeMutations.isEmpty && !_batchAmbiguous) {
+      await _dispatch(AutoFillMutationAction.rebuild);
+    }
   }
 
   Future<void> _dispatch(AutoFillMutationAction action) async {
