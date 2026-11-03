@@ -8,6 +8,8 @@ import android.view.ViewStructure
 import android.view.autofill.AutofillId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
@@ -237,6 +239,37 @@ class CredentialFieldIdsTest {
         assertEquals(listOf(username.autofillId), fields.usernameIds)
         assertEquals(listOf(username.autofillId), fields.allIds)
         assertEquals(emptyList<AutofillId>(), fields.passwordIds)
+    }
+
+    @Test
+    fun observedIfirmaSemanticFieldsRemainTargetsRegardlessOfFocusedField() {
+        // Reduced physical metadata; see tool/android-autofill-harness/observed-ifirma.md.
+        for (usernameFocused in listOf(false, true)) {
+            val username = node(inputType = 33, hints = arrayOf("username"))
+            val password = node(inputType = 129, hints = arrayOf("password"))
+            val disabled = node(inputType = 16385)
+            `when`(username.isFocused).thenReturn(usernameFocused)
+            `when`(password.isFocused).thenReturn(!usernameFocused)
+            `when`(disabled.isEnabled).thenReturn(false)
+            val nested = node()
+            `when`(nested.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE)
+            `when`(nested.childCount).thenReturn(1)
+            `when`(nested.getChildAt(0)).thenReturn(disabled)
+            val parent = node()
+            `when`(parent.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE)
+            `when`(parent.childCount).thenReturn(3)
+            listOf(username, password, nested).forEachIndexed { index, child ->
+                `when`(parent.getChildAt(index)).thenReturn(child)
+            }
+            val request = structure(parent)
+            val fields = PalladinAutofillService.CredentialFieldIds.from(request)
+            assertEquals(listOf(username.autofillId), fields.usernameIds)
+            assertEquals(listOf(password.autofillId), fields.passwordIds)
+            assertEquals(listOf(username.autofillId, password.autofillId), fields.allIds)
+            assertFalse(fields.requiresUsernameConfirmation)
+            assertTrue(PalladinAutofillService.CredentialFieldIds.domainsFrom(request).isEmpty())
+            assertTrue(PalladinAutofillService.CredentialFieldIds.schemesFrom(request).isEmpty())
+        }
     }
 
     @Test

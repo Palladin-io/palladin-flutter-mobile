@@ -83,6 +83,19 @@ void main() {
         ),
       ],
     );
+    blocTest<AuthBloc, AuthState>(
+      'initial storage failure exits restoration without deleting the session',
+      build: () {
+        when(
+          () => mockRepo.isAuthenticated(),
+        ).thenThrow(StateError('storage unavailable'));
+        return AuthBloc(authRepository: mockRepo);
+      },
+      act: (bloc) => bloc.add(const AuthCheckRequested()),
+      expect: () => [isA<AuthError>()],
+      verify: (_) => verifyNever(() => mockRepo.logout()),
+    );
+
     test('initial state is AuthInitial', () {
       final bloc = AuthBloc(authRepository: mockRepo);
       expect(bloc.state, isA<AuthInitial>());

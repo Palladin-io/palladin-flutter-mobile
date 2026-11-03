@@ -54,6 +54,7 @@ final class DurableAutoFillRepairCoordinator {
   StreamSubscription<String>? _subscription;
   Future<void>? _running;
   Timer? _retry;
+  Timer? _foregroundRetry;
   Object? _readySessionIdentity;
   int? _readyEpoch;
   int _epoch = 0;
@@ -88,6 +89,8 @@ final class DurableAutoFillRepairCoordinator {
   /// invalidation batch has installed its authoritative replacement.
   AutoFillRepairDeny suspendRepairs() {
     _publication = null;
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     final deny = AutoFillRepairDeny._();
     _repairDenies.add(deny);
     _retry?.cancel();
@@ -128,15 +131,25 @@ final class DurableAutoFillRepairCoordinator {
       }
       return false;
     }
+    final epoch = _epoch;
     final completeVaultIds = Set<String>.unmodifiable(vaultIds);
     _installKnownVaults(completeVaultIds);
     final covered = Map<String, int>.from(_pending);
     try {
       await _publishPrepared(session, completeVaultIds);
     } catch (_) {
-      // Keep the deny owned by the caller so its retry remains fail-closed.
+      // A foreground-only repair has no durable commit to drive _drain.
+      // Caller-owned denies retain their separate authoritative retry path.
+      if (!_disposed &&
+          _epoch == epoch &&
+          releasingDenies.isEmpty &&
+          _repairDenies.isEmpty) {
+        _scheduleForegroundRetry(session.principalId, session.identity, epoch);
+      }
       rethrow;
     }
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     for (final update in covered.entries) {
       if (_pending[update.key] == update.value) {
         _pending.remove(update.key);
@@ -148,8 +161,43 @@ final class DurableAutoFillRepairCoordinator {
     return true;
   }
 
+  void _scheduleForegroundRetry(
+    String principalId,
+    Object identity,
+    int epoch,
+  ) {
+    _foregroundRetry ??= Timer(retryDelay, () {
+      _foregroundRetry = null;
+      final current = _currentSession();
+      if (_disposed ||
+          _epoch != epoch ||
+          _readyEpoch != epoch ||
+          _repairDenies.isNotEmpty ||
+          _pending.isNotEmpty ||
+          current == null ||
+          current.privateKey.isEmpty ||
+          current.principalId != principalId ||
+          !identical(current.identity, identity) ||
+          !identical(_readySessionIdentity, identity)) {
+        return;
+      }
+      // Resolve the current session only when retrying; the timer retains no key.
+      // One automatic attempt, then wait for an actual lifecycle/commit event.
+      unawaited(
+        _publishPrepared(
+          current,
+          Set<String>.unmodifiable(_knownVaultIds),
+        ).catchError((Object error) {
+          onFailure?.call(error);
+        }),
+      );
+    });
+  }
+
   /// Drops all profile-scoped state on lock, logout, or session replacement.
   void clearSession() {
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     _epoch += 1;
     _publication = null;
     _knownVaultIds.clear();
@@ -190,6 +238,8 @@ final class DurableAutoFillRepairCoordinator {
 
   Future<void> dispose() async {
     _disposed = true;
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     _retry?.cancel();
     _retry = null;
     await _subscription?.cancel();

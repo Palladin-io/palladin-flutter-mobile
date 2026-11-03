@@ -133,6 +133,13 @@ plain-text/no-autofill-hint case, opaque labels next to a password, explicit
 username-only confirmation for verified/unverified native sources, cancellation
 and rejected WEB/password targets. Real iFirma compatibility remains unverified.
 
+A later physical metadata-only trace of iFirma build 5094 captured explicit
+`username` and `password` hints with native input types 33 and 129, plus a disabled
+extra text field. Both are recognized by the unchanged parser. The reduced
+[observed fixture](../../../tool/android-autofill-harness/observed-ifirma.md)
+distinguishes this evidence from the earlier placeholder-only synthetic test;
+it does not prove release-provider callback or successful UI/fill on the phone.
+
 The inspected APK SHA-256 is
 `8ee4e3b13437f7930759f093e329bc8e746a7c234411662e46db7c17e7a94715`;
 its signer SHA-256
@@ -258,6 +265,14 @@ References: [Android provider activation](https://developer.android.com/identity
    lease, plus each Entry revision/key high-water. Every record is compared
    with that authority; self-consistent substituted records are rejected.
    Cache v1 has no lease or independent authority and is purged, never migrated.
+   A same-authority lease may renew between local Entry reads. Publication
+   accepts leases with one common validity window (latest start before earliest
+   expiry across all entries) only when every non-temporal Vault/profile binding
+   remains equal and every lease has its exact policy duration. It retains the
+   complete authenticated context with the earliest expiry; it never synthesizes
+   or extends a lease. Native publication and final handoff still reject expiry.
+   S22 diagnostic metadata confirmed the build-11 failure at this boundary:
+   only `issuedAt` and `notAfter` differed between entries; no values were logged.
 5. Missing, corrupt, stale, expired or clock-rolled-back cache state fails
    closed. Automatic matching rejects ambiguous, mismatched or unverified
    destinations. The explicit absent-domain manual paths on Android and iOS
@@ -519,6 +534,20 @@ is not a diagnosis or proof of a fix for intermittent system dropdown disappeara
 Reference: [Android inline autofill guide](https://developer.android.com/identity/autofill/ime-autofill).
 Android API compilation checks the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
+
+## Foreground cache repair recovery
+
+A failed ownerless foreground native-cache publication receives at most one
+local automatic retry after the coordinator delay. The retry resolves the
+current unlocked session and current complete Vault set when it runs; its timer
+retains no private key. Lock/session replacement, a changed principal, disposal
+or an intervening mutation/invalidation deny suppress it. A successful foreground
+repair cancels the queued retry. Caller-owned denies retain their own repair path;
+this fallback never releases them. A second failure waits for a real lifecycle or
+durable-update event rather than polling indefinitely. Cache clearing, lease,
+generation and revocation checks remain unchanged, and repair performs no HTTP.
+This closes a recovery gap after a transient publication failure; it does not
+establish the cause of any particular third-party application's missing prompt.
 
 ## Android last-request diagnosis
 

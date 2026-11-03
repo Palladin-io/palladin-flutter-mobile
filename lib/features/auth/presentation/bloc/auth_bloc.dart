@@ -143,36 +143,44 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
-    AppLogger.d('AuthBloc', 'Checking stored auth state');
-    final authenticated = await authRepository.isAuthenticated();
-    if (!authenticated) {
-      AppLogger.i('AuthBloc', 'No stored session, unauthenticated');
-      _emitUnauthenticated(emit);
-      return;
-    }
+    try {
+      AppLogger.d('AuthBloc', 'Checking stored auth state');
+      final authenticated = await authRepository.isAuthenticated();
+      if (!authenticated) {
+        AppLogger.i('AuthBloc', 'No stored session, unauthenticated');
+        _emitUnauthenticated(emit);
+        return;
+      }
 
-    final userId = await authRepository.getUserId();
-    final isOnboarded = await authRepository.isOnboarded();
-    final permissions = await authRepository.getPermissions();
-    final email = await authRepository.getEmail();
-    final emailVerified = await authRepository.isEmailVerified();
-    final authProvider = await authRepository.getAuthProvider();
+      final userId = await authRepository.getUserId();
+      final isOnboarded = await authRepository.isOnboarded();
+      final permissions = await authRepository.getPermissions();
+      final email = await authRepository.getEmail();
+      final emailVerified = await authRepository.isEmailVerified();
+      final authProvider = await authRepository.getAuthProvider();
 
-    if (userId != null) {
-      AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
-      emit(
-        AuthAuthenticated(
-          userId: userId,
-          isOnboarded: isOnboarded,
-          permissions: permissions,
-          email: email,
-          emailVerified: emailVerified,
-          authProvider: authProvider,
-        ),
-      );
-    } else {
-      AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
-      _emitUnauthenticated(emit);
+      if (userId != null) {
+        AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
+        emit(
+          AuthAuthenticated(
+            userId: userId,
+            isOnboarded: isOnboarded,
+            permissions: permissions,
+            email: email,
+            emailVerified: emailVerified,
+            authProvider: authProvider,
+          ),
+        );
+      } else {
+        AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
+        _emitUnauthenticated(emit);
+      }
+    } catch (error) {
+      // A failed initial read must not leave the startup cover mounted forever.
+      // Never replace an established session because a recheck failed.
+      if (state is! AuthInitial) rethrow;
+      AppLogger.w('AuthBloc', 'Session restore failed: ${error.runtimeType}');
+      emit(AuthError(error));
     }
   }
 

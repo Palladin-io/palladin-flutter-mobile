@@ -195,6 +195,8 @@ class _UnlockViewState extends State<_UnlockView> {
         return IconButton(
           onPressed: isLoading ? null : _tryBiometrics,
           iconSize: 40,
+          constraints: const BoxConstraints(minWidth: 72, minHeight: 72),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           tooltip: l10n.unlockBiometricHint,
           icon: const Icon(
             Icons.fingerprint,

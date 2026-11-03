@@ -269,6 +269,18 @@ class AutoFillCacheStoreTest {
     }
 
     @Test
+    fun earliestManifestLeaseMustStillBeValidAtPublication() {
+        val payload = validPayload()
+        val deadline = java.time.Instant.parse("2026-08-30T08:00:00Z").toEpochMilli()
+        assertEquals(1, AutoFillCachePayloadValidator.validate(payload, deadline - 1).size)
+        for (publicationTime in listOf(deadline, deadline + 60_000)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                AutoFillCachePayloadValidator.validate(payload, publicationTime)
+            }
+        }
+    }
+
+    @Test
     fun credentialHandoffUsesManifestDeadlineAfterDelayedSelection() {
         val records = AutoFillCachePayloadValidator.validate(validPayload(), 1_787_990_400_000)
         val deadline = java.time.Instant.parse("2026-08-30T08:00:00Z").toEpochMilli()
