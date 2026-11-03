@@ -4998,4 +4998,36 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autoFillSaveUnavailable =>
       'The login could not be saved safely. Try again or cancel.';
+
+  @override
+  String get autofillPreparationTitle => 'AutoFill passwords';
+
+  @override
+  String get autofillPreparationWaiting =>
+      'Preparing saved passwords… You can keep using Palladin.';
+
+  @override
+  String autofillPreparationProgress(int examined, int total) {
+    return 'Preparing $examined of $total entries';
+  }
+
+  @override
+  String get autofillPreparationPublishing =>
+      'Saving passwords to the system provider…';
+
+  @override
+  String get autofillPreparationReady =>
+      'Passwords are prepared. Filling still requires system provider selection and authorization.';
+
+  @override
+  String get autofillPreparationEmpty =>
+      'No eligible saved passwords to prepare. Add a login with a website address to a Vault that allows offline access.';
+
+  @override
+  String get autofillPreparationFailed =>
+      'Could not prepare passwords. Try again while Palladin is unlocked.';
+
+  @override
+  String get autofillPreparationUnknown =>
+      'Unlock Palladin to check and prepare saved passwords.';
 }

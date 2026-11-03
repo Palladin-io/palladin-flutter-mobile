@@ -92,6 +92,138 @@ void main() {
     );
   }
 
+  test(
+    'preparation waits for native acknowledgement and reports real totals',
+    () async {
+      stubCredentialRebuild();
+      final ack = Completer<void>();
+      when(
+        () => bridge.replaceCache(
+          any(),
+          sessionToken: any(named: 'sessionToken'),
+        ),
+      ).thenAnswer((_) => ack.future);
+      final operation = service.synchronizePrepared(
+        privateKey: Uint8List.fromList([1]),
+        vaultIds: [_vault().id],
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(service.preparation.value.phase.name, 'publishing');
+      expect(service.preparation.value.examined, 1);
+      expect(service.preparation.value.total, 1);
+      ack.complete();
+      await operation;
+      expect(service.preparation.value.phase.name, 'ready');
+    },
+  );
+
+  test(
+    'lock hides readiness and ignores a late native acknowledgement',
+    () async {
+      stubCredentialRebuild();
+      final ack = Completer<void>();
+      when(
+        () => bridge.replaceCache(
+          any(),
+          sessionToken: any(named: 'sessionToken'),
+        ),
+      ).thenAnswer((_) => ack.future);
+      final operation = service.synchronizePrepared(
+        privateKey: Uint8List.fromList([1]),
+        vaultIds: [_vault().id],
+      );
+      await Future<void>.delayed(Duration.zero);
+      service.suspendPreparation();
+      ack.complete();
+      await operation;
+      expect(service.preparation.value.phase.name, 'unknown');
+      verifyNever(bridge.revokeCacheAccess);
+    },
+  );
+
+  test('empty cache is explicit after native clear acknowledgement', () async {
+    await service.synchronizePrepared(
+      privateKey: Uint8List.fromList([1]),
+      vaultIds: [_vault().id],
+    );
+    expect(service.preparation.value.phase.name, 'empty');
+    verifyNever(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    );
+  });
+
+  test('publication failure is visible and does not claim ready', () async {
+    stubCredentialRebuild();
+    when(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    ).thenThrow(StateError('synthetic failure'));
+    await expectLater(
+      service.synchronizePrepared(
+        privateKey: Uint8List.fromList([1]),
+        vaultIds: [_vault().id],
+      ),
+      throwsStateError,
+    );
+    expect(service.preparation.value.phase.name, 'failed');
+  });
+
+  test(
+    'stale source failure cannot overwrite an acknowledged publication',
+    () async {
+      stubCredentialRebuild();
+      final source = service.beginSourcePreparation();
+      await service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: [_vault().id],
+      );
+      service.sourcePreparationFailed(source);
+      expect(service.preparation.value.phase.name, 'ready');
+    },
+  );
+
+  test('source failure offers one retry and lock disables it', () async {
+    final source = service.beginSourcePreparation();
+    service.sourcePreparationFailed(source);
+    expect(service.preparation.value.phase.name, 'failed');
+    final retry = Completer<void>();
+    var calls = 0;
+    service.onRetryPreparation = () {
+      calls++;
+      return retry.future;
+    };
+    final first = service.retryPreparation();
+    await service.retryPreparation();
+    expect(calls, 1);
+    service.suspendPreparation();
+    retry.complete();
+    await first;
+    await service.retryPreparation();
+    expect(calls, 1);
+    expect(service.preparation.value.phase.name, 'unknown');
+  });
+
+  test(
+    'failed activation can be retried without bypassing a session fence',
+    () async {
+      when(
+        bridge.beginCacheSession,
+      ).thenThrow(StateError('synthetic activation failure'));
+      await service.beginSession();
+      expect(service.preparation.value.phase.name, 'failed');
+      when(bridge.beginCacheSession).thenAnswer((_) async => 3);
+      await service.ensurePreparationSession();
+      stubCredentialRebuild();
+      await service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: [_vault().id],
+      );
+      expect(service.preparation.value.phase.name, 'ready');
+      verify(() => bridge.replaceCache(any(), sessionToken: 3)).called(1);
+    },
+  );
+
   test('synthetic AutoFill rebuild opens each eligible credential once', () async {
     for (final count in [100, 500]) {
       for (final delayMs in [0, 2]) {
@@ -316,6 +448,7 @@ void main() {
     ).thenAnswer((_) async => _reveal(revision: 'r-1'));
 
     await service.synchronize(privateKey: Uint8List(32));
+    expect(service.preparation.value.phase.name, 'failed');
 
     verifyNever(
       () =>

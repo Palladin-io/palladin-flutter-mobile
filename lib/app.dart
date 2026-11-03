@@ -219,6 +219,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     _signalR.onReconnected = _repairCurrentEntries;
     _autoFillMutationNotifier = getIt<AutoFillMutationNotifier>();
     _autoFillMutationNotifier.attachHandler(_onAutoFillMutation);
+    _autoFillCache.onRetryPreparation = _retryAutoFillPreparation;
     _durableAutoFillRepair = DurableAutoFillRepairCoordinator(
       memberIndexes: _memberSync,
       autoFill: _autoFillCache,
@@ -262,6 +263,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _autoFillCache.onRetryPreparation = null;
+    _autoFillCache.suspendPreparation();
     unawaited(_autoFillSaveAuth?.cancel());
     _autoFillSave.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -507,6 +510,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        RepositoryProvider<AutoFillCacheService>.value(value: _autoFillCache),
         BlocProvider.value(value: _authBloc),
         BlocProvider.value(value: _consents),
         BlocProvider.value(value: _pushNavigationCubit),
@@ -566,6 +570,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 !previous.isVaultLocked &&
                 (current is! AuthAuthenticated || current.isVaultLocked),
             listener: (_, _) {
+              _autoFillCache.suspendPreparation();
               _memberIndexPreparation.lock();
               _autoFillUnlockSessionIdentity = Object();
               _appliedVaultInvalidationRanks.clear();
@@ -634,36 +639,68 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _retryAutoFillPreparation() async {
+    final state = _authBloc.state;
+    if (!mounted ||
+        state is! AuthAuthenticated ||
+        state.isVaultLocked ||
+        state.privateKey == null) {
+      return;
+    }
+    final identity = _autoFillUnlockSessionIdentity;
+    await _autoFillCache.ensurePreparationSession();
+    if (!mounted || !identical(identity, _autoFillUnlockSessionIdentity)) {
+      return;
+    }
+    final current = _authBloc.state;
+    if (current is! AuthAuthenticated ||
+        current.isVaultLocked ||
+        !identical(current.privateKey, state.privateKey)) {
+      return;
+    }
+    await _prepareLocalSearch(state.privateKey!, ensureFresh: true);
+  }
+
   Future<void> _prepareLocalSearch(
     Uint8List privateKey, {
     bool ensureFresh = false,
   }) async {
+    final preparation = _autoFillCache.beginSourcePreparation();
     try {
       final preparedVaults = await _memberIndexPreparation.prepare(
         privateKey,
         ensureFresh: ensureFresh,
       );
-      await _durableAutoFillRepair.synchronizePreparedIfAllowed(
-        privateKey: privateKey,
-        vaultIds: preparedVaults.map((vault) => vault.id),
-      );
+      final published = await _durableAutoFillRepair
+          .synchronizePreparedIfAllowed(
+            privateKey: privateKey,
+            vaultIds: preparedVaults.map((vault) => vault.id),
+          );
+      if (!published) _autoFillCache.sourcePreparationFailed(preparation);
     } on VaultException catch (error) {
-      if (error.kind != VaultErrorKind.networkError) return;
+      if (error.kind != VaultErrorKind.networkError) {
+        _autoFillCache.sourcePreparationFailed(preparation);
+        return;
+      }
       try {
         final authority = await _memberSyncAuthority.current();
         final cachedVaultIds = await _memberSync.unlockAllCached(
           memberPrivateKey: privateKey,
           authority: authority,
         );
-        await _durableAutoFillRepair.synchronizePreparedIfAllowed(
-          privateKey: privateKey,
-          vaultIds: cachedVaultIds,
-        );
+        final published = await _durableAutoFillRepair
+            .synchronizePreparedIfAllowed(
+              privateKey: privateKey,
+              vaultIds: cachedVaultIds,
+            );
+        if (!published) _autoFillCache.sourcePreparationFailed(preparation);
       } catch (_) {
+        _autoFillCache.sourcePreparationFailed(preparation);
         // Cached generations are optional and fail closed per Vault. Never log
         // errors retaining decrypted projection or transport context.
       }
     } catch (_) {
+      _autoFillCache.sourcePreparationFailed(preparation);
       // Local search is best effort. Never log transport errors because they
       // may retain the raw query or decrypted projection context.
     }
