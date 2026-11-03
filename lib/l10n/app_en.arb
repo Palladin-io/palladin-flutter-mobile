@@ -3786,5 +3786,14 @@
   "autoFillSaveWebSource": "Verified HTTPS website",
   "autoFillSaveNativeSource": "Verified application association",
   "autoFillSaveHost": "Choose the exact host",
-  "autoFillSaveUnavailable": "The login could not be saved safely. Try again or cancel."
+  "autoFillSaveUnavailable": "The login could not be saved safely. Try again or cancel.",
+  "autofillPreparationTitle": "AutoFill passwords",
+  "autofillPreparationWaiting": "Preparing saved passwords… You can keep using Palladin.",
+  "autofillPreparationProgress": "Preparing {examined} of {total} entries",
+  "autofillPreparationPublishing": "Saving passwords to the system provider…",
+  "autofillPreparationReady": "Passwords are prepared. Filling still requires system provider selection and authorization.",
+  "autofillPreparationEmpty": "No eligible saved passwords to prepare. Add a login with a website address to a Vault that allows offline access.",
+  "autofillPreparationFailed": "Could not prepare passwords. Try again while Palladin is unlocked.",
+  "autofillPreparationUnknown": "Unlock Palladin to check and prepare saved passwords.",
+  "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}}
 }

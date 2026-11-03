@@ -5048,4 +5048,36 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get autoFillSaveUnavailable =>
       'Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj.';
+
+  @override
+  String get autofillPreparationTitle => 'Hasła do autouzupełniania';
+
+  @override
+  String get autofillPreparationWaiting =>
+      'Przygotowujemy zapisane hasła… Możesz dalej korzystać z Palladina.';
+
+  @override
+  String autofillPreparationProgress(int examined, int total) {
+    return 'Przygotowywanie wpisów: $examined z $total';
+  }
+
+  @override
+  String get autofillPreparationPublishing =>
+      'Zapisywanie haseł w usłudze systemowej…';
+
+  @override
+  String get autofillPreparationReady =>
+      'Hasła są przygotowane. Uzupełnianie nadal wymaga wybrania usługi w systemie i autoryzacji.';
+
+  @override
+  String get autofillPreparationEmpty =>
+      'Brak zapisanych haseł do przygotowania. Dodaj login z adresem strony do Vaultu, który zezwala na dostęp offline.';
+
+  @override
+  String get autofillPreparationFailed =>
+      'Nie udało się przygotować haseł. Spróbuj ponownie, gdy Palladin jest odblokowany.';
+
+  @override
+  String get autofillPreparationUnknown =>
+      'Odblokuj Palladina, aby sprawdzić i przygotować zapisane hasła.';
 }

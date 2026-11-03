@@ -1567,5 +1567,14 @@
   "autoFillSaveWebSource": "Zweryfikowana strona HTTPS",
   "autoFillSaveNativeSource": "Zweryfikowane powiązanie aplikacji",
   "autoFillSaveHost": "Wybierz dokładny host",
-  "autoFillSaveUnavailable": "Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj."
+  "autoFillSaveUnavailable": "Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj.",
+  "autofillPreparationTitle": "Hasła do autouzupełniania",
+  "autofillPreparationWaiting": "Przygotowujemy zapisane hasła… Możesz dalej korzystać z Palladina.",
+  "autofillPreparationProgress": "Przygotowywanie wpisów: {examined} z {total}",
+  "autofillPreparationPublishing": "Zapisywanie haseł w usłudze systemowej…",
+  "autofillPreparationReady": "Hasła są przygotowane. Uzupełnianie nadal wymaga wybrania usługi w systemie i autoryzacji.",
+  "autofillPreparationEmpty": "Brak zapisanych haseł do przygotowania. Dodaj login z adresem strony do Vaultu, który zezwala na dostęp offline.",
+  "autofillPreparationFailed": "Nie udało się przygotować haseł. Spróbuj ponownie, gdy Palladin jest odblokowany.",
+  "autofillPreparationUnknown": "Odblokuj Palladina, aby sprawdzić i przygotować zapisane hasła.",
+  "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}}
 }

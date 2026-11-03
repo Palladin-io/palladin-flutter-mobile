@@ -198,6 +198,27 @@ user consent. Physical iPhone QA remains required for Safari, associated native
 apps, empty-identifier manual selection, cancellation and revocation while the
 confirmation is open.
 
+## Preparation feedback
+
+Home and Security show native-cache preparation separately from OS provider
+selection. The shared, memory-only `AutoFillCacheService.preparation` contains
+only a phase and counts; it never contains Entry IDs, labels, credentials or keys.
+The initial index download is indeterminate. Once the eligible local snapshot is
+known, progress counts examined entries (including skipped credentials), not HTTP
+requests or presumed native success. Publishing remains a separate indeterminate
+phase. Ready requires the current generation's native replacement acknowledgement;
+zero records is an explicit empty state after acknowledged native clear.
+
+A failed preparation offers Retry through the app's current unlocked session and
+the existing durable-repair coordinator, preserving all mutation/invalidation
+denies. Repeated taps share one retry. Source and native-generation fences reject
+stale failures/acknowledgements. Ordinary app lock hides prior readiness without
+claiming the independently protected native cache was erased; unlock activates a
+new native session and prepares again. This is a publication status, not a promise
+that every third-party form is supported or that an offline lease never expires.
+Home hides the ready/unknown card; Security retains the status. Copy is EN/PL and
+measured progress has a localized accessibility label.
+
 ## Provider activation and status
 
 The system provider display name is `Palladin` on Android (all locales) and iOS.
