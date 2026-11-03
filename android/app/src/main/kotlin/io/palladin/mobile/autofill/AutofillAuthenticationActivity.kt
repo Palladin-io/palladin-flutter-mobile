@@ -213,7 +213,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                         finishCanceled()
                         return
                     }
-                    val authenticated = AutoFillUnwrapOperation(operation.generation, authenticatedCipher)
+                    val authenticated = AutoFillUnwrapOperation(operation.generation, authenticatedCipher, operation.catalogRevision)
                     if (domain == null) {
                         showCredentialChooser(authenticated, requestingPackage, nativeDomains, mode)
                     } else if (datasetAuthentication) {

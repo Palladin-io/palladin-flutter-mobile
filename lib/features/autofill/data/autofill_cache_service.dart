@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../domain/autofill_preparation.dart';
@@ -10,6 +12,9 @@ import '../../vault/domain/entities/member_index_entry.dart';
 import '../../vault/data/services/member_index_preparation_service.dart';
 import '../../vault/data/services/member_sync_service.dart';
 import '../domain/autofill_cache_invalidator.dart';
+import '../domain/autofill_domain.dart';
+import '../domain/autofill_incremental.dart';
+import 'autofill_incremental_publisher.dart';
 import '../domain/autofill_record.dart';
 import 'autofill_cache_bridge.dart';
 
@@ -24,15 +29,18 @@ class AutoFillCacheService
     required LocalCurrentEntryService localEntries,
     required AutoFillCacheBridge bridge,
     required MemberIndexReader memberIndex,
+    AutoFillIncrementalPublisher? incremental,
   }) : _indexPreparation = indexPreparation,
        _localEntries = localEntries,
        _bridge = bridge,
-       _memberIndex = memberIndex;
+       _memberIndex = memberIndex,
+       _incremental = incremental;
 
   final MemberIndexPreparer _indexPreparation;
   final LocalCurrentEntryService _localEntries;
   final AutoFillCacheBridge _bridge;
   final MemberIndexReader _memberIndex;
+  final AutoFillIncrementalPublisher? _incremental;
 
   final _preparation = ValueNotifier<AutoFillPreparation>(
     const AutoFillPreparation(AutoFillPreparationPhase.unknown),
@@ -45,6 +53,11 @@ class AutoFillCacheService
 
   /// Ordinary app lock does not revoke the independently protected native cache.
   void suspendPreparation() {
+    ++_generation;
+    final incremental = _incremental;
+    if (incremental != null) {
+      unawaited(incremental.endSession().catchError((Object _) {}));
+    }
     _preparationVisible = false;
     ++_statusRevision;
     _preparation.value = const AutoFillPreparation(
@@ -233,6 +246,21 @@ class AutoFillCacheService
     });
   }
 
+  /// Preserves ciphertext while committing a durable scoped deny when v3 has
+  /// an acknowledged base. A missing/failed base uses the existing global deny.
+  Future<void> invalidateEntries(Set<AutoFillEntryCoordinate>? scope) async {
+    ++_generation;
+    final incremental = _incremental;
+    if (incremental != null) {
+      try {
+        if (await incremental.deny(scope)) return;
+      } catch (_) {
+        // A native CAS/availability failure cannot authorize a remote mutation.
+      }
+    }
+    await clear();
+  }
+
   Future<void> clearAndSynchronize({required Uint8List privateKey}) {
     if (privateKey.isEmpty) return clear();
     if (_accessRevoked) return Future<void>.value();
@@ -295,6 +323,42 @@ class AutoFillCacheService
         if (sessionToken == null) {
           throw StateError('AutoFill cache session is unavailable');
         }
+        final incremental = _incremental;
+        if (incremental != null) {
+          Future<void> publish() => incremental.synchronize(
+            privateKey: privateKey,
+            vaultIds: preparedVaultIds,
+            isCurrent: () => !_accessRevoked && generation == _generation,
+            onProgress: (progress) => _report(generation, progress),
+          );
+          try {
+            try {
+              await publish();
+            } on PlatformException catch (error) {
+              if (error.code != 'AUTOFILL_FULL_RECOVERY_REQUIRED' ||
+                  _accessRevoked ||
+                  generation != _generation) {
+                rethrow;
+              }
+              // Unreadable native state cannot be a delta base. Commit a global
+              // deny before one complete authoritative recovery attempt.
+              await _clearNative(sessionToken);
+              if (_accessRevoked || generation != _generation) rethrow;
+              await publish();
+            }
+          } catch (_) {
+            // An unclassified authority/publication failure has no proven Entry
+            // scope. Deny globally, but never let an old callback clear a newer
+            // session or publication. Failure to persist this deny propagates.
+            if (!_accessRevoked &&
+                generation == _generation &&
+                sessionToken == _sessionToken) {
+              await _clearNative(sessionToken);
+            }
+            rethrow;
+          }
+          return;
+        }
         await _clearNative(sessionToken);
         if (_accessRevoked) return;
         if (generation != _generation) {
@@ -335,6 +399,7 @@ class AutoFillCacheService
       _cleanupToken = null;
       _nativeBridgeUnavailable = false;
       _sessionToken = token;
+      await _incremental?.beginSession(token);
     } on MissingPluginException {
       if (generation == _sessionGeneration) {
         _report(
@@ -359,11 +424,22 @@ class AutoFillCacheService
   }
 
   Future<void> _clearNative(int sessionToken) async {
+    final ownerGeneration = _generation;
+    final ownerSession = _sessionGeneration;
     Object? lastError;
     StackTrace? lastStackTrace;
     for (var attempt = 1; attempt <= _clearAttempts; attempt++) {
       try {
         await _bridge.clearCache(sessionToken: sessionToken);
+        if (ownerGeneration != _generation ||
+            ownerSession != _sessionGeneration ||
+            _sessionToken != sessionToken) {
+          return;
+        }
+        _incremental?.forgetBase();
+        if (_preparationVisible && !_accessRevoked) {
+          await _incremental?.beginSession(sessionToken);
+        }
         return;
       } on MissingPluginException {
         // Unit/widget test hosts do not install the native bridge.
@@ -573,53 +649,10 @@ class AutoFillCacheService
     return true;
   }
 
-  static String? normalizeDomain(String? raw) {
-    if (raw == null) return null;
-    final value = raw.trim();
-    if (value.isEmpty) return null;
-    try {
-      if (value.codeUnits.any((unit) => unit > 0x7f)) return null;
-      if (RegExp(
-        r'^[a-z][a-z0-9+.-]*://[^/?#]+:[0-9]+(?:[/?#]|$)',
-        caseSensitive: false,
-      ).hasMatch(value)) {
-        return null;
-      }
-      final uri = Uri.parse(value.contains('://') ? value : 'https://$value');
-      if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-      if (uri.userInfo.isNotEmpty ||
-          uri.hasPort ||
-          uri.authority.contains(':')) {
-        return null;
-      }
-      var host = uri.host.toLowerCase();
-      while (host.endsWith('.')) {
-        host = host.substring(0, host.length - 1);
-      }
-      if (host.isEmpty ||
-          !host.contains('.') ||
-          host.contains('..') ||
-          host.startsWith('.') ||
-          host
-              .split('.')
-              .any(
-                (label) =>
-                    label.isEmpty ||
-                    label.length > 63 ||
-                    label.startsWith('-') ||
-                    label.endsWith('-') ||
-                    !RegExp(r'^[a-z0-9-]+$').hasMatch(label),
-              )) {
-        return null;
-      }
-      return host;
-    } on FormatException {
-      return null;
-    }
-  }
+  static String? normalizeDomain(String? raw) => normalizeAutoFillDomain(raw);
 
   static const _clearAttempts = 3;
-  static const maximumRecords = 2000;
+  static const maximumRecords = maximumAutoFillRecords;
 }
 
 final class _AutoFillManifestBuilder {
@@ -733,6 +766,5 @@ final class _AutoFillManifestBuilder {
       left.memberKeyGeneration == right.memberKeyGeneration &&
       left.vaultKeyVersion == right.vaultKeyVersion &&
       left.memberRecipientKeyVersion == right.memberRecipientKeyVersion &&
-      left.memberRecipientKeyFingerprint ==
-          right.memberRecipientKeyFingerprint;
+      left.memberRecipientKeyFingerprint == right.memberRecipientKeyFingerprint;
 }

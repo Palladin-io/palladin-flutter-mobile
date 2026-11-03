@@ -26,6 +26,17 @@ import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'package:mobile_palladin/features/autofill/data/autofill_incremental_publisher.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_cache_bridge.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_incremental.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_record.dart';
+import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
+import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
+
 const _organization = '11111111-1111-4111-8111-111111111111';
 const _principal = '44444444-4444-4444-8444-444444444444';
 const _vaultCount = 8;
@@ -38,7 +49,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const SizedBox.shrink());
   try {
-    await runBenchmark();
+    await runBenchmark(incremental: true);
     debugPrint('MEMBER_BENCHMARK_DONE');
   } catch (error) {
     // Never print exception payloads that could retain decrypted test data.
@@ -47,7 +58,10 @@ Future<void> main() async {
   }
 }
 
-Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
+Future<List<Map<String, Object>>> runBenchmark({
+  int repetitions = 5,
+  bool incremental = false,
+}) async {
   debugPrint(
     'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false})}',
   );
@@ -63,6 +77,9 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
   final heads = <String, List<Map<String, Object?>>>{};
+  Map<String, Object?>? updatedHead;
+  var deltaSequence = 1;
+  List<Map<String, Object?>> deltaItems = [];
   final issued = DateTime.now().toUtc();
   HttpServer? server;
   final directory = await Directory.systemTemp.createTemp(
@@ -155,65 +172,72 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
         heads[vaultId] = [];
         for (var e = 0; e < _entriesPerVault; e++) {
           final entryId = _id(1000 + v * _entriesPerVault + e);
-          final bundle = await crypto.seal(
-            organizationId: _organization,
-            vaultId: vaultId,
-            entryId: entryId,
-            revision: 1,
-            vaultKeyVersion: 1,
-            vdkVersion: 1,
-            memberKeyGeneration: 1,
-            operation: 1,
-            secret: MemberSecret(
-              entryType: VaultEntryType.credential,
-              memberLabel: 'Synthetic $e',
-              agentLabel: null,
-              description: null,
-              icon: null,
-              color: null,
-              discoverable: false,
-              content: const CredentialSecretContent(
-                username: 'synthetic',
-                password: 'synthetic-only',
-                url: 'https://example.invalid',
-                urlDomain: 'example.invalid',
-                totp: null,
-                notes: null,
-                customFields: [],
+          for (final revision in v == 0 && e == 0 ? [1, 2] : [1]) {
+            final bundle = await crypto.seal(
+              organizationId: _organization,
+              vaultId: vaultId,
+              entryId: entryId,
+              revision: revision,
+              vaultKeyVersion: 1,
+              vdkVersion: 1,
+              memberKeyGeneration: 1,
+              operation: 1,
+              secret: MemberSecret(
+                entryType: VaultEntryType.credential,
+                memberLabel: 'Synthetic $e',
+                agentLabel: null,
+                description: null,
+                icon: null,
+                color: null,
+                discoverable: false,
+                content: const CredentialSecretContent(
+                  username: 'synthetic',
+                  password: 'synthetic-only',
+                  url: 'https://example.invalid',
+                  urlDomain: 'example.invalid',
+                  totp: null,
+                  notes: null,
+                  customFields: [],
+                ),
+                agentFieldAccess: {
+                  for (final field in [
+                    'memberLabel',
+                    'agentLabel',
+                    'description',
+                    'icon',
+                    'color',
+                    'entryType',
+                    'credential.username',
+                    'credential.password',
+                    'credential.url',
+                    'credential.urlDomain',
+                    'credential.totp',
+                    'notes',
+                  ])
+                    field: AgentFieldAccess.never,
+                },
               ),
-              agentFieldAccess: {
-                for (final field in [
-                  'memberLabel',
-                  'agentLabel',
-                  'description',
-                  'icon',
-                  'color',
-                  'entryType',
-                  'credential.username',
-                  'credential.password',
-                  'credential.url',
-                  'credential.urlDomain',
-                  'credential.totp',
-                  'notes',
-                ])
-                  field: AgentFieldAccess.never,
-              },
-            ),
-            vaultKey: vaultKey,
-            vaultDiscoveryKey: vaultKey,
-          );
-          heads[vaultId]!.add({
-            'entryId': entryId,
-            'kind': 'head',
-            'state': 'active',
-            'currentRevision': '1',
-            'memberIndexRevision': '1',
-            'currentKeyVersion': 1,
-            'updatedAt': issued.toIso8601String(),
-            'entryKey': bundle.entryKey,
-            'memberIndex': bundle.memberIndex,
-            'memberSecret': bundle.memberSecret,
-          });
+              vaultKey: vaultKey,
+              vaultDiscoveryKey: vaultKey,
+            );
+            final head = <String, Object?>{
+              'entryId': entryId,
+              'kind': 'head',
+              'state': 'active',
+              'currentRevision': '$revision',
+              'memberIndexRevision': '$revision',
+              'currentKeyVersion': 1,
+              'updatedAt': issued.toIso8601String(),
+              'entryKey': bundle.entryKey,
+              'memberIndex': bundle.memberIndex,
+              'memberSecret': bundle.memberSecret,
+            };
+            if (revision == 1) {
+              heads[vaultId]!.add(head);
+            } else {
+              updatedHead = head;
+            }
+          }
         }
       } finally {
         vaultKey.fillRange(0, vaultKey.length, 0);
@@ -246,11 +270,15 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
         body = {
           'accessContext': contexts[id],
           'memberVaultKey': wrappers[id],
-          'items': kind == 'snapshot' ? heads[id] : [],
+          'items': kind == 'snapshot'
+              ? heads[id]
+              : (id == _id(1) ? deltaItems : []),
           if (kind == 'snapshot') 'snapshotBaseSequence': '1',
           if (kind == 'snapshot') 'nextCursor': null,
-          if (kind == 'delta') 'deltaUpperBound': '1',
-          if (kind == 'delta') 'appliedThroughSequence': '1',
+          if (kind == 'delta')
+            'deltaUpperBound': '${id == _id(1) ? deltaSequence : 1}',
+          if (kind == 'delta')
+            'appliedThroughSequence': '${id == _id(1) ? deltaSequence : 1}',
           if (kind == 'delta') 'continuationCursor': null,
         };
       }
@@ -341,6 +369,113 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           };
           results.add(result);
           debugPrint('MEMBER_BENCHMARK ${jsonEncode(result)}');
+          if (incremental && repetition == repetitions && mode == modes.last) {
+            final reader = _CountingCurrentEntries(
+              reader: sync,
+              authorityProvider: _Authority(),
+              vaultKeys: vaultKeys,
+              entryCrypto: crypto,
+              canonicalAdapter: CanonicalEntryDetailService(
+                entries: EntryRemoteDatasource(dio),
+                vaults: VaultRemoteDatasource(dio),
+                keys: vaultKeys,
+                envelopes: VaultProtocolEnvelopeService(),
+                grants: GrantsRemoteDatasource(dio),
+                entryV2: crypto,
+                autoFillMutationNotifier: AutoFillMutationNotifier(),
+              ),
+            );
+            final bridge = _BenchmarkPublicationSink();
+            final publisher = AutoFillIncrementalPublisher(
+              bridge: bridge,
+              metadata: sync,
+              authority: _Authority(),
+              entries: reader,
+            );
+            await publisher.beginSession(1);
+            Future<void> publish(
+              String phase,
+              int expectedReveals,
+              int expectedUpserts,
+              int expectedRemovals,
+            ) async {
+              final beforeRequests = requests.values.fold<int>(
+                0,
+                (a, b) => a + b,
+              );
+              reader.reveals = 0;
+              final timer = Stopwatch()..start();
+              await publisher.synchronize(
+                privateKey: privateKey,
+                vaultIds: wrappers.keys,
+                isCurrent: () => true,
+                onProgress: (_) {},
+              );
+              timer.stop();
+              final afterRequests = requests.values.fold<int>(
+                0,
+                (a, b) => a + b,
+              );
+              if (reader.reveals != expectedReveals ||
+                  bridge.upserts != expectedUpserts ||
+                  bridge.removals != expectedRemovals ||
+                  beforeRequests != afterRequests) {
+                throw StateError('Incremental preparation invariant failed');
+              }
+              final measurement = <String, Object>{
+                'mode': 'incremental-$phase',
+                'elapsedMicros': timer.elapsedMicroseconds,
+                'reveals': reader.reveals,
+                'upserts': bridge.upserts,
+                'removals': bridge.removals,
+                'httpRequests': afterRequests - beforeRequests,
+              };
+              results.add(measurement);
+              debugPrint('MEMBER_BENCHMARK ${jsonEncode(measurement)}');
+            }
+
+            try {
+              await publish('full', 160, 160, 0);
+              final coordinate = AutoFillEntryCoordinate(
+                vaultId: _id(1),
+                entryId: _id(1000),
+              );
+              await publisher.deny({coordinate});
+              deltaItems = [updatedHead!];
+              deltaSequence = 2;
+              final beforeUpdate = requests.values.fold<int>(
+                0,
+                (a, b) => a + b,
+              );
+              await entries.load(vaultId: _id(1), memberPrivateKey: privateKey);
+              if (requests.values.fold<int>(0, (a, b) => a + b) !=
+                  beforeUpdate + 1) {
+                throw StateError('Update must fetch only one delta');
+              }
+              await publish('update', 1, 1, 0);
+              await publisher.deny({coordinate});
+              deltaItems = [
+                {
+                  for (final field in updatedHead.keys) field: null,
+                  'entryId': _id(1000),
+                  'kind': 'tombstone',
+                },
+              ];
+              deltaSequence = 3;
+              final beforeDelete = requests.values.fold<int>(
+                0,
+                (a, b) => a + b,
+              );
+              await entries.load(vaultId: _id(1), memberPrivateKey: privateKey);
+              if (requests.values.fold<int>(0, (a, b) => a + b) !=
+                  beforeDelete + 1) {
+                throw StateError('Delete must fetch only one delta');
+              }
+              await publish('delete', 0, 0, 1);
+            } finally {
+              await publisher.endSession();
+            }
+          }
         } finally {
           entries.lock();
           dio.close(force: true);
@@ -406,5 +541,77 @@ class _VaultList implements MemberVaultListLoader {
       activeGrantCount: 0,
       memberCount: 1,
     );
+  }
+}
+
+// Counts actual production reveals; every invocation still performs real SQLite,
+// wrapper opening, MemberSecret AEAD and final read-authority revalidation.
+class _CountingCurrentEntries extends LocalCurrentEntryService {
+  _CountingCurrentEntries({
+    required super.reader,
+    required super.authorityProvider,
+    required super.vaultKeys,
+    required super.entryCrypto,
+    required super.canonicalAdapter,
+  });
+  int reveals = 0;
+  @override
+  Future<LocalCurrentEntryReveal> revealCurrentWithAuthority({
+    required String vaultId,
+    required String entryId,
+    required Uint8List memberPrivateKey,
+  }) {
+    reveals++;
+    return super.revealCurrentWithAuthority(
+      vaultId: vaultId,
+      entryId: entryId,
+      memberPrivateKey: memberPrivateKey,
+    );
+  }
+}
+
+// Desktop benchmark stops at native publication. It retains counts only, never
+// credential bodies; native ciphertext/CAS/biometric behavior has separate tests.
+class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
+  int revision = 0;
+  int upserts = 0;
+  int removals = 0;
+  AutoFillCacheBase next() =>
+      AutoFillCacheBase(generation: 1, revision: ++revision);
+  @override
+  Future<int> beginWriterSession({required int sessionToken}) async => 1;
+  @override
+  Future<void> endWriterSession({required int writerEpoch}) async {}
+  @override
+  Future<AutoFillCacheBase> replaceCacheV3(
+    AutoFillCachePayload payload, {
+    required int sessionToken,
+    required int writerEpoch,
+    AutoFillCacheBase? base,
+    List<String> releasingDenies = const [],
+  }) async {
+    upserts = payload.records.length;
+    removals = 0;
+    return next();
+  }
+
+  @override
+  Future<AutoFillScopedDenial> denyEntries({
+    required AutoFillCacheBase base,
+    required int writerEpoch,
+    required List<AutoFillEntryCoordinate> entries,
+  }) async => AutoFillScopedDenial(base: next(), token: 'synthetic-$revision');
+  @override
+  Future<AutoFillCacheBase> applyCacheDelta({
+    required AutoFillCacheBase base,
+    required int writerEpoch,
+    required AutoFillCacheManifest manifest,
+    required List<AutoFillRecord> upserts,
+    required List<AutoFillEntryCoordinate> removals,
+    required List<String> releasingDenies,
+  }) async {
+    this.upserts = upserts.length;
+    this.removals = removals.length;
+    return next();
   }
 }

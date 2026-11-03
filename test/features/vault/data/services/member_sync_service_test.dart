@@ -300,6 +300,86 @@ void main() {
     );
   });
 
+  test(
+    'AutoFill metadata snapshot is current and requires no secret reveal',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      await service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      expect(
+        metadata.vaults[vaultId]!.entries.single.entryId,
+        snapshot.items.single.entryId,
+      );
+      expect(
+        metadata.vaults[vaultId]!.context.principalId,
+        authority.principalId,
+      );
+      await service.revalidateAutoFillMetadata(metadata, authority: authority);
+      expect(remote.snapshotRequests, 1);
+      expect(remote.deltaRequests, 1);
+      verifyNever(
+        () => entryCrypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+      service.lock();
+      await expectLater(
+        service.revalidateAutoFillMetadata(metadata, authority: authority),
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+      await expectLater(
+        service.readAutoFillMetadata(vaultIds: [vaultId], authority: authority),
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+    },
+  );
+
+  test(
+    'AutoFill retained metadata rejects changed principal and expired lease',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      await service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      final other = MemberSyncSessionAuthority(
+        principalId: 'different-principal',
+        organizationId: authority.organizationId,
+        organizationMembershipGeneration:
+            authority.organizationMembershipGeneration,
+        offlinePolicy: authority.offlinePolicy,
+        offlinePolicyVersion: authority.offlinePolicyVersion,
+      );
+      await expectLater(
+        service.revalidateAutoFillMetadata(metadata, authority: other),
+        throwsFormatException,
+      );
+      now = snapshot.accessContext.notAfter.add(const Duration(seconds: 1));
+      await expectLater(
+        service.revalidateAutoFillMetadata(metadata, authority: authority),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('initial synchronization is snapshot plus one closing delta', () async {
     final durable = expectLater(
       service.durableUpdates,

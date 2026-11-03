@@ -58,6 +58,53 @@ void main() {
   });
 
   test(
+    'new mutation during completed owner preparation stays denied',
+    () async {
+      final ownerA = coordinator.suspendRepairs();
+      final completedOwners = {ownerA};
+      final prepared = Completer<void>();
+      final attemptA = () async {
+        await prepared.future;
+        return coordinator.synchronizePreparedIfAllowed(
+          privateKey: session!.privateKey,
+          vaultIds: const ['vault-a'],
+          releasingDenies: completedOwners,
+        );
+      }();
+      final ownerB = coordinator.suspendRepairs();
+      prepared.complete();
+      expect(await attemptA, isFalse);
+      expect(
+        await coordinator.synchronizePreparedIfAllowed(
+          privateKey: session!.privateKey,
+          vaultIds: const ['vault-a'],
+        ),
+        isFalse,
+      );
+      verifyNever(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      );
+      expect(
+        await coordinator.synchronizePreparedIfAllowed(
+          privateKey: session!.privateKey,
+          vaultIds: const ['vault-a'],
+          releasingDenies: {ownerB},
+        ),
+        isTrue,
+      );
+      verify(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).called(1);
+    },
+  );
+
+  test(
     'running commit waits, coalesces page signals, and keeps full Vault set',
     () async {
       final releaseCurrent = Completer<void>();
