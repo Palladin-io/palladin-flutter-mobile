@@ -3,9 +3,19 @@ sealed class TotpEnrollState {
   const TotpEnrollState();
 }
 
-/// Requesting the secret + otpauth URI from the backend.
-final class TotpEnrollLoading extends TotpEnrollState {
-  const TotpEnrollLoading();
+/// The current login password is needed before enrollment can start.
+/// [verifying] covers derivation and the enroll request; [error] is the
+/// typed failure of the previous attempt.
+final class TotpEnrollPasswordRequired extends TotpEnrollState {
+  const TotpEnrollPasswordRequired({this.verifying = false, this.error});
+
+  final bool verifying;
+  final Object? error;
+}
+
+/// The account has no password login credential, so TOTP cannot protect it.
+final class TotpEnrollUnavailable extends TotpEnrollState {
+  const TotpEnrollUnavailable();
 }
 
 /// The secret is ready to display (QR + manual code). [error] is set when
@@ -39,14 +49,6 @@ final class TotpEnrollReady extends TotpEnrollState {
       error: clearError ? null : (error ?? this.error),
     );
   }
-}
-
-/// The initial enroll request failed (network / protocol). Carries the
-/// typed [error] for localization; the page offers a retry.
-final class TotpEnrollLoadFailed extends TotpEnrollState {
-  const TotpEnrollLoadFailed(this.error);
-
-  final Object error;
 }
 
 /// TOTP is enabled. [recoveryCodes] are shown **once** — the user must

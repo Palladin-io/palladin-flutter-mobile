@@ -7,6 +7,9 @@ internal data class AutofillOrigin(val domains: Set<String>, val mode: AutofillO
 }
 
 internal object AutofillOriginPolicy {
+    fun usesDatasetAuthentication(apiLevel: Int, isBrowser: Boolean, generate: Boolean): Boolean =
+        apiLevel >= 31 && !isBrowser && !generate
+
     fun isSecureWebScheme(scheme: String?): Boolean = scheme?.equals("https", true) == true
 
     fun canReleaseNative(

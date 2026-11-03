@@ -1,3 +1,4 @@
+import '../../../../core/identity/organization_member_directory_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../grants/domain/entities/grant.dart';
@@ -6,7 +7,6 @@ import '../../../vault/data/services/member_sync_service.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/entities/member_index_entry.dart';
 import '../../../vault/domain/entities/vault_entity.dart';
-import '../../../vault/domain/repositories/vault_members_repository.dart';
 import '../../domain/entities/inbox_notification.dart';
 
 /// Resolves zero-knowledge notification labels from the unlocked local index.
@@ -15,16 +15,16 @@ final class NotificationPresentationResolver {
     required MemberIndexReader index,
     GrantsRepository? grants,
     AgentsRepository? agents,
-    VaultMembersRepository? vaultMembers,
+    OrganizationMemberDirectoryService? memberDirectory,
   }) : _index = index,
        _grants = grants,
        _agents = agents,
-       _vaultMembers = vaultMembers;
+       _memberDirectory = memberDirectory;
 
   final MemberIndexReader _index;
   final GrantsRepository? _grants;
   final AgentsRepository? _agents;
-  final VaultMembersRepository? _vaultMembers;
+  final OrganizationMemberDirectoryService? _memberDirectory;
 
   Future<List<InboxNotification>> resolve({
     required List<InboxNotification> items,
@@ -33,15 +33,58 @@ final class NotificationPresentationResolver {
     required String activeOrganizationId,
     required List<VaultEntity> activeVaults,
     void Function(InboxNotification)? onResolved,
+  }) {
+    Future<List<InboxNotification>> run(GrantReader? readGrant) => _resolve(
+      items: items,
+      unlocked: unlocked,
+      activeAccountId: activeAccountId,
+      activeOrganizationId: activeOrganizationId,
+      activeVaults: activeVaults,
+      onResolved: onResolved,
+      readGrant: readGrant,
+    );
+    final grants = _grants;
+    return grants == null ? run(null) : grants.withPresentationReads(run);
+  }
+
+  Future<List<InboxNotification>> _resolve({
+    required List<InboxNotification> items,
+    required bool unlocked,
+    required String activeAccountId,
+    required String activeOrganizationId,
+    required List<VaultEntity> activeVaults,
+    void Function(InboxNotification)? onResolved,
+    required GrantReader? readGrant,
   }) async {
     if (!unlocked || activeAccountId.isEmpty || activeOrganizationId.isEmpty) {
       return _generic(items);
     }
     final prepared = prepare(items: items, activeVaults: activeVaults);
     var agentNames = const <String, String>{};
-    final memberNames = <String, Future<Map<String, String>>>{};
+    final missingActors = <int, String>{};
+    Future<MemberDirectorySnapshot>? memberSnapshot;
     final grants = <(String, String), Future<Grant?>>{};
     final output = List<InboxNotification>.of(prepared);
+    final actorWorkers = List.generate(4, (_) => Future<void>.value());
+    var nextActorWorker = 0;
+    Future<void> resolveActor(int position, String actorId) async {
+      final snapshot = await (memberSnapshot ??= _memberSnapshot(
+        activeAccountId,
+        activeOrganizationId,
+      ));
+      final actorName = snapshot.names[actorId];
+      if (actorName == null) {
+        if (snapshot.canRepair) missingActors[position] = actorId;
+        return;
+      }
+      final item = output[position];
+      final resolved = item.copyWith(
+        metadata: {...item.metadata, 'actorName': actorName},
+      );
+      output[position] = resolved;
+      onResolved?.call(resolved);
+    }
+
     var next = 0;
     Future<void> worker() async {
       while (next < prepared.length) {
@@ -49,8 +92,15 @@ final class NotificationPresentationResolver {
         final item = prepared[position];
         final metadata = Map<String, dynamic>.from(item.metadata);
         final vaultId = _string(metadata, 'vaultId');
+        String? actorId;
         if (vaultId != null) {
-          final grant = await _grantFor(item, metadata, vaultId, grants);
+          final grant = await _grantFor(
+            item,
+            metadata,
+            vaultId,
+            grants,
+            readGrant,
+          );
           if (grant != null) {
             metadata['grantType'] = grant.scope.name;
             metadata['entryId'] = grant.entryId;
@@ -65,14 +115,7 @@ final class NotificationPresentationResolver {
             if (reason != null && reason.isNotEmpty) {
               metadata['reason'] = reason;
             }
-            final actorId = _actorId(item.type, grant);
-            if (actorId != null) {
-              final names = await (memberNames[vaultId] ??= _memberNames(
-                vaultId,
-              ));
-              final actorName = names[actorId];
-              if (actorName != null) metadata['actorName'] = actorName;
-            }
+            actorId = _actorId(item.type, grant);
           }
           final agentId = _string(metadata, 'agentId');
           final agentName = agentNames[agentId];
@@ -81,6 +124,13 @@ final class NotificationPresentationResolver {
         final resolved = _withMetadata(item, metadata);
         output[position] = resolved;
         onResolved?.call(resolved);
+        if (actorId != null && vaultId != null) {
+          final slot = nextActorWorker++ % actorWorkers.length;
+          final actor = actorId;
+          actorWorkers[slot] = actorWorkers[slot].then(
+            (_) => resolveActor(position, actor),
+          );
+        }
       }
     }
 
@@ -99,11 +149,29 @@ final class NotificationPresentationResolver {
       }
     }
 
-    // Agent names cannot occupy the bounded per-row HTTP/crypto workers.
+    // Directory reads cannot occupy the bounded per-row HTTP/crypto workers.
     await Future.wait([
       resolveAgentNames(),
       ...List.generate(items.length.clamp(0, 4), (_) => worker()),
     ]);
+    await Future.wait(actorWorkers);
+    if (missingActors.isNotEmpty) {
+      final names = await _memberNames(
+        missingActors.values.toSet(),
+        activeAccountId,
+        activeOrganizationId,
+      );
+      for (final actor in missingActors.entries) {
+        final name = names[actor.value];
+        if (name == null) continue;
+        final item = output[actor.key];
+        final resolved = item.copyWith(
+          metadata: {...item.metadata, 'actorName': name},
+        );
+        output[actor.key] = resolved;
+        onResolved?.call(resolved);
+      }
+    }
     return output;
   }
 
@@ -229,16 +297,34 @@ final class NotificationPresentationResolver {
     }
   }
 
-  Future<Map<String, String>> _memberNames(String vaultId) async {
-    final repository = _vaultMembers;
-    if (repository == null) return const {};
+  Future<MemberDirectorySnapshot> _memberSnapshot(
+    String accountId,
+    String organizationId,
+  ) async {
     try {
-      final members = await repository.list(vaultId);
-      return {
-        for (final member in members)
-          if (member.name?.trim().isNotEmpty == true)
-            member.id: member.name!.trim(),
-      };
+      return await _memberDirectory?.availableSnapshot(
+            expectedAccountId: accountId,
+            expectedOrganizationId: organizationId,
+          ) ??
+          const MemberDirectorySnapshot({}, canRepair: false);
+    } catch (_) {
+      AppLogger.w('Notifications', 'Local member-name resolution failed');
+      return const MemberDirectorySnapshot({}, canRepair: false);
+    }
+  }
+
+  Future<Map<String, String>> _memberNames(
+    Set<String> actorIds,
+    String accountId,
+    String organizationId,
+  ) async {
+    try {
+      return await _memberDirectory?.resolve(
+            actorIds,
+            expectedAccountId: accountId,
+            expectedOrganizationId: organizationId,
+          ) ??
+          const {};
     } catch (_) {
       AppLogger.w('Notifications', 'Local member-name resolution failed');
       return const {};
@@ -250,6 +336,7 @@ final class NotificationPresentationResolver {
     Map<String, dynamic> metadata,
     String vaultId,
     Map<(String, String), Future<Grant?>> grants,
+    GrantReader? readGrant,
   ) async {
     if (!const {
       'grant_pending',
@@ -259,11 +346,10 @@ final class NotificationPresentationResolver {
     }.contains(item.type)) {
       return null;
     }
-    final repository = _grants;
     final grantId = _string(metadata, 'grantId');
-    if (repository == null || grantId == null) return null;
+    if (readGrant == null || grantId == null) return null;
     final grant = await (grants[(vaultId, grantId)] ??= _readGrant(
-      repository,
+      readGrant,
       vaultId,
       grantId,
     ));
@@ -280,12 +366,12 @@ final class NotificationPresentationResolver {
   }
 
   Future<Grant?> _readGrant(
-    GrantsRepository repository,
+    GrantReader readGrant,
     String vaultId,
     String grantId,
   ) async {
     try {
-      return await repository.getGrant(vaultId, grantId);
+      return await readGrant(vaultId, grantId);
     } catch (_) {
       AppLogger.w('Notifications', 'Grant presentation resolution failed');
       return null;

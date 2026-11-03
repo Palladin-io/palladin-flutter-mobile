@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="debug_app_name">Palladin (Debug)</string>
+    <string name="autofill_service_label">Palladin (Debug)</string>
+    <string name="autofill_unlock_label">Odblokuj Palladin (Debug), aby uzupełnić dane</string>
+    <string name="autofill_biometric_title">Odblokuj Palladin (Debug)</string>
+    <string name="autofill_generate_prompt">Wygeneruj silne hasło w Palladin (Debug)</string>
+</resources>

@@ -24,6 +24,25 @@ class RecoveryRemoteDatasource {
   /// unlock flow. Includes `recoverySalt` and `encryptedPrivateKeyByRecovery`.
   Future<AccountResponse> getAccount() => _accountDatasource.getAccount();
 
+  /// `POST /api/account/recovery/challenge` — issues a fresh one-time
+  /// `account-recovery-challenge-v1` package sealed to the account key and
+  /// returns its base64url `sealedChallenge`. 404 means the account has no
+  /// public key.
+  Future<String> createRecoveryChallenge() async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/account/recovery/challenge',
+    );
+    final sealedChallenge = response.data?['sealedChallenge'];
+    if (sealedChallenge is! String) {
+      throw DioException.badResponse(
+        statusCode: response.statusCode ?? 200,
+        requestOptions: response.requestOptions,
+        response: response,
+      );
+    }
+    return sealedChallenge;
+  }
+
   /// Submits the recovery payload to the backend.
   ///
   /// Returns 204 No Content on success. DioException surfaces raw —

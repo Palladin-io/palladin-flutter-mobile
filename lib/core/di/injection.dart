@@ -171,9 +171,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerSingleton<EnvConfig>(config);
 
   // Storage
-  getIt.registerLazySingleton<FlutterSecureStorage>(
-    () => deviceSecureStorage,
-  );
+  getIt.registerLazySingleton<FlutterSecureStorage>(() => deviceSecureStorage);
   getIt.registerLazySingleton<SecureTokenStorage>(
     () => SecureTokenStorage(getIt<FlutterSecureStorage>()),
   );
@@ -281,7 +279,11 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<TotpEnrollCubit>(
-    () => TotpEnrollCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+    () => TotpEnrollCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      cryptoService: getIt<PasswordAuthCryptoService>(),
+    ),
   );
 
   // Custom-scheme deep links. Singleton — owns the link stream
@@ -359,6 +361,7 @@ void configureDependencies(EnvConfig config) {
     () => RecoveryCubit(
       datasource: getIt<RecoveryRemoteDatasource>(),
       cryptoService: getIt<RecoveryCryptoService>(),
+      sessionUserId: () => getIt<SecureTokenStorage>().userId,
     ),
   );
 
@@ -762,7 +765,7 @@ void configureDependencies(EnvConfig config) {
       index: getIt<MemberSyncService>(),
       grants: getIt<GrantsRepository>(),
       agents: getIt<AgentsRepository>(),
-      vaultMembers: getIt<VaultMembersRepository>(),
+      memberDirectory: getIt<OrganizationMemberDirectoryService>(),
     ),
   );
   getIt.registerLazySingleton<NotificationSharingEntryResolver>(

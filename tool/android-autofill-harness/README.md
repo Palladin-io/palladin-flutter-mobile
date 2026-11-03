@@ -47,8 +47,10 @@ python3 tool/android-autofill-harness/exercise.py --serial emulator-5554 --mode 
 
 `--fill` checks the service's actual callback diagnosis, taps its inline keyboard
 chip, asserts that the real biometric prompt appears, sends an emulator fingerprint,
-and selects the returned dataset. Native forms additionally require the real
-picker and **Fill once** warning. The form checks both expected fields (or just the
+and selects the returned dataset on web/legacy flows. Native API31+ forms fill
+directly after the real picker and **Fill once** warning, without tapping a second
+system suggestion. Response inspection requires an ephemeral Dataset result for
+these native flows; web and older Android retain FillResponse inspection. The form checks both expected fields (or just the
 username for a first-step form) and exposes only `fillVerified=true/false`.
 The runner prints outcomes, never form values or cache contents. Temporary UI XML
 is removed after each read. The form has no INTERNET permission.
@@ -199,7 +201,7 @@ AssistStructure even when an ordinary focus event does not automatically request
 credentials. Unsupported/insecure framework behavior is never reported as a
 successful provider rejection.
 
-The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
+The container fixture focuses and explicitly requests the noneditable `TextView` itself; it asserts `AUTOFILL_TYPE_NONE`, `TYPE_NULL`, focus and unchanged label. It must not add an unrelated editable probe: Android omits autofill hints for type-NONE views (`View.onProvideStructure`), so such a probe would instead test the intentionally supported, separately confirmed unknown-username flow. On API35, requesting this focused type-NONE view produces no callback or response. The driver reports this narrowly as `PLATFORM_INELIGIBLE`, requiring the exact focused TextView, explicit type-NONE evidence, current request, unchanged label and no UI/authentication; it does not call this provider rejection. Other native no-callback cases require the current framework null-password proof below or remain failures. JVM tests retain the boundary for custom structures that explicitly report excluded credential metadata.
 
 On baseline `ca6bb9719386bdbf7986346a3b2bb1aadd661654`, the actual provider incorrectly
 offered a response for native confirmation/hidden/disabled fields and WebView
@@ -250,8 +252,8 @@ It runs UI-driver regressions and invokes `validate.py --prepare-ci` on the clea
 committed checkout. The validator compiles only the synthetic provider/form APKs,
 runs native JVM tests and four localized presentation checks, then creates a
 synthetic PIN and enrolls fingerprint 1 through the real Android Settings flow.
-Only after enrollment does it seed the biometric-bound cache and run all 41
-response/OS cases. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
+Only after enrollment does it seed the biometric-bound cache and run the complete
+response/OS matrix. The complete validation is bounded to 25 minutes (each case still has its own 180-second deadline); the original 15-minute whole-run budget was exhausted by the expanded 41-case matrix. A Settings failure therefore preserves the rendered previews. No Flutter APK, account, real credential or production signing is involved.
 
 Artifacts retain the commit identity, emulator startup diagnostics, synthetic
 enrollment/presentation screenshots, bounded synthetic handoff failure diagnostics,
@@ -261,3 +263,123 @@ successful validation report. This CI gate does not establish physical Gboard,
 Samsung Keyboard or third-party application compatibility.
 
 The CI runtime uses Android's supported `-gpu software` mode. `swiftshader_indirect` was deprecated in emulator 36.4.9 ([Android graphics acceleration documentation](https://developer.android.com/studio/run/emulator-acceleration)). Two 37.2.12 runs lost ADB transport with EGL errors; that correlation alone does not establish a renderer or memory root cause. Cleanup records process/ADB state and aggregate memory counters before stopping the synthetic emulator, preserving the original test result.
+
+### Synthetic inspector failure diagnostics
+
+Direct-response inspection failures may include `inspector.json`, containing only bounded lifecycle phase enums, exception class/stack symbols and line numbers for at most three cause levels and twelve frames per level (never exception messages, file names or values), plus up to three Android process-exit reason/status pairs scoped to the inspected process. The debug harness owns these files and the diagnostic intent; no production application code is changed. OS handoffs never collect this file, since their provider process does not execute the inspector and could otherwise expose stale evidence from a prior case. Capture happens after the original failure screenshot, preserves the original failure, and never makes a failed assertion pass. It does not collect logcat or raw Activity/framework dumps. Use only the disposable emulator with synthetic records.
+
+### Disposable emulator configuration isolation
+
+Both AutoFill and save CI jobs disable bulk DeviceConfig synchronization with the
+public shell command `cmd device_config set_sync_disabled_for_tests until_reboot`
+and verify the returned mode before cases run. This applies only to each job's
+fresh disposable AVD and resets on reboot; it does not alter application policy,
+field classification, timeouts or acceptance assertions.
+
+A local API 35 reproduction showed a valid authenticated inline response being
+shown, followed 1.7 seconds later by a framework service refresh and session
+destruction. A controlled update of `autofill/compat_mode_allowed_packages`
+reproduced the same sequence: active response and visible chip disappeared, then
+the exact original setting was restored. Android 15's
+[`AutofillManagerServiceImpl.updateLocked`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/autofill/java/com/android/server/autofill/AutofillManagerServiceImpl.java)
+removes all sessions before updating the service. Concurrent bulk configuration
+callbacks make background synchronization a candidate trigger, but the exact
+spontaneous key change was not logged. Earlier cloud failures lack this lifecycle
+evidence and are not claimed to share the proven local cause. Configuration
+isolation makes the synthetic test environment stable; it is not a product fix
+or permission to ignore a missing dataset.
+
+### API 35 null password responses
+
+Android 15's [`Session.onFillRequestSuccess` and `processNullResponseLocked`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/autofill/java/com/android/server/autofill/Session.java)
+retain a password-input session after a successful null response and omit the
+unavailable callback. The native OTP fixture reproduced this behavior: both
+requests reached the provider, and the framework reported a null password
+response while the field remained empty and no suggestion/authentication appeared.
+
+The driver reports `SYSTEM_NULL_PASSWORD` only from a bounded, memory-only API35
+framework dump: one exact fixture session created after the current case's
+conservative elapsed-time boundary, active/not destroyed, no stored response,
+and the unique latest request ordinal with the exact fixture/provider identities,
+`TYPE=SUCCESS(10)`, `NUM_DATASETS=-1`, and both manual/password flags. In this
+platform source, `-1` is assigned only for a successful null response; errors and
+timeouts use different request types. Earlier successful requests cannot excuse
+a newer pending or failed request. Existing focused/requested/unchanged/no-UI and
+no-authentication assertions remain mandatory. No request, stale session, wrong
+provider, ambiguous metadata or another platform version cannot establish this
+outcome. Only the outcome enum is retained; raw dumps and credential values are
+never written to evidence files. This is an OS null response, not inferred parser
+rejection. JVM regressions independently verify excluded-field classification.
+
+Presentation setup may dismiss one exact Android-owned “Pixel Launcher isn't
+responding” dialog using the same recognizer as the save harness. A screenshot
+is retained before the dismissal and `presentation/setup.json` records
+`dismissedLauncherAnr=true`. The existing three observations and deadlines are
+unchanged; the real locale/theme assertion must subsequently appear. A second
+Launcher ANR, or any provider, System UI or unknown ANR, remains a failure.
+This handles a documented disposable-emulator boot obstruction, not an
+application crash or a failed presentation assertion.
+
+### Renderer investigation limit
+
+The bounded renderer comparison at `ab5b20fbb37cd4f606bab038640a7c6c0738e279`
+was inconclusive: both fresh Linux x86 emulators retained ADB connectivity but
+failed before the repeated handoffs. The software run observed an unavailable
+cache after an asynchronous seed launch; the swiftshader run offered a response
+but exposed no accessible unlock row. It does not prove a renderer fix. The
+experimental probe was removed rather than becoming an alternative acceptance
+path. Full validation retains all original cases and the later regressions below; local API 35
+ARM64 evidence must identify its emulator version and clean source SHA, and must
+not be described as a successful Linux x86 run.
+
+### Native direct-handoff regressions
+
+On API31+, `--handoff-check repeat` clears synthetic fields without canceling the
+framework session, then requires a new biometric prompt and selection before
+filling again. `cancel-biometric`, `cancel-picker`, `cancel-confirmation` and
+`revoke` assert empty fields. The revoke scenario uses a receiver compiled only
+into this isolated debug provider to commit the real cache revocation while the
+confirmation remains foreground. It is absent from the production manifest.
+The authoritative matrix runs revoke last because it deliberately invalidates
+the synthetic cache. No scenario uses real credentials or logs field values.
+
+Observed physical metadata regressions: [Binance virtual username](observed-binance.md).
+
+### Exact-host credential-delegation regressions
+
+API31+ adds DAL and app-WebView result-contract cases to the existing matrix. `--mode web-username
+--dal-proof valid` uses a second strictly local WebView document at
+`https://example.com/`; the form APK has no OS-verified association for that host.
+Its content is intercepted locally, never fetched. The provider's merged manifest
+explicitly removes the library-contributed INTERNET permission.
+
+The debug-only `SyntheticCredentialAssociation` substitutes only the successful
+network-proof step: it reads the real installed form APK identity and puts that
+exact key into the production process-memory proof cache. It does not bypass the
+production verifier, parser, service, biometric Activity, lease or final dataset
+checks. Response inspection requires the original username-only IDs and synthetic
+value, no password, and the expected exact-host presentation. The actual OS case
+requires Service → biometric authentication → returned credential selection →
+field equality. Cancellation and expiring the proof while the biometric prompt
+is open must leave all fields empty. A test-only receiver changes the proof's
+monotonic timestamp for expiration; there is no production injection API.
+
+Web verification controls hide the IME through `InputMethodManager` before
+publishing the DOM equality result so the result remains accessible below the
+controls. WebView repeat validation clears the focused synthetic input through
+keyboard select-all/delete: assigning the DOM value and dispatching an input
+event does not notify Android's virtual-field value tracking. It then explicitly
+refocuses the field and requires a new unlock action and biometric prompt in the
+same framework session.
+
+Expired and wrong-signer proof inspectors require rejection before authentication;
+they invoke the Activity/verifier directly, not a network fallback. Actual HTTPS,
+DNS/address, MIME/body/JSON and deadline behavior is covered separately by native
+JVM tests. Every synthetic launcher also executes valid and malformed statements
+through the production parser on the device's actual JsonReader before cache seed.
+This split does not claim that a live merchant endpoint or physical keyboard was
+tested. The API31+ authoritative matrix now contains 59 cases. It additionally checks
+same-session WebView repeat authentication, picker cancellation, proof expiry
+after authentication, revoke before selection, and browser-source legacy
+FillResponse results (using the installed system Chrome identity only in the
+response inspector; no live browser page or network).

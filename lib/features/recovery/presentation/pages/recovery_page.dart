@@ -453,6 +453,8 @@ class _EnterKeyStep extends StatelessWidget {
         RecoveryServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         RecoveryServerErrorKind.invalidResponse =>
           l10n.errorInvalidServerResponse,
+        RecoveryServerErrorKind.recoveryProofInvalid =>
+          l10n.recoveryProofInvalid,
       };
     }
     return l10n.recoveryServerError;
@@ -687,6 +689,8 @@ class _NewPasswordStep extends StatelessWidget {
         RecoveryServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         RecoveryServerErrorKind.invalidResponse =>
           l10n.errorInvalidServerResponse,
+        RecoveryServerErrorKind.recoveryProofInvalid =>
+          l10n.recoveryProofInvalid,
       };
     }
     return l10n.recoveryServerError;

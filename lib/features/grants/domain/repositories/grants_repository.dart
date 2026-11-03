@@ -8,6 +8,8 @@ class GrantListPage {
   final String? nextCursor;
 }
 
+typedef GrantReader = Future<Grant> Function(String vaultId, String grantId);
+
 /// Abstract grant-management repository.
 ///
 /// Lives in the domain layer; implemented in the data layer. All methods
@@ -40,6 +42,11 @@ abstract interface class GrantsRepository {
 
   /// Fetches a single grant by id.
   Future<Grant> getGrant(String vaultId, String grantId);
+
+  /// Shares presentation reads only for the duration of one hydration.
+  Future<T> withPresentationReads<T>(
+    Future<T> Function(GrantReader read) operation,
+  );
 
   /// Revokes a grant.
   Future<void> revokeGrant(String vaultId, String grantId);

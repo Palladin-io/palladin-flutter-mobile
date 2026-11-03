@@ -21,6 +21,14 @@ successful session, any non-retryable failure, or closing the cubit clears the
 challenge and zeroes the owned master-key buffer. None of this pending material
 is written to token storage, logs, analytics, or widget state.
 
+TOTP enrollment (`TotpEnrollCubit`) first asks for the current master password
+and derives the current AuthCredential with
+`PasswordAuthCryptoService.deriveCurrentAuthCredential` (the same derivation as
+a password change). Enroll and confirm both send it as `currentAuthCredential`;
+it stays only in cubit memory between the two requests and is zeroed on
+success, failure or close. HTTP 403 returns to the password prompt, HTTP 404
+shows that TOTP is available only for password-login accounts.
+
 OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 
 - **BLoC:** `AuthBloc` / `AuthEvent` / `AuthState`.

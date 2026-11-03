@@ -4,9 +4,11 @@ import 'dart:typed_data';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
+import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../onboarding/domain/crypto_params.dart';
 import '../../../onboarding/domain/mnemonic.dart' as mnemonic;
 import '../../../unlock/data/services/identity_kdf_service.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../domain/recovery_exceptions.dart';
 import '../models/recover_account_request.dart';
 
@@ -83,17 +85,102 @@ class RecoveryCryptoService {
     }
   }
 
+  static const _challengeMagic = 'PLDNRCV1';
+  static const _challengePlaintextBytes = 8 + 16 + 32;
+  static const _challengeSealedBytes = _challengePlaintextBytes + 48;
+
+  /// Opens an `account-recovery-challenge-v1` sealed box with the account's
+  /// X25519 [privateKey] and returns the 32-byte `recoveryProof`.
+  ///
+  /// [sessionUserId] must come from the authenticated session, never from
+  /// the challenge response: the magic and user binding stop a server from
+  /// submitting another package sealed to the same key (for example a Vault
+  /// key wrapper) and harvesting its plaintext as "proof".
+  ///
+  /// Throws [RecoveryChallengeException] for every failure.
+  Future<Uint8List> openRecoveryChallenge({
+    required String sealedChallenge,
+    required String sessionUserId,
+    required Uint8List privateKey,
+  }) async => _openRecoveryChallenge(
+    await _sodiumLoader(),
+    sealedChallenge: sealedChallenge,
+    sessionUserId: sessionUserId,
+    privateKey: privateKey,
+  );
+
+  Uint8List _openRecoveryChallenge(
+    SodiumSumo sodium, {
+    required String sealedChallenge,
+    required String sessionUserId,
+    required Uint8List privateKey,
+  }) {
+    SecureKey? secret;
+    Uint8List? opened;
+    try {
+      final expectedUserId = EnvelopeId.parse(sessionUserId).bytes;
+      final sealed = VaultProtocolBytes.base64UrlDecode(
+        sealedChallenge,
+        maximumBytes: _challengeSealedBytes,
+      );
+      if (sealed.length != _challengeSealedBytes || privateKey.length != 32) {
+        throw const RecoveryChallengeException();
+      }
+      secret = SecureKey.fromList(sodium, privateKey);
+      opened = sodium.crypto.box.sealOpen(
+        cipherText: sealed,
+        publicKey: sodium.crypto.scalarmult.base(n: secret),
+        secretKey: secret,
+      );
+      if (opened.length != _challengePlaintextBytes ||
+          !_constantTimeEqual(
+            Uint8List.sublistView(opened, 0, 8),
+            ascii.encode(_challengeMagic),
+          ) ||
+          !_constantTimeEqual(
+            Uint8List.sublistView(opened, 8, 24),
+            expectedUserId,
+          )) {
+        throw const RecoveryChallengeException();
+      }
+      return Uint8List.fromList(Uint8List.sublistView(opened, 24));
+    } on RecoveryChallengeException {
+      rethrow;
+    } catch (_) {
+      throw const RecoveryChallengeException();
+    } finally {
+      opened?.fillRange(0, opened.length, 0);
+      secret?.dispose();
+    }
+  }
+
+  static bool _constantTimeEqual(Uint8List left, List<int> right) {
+    if (left.length != right.length) return false;
+    var difference = 0;
+    for (var i = 0; i < left.length; i++) {
+      difference |= left[i] ^ right[i];
+    }
+    return difference == 0;
+  }
+
   /// Runs the end-to-end recovery pipeline.
+  ///
+  /// [sealedChallenge] is a fresh one-time `POST api/account/recovery/challenge`
+  /// package; its proof is opened with the recovered private key.
   ///
   /// Throws:
   ///   * [WrongRecoveryKeyException] — the supplied mnemonic does not
   ///     decrypt `encryptedPrivateKeyByRecoveryBase64`.
+  ///   * [RecoveryChallengeException] — the challenge is not bound to
+  ///     [sessionUserId] or cannot be opened.
   Future<RecoveryResult> recoverAccount({
     required String recoveryMnemonic,
     required String newPassword,
     required String recoverySaltBase64,
     required String encryptedPrivateKeyByRecoveryBase64,
     required String accountId,
+    required String sessionUserId,
+    required String sealedChallenge,
     required int baseCredentialRevision,
     required int basePrivateKeyWrapRevision,
   }) async {
@@ -102,13 +189,21 @@ class RecoveryCryptoService {
 
     final recoveryKey = _deriveKey(sodium, recoveryMnemonic, recoverySalt);
     Uint8List? privateKey;
+    Uint8List? recoveryProof;
     IdentityKdfOutputs? outputs;
+    var completed = false;
     try {
       // Step 1: unwrap the private key with the user-supplied mnemonic.
       privateKey = _openPrivateKey(
         sodium,
         recoveryKey,
         encryptedPrivateKeyByRecoveryBase64,
+      );
+      recoveryProof = _openRecoveryChallenge(
+        sodium,
+        sealedChallenge: sealedChallenge,
+        sessionUserId: sessionUserId,
+        privateKey: privateKey,
       );
 
       // Step 2: re-wrap under a fresh MK derived from the new password.
@@ -152,6 +247,7 @@ class RecoveryCryptoService {
       final newAuthCredential = baseCredentialRevision > 0
           ? Uint8List.fromList(outputs.authCredential)
           : null;
+      completed = true;
       return RecoveryResult(
         request: RecoverAccountRequest(
           baseCredentialRevision: baseCredentialRevision,
@@ -161,6 +257,7 @@ class RecoveryCryptoService {
           newEncryptedPrivateKey: newEncryptedPrivateKey,
           newRecoverySalt: newRecoverySalt,
           newEncryptedPrivateKeyByRecovery: newEncryptedPrivateKeyByRecovery,
+          recoveryProof: recoveryProof,
         ),
         newRecoveryMnemonic: newMnemonic,
       );
@@ -170,6 +267,8 @@ class RecoveryCryptoService {
       if (privateKey != null) {
         privateKey.fillRange(0, privateKey.length, 0);
       }
+      // On success the proof is owned by the request and wiped after upload.
+      if (!completed) recoveryProof?.fillRange(0, recoveryProof.length, 0);
       outputs?.dispose();
       recoveryKey.dispose();
     }

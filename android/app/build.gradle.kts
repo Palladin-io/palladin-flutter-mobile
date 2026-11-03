@@ -27,7 +27,7 @@ if (hasReleaseKeystore) {
 
 android {
     namespace = "io.palladin.mobile"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -102,6 +102,7 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.autofill:autofill:1.3.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:5.20.0")
     testImplementation("org.json:json:20240303")

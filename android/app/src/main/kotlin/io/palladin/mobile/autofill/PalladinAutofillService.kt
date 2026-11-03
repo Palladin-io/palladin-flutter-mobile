@@ -10,6 +10,7 @@ import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.InlinePresentation
+import android.service.autofill.Dataset
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
@@ -29,6 +30,10 @@ import io.palladin.mobile.MainActivity
  */
 class PalladinAutofillService : AutofillService() {
     private var lastRequest = AutofillRequestDiagnosis()
+    private val associationLookup = CredentialAssociationLookup(CredentialAssociationNetwork()::fetch)
+    private val pendingAssociations = mutableSetOf<() -> Unit>()
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var destroyed = false
 
     // ActivityManagerService enforces DUMP/usage access before dispatching this
     // on the application main thread; Binder caller identity is not retained here.
@@ -37,6 +42,56 @@ class PalladinAutofillService : AutofillService() {
     }
 
     override fun onFillRequest(
+        request: FillRequest,
+        cancellationSignal: android.os.CancellationSignal,
+        callback: FillCallback,
+    ) {
+        val key = associationCandidate(request)
+        if (key == null || cancellationSignal.isCanceled) {
+            completeFillRequest(request, cancellationSignal, callback)
+            return
+        }
+        lastRequest = AutofillRequestDiagnosis(result = RequestResult.CHECKING)
+        val started = android.os.SystemClock.elapsedRealtime()
+        lateinit var cancel: () -> Unit
+        cancel = associationLookup.submit(key) { allowed ->
+            mainHandler.post {
+                pendingAssociations.remove(cancel)
+                if (destroyed || cancellationSignal.isCanceled ||
+                    android.os.SystemClock.elapsedRealtime() - started >= 3000) {
+                    callback.onSuccess(null)
+                } else {
+                    if (allowed) CredentialAssociationIdentity.acceptIfCurrent(this, key)
+                    completeFillRequest(request, cancellationSignal, callback)
+                }
+            }
+        }
+        pendingAssociations += cancel
+        cancellationSignal.setOnCancelListener { cancel() }
+    }
+
+    override fun onDestroy() {
+        destroyed = true
+        pendingAssociations.toList().forEach { it() }
+        pendingAssociations.clear()
+        super.onDestroy()
+    }
+
+    private fun associationCandidate(request: FillRequest): CredentialAssociationKey? = runCatching {
+        if (Build.VERSION.SDK_INT < 31) return null
+        val structure = request.fillContexts.lastOrNull()?.structure ?: return null
+        val packageName = structure.activityComponent?.packageName ?: return null
+        val fields = CredentialFieldIds.from(structure)
+        val host = credentialAssociationHost(fields, CredentialFieldIds.domainsFrom(structure),
+            CredentialFieldIds.schemesFrom(structure)) ?: return null
+        val verifier = AutofillOriginVerifier(this)
+        if (verifier.isBrowser(packageName) || verifier.status(packageName, host) != OriginStatus.UNVERIFIED ||
+            !AutoFillCacheStore(this).hasCache() ||
+            verifier.credentialFillStatus(packageName, host) == OriginStatus.VERIFIED) return null
+        CredentialAssociationIdentity.current(this, packageName, host)
+    }.getOrNull()
+
+    private fun completeFillRequest(
         request: FillRequest,
         cancellationSignal: android.os.CancellationSignal,
         callback: FillCallback,
@@ -85,7 +140,8 @@ class PalladinAutofillService : AutofillService() {
                 domains,
                 AutoFillCacheStore::normalizeDomain,
                 { host ->
-                    verifier.status(targetPackage, host).also {
+                    (if (fields.newPasswordIds.isNotEmpty()) verifier.status(targetPackage, host)
+                        else verifier.credentialFillStatus(targetPackage, host)).also {
                         lastRequest = lastRequest.copy(origin = it)
                     } == OriginStatus.VERIFIED
                 },
@@ -117,7 +173,11 @@ class PalladinAutofillService : AutofillService() {
             return
         }
 
+        val datasetAuthentication = AutofillOriginPolicy.usesDatasetAuthentication(
+            Build.VERSION.SDK_INT, verifier.isBrowser(requestingPackage), generate,
+        )
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
+            putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION, datasetAuthentication)
             putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, saveRequestId)
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
             putExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, schemes.firstOrNull())
@@ -160,7 +220,12 @@ class PalladinAutofillService : AutofillService() {
         )
         val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), saveRequestId)
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
+        if (datasetAuthentication) {
+            val locked = Dataset.Builder(presentation).setAuthentication(pendingIntent.intentSender)
+            fields.allIds.forEach { locked.setValue(it, null, presentation) }
+            if (inlinePresentation != null) locked.setInlinePresentation(inlinePresentation)
+            responseBuilder.addDataset(locked.build())
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
             responseBuilder.setAuthentication(
                 fields.allIds.toTypedArray(), pendingIntent.intentSender,
                 presentation, inlinePresentation,

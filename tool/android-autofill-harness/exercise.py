@@ -2,6 +2,7 @@
 """Exercise installed synthetic APKs on an explicitly selected disposable emulator."""
 import argparse
 import json
+import math
 from pathlib import Path
 import os
 import re
@@ -14,6 +15,9 @@ parser.add_argument('--serial', required=True)
 parser.add_argument('--mode', choices=['native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'web-search', 'web-otp', 'web-confirm', 'web-hidden', 'web-disabled', 'native-search', 'native-otp', 'native-confirm', 'native-hidden', 'native-disabled', 'native-container', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'], required=True)
 parser.add_argument('--expected', choices=['RESPONSE_OFFERED', 'REJECTED', 'NO_RESPONSE'], default='RESPONSE_OFFERED')
 parser.add_argument('--fill', action='store_true')
+parser.add_argument('--handoff-check', choices=['cancel-biometric', 'cancel-picker', 'cancel-confirmation', 'revoke', 'repeat', 'expire-proof', 'expire-picker'])
+parser.add_argument('--browser-source', action='store_true')
+parser.add_argument('--dal-proof', choices=['valid', 'expired', 'wrong-signer'])
 parser.add_argument('--inspect-response', action='store_true')
 parser.add_argument('--inline-mode', choices=['supported', 'absent', 'unsupported'], default='supported')
 args = parser.parse_args()
@@ -21,6 +25,12 @@ if not args.serial.startswith('emulator-'):
     raise RuntimeError('This harness only operates on an emulator')
 if not __debug__:
     raise RuntimeError('Run without Python optimization so every field assertion is checked')
+if args.browser_source and (not args.inspect_response or not args.mode.startswith('web') or args.dal_proof):
+    raise RuntimeError('Browser source is a separate response inspector only')
+if args.dal_proof and (args.mode != 'web-username' or (args.dal_proof != 'valid' and not args.inspect_response)):
+    raise RuntimeError('DAL proof variants use only the bounded username inspector/positive fixture')
+if args.handoff_check in ('expire-proof', 'expire-picker') and args.dal_proof != 'valid':
+    raise RuntimeError('Proof expiry requires the synthetic DAL fixture')
 adb = os.environ.get('ADB', 'adb')
 form = 'io.palladin.autofill.harness.form'
 provider = 'io.palladin.autofill.harness.provider'
@@ -98,6 +108,22 @@ def focus_field(required=True):
         raise AssertionError('Synthetic focus field not exposed by accessibility')
 
 
+def active_fixture_response():
+    dump = command('shell', 'dumpsys', 'autofill')
+    starts = list(re.finditer(r'^([ ]+)id: ([0-9]+)$', dump, re.M))
+    matches = []
+    for index, start in enumerate(starts):
+        block = dump[start.start():starts[index + 1].start() if index + 1 < len(starts) else len(dump)]
+        component = re.findall(r'^\s*mComponentName: ComponentInfo\{([^/{}]+)/[^{}]+\}$', block, re.M)
+        if component != [form]:
+            continue
+        counts = re.findall(r'^\s*mResponses: ([0-9]+)$', block, re.M)
+        assert counts == ['1'], 'Repeat fill changed the original response count'
+        matches.append((start.group(2), counts[0]))
+    assert len(matches) == 1, 'Repeat fill needs one active fixture session'
+    return matches[0]
+
+
 def request_snapshot(diagnosis):
     allowed = {
         'domains': {'NOT_CHECKED', 'ZERO', 'ONE', 'AMBIGUOUS'},
@@ -118,7 +144,7 @@ def assert_web_origin(diagnosis):
             snapshot.get('origin') == 'VERIFIED'), 'Web fixture did not report one verified domain'
 
 
-def negative_outcome(diagnosis, tree, selected_provider, mode):
+def negative_outcome(diagnosis, tree, selected_provider, mode, password_null=False):
     assert selected_provider == service, 'Expected AutoFill provider is not selected'
     snapshot = request_snapshot(diagnosis)
     assert snapshot.get('result') != 'RESPONSE_OFFERED', 'Negative fixture offered credentials'
@@ -140,6 +166,9 @@ def negative_outcome(diagnosis, tree, selected_provider, mode):
         count = state.get('unavailableEvents', '')
         assert count.isdigit() and int(count) > 0, 'Missing current system-unavailable event count'
         return 'SYSTEM_UNAVAILABLE'
+    if password_null:
+        assert state.get('unavailable') == 'false' and state.get('unavailableEvents') == '0'
+        return 'SYSTEM_NULL_PASSWORD'
     if mode == 'native-container':
         assert state.get('noneditableTarget') == 'true', 'Target was not proven noneditable'
         assert any(node.get('package') == form and node.get('class') == 'android.widget.TextView'
@@ -152,15 +181,43 @@ def negative_outcome(diagnosis, tree, selected_provider, mode):
 
 
 
+def direct_credential_flow():
+    return not args.browser_source and int(command('shell', 'getprop', 'ro.build.version.sdk').strip()) >= 31
+
+
 def authenticate():
     wait_for(lambda tree: any(n.get('text') == 'Unlock Palladin' and
                              n.get('package') == 'com.android.systemui' for n in tree),
              'Real biometric prompt not shown')
+    if args.handoff_check == 'cancel-biometric':
+        command('shell', 'input', 'keyevent', '4')
+        return
+    if args.handoff_check == 'expire-proof':
+        expiry = command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.EXPIRE_ASSOCIATION')
+        assert 'Broadcast completed: result=1' in expiry, 'Synthetic proof expiry was not acknowledged'
     command('emu', 'finger', 'touch', '1')
     command('emu', 'finger', 'remove')
-    if args.mode.startswith('native'):
-        assert tap_text('Synthetic fixture'), 'Authenticated native picker missing'
-        if args.mode == 'native-username-manual-cancel':
+    if args.handoff_check == 'expire-proof':
+        return
+    if args.mode.startswith('native') or direct_credential_flow():
+        if args.handoff_check == 'cancel-picker':
+            wait_for(lambda tree: any('Synthetic fixture' in n.get('text', '') for n in tree), 'Picker missing')
+            command('shell', 'input', 'keyevent', '4')
+            return
+        if args.handoff_check == 'expire-picker':
+            wait_for(lambda tree: any('Synthetic fixture' in n.get('text', '') for n in tree), 'Picker missing before proof expiry')
+            expiry = command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.EXPIRE_ASSOCIATION')
+            assert 'Broadcast completed: result=1' in expiry, 'Synthetic proof expiry was not acknowledged'
+        if args.mode.startswith('web') and args.handoff_check == 'revoke':
+            wait_for(lambda tree: any('Synthetic fixture' in n.get('text', '') for n in tree), 'Picker missing before revocation')
+            revoked = command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.REVOKE')
+            assert 'Broadcast completed: result=1' in revoked, 'Synthetic revocation not acknowledged'
+        assert tap_text('Synthetic fixture'), 'Authenticated credential picker missing'
+        if args.mode.startswith('web'):
+            return
+        if args.handoff_check == 'revoke':
+            command('shell', 'am', 'broadcast', '-n', provider + '/io.palladin.mobile.RevokeSyntheticCacheReceiver', '-a', 'io.palladin.autofill.harness.REVOKE')
+        if args.handoff_check == 'cancel-confirmation' or args.mode == 'native-username-manual-cancel':
             assert tap_text('^Cancel$'), 'Explicit cancellation missing'
         elif 'manual' in args.mode:
             assert tap_text('^Fill username once$'), 'Explicit username-only confirmation missing'
@@ -187,6 +244,28 @@ def framework_snapshot(diagnosis):
             if len(values) < 8:
                 values.append(value)
     return result
+
+
+def collect_inspector_failure(destination):
+    if not args.inspect_response:
+        return
+    report = {}
+    try:
+        raw = command('shell', 'run-as', provider, 'cat', 'files/synthetic-failure.json')
+        if len(raw) <= 16384:
+            report['inspector'] = json.loads(raw)
+    except Exception:
+        pass
+    try:
+        command('shell', 'am', 'start', '-W', '-n', provider + '/io.palladin.mobile.MainActivity',
+                '--ez', 'collectDiagnostics', 'true')
+        raw = command('shell', 'run-as', provider, 'cat', 'files/synthetic-exits.json')
+        if len(raw) <= 1024:
+            report['exits'] = json.loads(raw)
+    except Exception:
+        pass
+    if report:
+        (destination / 'inspector.json').write_text(json.dumps(report, indent=2) + '\n')
 
 
 def record_failure():
@@ -235,20 +314,26 @@ def record_failure():
         (destination / 'nodes.json').write_text(json.dumps(metadata, indent=2) + '\n')
     except Exception:
         pass
+    try:
+        collect_inspector_failure(destination)
+    except Exception:
+        pass  # Keep the original failure even if artifact storage fails.
 
 
 try:
-    command('shell', 'pm', 'set-app-links', '--package', form, '2' if args.mode.startswith('web') or args.mode == 'native-username-manual-verified' else '0', 'fixture.invalid')
+    command('shell', 'pm', 'set-app-links', '--package', form, '2' if not args.dal_proof and (args.mode.startswith('web') or args.mode == 'native-username-manual-verified') else '0', 'fixture.invalid')
     command('shell', 'am', 'force-stop', form)
     command('shell', 'am', 'force-stop', provider)
+    dal_arguments = ['--es', 'dalProof', args.dal_proof] if args.dal_proof else []
+    inspector_arguments = dal_arguments + (['--ez', 'browserSource', 'true'] if args.browser_source else [])
     if args.inspect_response:
         if args.mode not in ('native-login', 'native-username', 'web-login', 'web-username', 'web-http', 'web-missing', 'web-empty', 'native-empty', 'native-username-manual', 'native-username-manual-verified', 'native-username-manual-password', 'web-username-manual', 'native-username-manual-cancel'):
             raise RuntimeError('Response inspection uses the four credential fixtures')
         prior_policy = command('shell', 'settings', 'get', 'global', 'hidden_api_policy').strip()
         try:
             command('shell', 'settings', 'put', 'global', 'hidden_api_policy', '1')
-            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode, '--es', 'inlineMode', args.inline_mode)
-            if args.mode in ('web-http', 'web-missing', 'native-username-manual-password', 'web-username-manual'):
+            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', '--es', 'inspectResponse', args.mode, '--es', 'inlineMode', args.inline_mode, *inspector_arguments)
+            if args.dal_proof in ('expired', 'wrong-signer') or args.mode in ('web-http', 'web-missing', 'native-username-manual-password', 'web-username-manual'):
                 wait_for(lambda tree: any(n.get('text') == 'responseRejected=true' for n in tree),
                          'Invalid scheme rejection result not observed')
                 print(args.mode + ': no authentication result PASS')
@@ -256,8 +341,8 @@ try:
                 authenticate()
                 expected_result = 'responseRejected=true' if args.mode.endswith(('empty', 'cancel')) else 'responseVerified=true'
                 wait_for(lambda tree: any(n.get('text') == expected_result for n in tree),
-                         'Actual FillResponse field ID/value assertions failed')
-                print(args.mode + ': actual FillResponse dataset assertions PASS')
+                         'Actual authentication-result field ID/value assertions failed')
+                print(args.mode + ': actual authentication-result dataset assertions PASS')
         finally:
             if prior_policy == 'null':
                 command('shell', 'settings', 'delete', 'global', 'hidden_api_policy')
@@ -265,7 +350,14 @@ try:
                 command('shell', 'settings', 'put', 'global', 'hidden_api_policy', prior_policy)
 
     else:
-        command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode)
+        # /proc/uptime has 10ms precision; reject sessions inside that ambiguous tick.
+        case_started_ms = None
+        if args.mode.startswith('native'):
+            case_started_ms = math.ceil(float(command('shell', 'cat', '/proc/uptime').split()[0]) * 1000) + 10
+        if args.dal_proof:
+            command('shell', 'am', 'start', '-n', provider + '/io.palladin.mobile.MainActivity', *dal_arguments)
+            wait_for(lambda tree: any(n.get('text') == 'Synthetic encrypted cache ready' for n in tree), 'DAL synthetic proof/cache setup failed')
+        command('shell', 'am', 'start', '-n', form + '/io.palladin.autofill.form.FormActivity', '--es', 'mode', args.mode, *(['--ez', 'dalFixture', 'true'] if args.dal_proof else []))
         positive = args.mode in ('native-login', 'native-username', 'native-username-hint', 'native-login-opaque', 'native-username-manual', 'native-username-manual-verified', 'web-login', 'web-username')
         focus_field(required=positive)
         if not positive or args.mode in ('native-username-manual', 'native-username-manual-verified'):
@@ -290,8 +382,17 @@ try:
                 wait_for(lambda tree: any(node.get('package') == form and node.get('text') == 'fieldsUnchanged=true' for node in tree),
                          'Negative fixture fields were not empty')
                 selected = command('shell', 'settings', 'get', 'secure', 'autofill_service').strip()
-                observations.append(negative_outcome(diagnosis, nodes(), selected, args.mode))
-            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'PLATFORM_NO_RESPONSE', 'PLATFORM_INELIGIBLE') if value in observations))
+                null_password = False
+                if args.mode.startswith('native') and request_snapshot(diagnosis).get('result') != 'REJECTED':
+                    from null_response import password_null_response
+                    null_password = password_null_response(
+                        command('shell', 'dumpsys', 'autofill'),
+                        api=int(command('shell', 'getprop', 'ro.build.version.sdk').strip()),
+                        started_ms=case_started_ms, form=form, provider=provider,
+                    )
+                observations.append(negative_outcome(diagnosis, nodes(), selected, args.mode,
+                                                     password_null=null_password))
+            outcome = next((value for value in ('REJECTED', 'SYSTEM_UNAVAILABLE', 'SYSTEM_NULL_PASSWORD', 'PLATFORM_NO_RESPONSE', 'PLATFORM_INELIGIBLE') if value in observations))
         else:
             assert 'result=' + args.expected in diagnosis, 'Unexpected provider outcome: ' + diagnosis
             outcome = args.expected
@@ -307,11 +408,38 @@ try:
                 assert tap_text('Request Autofill'), 'Manual request control missing'
                 assert tap_text('Unlock Palladin to autofill'), 'Accessible unlock suggestion missing'
             authenticate()
-            assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
-            assert tap_text('Verify fill'), 'Fixture verification control missing'
-            wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
-                     'Synthetic field assertions failed')
-            print(args.mode + ': biometric + selection + field assertions PASS')
+            direct_native = direct_credential_flow()
+            if args.handoff_check and args.handoff_check != 'repeat':
+                assert direct_native, 'Handoff checks require dataset authentication'
+                assert tap_text('Verify empty'), 'Empty field control missing'
+                wait_for(lambda tree: any(n.get('text') == 'fieldsUnchanged=true' for n in tree),
+                         'Canceled or revoked operation filled fields')
+                print(args.mode + ': ' + args.handoff_check + ' leaves fields empty PASS')
+            else:
+                if not direct_native:
+                    assert tap_text('^synthetic-user$'), 'Authenticated dataset missing'
+                assert tap_text('Verify fill'), 'Fixture verification control missing'
+                wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
+                         'Synthetic field assertions failed')
+                if args.handoff_check == 'repeat':
+                    assert direct_native, 'Repeat check requires dataset authentication'
+                    original_response = active_fixture_response()
+                    if args.mode.startswith('web'):
+                        # DOM assignment does not notify Android of a virtual
+                        # field's value change; exercise an actual user edit.
+                        focus_field()
+                        command('shell', 'input', 'keycombination', 'KEYCODE_CTRL_LEFT', 'KEYCODE_A')
+                        command('shell', 'input', 'keyevent', 'KEYCODE_DEL')
+                    else:
+                        assert tap_text('Clear fields'), 'Clear control missing'
+                    focus_field()
+                    assert tap_text('Unlock Palladin to autofill'), 'Cached dataset skipped authentication'
+                    authenticate()
+                    assert active_fixture_response() == original_response, 'Repeat replaced the original OS session'
+                    assert tap_text('Verify fill'), 'Fixture verification control missing'
+                    wait_for(lambda tree: any(n.get('text') == 'fillVerified=true' for n in tree),
+                             'Repeated authenticated fill failed')
+                print(args.mode + ': biometric + selection + field assertions PASS')
 except Exception:
     record_failure()
     raise

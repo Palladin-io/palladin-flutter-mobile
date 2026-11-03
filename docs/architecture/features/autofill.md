@@ -62,6 +62,34 @@
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
+## Android native authentication handoff
+
+On Android 12/API 31+, native requests offer one locked Dataset with null values,
+the existing branded unlock presentation and the existing immutable explicit
+PendingIntent. After biometrics and the native picker/required confirmation,
+Palladin returns only the selected Dataset. The system fills the original target
+IDs directly; there is no second credential choice in the keyboard. The returned
+Intent sets `EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET=true`, so Android retains
+the locked initial dataset instead of caching an unauthenticated credential choice.
+Clearing and filling again requires biometrics and a new selection. Every final
+origin, generation, lease, revocation and one-operation confirmation check remains
+under the existing mutation lock through `setResult`.
+
+API 26–30 retain the previous response-authentication flow because they do not
+provide the explicit ephemeral-result contract. Web requests (which can return
+multiple matched entries) and password generation also retain response-level
+authentication. SaveInfo and its client state remain on the initial FillResponse;
+a Dataset result does not replace them. No platform-provided fill-in extras are
+trusted: the immutable intent already carries the original IDs and origin context.
+
+This uses the public [Dataset authentication contract](https://developer.android.com/reference/android/service/autofill/Dataset.Builder#setAuthentication(android.content.IntentSender))
+and [API 31 ephemeral result](https://developer.android.com/reference/android/view/autofill/AutofillManager#EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET).
+Bitwarden's pinned [initial authenticated dataset](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/util/FilledDataExtensions.kt)
+and [selected Dataset completion](https://github.com/bitwarden/android/blob/924c851b571d782345bbf5a33d773ca09d826e8a/app/src/main/kotlin/com/x8bit/bitwarden/data/autofill/manager/AutofillCompletionManagerImpl.kt)
+provide precedent for the public flow, not Palladin's origin or ephemeral policy.
+The change removes dependence on redisplaying a second suggestion after an
+explicit native selection; it does not claim to repair IME rendering failures.
+
 ## Generic native field recognition
 
 `CredentialFieldIds` uses a finite `Matched(role)` / `Unknown` / `Rejected`
@@ -624,6 +652,72 @@ Flutter tests cover explicit confirmation and session guards, including a real
 loopback 401 refresh race. They do not constitute physical-device OS save UI
 acceptance. The Android save trigger, deferred app launch and unlocked
 confirmation must also be exercised on a synthetic device fixture before release.
+
+### Android debug identity
+
+Android debug builds use `Palladin (Debug)` for the launcher and system AutoFill provider label. English and Polish unlock, biometric and generation prompts also identify the debug build, including the public inline suggestion and dropdown paths. These resources live only in `src/debug`; release labels remain unchanged. The label does not select a backend environment.
+
+
+### Exact-host credential delegation for app WebViews
+
+On API 31+, a recognized current-credential form in a non-browser app may report
+an HTTPS host absent from that package's OS App Links. Credential fill can use a
+direct `https://<exact-host>/.well-known/assetlinks.json` statement containing
+`delegate_permission/common.get_login_creds`, `android_app`, the exact package,
+and every current installed APK signing certificate. Historical signer lineage,
+sibling/root domains, `handle_all_urls` alone and transitive `include` statements
+do not supply this authority. Existing OS/browser checks remain first; disabled
+link handling and unavailable OS association state are not overridden. Native
+manual selection, password generation and SaveInfo/save authorization are unchanged.
+
+The request runs off the UI thread. Its three-second deadline includes queue and
+DNS time; two workers and two queued requests bound stuck platform DNS calls.
+Cancellation/timeout removes queued work, cancels HTTP and permits exactly one
+completion. Late success cannot publish a proof. OkHttp receives only the resolved
+public IP addresses checked for that exact hostname, avoiding a second DNS lookup.
+TLS hostname/trust validation stays with the library/platform. No redirects,
+proxies, cookies, authorization headers, response disk cache, logging or intermediary
+lookup service are used. Only status 200, application/json, identity encoding and
+at most 64 KiB of strict UTF-8 JSON are accepted. Duplicate keys, malformed JSON,
+mixed include/authority statements and excessive structure fail closed. Standalone
+include statements are ignored without fetching; unrelated bounded JSON metadata
+is permitted but cannot supply authority.
+
+A maximum of 32 positive proofs lives only in process memory, for 60 seconds of
+monotonic time. Its key is exact host/package/current signer set. Before biometric
+entry and final credential handoff the app reads the current installed identity,
+checks the proof lifetime and OS policy again, and retains existing cache generation,
+lease, lock/revoke and exact credential-domain checks. An expired proof cancels the
+operation rather than performing UI-thread networking or silently extending authority.
+Private/special-use destinations, including NAT64/transition prefixes, are rejected;
+offline operation needs existing OS authority or a still-valid memory proof.
+
+Primary contracts: [Google credential-sharing setup](https://developers.google.com/identity/credential-sharing/set-up)
+and [DAL consumers and principals](https://developers.google.com/identity/credential-sharing/digital-asset-links).
+The observed Binance case and counterfactual regressions are documented in
+[`observed-binance.md`](../../../tool/android-autofill-harness/observed-binance.md).
+
+OkHttp is pinned to 5.5.1, whose security update blocks compromised eMudhra
+intermediates. Its Android artifact requires compileSdk 37; target/min SDK remain
+unchanged. Existing AGP 8.11.1 emits an unsupported-compile-SDK warning (not
+suppressed); successful compilation/runtime evidence is required before release.
+The unit harness loads only the real Android 14 streaming-reader classes from a
+pinned test-only android-all artifact, ahead of throwing SDK stubs. These classes
+are not compiled into the provider/application APK; strict parser tests execute
+actual reader methods and do not mock parsing.
+
+
+App-embedded WebViews on API31+ use the same locked, null-valued dataset
+presentation and ephemeral selected-Dataset handoff as native app fields. A
+same-WebView emulator comparison showed response-level authentication produced
+no initial inline row while dataset-level authentication rendered the unlock
+chip. This is separate from the missing DAL origin authority. After biometrics,
+the existing picker shows only records matching the original exact reported WEB
+host; it never substitutes OS native domains or a manual unknown-origin choice.
+The original immutable Intent binds the expected authentication result shape.
+The final selection rechecks that WEB authority and generation/lease/revoke state
+inside the existing handoff lock. Browser/Chrome, API26–30, generation and save
+contracts retain their prior response/authority paths.
 
 ## Federated sign-in methods
 
