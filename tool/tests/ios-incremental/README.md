@@ -1,0 +1,9 @@
+# iOS incremental AutoFill verification
+
+Run `tool/test_ios_incremental.sh` with Flutter on PATH and Xcode selected. It runs synthetic credential tests with real CryptoKit and typechecks both the Credential Provider and Flutter bridge against the iOS 14 simulator SDK. No account, real credential or device is used.
+
+The 160-entry scenario checks one changed record performs one new body encryption and no unchanged-body decryption; deletion performs neither. Catalog validation still reads/hashes retained ciphertext and encrypts the complete identity/authority catalog. This is not a claim of constant total I/O. Provider reads still require the existing biometric Keychain opening path.
+
+Negative coverage includes scoped deny ownership, changed authoritative revision without a replacement, expiry and immutable lease limits, missing/corrupt ciphertext, wrong key, durable-catalog failure before pointer publication, locked/stale writer epochs, stale picker revisions and asynchronous identity revision changes. An empty authenticated catalog is distinct from an absent cache. A missing prior OS identity acknowledgement forces complete identity metadata replacement even when incremental APIs are supported.
+
+The host test cannot exercise an entitled app-group Keychain, real biometric prompts, OS process termination during SecItemUpdate, or cross-process flock on a physical iPhone. Device QA must verify ordinary lock prevents pending writes while existing provider authentication remains available, revoke immediately denies an open picker, a single-entry edit/deletion changes OS suggestions, and a failed/restarted identity callback repairs via complete catalog metadata. Do not infer physical parity from SDK typechecking.

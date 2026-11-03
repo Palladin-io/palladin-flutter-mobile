@@ -10,6 +10,8 @@ simulator_sdk="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator \
   -sdk "$simulator_sdk" \
   ios/AutoFillBridge/Classes/AutoFillCacheStore.swift \
+  ios/AutoFillBridge/Classes/AutoFillIncrementalCache.swift \
+  ios/AutoFillBridge/Classes/AutoFillIncrementalIdentities.swift \
   ios/AutoFillBridge/Classes/AutoFillCredentialPicker.swift \
   ios/AutoFillBridge/Classes/GeneratedPasswordHistory.swift \
   ios/AutoFillBridge/Classes/PendingPasswordSave.swift \

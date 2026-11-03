@@ -15,6 +15,7 @@ final class AutoFillBridgeMutationQueue {
 
 public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     private let mutationQueue = AutoFillBridgeMutationQueue()
+    private let incrementalWriter = AutoFillV3Writer()
     private let historyQueue = DispatchQueue(
         label: "io.palladin.mobile.autofill.generated-history",
         qos: .userInitiated
@@ -64,6 +65,19 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             }
             return
         }
+        if call.method == "endWriterSession" {
+            guard let arguments = call.arguments as? [String: Any],
+                  let epoch = AutoFillV3JSON.positive(arguments["writerEpoch"]) else {
+                result(FlutterError(code: "AUTOFILL_CACHE_ERROR", message: "Invalid writer epoch", details: nil)); return
+            }
+            // Bypass queued crypto/identity work; pending commits recheck epoch.
+            incrementalWriter.end(epoch: epoch)
+            result(nil)
+            return
+        }
+        if ["beginCacheSession", "clearCache", "revokeCacheAccess"].contains(call.method) {
+            incrementalWriter.invalidate()
+        }
         let action = {
             do {
                 let store = try AutoFillCacheStore()
@@ -84,6 +98,32 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                         store: store,
                         onlyIf: { !store.hasActiveCache() }
                     ) { _ in }
+                case "beginWriterSession":
+                    guard let arguments = call.arguments as? [String: Any],
+                          let token = AutoFillV3JSON.positive(arguments["sessionToken"]) else { throw AutoFillV3Error.invalid }
+                    let epoch = try store.beginWriterSession(sessionToken: token, writer: self.incrementalWriter)
+                    DispatchQueue.main.async { result(epoch) }
+                case "replaceCacheV3", "denyEntries", "applyCacheDelta":
+                    guard let arguments = call.arguments as? [String: Any] else { throw AutoFillV3Error.invalid }
+                    let publication: AutoFillV3Publication
+                    if call.method == "replaceCacheV3" {
+                        guard let payload = arguments["payload"] as? [String: Any],
+                              let token = AutoFillV3JSON.positive(arguments["sessionToken"]),
+                              let epoch = AutoFillV3JSON.positive(arguments["writerEpoch"]) else { throw AutoFillV3Error.invalid }
+                        let base = try (arguments["base"] as? [String: Any]).map(AutoFillV3Base.init)
+                        let releasing = arguments["releasingDenies"] as? [String] ?? []
+                        publication = try store.replaceV3(payload: payload, sessionToken: token, epoch: epoch,
+                                                          writer: self.incrementalWriter, expectedBase: base, releasingDenies: releasing)
+                    } else {
+                        publication = try store.mutateV3(arguments: arguments, writer: self.incrementalWriter, deny: call.method == "denyEntries")
+                    }
+                    AutoFillCacheStore.publishV3Identities(publication, store: store) { error in
+                        DispatchQueue.main.async {
+                            if let error {
+                                result(FlutterError(code: (error as? AutoFillV3Error)?.code ?? "AUTOFILL_IDENTITY_ERROR", message: "Unable to update credential identities", details: nil))
+                            } else { result(publication.response) }
+                        }
+                    }
                 case "replaceCache":
                     guard let arguments = call.arguments as? [String: Any],
                           let payload = arguments["payload"] as? [String: Any],
@@ -212,7 +252,7 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             } catch {
                 DispatchQueue.main.async {
                     result(FlutterError(
-                        code: "AUTOFILL_CACHE_ERROR",
+                        code: (error as? AutoFillV3Error)?.code ?? "AUTOFILL_CACHE_ERROR",
                         message: "Native cache operation failed",
                         details: nil
                     ))

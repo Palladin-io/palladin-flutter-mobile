@@ -84,12 +84,12 @@ struct AutoFillUnwrapOperation {
     fileprivate let envelope: AutoFillCacheEnvelope
 }
 
-private struct AutoFillEntryAuthority {
+struct AutoFillEntryAuthority {
     let revision: String
     let keyVersion: Int
 }
 
-private struct AutoFillVaultAuthority {
+struct AutoFillVaultAuthority {
     let notAfter: Date
     let entries: [String: AutoFillEntryAuthority]
 }
@@ -97,13 +97,13 @@ private struct AutoFillVaultAuthority {
 struct AutoFillCacheManifest {
     let principalId: String
     let organizationId: String
-    fileprivate let vaults: [String: AutoFillVaultAuthority]
+    let vaults: [String: AutoFillVaultAuthority]
 }
 
 struct AutoFillCachePayload {
     let manifest: AutoFillCacheManifest
     let records: [AutoFillCredentialRecord]
-    fileprivate let canonicalObject: [String: Any]
+    let canonicalObject: [String: Any]
 }
 
 private struct AutoFillCacheEnvelope {
@@ -486,12 +486,12 @@ enum AutoFillPayloadValidator {
     private static let futureClockTolerance: TimeInterval = 5 * 60
     private static let decimal = try! NSRegularExpression(pattern: "^(?:0|[1-9][0-9]*)$")
 
-    static func validate(_ rawPayload: [String: Any], now: Date = Date()) throws -> AutoFillCachePayload {
+    static func validate(_ rawPayload: [String: Any], now: Date = Date(), incremental: Bool = false) throws -> AutoFillCachePayload {
         guard hasExactKeys(rawPayload, ["version", "manifest", "records"]),
-              integer(rawPayload["version"]) == cacheVersion,
+              integer(rawPayload["version"]) == (incremental ? 3 : cacheVersion),
               let rawManifest = rawPayload["manifest"] as? [String: Any],
               let rawRecords = rawPayload["records"] as? [Any],
-              !rawRecords.isEmpty,
+              (incremental || !rawRecords.isEmpty),
               rawRecords.count <= maximumRecords else {
             if integer(rawPayload["version"]) != nil {
                 throw AutoFillCacheError.unsupportedVersion
@@ -499,7 +499,7 @@ enum AutoFillPayloadValidator {
             throw AutoFillCacheError.invalidRecords
         }
 
-        let manifestResult = try validateManifest(rawManifest, now: now)
+        let manifestResult = try validateManifest(rawManifest, now: now, allowEmpty: incremental)
         var records: [AutoFillCredentialRecord] = []
         var canonicalRecords: [[String: Any]] = []
         var seen = Set<String>()
@@ -573,16 +573,18 @@ enum AutoFillPayloadValidator {
             manifest: manifestResult.manifest,
             records: records,
             canonicalObject: [
-                "version": cacheVersion,
+                "version": incremental ? 3 : cacheVersion,
                 "manifest": manifestResult.canonicalObject,
                 "records": canonicalRecords,
             ]
         )
     }
 
-    private static func validateManifest(
+    static func validateManifest(
         _ raw: [String: Any],
-        now: Date
+        now: Date,
+        allowEmpty: Bool = false,
+        allowExpired: Bool = false
     ) throws -> (manifest: AutoFillCacheManifest, canonicalObject: [String: Any]) {
         guard hasExactKeys(raw, [
             "principalId", "organizationId", "organizationMembershipGeneration",
@@ -596,7 +598,7 @@ enum AutoFillPayloadValidator {
         let policyDuration = ["1h": 3_600.0, "4h": 14_400.0, "24h": 86_400.0][offlinePolicy],
         let offlinePolicyVersion = positiveInteger(raw["offlinePolicyVersion"]),
         let rawVaults = raw["vaults"] as? [Any],
-        !rawVaults.isEmpty else {
+        (allowEmpty || !rawVaults.isEmpty) else {
             throw AutoFillCacheError.invalidRecords
         }
 
@@ -623,9 +625,9 @@ enum AutoFillPayloadValidator {
                   let notAfter = instant(notAfterString),
                   issuedAt <= now.addingTimeInterval(futureClockTolerance),
                   abs(notAfter.timeIntervalSince(issuedAt) - policyDuration) < 0.001,
-                  notAfter > now,
+                  (allowExpired || notAfter > now),
                   let rawEntries = rawVault["entries"] as? [Any],
-                  !rawEntries.isEmpty,
+                  (allowEmpty || !rawEntries.isEmpty),
                   vaults[vaultId] == nil else {
                 throw AutoFillCacheError.invalidRecords
             }
@@ -735,6 +737,7 @@ final class AutoFillCacheStore {
     private static let stateLockFileName = "palladin_autofill_state_v2.lock"
     private static let identityLockFileName = "palladin_autofill_identities_v2.lock"
     private static let mutationLock = NSLock()
+    private static let identityV3Acknowledgement = AutoFillV3IdentityAcknowledgement()
     private static let identityQueue = DispatchQueue(label: "io.palladin.mobile.autofill.identities")
     private static let monotonicWallTimeGuard = AutoFillMonotonicWallTimeGuard()
 
@@ -858,14 +861,121 @@ final class AutoFillCacheStore {
         }
     }
 
+    func beginWriterSession(sessionToken: Int, writer: AutoFillV3Writer) throws -> Int {
+        try withStateProcessLock {
+            let authority = try readActiveAuthorityLocked()
+            guard authority.counter == sessionToken else { throw AutoFillV3Error.writerInvalidated }
+            return try writer.begin(generation: sessionToken)
+        }
+    }
+
+    func replaceV3(payload: [String: Any], sessionToken: Int, epoch: Int, writer: AutoFillV3Writer,
+                   expectedBase: AutoFillV3Base? = nil, releasingDenies: [String] = [], now: Date = Date()) throws -> AutoFillV3Publication {
+        _ = try writer.withCurrent(epoch: epoch, generation: sessionToken) {}
+        var key = try secureRandomBytes(count: 32)
+        defer { key.resetBytes(in: 0..<key.count) }
+        let engine = AutoFillV3Engine(directory: containerURL)
+        let keyID = UUID().uuidString.lowercased()
+        let catalog = try engine.full(payload: payload, generation: sessionToken, keyID: keyID, key: key, now: now)
+        Self.mutationLock.lock(); defer { Self.mutationLock.unlock() }
+        return try withStateProcessLock {
+            let authority = try readActiveAuthorityLocked()
+            guard authority.counter == sessionToken else { throw AutoFillV3Error.writerInvalidated }
+            let old = try authority.fence.cacheId.flatMap { cacheID -> AutoFillV3Pointer? in
+                cacheID.hasPrefix("v3~") ? try AutoFillV3Pointer(generation: sessionToken, cacheID: cacheID) : nil
+            }
+            if let old {
+                guard expectedBase == old.base else { throw AutoFillV3Error.staleBase }
+                var previousKey = try writer.openingMaterial(epoch: epoch, generation: sessionToken)
+                defer { previousKey.key.resetBytes(in: 0..<previousKey.key.count) }
+                guard previousKey.keyID == old.keyID else { throw AutoFillV3Error.recoveryRequired }
+                // Expired old authority is read only to authenticate deny ownership.
+                // Full publication validates every replacement record afresh.
+                let previous = try engine.open(old, key: previousKey.key, now: now, allowExpired: true)
+                guard Set(releasingDenies).count == releasingDenies.count,
+                      Set(releasingDenies) == Set(previous.denies.keys) else { throw AutoFillV3Error.invalid }
+            } else {
+                guard expectedBase == nil, releasingDenies.isEmpty else { throw AutoFillV3Error.staleBase }
+            }
+            guard (old?.base.revision ?? 0) < Int.max else { throw AutoFillV3Error.invalid }
+            let pointer = try engine.persist(catalog, revision: (old?.base.revision ?? 0) + 1, key: key)
+            try writer.withCurrent(epoch: epoch, generation: sessionToken) {
+                // A unique account preserves the old opening key until commit.
+                try replaceOpeningKey(key, generation: sessionToken, v3KeyID: keyID)
+                try engine.validate(catalog, now: Date())
+                try commitV3Pointer(pointer, now: Date())
+                try writer.install(key: key, keyID: keyID, epoch: epoch, generation: sessionToken)
+            }
+            try? engine.collectGarbage(retaining: catalog, pointer: pointer)
+            try? cleanupV3KeychainLocked(retaining: pointer)
+            return AutoFillV3Publication(pointer: pointer, identities: catalog.identities, previousIdentities: nil)
+        }
+    }
+
+    func mutateV3(arguments: [String: Any], writer: AutoFillV3Writer, deny: Bool,
+                  now: Date = Date()) throws -> AutoFillV3Publication {
+        guard let rawBase = arguments["base"] as? [String: Any],
+              let epoch = AutoFillV3JSON.positive(arguments["writerEpoch"]) else { throw AutoFillV3Error.invalid }
+        let base = try AutoFillV3Base(rawBase)
+        var material = try writer.openingMaterial(epoch: epoch, generation: base.generation)
+        defer { material.key.resetBytes(in: 0..<material.key.count) }
+        let engine = AutoFillV3Engine(directory: containerURL)
+        Self.mutationLock.lock(); defer { Self.mutationLock.unlock() }
+        return try withStateProcessLock {
+            let authority = try readActiveAuthorityLocked()
+            guard authority.counter == base.generation, let cacheID = authority.fence.cacheId,
+                  cacheID.hasPrefix("v3~") else { throw AutoFillV3Error.recoveryRequired }
+            let pointer = try AutoFillV3Pointer(generation: base.generation, cacheID: cacheID)
+            guard pointer.base == base else { throw AutoFillV3Error.staleBase }
+            guard pointer.keyID == material.keyID, base.revision < Int.max else { throw AutoFillV3Error.recoveryRequired }
+            try validateProcessWallTimeLocked(now: now, systemUptime: ProcessInfo.processInfo.systemUptime)
+            _ = try readOrInitializeGlobalWallTimeLocked(now: now, allowInitialization: false)
+            let catalog = try engine.open(pointer, key: material.key, now: now)
+            let next: AutoFillV3Catalog
+            var token: String?
+            if deny {
+                guard let entries = arguments["entries"] as? [[String: Any]] else { throw AutoFillV3Error.invalid }
+                let result = try engine.deny(catalog: catalog, entries: entries, now: now)
+                next = result.catalog; token = result.token
+            } else {
+                guard let manifest = arguments["manifest"] as? [String: Any],
+                      let upserts = arguments["upserts"] as? [[String: Any]],
+                      let removals = arguments["removals"] as? [[String: Any]],
+                      let tokens = arguments["releasingDenies"] as? [String] else { throw AutoFillV3Error.invalid }
+                next = try engine.delta(catalog: catalog, manifest: manifest, upserts: upserts,
+                                        removals: removals, releasingDenies: tokens, key: material.key, now: now)
+            }
+            let nextPointer = try engine.persist(next, revision: base.revision + 1, key: material.key)
+            try writer.withCurrent(epoch: epoch, generation: base.generation) {
+                try requireActiveLocked(generation: base.generation, cacheId: pointer.cacheID)
+                try engine.validate(next, now: Date())
+                try commitV3Pointer(nextPointer, now: Date())
+            }
+            try? engine.collectGarbage(retaining: next, pointer: nextPointer)
+            try? cleanupV3KeychainLocked(retaining: nextPointer)
+            return AutoFillV3Publication(pointer: nextPointer, identities: next.identities,
+                                        previousIdentities: catalog.identities, denyToken: token)
+        }
+    }
+
+    private func commitV3Pointer(_ pointer: AutoFillV3Pointer, now: Date) throws {
+        try validateProcessWallTimeLocked(now: now, systemUptime: ProcessInfo.processInfo.systemUptime)
+        let wall = try readOrInitializeGlobalWallTimeLocked(now: now, allowInitialization: false)
+        try writeWallTimeState(maximumObserved: wall.maximumObserved, generation: pointer.base.generation,
+                              cacheId: pointer.cacheID, integrityKeyBytes: wall.integrityKey)
+        // All immutable ciphertext and its directory were fsynced before this
+        // single protected Keychain pointer update becomes the commit point.
+        try writeFenceLocked(AutoFillFence(generation: pointer.base.generation, state: .active, cacheId: pointer.cacheID))
+    }
+
     func createUnwrapOperation() throws -> AutoFillUnwrapOperation {
         return try withStateProcessLock {
             let authority = try readActiveAuthorityLocked()
             guard let cacheId = authority.fence.cacheId else {
                 throw AutoFillCacheError.cacheUnavailable
             }
-            let envelope = try readEnvelope(generation: authority.fence.generation)
-            guard envelope.version == AutoFillPayloadValidator.cacheVersion,
+            let envelope = try readEnvelope(generation: authority.fence.generation, cacheId: cacheId)
+            guard [AutoFillPayloadValidator.cacheVersion, 3].contains(envelope.version),
                   envelope.generation == authority.fence.generation,
                   envelope.cacheId == cacheId else {
                 throw AutoFillCacheError.unsupportedVersion
@@ -898,7 +1008,8 @@ final class AutoFillCacheStore {
         }
         var keyBytes = try readOpeningKey(
             authenticationPrompt: authenticationPrompt,
-            generation: operation.generation
+            generation: operation.generation,
+            v3KeyID: operation.cacheId.hasPrefix("v3~") ? try AutoFillV3Pointer(generation: operation.generation, cacheID: operation.cacheId).keyID : nil
         )
         defer { keyBytes.resetBytes(in: 0..<keyBytes.count) }
 
@@ -948,6 +1059,18 @@ final class AutoFillCacheStore {
                 try? quarantineCurrentFenceLocked()
                 throw error
             }
+        }
+
+        if operation.envelope.version == 3 {
+            let engine = AutoFillV3Engine(directory: containerURL)
+            let pointer = try AutoFillV3Pointer(generation: operation.generation, cacheID: operation.cacheId)
+            let catalog = try engine.open(pointer, key: keyBytes, now: verifiedNow)
+            let records = try engine.records(catalog, key: keyBytes, now: verifiedNow)
+            try requireActive(generation: operation.generation, cacheId: operation.cacheId)
+            return AutoFillCacheReadResult(credentials: records.map { record, expiry in
+                AutoFillCredentialLease(record: record, notAfter: expiry, generation: operation.generation,
+                                        cacheId: operation.cacheId, maximumObservedWallTime: maximumObservedWallTime)
+            }, generation: operation.generation, cacheId: operation.cacheId)
         }
 
         let sealed = try AES.GCM.SealedBox(combined: operation.envelope.sealedPayload)
@@ -1164,6 +1287,7 @@ final class AutoFillCacheStore {
         identityQueue.async {
             do {
                 let lease = try store.acquireProcessLock(fileName: Self.identityLockFileName)
+                identityV3Acknowledgement.set(nil)
                 guard store.isActive(
                     generation: replacement.generation,
                     cacheId: replacement.cacheId
@@ -1246,6 +1370,42 @@ final class AutoFillCacheStore {
         }
     }
 
+    static func publishV3Identities(
+        _ publication: AutoFillV3Publication,
+        store: AutoFillCacheStore,
+        completion: @escaping (Error?) -> Void
+    ) {
+        identityQueue.async {
+            do {
+                let change = try AutoFillV3IdentityChange(current: publication.identities, previous: publication.previousIdentities)
+                let lease = try store.acquireProcessLock(fileName: Self.identityLockFileName)
+                let semaphore = DispatchSemaphore(value: 0)
+                let state = AutoFillAsyncMutationState()
+                AutoFillV3IdentityUpdater.update(
+                    change: change, hasPrevious: publication.previousIdentities != nil && identityV3Acknowledgement.canApplyDelta(to: publication.pointer.base),
+                    isCurrent: { store.isActive(generation: publication.pointer.base.generation, cacheId: publication.pointer.cacheID) },
+                    state: { callback in ASCredentialIdentityStore.shared.getState { callback($0.supportsIncrementalUpdates) } },
+                    remove: { ASCredentialIdentityStore.shared.removeCredentialIdentities($0, completion: $1) },
+                    save: { ASCredentialIdentityStore.shared.saveCredentialIdentities($0, completion: $1) },
+                    replace: { ASCredentialIdentityStore.shared.replaceCredentialIdentities(with: $0, completion: $1) }
+                ) { error in
+                    identityV3Acknowledgement.set(error == nil ? publication.pointer.base : nil)
+                    state.clearCallbackCompleted(succeeded: error == nil, error: error)
+                    // Do not compensate by clearing all identities: this may be
+                    // an obsolete revision. The next serialized operation owns repair.
+                    lease.release(); semaphore.signal()
+                }
+                if semaphore.wait(timeout: .now() + 10) != .success {
+                    // Keep OS serialization until the actual callback: allowing
+                    // a late replacement after a newer one would erase its metadata.
+                    completion(AutoFillCacheError.cacheUnavailable)
+                    return
+                }
+                completion(state.recordedError())
+            } catch { completion(error) }
+        }
+    }
+
     static func clearIdentities(
         store: AutoFillCacheStore,
         onlyIf predicate: @escaping () -> Bool = { true },
@@ -1254,6 +1414,7 @@ final class AutoFillCacheStore {
         identityQueue.async {
             do {
                 let lease = try store.acquireProcessLock(fileName: Self.identityLockFileName)
+                identityV3Acknowledgement.set(nil)
                 guard predicate() else {
                     lease.release()
                     completion(nil)
@@ -1343,7 +1504,12 @@ final class AutoFillCacheStore {
         )
     }
 
-    private func readEnvelope(generation: Int) throws -> AutoFillCacheEnvelope {
+    private func readEnvelope(generation: Int, cacheId: String) throws -> AutoFillCacheEnvelope {
+        if cacheId.hasPrefix("v3~") {
+            let pointer = try AutoFillV3Pointer(generation: generation, cacheID: cacheId)
+            let data = try AutoFillV3Engine(directory: containerURL).load(id: pointer.catalogID, generation: generation, digest: pointer.digest)
+            return AutoFillCacheEnvelope(version: 3, generation: generation, cacheId: cacheId, sealedPayload: data)
+        }
         let url = cacheURL(generation: generation)
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         guard let size = attributes[.size] as? NSNumber,
@@ -1405,7 +1571,7 @@ final class AutoFillCacheStore {
         )
         try setKeychainData(
             combined,
-            account: "\(Self.wallTimePrefix)\(generation)",
+            account: wallTimeAccount(generation: generation, cacheId: cacheId),
             accessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         )
     }
@@ -1415,7 +1581,7 @@ final class AutoFillCacheStore {
         cacheId: String,
         integrityKeyBytes: Data
     ) throws -> Date {
-        let combined = try readKeychainData(account: "\(Self.wallTimePrefix)\(generation)")
+        let combined = try readKeychainData(account: wallTimeAccount(generation: generation, cacheId: cacheId))
         return try AutoFillWallTimeStateCodec.open(
             combined,
             generation: generation,
@@ -1503,13 +1669,15 @@ final class AutoFillCacheStore {
             return true
         }
         if try !keychainAccounts(withPrefix: Self.cacheKeyPrefix).isEmpty ||
-            !keychainAccounts(withPrefix: Self.wallTimePrefix).isEmpty {
+            !keychainAccounts(withPrefix: Self.wallTimePrefix).isEmpty ||
+            !keychainAccounts(withPrefix: "cache-key-v3-").isEmpty ||
+            !keychainAccounts(withPrefix: "wall-time-v3-").isEmpty {
             return true
         }
         return try FileManager.default.contentsOfDirectory(
             at: containerURL,
             includingPropertiesForKeys: nil
-        ).contains { $0.lastPathComponent.hasPrefix(Self.cacheFilePrefix) }
+        ).contains { $0.lastPathComponent.hasPrefix(Self.cacheFilePrefix) || $0.lastPathComponent.hasPrefix("palladin_autofill_v3_") }
     }
 
     private func readWallIntegrityKeyLocked() throws -> Data {
@@ -1630,8 +1798,17 @@ final class AutoFillCacheStore {
         return generation
     }
 
-    private func replaceOpeningKey(_ key: Data, generation: Int) throws {
-        let account = "\(Self.cacheKeyPrefix)\(generation)"
+    private func openingKeyAccount(generation: Int, v3KeyID: String?) -> String {
+        guard let v3KeyID else { return "\(Self.cacheKeyPrefix)\(generation)" }
+        return "cache-key-v3-\(generation)-\(v3KeyID)"
+    }
+
+    private func wallTimeAccount(generation: Int, cacheId: String) -> String {
+        cacheId.hasPrefix("v3~") ? "wall-time-v3-\(generation)-\(AutoFillV3JSON.hash(Data(cacheId.utf8)))" : "\(Self.wallTimePrefix)\(generation)"
+    }
+
+    private func replaceOpeningKey(_ key: Data, generation: Int, v3KeyID: String? = nil) throws {
+        let account = openingKeyAccount(generation: generation, v3KeyID: v3KeyID)
         try deleteKeychainItem(account: account)
         var error: Unmanaged<CFError>?
         guard let access = SecAccessControlCreateWithFlags(
@@ -1649,8 +1826,8 @@ final class AutoFillCacheStore {
         guard status == errSecSuccess else { throw AutoFillCacheError.keychain(status) }
     }
 
-    private func readOpeningKey(authenticationPrompt: String, generation: Int) throws -> Data {
-        var query = keychainBaseQuery(account: "\(Self.cacheKeyPrefix)\(generation)")
+    private func readOpeningKey(authenticationPrompt: String, generation: Int, v3KeyID: String? = nil) throws -> Data {
+        var query = keychainBaseQuery(account: openingKeyAccount(generation: generation, v3KeyID: v3KeyID))
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         let context = LAContext()
@@ -1715,6 +1892,19 @@ final class AutoFillCacheStore {
         ]
     }
 
+    private func cleanupV3KeychainLocked(retaining pointer: AutoFillV3Pointer) throws {
+        let generation = pointer.base.generation
+        let retained = Set([
+            openingKeyAccount(generation: generation, v3KeyID: pointer.keyID),
+            wallTimeAccount(generation: generation, cacheId: pointer.cacheID),
+        ])
+        for prefix in ["cache-key-v3-\(generation)-", "wall-time-v3-\(generation)-"] {
+            for account in try keychainAccounts(withPrefix: prefix) where !retained.contains(account) {
+                try deleteKeychainItem(account: account)
+            }
+        }
+    }
+
     private func deleteArtifactsLocked(generation: Int) throws {
         var firstError: Error?
         do {
@@ -1736,6 +1926,15 @@ final class AutoFillCacheStore {
                 // Preserve the first cleanup error.
             }
         }
+        do {
+            for url in try FileManager.default.contentsOfDirectory(at: containerURL, includingPropertiesForKeys: nil)
+                where url.lastPathComponent.hasPrefix("palladin_autofill_v3_\(generation)_") {
+                try FileManager.default.removeItem(at: url)
+            }
+            for prefix in ["cache-key-v3-\(generation)-", "wall-time-v3-\(generation)-"] {
+                for account in try keychainAccounts(withPrefix: prefix) { try deleteKeychainItem(account: account) }
+            }
+        } catch where firstError == nil { firstError = error } catch {}
         if let firstError { throw firstError }
     }
 
@@ -1756,6 +1955,21 @@ final class AutoFillCacheStore {
             try? FileManager.default.removeItem(at: url)
             try? deleteKeychainItem(account: "\(Self.cacheKeyPrefix)\(artifactGeneration)")
             try? deleteKeychainItem(account: "\(Self.wallTimePrefix)\(artifactGeneration)")
+        }
+        for url in urls where url.lastPathComponent.hasPrefix("palladin_autofill_v3_") {
+            let suffix = url.lastPathComponent.dropFirst("palladin_autofill_v3_".count)
+            guard let artifactGeneration = Int(suffix.split(separator: "_").first ?? ""),
+                  AutoFillFenceRules.mayDeleteArtifacts(artifactGeneration: artifactGeneration,
+                    cleanupGeneration: generation, currentCounter: counter) else { continue }
+            try? FileManager.default.removeItem(at: url)
+        }
+        for prefix in ["cache-key-v3-", "wall-time-v3-"] {
+            for account in try keychainAccounts(withPrefix: prefix) {
+                guard let artifactGeneration = Int(account.dropFirst(prefix.count).split(separator: "-").first ?? ""),
+                      AutoFillFenceRules.mayDeleteArtifacts(artifactGeneration: artifactGeneration,
+                        cleanupGeneration: generation, currentCounter: counter) else { continue }
+                try? deleteKeychainItem(account: account)
+            }
         }
         for prefix in [Self.cacheKeyPrefix, Self.wallTimePrefix] {
             for account in try keychainAccounts(withPrefix: prefix) {

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        AFE301021AAAA00100000001 /* AutoFillIncrementalCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE301031AAAA00100000001 /* AutoFillIncrementalCache.swift */; };
+        AFE301021AAAA00100000002 /* AutoFillIncrementalIdentities.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE301031AAAA00100000002 /* AutoFillIncrementalIdentities.swift */; };
 		AFC101021AAAA00100000002 /* PendingPasswordSave.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC101031AAAA00100000003 /* PendingPasswordSave.swift */; };
 		AFB101021AAAA00100000002 /* AutoFillCredentialPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */; };
 		C64400010000000000000001 /* EntryShareMailbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000001 /* EntryShareMailbox.swift */; };
@@ -72,6 +74,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+        AFE301031AAAA00100000001 /* AutoFillIncrementalCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutoFillIncrementalCache.swift; path = AutoFillBridge/Classes/AutoFillIncrementalCache.swift; sourceTree = "<group>"; };
+        AFE301031AAAA00100000002 /* AutoFillIncrementalIdentities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutoFillIncrementalIdentities.swift; path = AutoFillBridge/Classes/AutoFillIncrementalIdentities.swift; sourceTree = "<group>"; };
 		AFC101031AAAA00100000003 /* PendingPasswordSave.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PendingPasswordSave.swift; path = AutoFillBridge/Classes/PendingPasswordSave.swift; sourceTree = "<group>"; };
 		AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutoFillCredentialPicker.swift; path = AutoFillBridge/Classes/AutoFillCredentialPicker.swift; sourceTree = "<group>"; };
 		C64400020000000000000001 /* EntryShareMailbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareMailbox.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareMailbox.swift; sourceTree = "<group>"; };
@@ -226,6 +230,8 @@
 			isa = PBXGroup;
 			children = (
 				AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */,
+                AFE301031AAAA00100000001 /* AutoFillIncrementalCache.swift */,
+                AFE301031AAAA00100000002 /* AutoFillIncrementalIdentities.swift */,
 				AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */,
 				AFC101031AAAA00100000003 /* PendingPasswordSave.swift */,
 				AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */,
@@ -568,6 +574,8 @@
 			files = (
 				0D9F10D53F8635E2DF7989B1 /* CredentialProviderViewController.swift in Sources */,
 				AFA100021AAAA00100000002 /* AutoFillCacheStore.swift in Sources */,
+                AFE301021AAAA00100000001 /* AutoFillIncrementalCache.swift in Sources */,
+                AFE301021AAAA00100000002 /* AutoFillIncrementalIdentities.swift in Sources */,
 				AFB101021AAAA00100000002 /* AutoFillCredentialPicker.swift in Sources */,
 				AFC101021AAAA00100000002 /* PendingPasswordSave.swift in Sources */,
 				AFA100041AAAA00100000004 /* GeneratedPasswordHistory.swift in Sources */,
