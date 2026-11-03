@@ -181,11 +181,6 @@ final class AutoFillV3Engine {
             result.entries[coordinate] = try encrypt(canonical, manifest: single, generation: catalog.generation, keyID: catalog.keyID, key: key)
         }
         for coordinate in removed { result.entries.removeValue(forKey: coordinate) }
-        for token in releasingDenies {
-            // Every released owner must be reconciled by this exact operation.
-            guard catalog.denies[token]!.allSatisfy({ changed.contains($0) || removed.contains($0) }) else { throw AutoFillV3Error.invalid }
-            result.denies.removeValue(forKey: token)
-        }
         guard Set(result.entries.keys) == coordinates(validated) else { throw AutoFillV3Error.invalid }
         for (coordinate, old) in result.entries where !changed.contains(coordinate) {
             let current = try singleManifest(validated, coordinate: coordinate)
@@ -194,6 +189,12 @@ final class AutoFillV3Engine {
             guard expiry > now else { throw AutoFillV3Error.recoveryRequired }
             _ = try load(id: old.bodyID, generation: catalog.generation, digest: old.digest)
             result.entries[coordinate] = AutoFillV3Entry(bodyID: old.bodyID, digest: old.digest, originalManifest: old.originalManifest, identity: old.identity, notAfter: expiry)
+        }
+        for token in releasingDenies {
+            // Retained records have now passed complete current authority,
+            // immutable binding, ciphertext integrity and minimum-lease checks.
+            guard catalog.denies[token]!.allSatisfy({ removed.contains($0) || result.entries[$0] != nil }) else { throw AutoFillV3Error.invalid }
+            result.denies.removeValue(forKey: token)
         }
         return result
     }

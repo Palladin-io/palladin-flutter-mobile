@@ -42,6 +42,22 @@ expect(deleted.entries.count == 159 && engine.recordEncryptions == 161 && engine
 rejects { _ = try engine.delta(catalog: next, manifest: manifest(changed), upserts: [], removals: [], releasingDenies: [], key: key, now: now.addingTimeInterval(3600)) }
 print("iOS incremental core tests passed")
 
+// A foreground repair may deny the whole snapshot before discovering one change.
+let allCoordinates = revisions.keys.sorted().map { ["vaultId": "vault", "entryId": $0] }
+let allDenied = try engine.deny(catalog: full, entries: allCoordinates, now: now)
+let encryptionsBeforeRepair = engine.recordEncryptions
+let repaired = try engine.delta(catalog: allDenied.catalog, manifest: manifest(changed), upserts: [record("entry-0", revision: "2")], removals: [], releasingDenies: [allDenied.token], key: key, now: now)
+expect(repaired.denies.isEmpty && repaired.identities.count == 160, "Complete current authority reconciles an owned whole-snapshot deny")
+expect(repaired.entries.filter { $0.key != "vault:entry-0" }.mapValues { $0.bodyID } == unchanged, "Repair preserves all 159 unchanged ciphertext bodies")
+expect(engine.recordEncryptions == encryptionsBeforeRepair + 1 && engine.recordDecryptions == 0, "Repair encrypts one changed body and decrypts no unchanged bodies")
+var missingRetained = changed; missingRetained.removeValue(forKey: "entry-1")
+rejects { _ = try engine.delta(catalog: allDenied.catalog, manifest: manifest(missingRetained), upserts: [record("entry-0", revision: "2")], removals: [], releasingDenies: [allDenied.token], key: key, now: now) }
+var changedRetained = changed; changedRetained["entry-1"] = "2"
+rejects { _ = try engine.delta(catalog: allDenied.catalog, manifest: manifest(changedRetained), upserts: [record("entry-0", revision: "2")], removals: [], releasingDenies: [allDenied.token], key: key, now: now) }
+rejects { _ = try engine.delta(catalog: allDenied.catalog, manifest: manifest(changed, issued: now.addingTimeInterval(3600)), upserts: [record("entry-0", revision: "2")], removals: [], releasingDenies: [allDenied.token], key: key, now: now.addingTimeInterval(3600)) }
+rejects { _ = try engine.delta(catalog: allDenied.catalog, manifest: manifest(changed), upserts: [record("entry-0", revision: "2")], removals: [], releasingDenies: ["unknown"], key: key, now: now) }
+
+
 // Persistent catalog authentication, scoped denials and immutable leases.
 let pointer = try engine.persist(next, revision: 1, key: key)
 let reopened = try engine.open(pointer, key: key, now: now)
@@ -51,7 +67,10 @@ let secondDeny = try engine.deny(catalog: firstDeny.catalog, entries: [["vaultId
 expect(secondDeny.catalog.identities.count == 159, "Denied identity hidden")
 let releasedOne = try engine.delta(catalog: secondDeny.catalog, manifest: manifest(changed), upserts: [record("entry-0", revision: "2")], removals: [], releasingDenies: [firstDeny.token], key: key, now: now)
 expect(releasedOne.identities.count == 159 && releasedOne.denies.count == 1, "Another owner remains denied")
-rejects { _ = try engine.delta(catalog: firstDeny.catalog, manifest: manifest(changed), upserts: [], removals: [], releasingDenies: [firstDeny.token], key: key, now: now) }
+let reconciledRetained = try engine.delta(catalog: firstDeny.catalog, manifest: manifest(changed), upserts: [], removals: [], releasingDenies: [firstDeny.token], key: key, now: now)
+expect(reconciledRetained.denies.isEmpty, "Unchanged owned entry can reconcile against complete current authority")
+let absentOwner = try engine.deny(catalog: reopened, entries: [["vaultId": "vault", "entryId": "absent"]], now: now)
+rejects { _ = try engine.delta(catalog: absentOwner.catalog, manifest: manifest(changed), upserts: [], removals: [], releasingDenies: [absentOwner.token], key: key, now: now) }
 rejects { _ = try engine.delta(catalog: reopened, manifest: manifest(changed), upserts: [], removals: [], releasingDenies: ["unknown"], key: key, now: now) }
 let renewed = try engine.delta(catalog: reopened, manifest: manifest(changed, issued: now.addingTimeInterval(60)), upserts: [], removals: [], releasingDenies: [], key: key, now: now.addingTimeInterval(60))
 expect(renewed.entries.values.allSatisfy { $0.notAfter == now.addingTimeInterval(3600) }, "Renewal cannot extend retained record expiry")
