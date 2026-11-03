@@ -7,7 +7,7 @@ import org.junit.Test
 import java.nio.file.Files
 
 class AutoFillIncrementalCacheTest {
-    @Test fun singleUpdateRetains159CiphertextsWithoutOpeningThem() {
+    @Test fun globalDenialThenSingleUpdateRetains159CiphertextsWithoutOpeningThem() {
         val directory = Files.createTempDirectory("autofill-v3-test").toFile()
         var fence = AutoFillFence(7, "active", NOW)
         var bodyEncryptions = 0
@@ -19,18 +19,22 @@ class AutoFillIncrementalCacheTest {
         try {
             val epoch = cache.beginWriterSession(7)
             val first = cache.replace(payload(160), 7, epoch)
+            val denied = cache.deny(JSONObject().put("base", first).put("writerEpoch", epoch)
+                .put("entries", JSONArray((0 until 160).map { JSONObject().put("vaultId", "vault").put("entryId", "entry-$it") })))
+            assertEquals(0, fence.availableRecords)
             val originalFiles = directory.listFiles()!!.associate { it.name to it.readBytes() }
             bodyEncryptions = 0
             val updated = payload(160)
             updated.getJSONObject("manifest").getJSONArray("vaults").getJSONObject(0)
                 .getJSONArray("entries").getJSONObject(0).put("revision", "2")
             val changed = updated.getJSONArray("records").getJSONObject(0).put("revision", "2").put("password", "synthetic-new")
-            val second = cache.applyDelta(JSONObject().put("base", first).put("writerEpoch", epoch)
+            val second = cache.applyDelta(JSONObject().put("base", denied.getJSONObject("base")).put("writerEpoch", epoch)
                 .put("manifest", updated.getJSONObject("manifest")).put("upserts", JSONArray().put(changed))
-                .put("removals", JSONArray()).put("releasingDenies", JSONArray()))
+                .put("removals", JSONArray()).put("releasingDenies", JSONArray().put(denied.getString("denyToken"))))
             assertEquals(1, bodyEncryptions)
             assertEquals(0, bodyDecryptions)
-            assertEquals(first.getLong("revision") + 1, second.getLong("revision"))
+            assertEquals(denied.getJSONObject("base").getLong("revision") + 1, second.getLong("revision"))
+            assertEquals(160, fence.availableRecords)
             assertEquals(159, originalFiles.filterKeys { it.contains("record") }.count { (name, bytes) -> directory.resolve(name).isFile && directory.resolve(name).readBytes().contentEquals(bytes) })
         } finally { directory.deleteRecursively() }
     }
@@ -91,12 +95,17 @@ class AutoFillIncrementalCacheTest {
         try {
             val epoch = cache.beginWriterSession(7)
             val base = cache.replace(payload(1), 7, epoch)
+            val denial = cache.deny(JSONObject().put("base", base).put("writerEpoch", epoch)
+                .put("entries", JSONArray().put(JSONObject().put("vaultId", "vault").put("entryId", "entry-0"))))
+            val deniedBase = denial.getJSONObject("base")
             time = java.time.Instant.parse("2026-08-30T08:00:00Z").toEpochMilli()
             val failure = assertThrows(AutoFillIncrementalException::class.java) {
-                cache.applyDelta(delta(base, epoch, payload(1).getJSONObject("manifest")))
+                cache.applyDelta(delta(deniedBase, epoch, payload(1).getJSONObject("manifest"))
+                    .put("releasingDenies", JSONArray().put(denial.getString("denyToken"))))
             }
             assertEquals("AUTOFILL_FULL_RECOVERY_REQUIRED", failure.code)
-            assertEquals(base.getLong("revision"), fence.catalogRevision)
+            assertEquals(deniedBase.getLong("revision"), fence.catalogRevision)
+            assertEquals(0, fence.availableRecords)
         } finally { directory.deleteRecursively() }
     }
 
@@ -195,6 +204,24 @@ class AutoFillIncrementalCacheTest {
         val reconciled = remove(removed, b.getString("denyToken"))
         assertEquals(0, fence().availableRecords)
         assertTrue(reconciled.getLong("revision") > removed.getLong("revision"))
+    }
+
+    @Test fun releasingRetainedDenialRejectsChangedMissingAuthorityAndUnknownOwner() = fixture { cache, fence, _ ->
+        val epoch = cache.beginWriterSession(7)
+        val first = cache.replace(payload(1), 7, epoch)
+        val denied = cache.deny(JSONObject().put("base", first).put("writerEpoch", epoch)
+            .put("entries", JSONArray().put(JSONObject().put("vaultId", "vault").put("entryId", "entry-0"))))
+        val base = denied.getJSONObject("base")
+        val token = denied.getString("denyToken")
+        fun attempt(manifest: JSONObject, owner: String = token) = cache.applyDelta(
+            delta(base, epoch, manifest).put("releasingDenies", JSONArray().put(owner)))
+        val changed = payload(1).getJSONObject("manifest")
+        changed.getJSONArray("vaults").getJSONObject(0).getJSONArray("entries").getJSONObject(0).put("revision", "2")
+        assertThrows(Exception::class.java) { attempt(changed) }
+        assertThrows(Exception::class.java) { attempt(payload(0).getJSONObject("manifest")) }
+        assertThrows(Exception::class.java) { attempt(payload(1).getJSONObject("manifest"), "unowned") }
+        assertEquals(base.getLong("revision"), fence().catalogRevision)
+        assertEquals(0, fence().availableRecords)
     }
 
     private fun delta(base: JSONObject, epoch: Long, manifest: JSONObject) = JSONObject().put("base", base).put("writerEpoch", epoch)

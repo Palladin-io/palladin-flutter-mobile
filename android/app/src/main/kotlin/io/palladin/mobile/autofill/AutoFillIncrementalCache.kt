@@ -126,8 +126,9 @@ internal class AutoFillIncrementalCache(
         for (token in releases) {
             require(denies.has(token))
             val owned = strings(denies.getJSONArray(token))
-            // A denial is reconciled only by explicit authoritative replacement/removal.
-            require(owned.all { it in changed || it in removals })
+            // The complete current manifest and immutable-reference checks above
+            // reconcile unchanged records without opening their credential bodies.
+            require(owned.all { it in updated || it in removals })
             denies.remove(token)
         }
         catalog.put("manifest", copy(manifest)).put("records", JSONArray(updated.values.toList()))
