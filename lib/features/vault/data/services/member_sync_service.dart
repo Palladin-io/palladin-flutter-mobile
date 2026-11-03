@@ -66,13 +66,16 @@ final class MemberAutoFillVaultMetadata {
 final class MemberAutoFillMetadata {
   const MemberAutoFillMetadata({
     required this.readGeneration,
+    required this.publicationRevision,
     required this.vaults,
   });
   final int readGeneration;
+  final int publicationRevision;
   final Map<String, MemberAutoFillVaultMetadata> vaults;
 }
 
 abstract interface class MemberAutoFillMetadataReader {
+  void validateAutoFillPublication(MemberAutoFillMetadata snapshot);
   Future<MemberAutoFillMetadata> readAutoFillMetadata({
     required Iterable<String> vaultIds,
     required MemberSyncSessionAuthority authority,
@@ -218,6 +221,7 @@ final class MemberSyncService
   final Map<String, Timer> _leaseTimers = {};
   final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
+  int _autoFillPublicationRevision = 0;
   int _sessionEpoch = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
@@ -378,6 +382,7 @@ final class MemberSyncService
     try {
       state = await _cache.state(vaultId);
     } on MemberSyncProfileQuarantinedException {
+      _autoFillPublicationRevision++;
       _profileQuarantined = true;
       return;
     }
@@ -513,14 +518,42 @@ final class MemberSyncService
   }
 
   @override
+  void validateAutoFillPublication(MemberAutoFillMetadata snapshot) {
+    if (_profileQuarantined ||
+        snapshot.readGeneration != _lockGeneration ||
+        snapshot.publicationRevision != _autoFillPublicationRevision) {
+      throw const LocalMemberEntryReadInvalidatedException();
+    }
+    final now = _now().toUtc();
+    for (final vault in snapshot.vaults.entries) {
+      _requireReadable(vault.key, snapshot.readGeneration);
+      final context = vault.value.context;
+      if (_running.containsKey(vault.key) ||
+          !_indexes.containsKey(vault.key) ||
+          now.add(const Duration(minutes: 5)).isBefore(context.issuedAt) ||
+          (context.offlinePolicy != 'disabled' &&
+              !now.isBefore(context.notAfter)) ||
+          (context.offlinePolicy == 'disabled' &&
+              !_connectedSessionVaults.contains(vault.key))) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+    }
+  }
+
+  @override
   Future<MemberAutoFillMetadata> readAutoFillMetadata({
     required Iterable<String> vaultIds,
     required MemberSyncSessionAuthority authority,
   }) async {
     final generation = _lockGeneration;
-    final result = <String, MemberAutoFillVaultMetadata>{};
-    for (final vaultId in vaultIds.toSet()) {
+    final ids = vaultIds.toSet();
+    for (final vaultId in ids) {
       await waitForCurrent(vaultId);
+    }
+    _requireCurrent(generation);
+    final publicationRevision = _autoFillPublicationRevision;
+    final result = <String, MemberAutoFillVaultMetadata>{};
+    for (final vaultId in ids) {
       _requireReadable(vaultId, generation);
       final state = await _cache.state(vaultId);
       _requireReadable(vaultId, generation);
@@ -542,6 +575,7 @@ final class MemberSyncService
     }
     final snapshot = MemberAutoFillMetadata(
       readGeneration: generation,
+      publicationRevision: publicationRevision,
       vaults: Map.unmodifiable(result),
     );
     await revalidateAutoFillMetadata(snapshot, authority: authority);
@@ -553,7 +587,9 @@ final class MemberSyncService
     MemberAutoFillMetadata snapshot, {
     required MemberSyncSessionAuthority authority,
   }) async {
-    if (_profileQuarantined || snapshot.readGeneration != _lockGeneration) {
+    if (_profileQuarantined ||
+        snapshot.readGeneration != _lockGeneration ||
+        snapshot.publicationRevision != _autoFillPublicationRevision) {
       throw const LocalMemberEntryReadInvalidatedException();
     }
     for (final vault in snapshot.vaults.entries) {
@@ -579,6 +615,7 @@ final class MemberSyncService
         allowConnectedDisabledPolicy: true,
       );
     }
+    validateAutoFillPublication(snapshot);
   }
 
   /// Returns one immutable runtime-only Vault index for local UI filtering.
@@ -597,6 +634,7 @@ final class MemberSyncService
   @override
   void lock() {
     _sessionEpoch++;
+    _autoFillPublicationRevision++;
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
@@ -613,6 +651,7 @@ final class MemberSyncService
     required bool invalidateActive,
   }) async {
     final stagedIndex = <String, MemberIndexEntry>{};
+    if (invalidateActive) _autoFillPublicationRevision++;
     await _cache.beginSnapshot(vaultId, invalidateActive: invalidateActive);
     try {
       var page = await _remote.snapshot(vaultId: vaultId);
@@ -902,6 +941,7 @@ final class MemberSyncService
     try {
       state = await _cache.state(vaultId);
     } on MemberSyncProfileQuarantinedException {
+      _autoFillPublicationRevision++;
       _profileQuarantined = true;
       return null;
     }
@@ -1020,6 +1060,7 @@ final class MemberSyncService
   Future<void> purgeAll() async {
     _sessionEpoch++;
     final operationGeneration = ++_lockGeneration;
+    _autoFillPublicationRevision++;
     _profileQuarantined = true;
     _running.clear();
     _revokedVaults.addAll(_knownVaults);
@@ -1048,6 +1089,9 @@ final class MemberSyncService
     Future<T> Function() operation,
   ) => _serializeVault(vaultId, () {
     _requireCurrent(generation);
+    // Invalidate before awaiting the durable write: its completion can expose
+    // newer authority before the runtime index continuation resumes.
+    _autoFillPublicationRevision++;
     return operation();
   });
 
@@ -1301,6 +1345,7 @@ final class MemberSyncService
   }
 
   void _publishIndexUpdate(String vaultId) {
+    _autoFillPublicationRevision++;
     if (!_indexUpdates.isClosed) _indexUpdates.add(vaultId);
   }
 

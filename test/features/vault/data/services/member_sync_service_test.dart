@@ -56,6 +56,7 @@ final class _MemoryCache implements MemberSyncCache {
   final Map<String, MemberSyncCacheState> states = {};
   final Map<String, Map<String, MemberSyncItemModel>> active = {};
   final Map<String, Map<String, MemberSyncItemModel>> staged = {};
+  void Function()? afterDeltaCommit;
   bool failClearVault = false;
   bool failClearAll = false;
   int? profileQuarantineGeneration;
@@ -178,6 +179,7 @@ final class _MemoryCache implements MemberSyncCache {
       memberVaultKey: memberVaultKey,
       maximumObservedWallTime: maximumObservedWallTime,
     );
+    afterDeltaCommit?.call();
   }
 
   Future<void> _apply(
@@ -379,6 +381,107 @@ void main() {
       );
     },
   );
+
+  test(
+    'AutoFill publication rejects a newer state-only durable commit synchronously',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<void> sync() async => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      service.validateAutoFillPublication(metadata);
+      var observedCommit = false;
+      cache.afterDeltaCommit = () {
+        observedCommit = true;
+        expect(
+          () => service.validateAutoFillPublication(metadata),
+          throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+        );
+      };
+      await sync();
+      expect(observedCommit, isTrue);
+      expect(
+        () => service.validateAutoFillPublication(metadata),
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+      final current = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      expect(
+        current.publicationRevision,
+        greaterThan(metadata.publicationRevision),
+      );
+      service.validateAutoFillPublication(current);
+    },
+  );
+
+  test(
+    'AutoFill publication rejects an in-flight authoritative synchronization',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<MemberSyncResult> sync() => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      remote.deltaCompleter = Completer<MemberDeltaResult>();
+      final pending = sync();
+      expect(
+        () => service.validateAutoFillPublication(metadata),
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+      remote.deltaCompleter!.complete(remote.deltaResult);
+      await pending;
+    },
+  );
+
+  for (final invalidation in ['lock', 'purgeVault', 'purgeAll', 'expiry']) {
+    test('AutoFill synchronous publication rejects $invalidation', () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      await service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      switch (invalidation) {
+        case 'lock':
+          service.lock();
+        case 'purgeVault':
+          await service.purgeVault(vaultId);
+        case 'purgeAll':
+          await service.purgeAll();
+        case 'expiry':
+          now = snapshot.accessContext.notAfter;
+      }
+      expect(
+        () => service.validateAutoFillPublication(metadata),
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+    });
+  }
 
   test('initial synchronization is snapshot plus one closing delta', () async {
     final durable = expectLater(
