@@ -972,6 +972,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recoveryServerError => 'Recovery failed. Please try again.';
 
   @override
+  String get recoveryProofInvalid =>
+      'The recovery check expired or could not be verified. Please try again.';
+
+  @override
   String get vaultTitle => 'Vaults';
 
   @override
@@ -4078,6 +4082,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authTotpEnrollDone => 'Done';
+
+  @override
+  String get authTotpEnrollPasswordSubtitle =>
+      'Confirm your current master password to set up two-factor authentication.';
+
+  @override
+  String get authTotpEnrollPasswordButton => 'Continue';
+
+  @override
+  String get authTotpEnrollUnavailable =>
+      'Two-factor authentication is available only for accounts that sign in with a password.';
 
   @override
   String get authChangePwTitle => 'Change master password';

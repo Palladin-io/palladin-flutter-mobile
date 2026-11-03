@@ -26,6 +26,16 @@ class RecoveryMaterialMissingException implements Exception {
   String toString() => 'RecoveryMaterialMissingException';
 }
 
+/// Thrown when the server's account-recovery challenge cannot be opened
+/// as an `account-recovery-challenge-v1` package bound to the session user.
+/// Deliberately carries no detail about which check failed.
+class RecoveryChallengeException implements Exception {
+  const RecoveryChallengeException();
+
+  @override
+  String toString() => 'RecoveryChallengeException';
+}
+
 /// Thrown when the recovery request fails for network/protocol reasons.
 ///
 /// Carries a typed [kind] so the presentation layer can resolve the
@@ -47,4 +57,8 @@ enum RecoveryServerErrorKind {
   cannotConnect,
   connectionFailed,
   invalidResponse,
+
+  /// `403 errors.backend.recovery-proof-invalid` — the one-time challenge
+  /// proof was missing, wrong, expired or already used.
+  recoveryProofInvalid,
 }

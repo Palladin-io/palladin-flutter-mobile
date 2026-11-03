@@ -621,6 +621,10 @@
   "@recoveryServerError": {
     "description": "Generic fallback error for the recovery flow"
   },
+  "recoveryProofInvalid": "The recovery check expired or could not be verified. Please try again.",
+  "@recoveryProofInvalid": {
+    "description": "Recovery was rejected because the one-time key-possession challenge was invalid, expired or already used"
+  },
   "vaultTitle": "Vaults",
   "@vaultTitle": {
     "description": "Vaults section title shown in the app bar of the vault list"
@@ -3483,6 +3487,12 @@
   "@authTotpEnrollCodesCopied": { "description": "Snackbar after copying recovery codes" },
   "authTotpEnrollDone": "Done",
   "@authTotpEnrollDone": { "description": "Finish TOTP enrollment" },
+  "authTotpEnrollPasswordSubtitle": "Confirm your current master password to set up two-factor authentication.",
+  "@authTotpEnrollPasswordSubtitle": { "description": "TOTP enrollment step asking for the current login password" },
+  "authTotpEnrollPasswordButton": "Continue",
+  "@authTotpEnrollPasswordButton": { "description": "Button that verifies the current password before TOTP enrollment" },
+  "authTotpEnrollUnavailable": "Two-factor authentication is available only for accounts that sign in with a password.",
+  "@authTotpEnrollUnavailable": { "description": "Shown when the backend reports the account has no password login credential" },
 
   "authChangePwTitle": "Change master password",
   "@authChangePwTitle": { "description": "Change-password screen title" },
