@@ -24,6 +24,7 @@ class _Entries extends Mock implements LocalCurrentEntryService {}
 class _Bridge extends Mock implements AutoFillIncrementalCacheBridge {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _Reader reader;
   late _Authority authority;
   late _Entries entries;
@@ -150,6 +151,7 @@ void main() {
         writerEpoch: any(named: 'writerEpoch'),
         base: any(named: 'base'),
         releasingDenies: any(named: 'releasingDenies'),
+        validatePublication: any(named: 'validatePublication'),
       ),
     ).thenAnswer((_) async {
       fullCalls++;
@@ -175,6 +177,7 @@ void main() {
         upserts: any(named: 'upserts'),
         removals: any(named: 'removals'),
         releasingDenies: any(named: 'releasingDenies'),
+        validatePublication: any(named: 'validatePublication'),
       ),
     ).thenAnswer((call) async {
       deltas.add(
@@ -262,6 +265,7 @@ void main() {
           upserts: any(named: 'upserts'),
           removals: any(named: 'removals'),
           releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
         ),
       ).thenThrow(PlatformException(code: 'AUTOFILL_FULL_RECOVERY_REQUIRED'));
       reveals = 0;
@@ -307,6 +311,7 @@ void main() {
         upserts: any(named: 'upserts'),
         removals: any(named: 'removals'),
         releasingDenies: any(named: 'releasingDenies'),
+        validatePublication: any(named: 'validatePublication'),
       ),
     ).thenThrow(PlatformException(code: 'AUTOFILL_STALE_BASE'));
     await expectLater(publish(), throwsA(isA<PlatformException>()));
@@ -363,6 +368,7 @@ void main() {
           upserts: any(named: 'upserts'),
           removals: any(named: 'removals'),
           releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
         ),
       ).thenAnswer((_) {
         ++revision;
@@ -453,6 +459,117 @@ void main() {
       expect(fullCalls, 1);
     },
   );
+
+  test(
+    'metadata change before native acknowledgement never reports ready',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      final entered = Completer<void>();
+      final reply = Completer<AutoFillCacheBase>();
+      var obsolete = false;
+      when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
+        if (obsolete) throw const LocalMemberEntryReadInvalidatedException();
+      });
+      when(
+        () => bridge.applyCacheDelta(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          manifest: any(named: 'manifest'),
+          upserts: any(named: 'upserts'),
+          removals: any(named: 'removals'),
+          releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
+        ),
+      ).thenAnswer((_) {
+        entered.complete();
+        return reply.future;
+      });
+      final phases = <String>[];
+      final operation = publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (state) => phases.add(state.phase.name),
+      );
+      final result = expectLater(
+        operation,
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+      await entered.future;
+      obsolete = true;
+      reply.complete(AutoFillCacheBase(generation: 7, revision: ++revision));
+      await result;
+      expect(phases, isNot(contains('ready')));
+    },
+  );
+
+  for (final delta in [false, true]) {
+    test(
+      'production bridge rechecks metadata after availability await (delta=$delta)',
+      () async {
+        const channel = MethodChannel('incremental-publication-fence');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        final submitted = <String>[];
+        var nativeRevision = 0;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'beginWriterSession') return 1;
+          if (call.method == 'endWriterSession') return null;
+          if (call.method == 'denyEntries') {
+            return {
+              'base': {'generation': 7, 'revision': ++nativeRevision},
+              'denyToken': 'owner-$nativeRevision',
+            };
+          }
+          submitted.add(call.method);
+          return {'generation': 7, 'revision': ++nativeRevision};
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+        final production = AutoFillIncrementalPublisher(
+          bridge: MethodChannelAutoFillCacheBridge(
+            channel: channel,
+            availabilityProbe: () async => true,
+          ),
+          metadata: reader,
+          authority: authority,
+          entries: entries,
+        );
+        await production.beginSession(7);
+        if (delta) {
+          await production.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (_) {},
+          );
+          indexes[0] = index(0, revision: '2');
+          snapshot();
+        }
+        submitted.clear();
+        var obsolete = false;
+        when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
+          if (obsolete) throw const LocalMemberEntryReadInvalidatedException();
+        });
+        await expectLater(
+          production.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (progress) {
+              if (progress.phase.name == 'publishing') {
+                scheduleMicrotask(() {
+                  obsolete = true;
+                });
+              }
+            },
+          ),
+          throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+        );
+        expect(submitted, isEmpty);
+      },
+    );
+  }
 
   test(
     'lock during reveal cannot publish or retain writer capability',

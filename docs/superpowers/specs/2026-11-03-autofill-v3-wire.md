@@ -40,6 +40,8 @@ Exact-base CAS. Manifest is COMPLETE current eligible authority, not only change
 - `AUTOFILL_WRITER_INVALIDATED`: stale/locked writer epoch; no commit and no key retained.
 - `AUTOFILL_CACHE_ERROR`: invalid scope/authority/input or persistence/crypto failure; no sensitive error details.
 
+The Dart publication methods require a local synchronous guard callback, invoked after bridge availability awaits and immediately before channel submission; it is never serialized. The publisher rechecks it after acknowledgement before updating its base, owned tokens or readiness.
+
 Native providers never read through writer holder. Biometric key retrieval and exact origins remain mandatory. Every selected credential binds generation+catalog revision and checks original/current effective lease, deny state and clock under existing mutation authority (Android monitor; iOS process flock plus lock).
 
 ## iOS identity acknowledgment

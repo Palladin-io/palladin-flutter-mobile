@@ -26,6 +26,7 @@ abstract interface class AutoFillIncrementalCacheBridge {
     AutoFillCachePayload payload, {
     required int sessionToken,
     required int writerEpoch,
+    required void Function() validatePublication,
     AutoFillCacheBase? base,
     List<String> releasingDenies = const [],
   });
@@ -41,6 +42,7 @@ abstract interface class AutoFillIncrementalCacheBridge {
     required List<AutoFillRecord> upserts,
     required List<AutoFillEntryCoordinate> removals,
     required List<String> releasingDenies,
+    required void Function() validatePublication,
   });
 }
 
@@ -107,6 +109,7 @@ class MethodChannelAutoFillCacheBridge
     AutoFillCachePayload payload, {
     required int sessionToken,
     required int writerEpoch,
+    required void Function() validatePublication,
     AutoFillCacheBase? base,
     List<String> releasingDenies = const [],
   }) async => AutoFillCacheBase.fromPlatform(
@@ -122,7 +125,7 @@ class MethodChannelAutoFillCacheBridge
             .map((record) => record.toPlatformMap())
             .toList(growable: false),
       },
-    }),
+    }, validatePublication),
   );
 
   @override
@@ -148,6 +151,7 @@ class MethodChannelAutoFillCacheBridge
     required List<AutoFillRecord> upserts,
     required List<AutoFillEntryCoordinate> removals,
     required List<String> releasingDenies,
+    required void Function() validatePublication,
   }) async => AutoFillCacheBase.fromPlatform(
     await _invokeMethod<Object>('applyCacheDelta', {
       'base': base.toPlatformMap(),
@@ -160,11 +164,18 @@ class MethodChannelAutoFillCacheBridge
           .map((entry) => entry.toPlatformMap())
           .toList(growable: false),
       'releasingDenies': releasingDenies,
-    }),
+    }, validatePublication),
   );
 
-  Future<T?> _invokeMethod<T>(String method, [Object? arguments]) async {
+  Future<T?> _invokeMethod<T>(
+    String method, [
+    Object? arguments,
+    void Function()? beforeInvoke,
+  ]) async {
     await _ensureAvailable();
+    // Even a cached availability Future yields. Fence after that last await,
+    // immediately before submitting the platform message.
+    beforeInvoke?.call();
     try {
       return await _channel.invokeMethod<T>(method, arguments);
     } on MissingPluginException {

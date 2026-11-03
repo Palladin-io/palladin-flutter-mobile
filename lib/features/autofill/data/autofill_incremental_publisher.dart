@@ -251,16 +251,19 @@ class AutoFillIncrementalPublisher {
           total: changed.length,
         ),
       );
-      // No await may separate these fences from the native CAS invocation.
-      // A committed sync can advance metadata while final claims are awaited.
-      _metadata.validateAutoFillPublication(snapshot);
-      _requireCurrent(epoch, isCurrent);
+      void validatePublication() {
+        _metadata.validateAutoFillPublication(snapshot);
+        _requireCurrent(epoch, isCurrent);
+      }
+
+      validatePublication();
       final AutoFillCacheBase acknowledged;
       if (full) {
         acknowledged = await _bridge.replaceCacheV3(
           AutoFillCachePayload(manifest: manifest, records: records),
           sessionToken: _sessionToken!,
           writerEpoch: _writerEpoch!,
+          validatePublication: validatePublication,
           base: _base,
           releasingDenies: _denies.toList(),
         );
@@ -272,9 +275,10 @@ class AutoFillIncrementalPublisher {
           upserts: records,
           removals: _present.difference(present).toList(),
           releasingDenies: _denies.toList(),
+          validatePublication: validatePublication,
         );
       }
-      _requireCurrent(epoch, isCurrent);
+      validatePublication();
       _requireBase(acknowledged);
       _base = acknowledged;
       _observed = observed;

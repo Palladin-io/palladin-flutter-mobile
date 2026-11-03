@@ -86,8 +86,11 @@ accept a delta; authoritative full recovery first commits global clear. Scoped
 owner tokens are released only through reconciled current publication. Overlapping
 mutations keep independent deny ownership, including across asynchronous preparation.
 A synchronous metadata publication revision is checked after final awaited claims
-and immediately before native CAS; a concurrent durable sync cannot release a deny
-using an obsolete snapshot. Recovery-required errors reach the global-clear gate
+and again inside the bridge after availability awaits, immediately before channel
+submission, rejecting an already obsolete snapshot. Metadata changes while
+awaiting native acknowledgement trigger current-session global denial before
+readiness is acknowledged. The acknowledgement repeats the guard before recording
+the new base or clearing owned tokens. Recovery-required errors reach the global-clear gate
 before any full replacement is attempted.
 
 iOS uses incremental credential-identity operations only with supported OS state

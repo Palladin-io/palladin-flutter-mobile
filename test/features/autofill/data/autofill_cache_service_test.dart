@@ -1449,7 +1449,7 @@ void main() {
           isCurrent: any(named: 'isCurrent'),
           onProgress: any(named: 'onProgress'),
         ),
-      ).thenThrow(const FormatException('synthetic authority mismatch'));
+      ).thenThrow(const LocalMemberEntryReadInvalidatedException());
       final cache = AutoFillCacheService(
         indexPreparation: indexPreparation,
         localEntries: localEntries,
@@ -1463,7 +1463,7 @@ void main() {
           privateKey: Uint8List(32),
           vaultIds: const ['vault-1'],
         ),
-        throwsFormatException,
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
       );
       verify(() => bridge.clearCache(sessionToken: 1)).called(1);
       verify(incremental.forgetBase).called(1);

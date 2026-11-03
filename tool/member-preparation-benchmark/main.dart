@@ -587,9 +587,11 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     AutoFillCachePayload payload, {
     required int sessionToken,
     required int writerEpoch,
+    required void Function() validatePublication,
     AutoFillCacheBase? base,
     List<String> releasingDenies = const [],
   }) async {
+    validatePublication();
     upserts = payload.records.length;
     removals = 0;
     return next();
@@ -609,7 +611,9 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     required List<AutoFillRecord> upserts,
     required List<AutoFillEntryCoordinate> removals,
     required List<String> releasingDenies,
+    required void Function() validatePublication,
   }) async {
+    validatePublication();
     this.upserts = upserts.length;
     this.removals = removals.length;
     return next();
