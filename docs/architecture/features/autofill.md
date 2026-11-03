@@ -85,6 +85,10 @@ pointer is committed. Missing, expired, quarantined or unverifiable state cannot
 accept a delta; authoritative full recovery first commits global clear. Scoped
 owner tokens are released only through reconciled current publication. Overlapping
 mutations keep independent deny ownership, including across asynchronous preparation.
+A synchronous metadata publication revision is checked after final awaited claims
+and immediately before native CAS; a concurrent durable sync cannot release a deny
+using an obsolete snapshot. Recovery-required errors reach the global-clear gate
+before any full replacement is attempted.
 
 iOS uses incremental credential-identity operations only with supported OS state
 and an acknowledged preceding revision; otherwise it publishes the complete identity

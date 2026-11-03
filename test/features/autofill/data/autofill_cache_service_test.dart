@@ -1389,6 +1389,54 @@ void main() {
   );
 
   test(
+    'native recovery clears and resets writer before full publication',
+    () async {
+      final incremental = _MockIncremental();
+      final order = <String>[];
+      when(() => incremental.beginSession(any())).thenAnswer((_) async {
+        order.add('writer');
+      });
+      when(incremental.endSession).thenAnswer((_) async {});
+      when(incremental.forgetBase).thenAnswer((_) {
+        order.add('forget');
+      });
+      when(
+        () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+      ).thenAnswer((_) async {
+        order.add('clear');
+      });
+      var attempts = 0;
+      when(
+        () => incremental.synchronize(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+          isCurrent: any(named: 'isCurrent'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      ).thenAnswer((_) async {
+        order.add('publish');
+        if (++attempts == 1) {
+          throw PlatformException(code: 'AUTOFILL_FULL_RECOVERY_REQUIRED');
+        }
+      });
+      final cache = AutoFillCacheService(
+        indexPreparation: indexPreparation,
+        localEntries: localEntries,
+        bridge: bridge,
+        memberIndex: memberIndex,
+        incremental: incremental,
+      );
+      await cache.beginSession();
+      order.clear();
+      await cache.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: const ['vault-1'],
+      );
+      expect(order, ['publish', 'clear', 'forget', 'writer', 'publish']);
+    },
+  );
+
+  test(
     'unclassified current publication failure globally denies before returning',
     () async {
       final incremental = _MockIncremental();

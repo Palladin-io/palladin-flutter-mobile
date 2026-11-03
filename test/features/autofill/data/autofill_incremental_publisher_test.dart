@@ -51,6 +51,7 @@ void main() {
   );
   void snapshot() => metadata = MemberAutoFillMetadata(
     readGeneration: 0,
+    publicationRevision: 0,
     vaults: {
       context.vaultId: MemberAutoFillVaultMetadata(
         context: context,
@@ -73,7 +74,11 @@ void main() {
       ),
     );
     registerFallbackValue(
-      const MemberAutoFillMetadata(readGeneration: 0, vaults: {}),
+      const MemberAutoFillMetadata(
+        readGeneration: 0,
+        publicationRevision: 0,
+        vaults: {},
+      ),
     );
     final emptyManifest = AutoFillCacheManifest(
       principalId: 'p',
@@ -244,24 +249,36 @@ void main() {
     expect(removals.last.single.entryId, 'entry-12');
   });
 
-  test('native missing delta base requires complete recovery', () async {
-    await publisher.beginSession(7);
-    await publish();
-    when(
-      () => bridge.applyCacheDelta(
-        base: any(named: 'base'),
-        writerEpoch: any(named: 'writerEpoch'),
-        manifest: any(named: 'manifest'),
-        upserts: any(named: 'upserts'),
-        removals: any(named: 'removals'),
-        releasingDenies: any(named: 'releasingDenies'),
-      ),
-    ).thenThrow(PlatformException(code: 'AUTOFILL_FULL_RECOVERY_REQUIRED'));
-    reveals = 0;
-    await publish();
-    expect(fullCalls, 2);
-    expect(reveals, 160);
-  });
+  test(
+    'native recovery condition reaches service before any full replacement',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      when(
+        () => bridge.applyCacheDelta(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          manifest: any(named: 'manifest'),
+          upserts: any(named: 'upserts'),
+          removals: any(named: 'removals'),
+          releasingDenies: any(named: 'releasingDenies'),
+        ),
+      ).thenThrow(PlatformException(code: 'AUTOFILL_FULL_RECOVERY_REQUIRED'));
+      reveals = 0;
+      await expectLater(
+        publish(),
+        throwsA(
+          isA<PlatformException>().having(
+            (error) => error.code,
+            'code',
+            'AUTOFILL_FULL_RECOVERY_REQUIRED',
+          ),
+        ),
+      );
+      expect(fullCalls, 1);
+      expect(reveals, 0);
+    },
+  );
 
   test(
     'last removal publishes a complete empty catalog without body reads',
@@ -392,6 +409,48 @@ void main() {
       ).called(1);
       reply.complete(AutoFillCacheBase(generation: 7, revision: revision));
       await rejected;
+    },
+  );
+
+  test(
+    'durable metadata change during final authority read prevents owned-deny release',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      await publisher.deny({
+        AutoFillEntryCoordinate(vaultId: context.vaultId, entryId: 'entry-0'),
+      });
+      indexes[0] = index(0, revision: '2');
+      snapshot();
+      final finalRead = Completer<void>();
+      final continueRead = Completer<MemberSyncSessionAuthority>();
+      var reads = 0;
+      var newerMetadataCommitted = false;
+      when(() => authority.current()).thenAnswer((_) {
+        if (++reads == 2) {
+          finalRead.complete();
+          return continueRead.future;
+        }
+        return Future.value(claims);
+      });
+      when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
+        if (newerMetadataCommitted) {
+          throw const LocalMemberEntryReadInvalidatedException();
+        }
+      });
+      final publication = publish();
+      final result = expectLater(
+        publication,
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+      await finalRead.future;
+      // An owned repair deny queues this commit instead of starting another
+      // service publication, so its existing isCurrent closure stays true.
+      newerMetadataCommitted = true;
+      continueRead.complete(claims);
+      await result;
+      expect(deltas, isEmpty);
+      expect(fullCalls, 1);
     },
   );
 

@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/services.dart' show PlatformException;
-
 import '../../vault/data/models/member_sync_models.dart';
 import '../../vault/data/services/local_current_entry_service.dart';
 import '../../vault/data/services/member_sync_service.dart';
@@ -127,185 +125,174 @@ class AutoFillIncrementalPublisher {
       claims.offlinePolicy,
       claims.offlinePolicyVersion,
     ]);
-    var full = _base == null || _profileBinding != profile;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      final candidates = <AutoFillEntryCoordinate, MemberIndexEntry>{};
-      final observed = <AutoFillEntryCoordinate, String>{};
-      for (final vault in snapshot.vaults.entries) {
-        final binding = vault.value.context.toJson()
-          ..remove('issuedAt')
-          ..remove('notAfter');
-        for (final entry in vault.value.entries) {
-          if (entry.corrupt ||
-              entry.state != MemberEntryState.active ||
-              entry.entryType != EntryType.credential.toWire() ||
-              entry.autofillDomains.isEmpty) {
-            continue;
-          }
-          final coordinate = AutoFillEntryCoordinate(
-            vaultId: vault.key,
-            entryId: entry.entryId,
-          );
-          candidates[coordinate] = entry;
-          observed[coordinate] = jsonEncode([
-            entry.revision,
-            entry.currentKeyVersion,
-            binding,
-          ]);
+    final full = _base == null || _profileBinding != profile;
+    final candidates = <AutoFillEntryCoordinate, MemberIndexEntry>{};
+    final observed = <AutoFillEntryCoordinate, String>{};
+    for (final vault in snapshot.vaults.entries) {
+      final binding = vault.value.context.toJson()
+        ..remove('issuedAt')
+        ..remove('notAfter');
+      for (final entry in vault.value.entries) {
+        if (entry.corrupt ||
+            entry.state != MemberEntryState.active ||
+            entry.entryType != EntryType.credential.toWire() ||
+            entry.autofillDomains.isEmpty) {
+          continue;
         }
+        final coordinate = AutoFillEntryCoordinate(
+          vaultId: vault.key,
+          entryId: entry.entryId,
+        );
+        candidates[coordinate] = entry;
+        observed[coordinate] = jsonEncode([
+          entry.revision,
+          entry.currentKeyVersion,
+          binding,
+        ]);
       }
-      final changed = candidates.keys
-          .where((key) => full || _observed[key] != observed[key])
-          .toList();
-      final present = full
-          ? <AutoFillEntryCoordinate>{}
-          : _present.intersection(candidates.keys.toSet());
-      final records = <AutoFillRecord>[];
-      var completed = 0;
+    }
+    final changed = candidates.keys
+        .where((key) => full || _observed[key] != observed[key])
+        .toList();
+    final present = full
+        ? <AutoFillEntryCoordinate>{}
+        : _present.intersection(candidates.keys.toSet());
+    final records = <AutoFillRecord>[];
+    var completed = 0;
+    onProgress(
+      AutoFillPreparation(
+        AutoFillPreparationPhase.preparing,
+        examined: 0,
+        total: changed.length,
+      ),
+    );
+    try {
+      for (final coordinate in changed) {
+        _requireCurrent(epoch, isCurrent);
+        final index = candidates[coordinate]!;
+        final revealed = await _entries.revealCurrentWithAuthority(
+          vaultId: coordinate.vaultId,
+          entryId: coordinate.entryId,
+          memberPrivateKey: privateKey,
+        );
+        try {
+          _requireCurrent(epoch, isCurrent);
+          final entry = revealed.snapshot.entry;
+          if (entry['id'] != coordinate.entryId ||
+              entry['vaultId'] != coordinate.vaultId ||
+              entry['organizationId'] != claims.organizationId ||
+              entry['state'] != 'active' ||
+              entry['currentRevision'] != index.revision ||
+              entry['currentKeyVersion'] != index.currentKeyVersion ||
+              jsonEncode(revealed.accessContext.toJson()) !=
+                  jsonEncode(
+                    snapshot.vaults[coordinate.vaultId]!.context.toJson(),
+                  )) {
+            throw const FormatException('AutoFill revealed authority changed');
+          }
+          final payload = CredentialPayload.fromJson(revealed.snapshot.payload);
+          final domains =
+              index.autofillDomains
+                  .map(normalizeAutoFillDomain)
+                  .whereType<String>()
+                  .toSet()
+                  .toList()
+                ..sort();
+          if (payload.password.isEmpty || domains.isEmpty) {
+            present.remove(coordinate);
+          } else {
+            present.add(coordinate);
+            records.add(
+              AutoFillRecord(
+                id: coordinate.entryId,
+                organizationId: claims.organizationId,
+                vaultId: coordinate.vaultId,
+                revision: index.revision,
+                keyVersion: index.currentKeyVersion,
+                label: index.memberLabel,
+                username: payload.username,
+                password: payload.password,
+                domains: domains,
+              ),
+            );
+          }
+        } finally {
+          revealed.clear();
+        }
+        onProgress(
+          AutoFillPreparation(
+            AutoFillPreparationPhase.preparing,
+            examined: ++completed,
+            total: changed.length,
+          ),
+        );
+      }
+      if (present.length > maximumAutoFillRecords) {
+        throw StateError('AutoFill cache exceeds device budget');
+      }
+      await _metadata.revalidateAutoFillMetadata(snapshot, authority: claims);
+      final currentClaims = await _authority.current();
+      if (jsonEncode([
+            currentClaims.principalId,
+            currentClaims.organizationId,
+            currentClaims.organizationMembershipGeneration,
+            currentClaims.offlinePolicy,
+            currentClaims.offlinePolicyVersion,
+          ]) !=
+          profile) {
+        throw StateError('AutoFill session authority changed');
+      }
+      _requireCurrent(epoch, isCurrent);
+      final manifest = _manifest(claims, snapshot, candidates, present);
       onProgress(
         AutoFillPreparation(
-          AutoFillPreparationPhase.preparing,
-          examined: 0,
+          AutoFillPreparationPhase.publishing,
+          examined: completed,
           total: changed.length,
         ),
       );
-      try {
-        for (final coordinate in changed) {
-          _requireCurrent(epoch, isCurrent);
-          final index = candidates[coordinate]!;
-          final revealed = await _entries.revealCurrentWithAuthority(
-            vaultId: coordinate.vaultId,
-            entryId: coordinate.entryId,
-            memberPrivateKey: privateKey,
-          );
-          try {
-            _requireCurrent(epoch, isCurrent);
-            final entry = revealed.snapshot.entry;
-            if (entry['id'] != coordinate.entryId ||
-                entry['vaultId'] != coordinate.vaultId ||
-                entry['organizationId'] != claims.organizationId ||
-                entry['state'] != 'active' ||
-                entry['currentRevision'] != index.revision ||
-                entry['currentKeyVersion'] != index.currentKeyVersion ||
-                jsonEncode(revealed.accessContext.toJson()) !=
-                    jsonEncode(
-                      snapshot.vaults[coordinate.vaultId]!.context.toJson(),
-                    )) {
-              throw const FormatException(
-                'AutoFill revealed authority changed',
-              );
-            }
-            final payload = CredentialPayload.fromJson(
-              revealed.snapshot.payload,
-            );
-            final domains =
-                index.autofillDomains
-                    .map(normalizeAutoFillDomain)
-                    .whereType<String>()
-                    .toSet()
-                    .toList()
-                  ..sort();
-            if (payload.password.isEmpty || domains.isEmpty) {
-              present.remove(coordinate);
-            } else {
-              present.add(coordinate);
-              records.add(
-                AutoFillRecord(
-                  id: coordinate.entryId,
-                  organizationId: claims.organizationId,
-                  vaultId: coordinate.vaultId,
-                  revision: index.revision,
-                  keyVersion: index.currentKeyVersion,
-                  label: index.memberLabel,
-                  username: payload.username,
-                  password: payload.password,
-                  domains: domains,
-                ),
-              );
-            }
-          } finally {
-            revealed.clear();
-          }
-          onProgress(
-            AutoFillPreparation(
-              AutoFillPreparationPhase.preparing,
-              examined: ++completed,
-              total: changed.length,
-            ),
-          );
-        }
-        if (present.length > maximumAutoFillRecords) {
-          throw StateError('AutoFill cache exceeds device budget');
-        }
-        await _metadata.revalidateAutoFillMetadata(snapshot, authority: claims);
-        final currentClaims = await _authority.current();
-        if (jsonEncode([
-              currentClaims.principalId,
-              currentClaims.organizationId,
-              currentClaims.organizationMembershipGeneration,
-              currentClaims.offlinePolicy,
-              currentClaims.offlinePolicyVersion,
-            ]) !=
-            profile) {
-          throw StateError('AutoFill session authority changed');
-        }
-        _requireCurrent(epoch, isCurrent);
-        final manifest = _manifest(claims, snapshot, candidates, present);
-        onProgress(
-          AutoFillPreparation(
-            AutoFillPreparationPhase.publishing,
-            examined: completed,
-            total: changed.length,
-          ),
+      // No await may separate these fences from the native CAS invocation.
+      // A committed sync can advance metadata while final claims are awaited.
+      _metadata.validateAutoFillPublication(snapshot);
+      _requireCurrent(epoch, isCurrent);
+      final AutoFillCacheBase acknowledged;
+      if (full) {
+        acknowledged = await _bridge.replaceCacheV3(
+          AutoFillCachePayload(manifest: manifest, records: records),
+          sessionToken: _sessionToken!,
+          writerEpoch: _writerEpoch!,
+          base: _base,
+          releasingDenies: _denies.toList(),
         );
-        final AutoFillCacheBase acknowledged;
-        if (full) {
-          acknowledged = await _bridge.replaceCacheV3(
-            AutoFillCachePayload(manifest: manifest, records: records),
-            sessionToken: _sessionToken!,
-            writerEpoch: _writerEpoch!,
-            base: _base,
-            releasingDenies: _denies.toList(),
-          );
-        } else {
-          acknowledged = await _bridge.applyCacheDelta(
-            base: _base!,
-            writerEpoch: _writerEpoch!,
-            manifest: manifest,
-            upserts: records,
-            removals: _present.difference(present).toList(),
-            releasingDenies: _denies.toList(),
-          );
-        }
-        _requireCurrent(epoch, isCurrent);
-        _requireBase(acknowledged);
-        _base = acknowledged;
-        _observed = observed;
-        _present = present;
-        _profileBinding = profile;
-        _denies.clear();
-        onProgress(
-          AutoFillPreparation(
-            present.isEmpty
-                ? AutoFillPreparationPhase.empty
-                : AutoFillPreparationPhase.ready,
-            examined: completed,
-            total: changed.length,
-          ),
+      } else {
+        acknowledged = await _bridge.applyCacheDelta(
+          base: _base!,
+          writerEpoch: _writerEpoch!,
+          manifest: manifest,
+          upserts: records,
+          removals: _present.difference(present).toList(),
+          releasingDenies: _denies.toList(),
         );
-        return;
-      } on PlatformException catch (error) {
-        if (!full &&
-            attempt == 0 &&
-            error.code == 'AUTOFILL_FULL_RECOVERY_REQUIRED') {
-          _requireCurrent(epoch, isCurrent);
-          full = true;
-          continue;
-        }
-        rethrow;
-      } finally {
-        records.clear();
       }
+      _requireCurrent(epoch, isCurrent);
+      _requireBase(acknowledged);
+      _base = acknowledged;
+      _observed = observed;
+      _present = present;
+      _profileBinding = profile;
+      _denies.clear();
+      onProgress(
+        AutoFillPreparation(
+          present.isEmpty
+              ? AutoFillPreparationPhase.empty
+              : AutoFillPreparationPhase.ready,
+          examined: completed,
+          total: changed.length,
+        ),
+      );
+      return;
+    } finally {
+      records.clear();
     }
   }
 
