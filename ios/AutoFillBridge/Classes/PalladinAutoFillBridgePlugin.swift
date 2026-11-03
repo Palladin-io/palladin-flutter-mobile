@@ -75,8 +75,12 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             result(nil)
             return
         }
-        if ["beginCacheSession", "clearCache", "revokeCacheAccess"].contains(call.method) {
+        if ["beginCacheSession", "revokeCacheAccess"].contains(call.method) {
             incrementalWriter.invalidate()
+        } else if call.method == "clearCache",
+                  let arguments = call.arguments as? [String: Any],
+                  let token = AutoFillV3JSON.positive(arguments["sessionToken"]) {
+            incrementalWriter.invalidate(generation: token)
         }
         let action = {
             do {

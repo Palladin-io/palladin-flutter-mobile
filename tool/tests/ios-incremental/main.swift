@@ -153,3 +153,11 @@ expect(emptyOwner.catalog.denies[emptyOwner.token] == [], "Empty scoped deny sti
 let emptyReleased = try engine.delta(catalog: emptyOwner.catalog, manifest: manifest([:]), upserts: [], removals: [], releasingDenies: [emptyOwner.token], key: key, now: now)
 expect(emptyReleased.denies.isEmpty, "Matching empty owner can be released")
 rejects { _ = try engine.delta(catalog: emptyOwner.catalog, manifest: manifest([:]), upserts: [], removals: [], releasingDenies: ["other-owner"], key: key, now: now) }
+
+let scopedWriter = AutoFillV3Writer()
+let scopedEpoch = try scopedWriter.begin(generation: 9)
+try scopedWriter.install(key: key, keyID: pointer.keyID, epoch: scopedEpoch, generation: 9)
+scopedWriter.invalidate(generation: 8)
+expect(try scopedWriter.openingMaterial(epoch: scopedEpoch, generation: 9).key.count == 32, "Delayed clear for an old generation preserves current writer")
+scopedWriter.invalidate(generation: 9)
+rejects { _ = try scopedWriter.openingMaterial(epoch: scopedEpoch, generation: 9) }

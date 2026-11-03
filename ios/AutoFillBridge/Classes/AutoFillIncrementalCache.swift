@@ -46,8 +46,9 @@ final class AutoFillV3Writer {
         guard self.epoch == epoch else { return }
         wipe(); generation = nil
     }
-    func invalidate() {
+    func invalidate(generation expectedGeneration: Int? = nil) {
         lock.lock(); defer { lock.unlock() }
+        if let expectedGeneration, generation != expectedGeneration { return }
         wipe(); generation = nil
     }
     func withCurrent<T>(epoch: Int, generation: Int, _ operation: () throws -> T) throws -> T {
