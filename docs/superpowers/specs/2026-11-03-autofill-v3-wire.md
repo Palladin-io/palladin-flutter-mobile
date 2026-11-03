@@ -21,13 +21,13 @@ Starts a new ephemeral app writer epoch for the active provider generation. Does
 
 Synchronous native invalidation/wipe of matching writer epoch, bypassing queued writes. Does not revoke provider read generation. A stale end request must not clear a newer writer.
 
-`replaceCacheV3({sessionToken, writerEpoch, payload: {version: 3, manifest, records}}) -> base`
+`replaceCacheV3({sessionToken, writerEpoch, base?, releasingDenies: [], payload: {version: 3, manifest, records}}) -> base`
 
-Publishes complete records and current authority, initializes fresh dedicated writer key and biometric protected provider opening key. Atomic authenticated catalog/fence commit; checked writer epoch immediately before commit. Empty complete cache returns a valid base, but has no provider suggestions.
+Publishes complete records and current authority, initializes fresh dedicated writer key and biometric protected provider opening key. Atomic authenticated catalog/fence commit; checked writer epoch immediately before commit. Empty complete cache returns a valid base, but has no provider suggestions. Replacement of an existing verified catalog requires its exact base and owned denial tokens; unknown owners cannot be erased. Missing/corrupt catalog or lost writer requires the caller to commit the existing global clear under authoritative repair gates before beginning a new writer and full initial publication.
 
 `denyEntries({base, writerEpoch, entries: [coordinate]}) -> {base, denyToken}`
 
-Exact-base CAS, persistent scoped denial and new catalog revision. Acknowledged before remote mutation. Existing picker from older revision must fail final handoff. Missing writer/base is a typed recovery condition requiring global deny before remote mutation; if global deny fails, remote mutation must not start.
+Exact-base CAS (including an empty coordinate list), persistent scoped denial and new catalog revision. Acknowledged before remote mutation. Existing picker from older revision must fail final handoff. Missing writer/base is a typed recovery condition requiring global deny before remote mutation; if global deny fails, remote mutation must not start.
 
 `applyCacheDelta({base, writerEpoch, manifest, upserts: [record], removals: [coordinate], releasingDenies: [denyToken]}) -> base`
 

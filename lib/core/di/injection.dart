@@ -35,6 +35,7 @@ import '../../features/auth/presentation/cubit/totp_enroll_cubit.dart';
 import '../../features/auth/presentation/cubit/verify_email_cubit.dart';
 import '../../features/autofill/data/autofill_cache_bridge.dart';
 import '../../features/autofill/data/autofill_cache_service.dart';
+import '../../features/autofill/data/autofill_incremental_publisher.dart';
 import '../../features/autofill/data/autofill_mutation_notifier.dart';
 import '../../features/autofill/domain/autofill_cache_invalidator.dart';
 import '../../features/onboarding/data/datasources/onboarding_remote_datasource.dart';
@@ -592,6 +593,12 @@ void configureDependencies(EnvConfig config) {
       localEntries: getIt<LocalCurrentEntryService>(),
       bridge: getIt<AutoFillCacheBridge>(),
       memberIndex: getIt<MemberSyncService>(),
+      incremental: AutoFillIncrementalPublisher(
+        bridge: getIt<AutoFillCacheBridge>() as AutoFillIncrementalCacheBridge,
+        metadata: getIt<MemberSyncService>(),
+        authority: getIt<MemberSyncSessionAuthorityProvider>(),
+        entries: getIt<LocalCurrentEntryService>(),
+      ),
     ),
   );
   getIt.registerLazySingleton<AutoFillCacheInvalidator>(

@@ -1,3 +1,5 @@
+import 'package:mobile_palladin/features/autofill/data/autofill_incremental_publisher.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_incremental.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -23,6 +25,8 @@ class _MockMemberIndexPreparationService extends Mock
 
 class _MockLocalCurrentEntryService extends Mock
     implements LocalCurrentEntryService {}
+
+class _MockIncremental extends Mock implements AutoFillIncrementalPublisher {}
 
 class _MockBridge extends Mock implements AutoFillCacheBridge {}
 
@@ -134,8 +138,9 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
       service.suspendPreparation();
+      final rejected = expectLater(operation, throwsStateError);
       ack.complete();
-      await operation;
+      await rejected;
       expect(service.preparation.value.phase.name, 'unknown');
       verifyNever(bridge.revokeCacheAccess);
     },
@@ -1358,6 +1363,166 @@ void main() {
       );
     },
   );
+
+  test(
+    'scoped overlapping mutations retain their complete denial scope',
+    () async {
+      final notifier = AutoFillMutationNotifier();
+      final scopes = <Set<AutoFillEntryCoordinate>?>[];
+      notifier.attachHandler((action) async {
+        scopes.add(notifier.currentMutationScope);
+      });
+      const a = AutoFillEntryCoordinate(vaultId: 'v', entryId: 'a');
+      const b = AutoFillEntryCoordinate(vaultId: 'v', entryId: 'b');
+      final first = await notifier.beginMutation(scope: {a});
+      final second = await notifier.beginMutation(scope: {b});
+      await first.complete();
+      await second.complete();
+      expect(scopes, [
+        {a},
+        {a, b},
+        {a, b},
+      ]);
+      await notifier.notifyChanged();
+      expect(scopes.last, isNull);
+    },
+  );
+
+  test(
+    'unclassified current publication failure globally denies before returning',
+    () async {
+      final incremental = _MockIncremental();
+      when(() => incremental.beginSession(any())).thenAnswer((_) async {});
+      when(incremental.endSession).thenAnswer((_) async {});
+      when(
+        () => incremental.synchronize(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+          isCurrent: any(named: 'isCurrent'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      ).thenThrow(const FormatException('synthetic authority mismatch'));
+      final cache = AutoFillCacheService(
+        indexPreparation: indexPreparation,
+        localEntries: localEntries,
+        bridge: bridge,
+        memberIndex: memberIndex,
+        incremental: incremental,
+      );
+      await cache.beginSession();
+      await expectLater(
+        cache.synchronizePrepared(
+          privateKey: Uint8List(32),
+          vaultIds: const ['vault-1'],
+        ),
+        throwsFormatException,
+      );
+      verify(() => bridge.clearCache(sessionToken: 1)).called(1);
+      verify(incremental.forgetBase).called(1);
+    },
+  );
+
+  for (final clearFails in [false, true]) {
+    test(
+      'stale scoped denial requires durable global clear (fails=$clearFails)',
+      () async {
+        final incremental = _MockIncremental();
+        when(() => incremental.beginSession(any())).thenAnswer((_) async {});
+        when(incremental.endSession).thenAnswer((_) async {});
+        when(
+          () => incremental.deny(null),
+        ).thenThrow(PlatformException(code: 'AUTOFILL_STALE_BASE'));
+        final clearing = Completer<void>();
+        when(
+          () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+        ).thenAnswer((_) => clearing.future);
+        final cache = AutoFillCacheService(
+          indexPreparation: indexPreparation,
+          localEntries: localEntries,
+          bridge: bridge,
+          memberIndex: memberIndex,
+          incremental: incremental,
+        );
+        await cache.beginSession();
+        var acknowledged = false;
+        final invalidation = cache.invalidateEntries(null).then((_) {
+          acknowledged = true;
+        });
+        final result = clearFails
+            ? expectLater(invalidation, throwsStateError)
+            : expectLater(invalidation, completes);
+        await Future<void>.delayed(Duration.zero);
+        expect(acknowledged, isFalse);
+        if (clearFails) {
+          clearing.completeError(StateError('synthetic durability failure'));
+        } else {
+          clearing.complete();
+        }
+        await result;
+        expect(acknowledged, !clearFails);
+      },
+    );
+  }
+
+  test('delayed old clear cannot retire a newer writer session', () async {
+    final incremental = _MockIncremental();
+    final writers = <int>[];
+    final clearing = Completer<void>();
+    var token = 0;
+    when(bridge.beginCacheSession).thenAnswer((_) async => ++token);
+    when(() => incremental.beginSession(any())).thenAnswer((call) async {
+      writers.add(call.positionalArguments.single as int);
+    });
+    when(incremental.endSession).thenAnswer((_) async {});
+    when(
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+    ).thenAnswer((_) => clearing.future);
+    final cache = AutoFillCacheService(
+      indexPreparation: indexPreparation,
+      localEntries: localEntries,
+      bridge: bridge,
+      memberIndex: memberIndex,
+      incremental: incremental,
+    );
+    await cache.beginSession();
+    final oldClear = cache.clear();
+    await Future<void>.delayed(Duration.zero);
+    await cache.beginSession();
+    clearing.complete();
+    await oldClear;
+    expect(writers, [1, 2]);
+    verifyNever(incremental.forgetBase);
+  });
+
+  for (final hangs in [false, true]) {
+    test(
+      'durable revoke bypasses writer cleanup ${hangs ? "hang" : "failure"}',
+      () async {
+        final incremental = _MockIncremental();
+        final pending = Completer<void>();
+        when(() => incremental.beginSession(any())).thenAnswer((_) async {});
+        when(incremental.endSession).thenAnswer(
+          (_) => hangs
+              ? pending.future
+              : Future.error(StateError('synthetic writer failure')),
+        );
+        final cache = AutoFillCacheService(
+          indexPreparation: indexPreparation,
+          localEntries: localEntries,
+          bridge: bridge,
+          memberIndex: memberIndex,
+          incremental: incremental,
+        );
+        await cache.beginSession();
+        try {
+          await cache.revokeAccess().timeout(const Duration(milliseconds: 100));
+          verify(bridge.revokeCacheAccess).called(1);
+        } finally {
+          if (!pending.isCompleted) pending.complete();
+        }
+      },
+    );
+  }
 
   test('mutation notifier distinguishes invalidation from rebuild', () async {
     final notifier = AutoFillMutationNotifier();

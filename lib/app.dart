@@ -297,7 +297,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) unawaited(_autoFillSave.resume());
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       _autoFillSave.background();
     }
     _inboxRepair.setForeground(state == AppLifecycleState.resumed);
@@ -422,7 +423,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           // immediately, not after a potentially slow snapshot/delta fetch.
           final deny = _vaultInvalidationAutoFillDeny ??= _durableAutoFillRepair
               .suspendRepairs();
-          await _autoFillCache.clear();
+          await _autoFillCache.invalidateEntries(null);
           for (final invalidation in batch.values) {
             if (invalidation.removed) {
               await _memberSync.purgeVault(invalidation.vaultId);
@@ -738,7 +739,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         final deny = _durableAutoFillRepair.suspendRepairs();
         _mutationAutoFillDenies.add(deny);
         try {
-          await _autoFillCache.clear();
+          await _autoFillCache.invalidateEntries(
+            _autoFillMutationNotifier.currentMutationScope,
+          );
         } catch (error) {
           AppLogger.w(
             'AutoFill',
@@ -755,7 +758,17 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         }
         // A mutation invalidates the previous cache before rebuilding. If the
         // rebuild fails, leaving AutoFill empty is safer than serving stale data.
-        await _autoFillCache.clear();
+        final completedDenies = Set<AutoFillRepairDeny>.from(
+          _mutationAutoFillDenies,
+        );
+        if (completedDenies.isEmpty) {
+          final deny = _durableAutoFillRepair.suspendRepairs();
+          _mutationAutoFillDenies.add(deny);
+          completedDenies.add(deny);
+          await _autoFillCache.invalidateEntries(
+            _autoFillMutationNotifier.currentMutationScope,
+          );
+        }
         final preparedVaults = await _memberIndexPreparation.prepare(
           state.privateKey!,
           ensureFresh: true,
@@ -763,11 +776,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         await _durableAutoFillRepair.synchronizePreparedIfAllowed(
           privateKey: state.privateKey!,
           vaultIds: preparedVaults.map((vault) => vault.id),
-          releasingDenies: Set<AutoFillRepairDeny>.from(
-            _mutationAutoFillDenies,
-          ),
+          releasingDenies: completedDenies,
         );
-        _mutationAutoFillDenies.clear();
+        _mutationAutoFillDenies.removeAll(completedDenies);
     }
   }
 
@@ -822,9 +833,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 .revoke(token)
                 .timeout(_sessionLossAutoFillOperationTimeout);
           } else {
-            await _generatedPasswordHistory
-                .revokeAllSessions()
-                .timeout(_sessionLossAutoFillOperationTimeout);
+            await _generatedPasswordHistory.revokeAllSessions().timeout(
+              _sessionLossAutoFillOperationTimeout,
+            );
           }
           historyRevoked = true;
         } catch (error) {

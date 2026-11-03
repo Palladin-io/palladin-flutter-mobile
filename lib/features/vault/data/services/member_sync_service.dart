@@ -51,6 +51,38 @@ final class LocalMemberEntryReadInvalidatedException implements Exception {
   const LocalMemberEntryReadInvalidatedException();
 }
 
+/// Value-free authority plus the existing in-memory MemberIndex projection.
+final class MemberAutoFillVaultMetadata {
+  const MemberAutoFillVaultMetadata({
+    required this.context,
+    required this.sequence,
+    required this.entries,
+  });
+  final MemberOfflineAccessContext context;
+  final String sequence;
+  final List<MemberIndexEntry> entries;
+}
+
+final class MemberAutoFillMetadata {
+  const MemberAutoFillMetadata({
+    required this.readGeneration,
+    required this.vaults,
+  });
+  final int readGeneration;
+  final Map<String, MemberAutoFillVaultMetadata> vaults;
+}
+
+abstract interface class MemberAutoFillMetadataReader {
+  Future<MemberAutoFillMetadata> readAutoFillMetadata({
+    required Iterable<String> vaultIds,
+    required MemberSyncSessionAuthority authority,
+  });
+  Future<void> revalidateAutoFillMetadata(
+    MemberAutoFillMetadata snapshot, {
+    required MemberSyncSessionAuthority authority,
+  });
+}
+
 /// Public ciphertext reader for one complete, active local Entry head.
 abstract interface class LocalMemberEntryReader {
   Future<LocalMemberEntryMaterial?> readCurrent({
@@ -140,6 +172,7 @@ final class MemberSyncService
         MemberSyncCoordinator,
         DurableMemberIndexUpdates,
         LocalMemberEntryReader,
+        MemberAutoFillMetadataReader,
         CurrentEntryCacheInvalidator {
   MemberSyncService({
     required MemberSyncRemote remote,
@@ -477,6 +510,75 @@ final class MemberSyncService
               ),
         )
         .toList(growable: false);
+  }
+
+  @override
+  Future<MemberAutoFillMetadata> readAutoFillMetadata({
+    required Iterable<String> vaultIds,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    final generation = _lockGeneration;
+    final result = <String, MemberAutoFillVaultMetadata>{};
+    for (final vaultId in vaultIds.toSet()) {
+      await waitForCurrent(vaultId);
+      _requireReadable(vaultId, generation);
+      final state = await _cache.state(vaultId);
+      _requireReadable(vaultId, generation);
+      final index = _indexes[vaultId];
+      if (state == null || index == null || _profileQuarantined) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+      _validateCachedAuthority(
+        vaultId: vaultId,
+        state: state,
+        authority: authority,
+        allowConnectedDisabledPolicy: true,
+      );
+      result[vaultId] = MemberAutoFillVaultMetadata(
+        context: state.accessContext,
+        sequence: state.sequence,
+        entries: List.unmodifiable(index.values),
+      );
+    }
+    final snapshot = MemberAutoFillMetadata(
+      readGeneration: generation,
+      vaults: Map.unmodifiable(result),
+    );
+    await revalidateAutoFillMetadata(snapshot, authority: authority);
+    return snapshot;
+  }
+
+  @override
+  Future<void> revalidateAutoFillMetadata(
+    MemberAutoFillMetadata snapshot, {
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    if (_profileQuarantined || snapshot.readGeneration != _lockGeneration) {
+      throw const LocalMemberEntryReadInvalidatedException();
+    }
+    for (final vault in snapshot.vaults.entries) {
+      _requireReadable(vault.key, snapshot.readGeneration);
+      final state = await _cache.state(vault.key);
+      _requireReadable(vault.key, snapshot.readGeneration);
+      final index = _indexes[vault.key];
+      if (state == null ||
+          index == null ||
+          state.sequence != vault.value.sequence ||
+          _canonicalJson(state.accessContext.toJson()) !=
+              _canonicalJson(vault.value.context.toJson()) ||
+          index.length != vault.value.entries.length ||
+          vault.value.entries.any(
+            (entry) => !identical(index[entry.entryId], entry),
+          )) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+      _validateCachedAuthority(
+        vaultId: vault.key,
+        state: state,
+        authority: authority,
+        allowConnectedDisabledPolicy: true,
+      );
+    }
   }
 
   /// Returns one immutable runtime-only Vault index for local UI filtering.

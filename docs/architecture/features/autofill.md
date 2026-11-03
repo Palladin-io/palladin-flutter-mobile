@@ -2,9 +2,11 @@
 
 ## Current state
 
-- Flutter rebuilds a dedicated native cache after vault unlock, committed
-  policy-2 snapshot/delta repair, and vault or entry mutations. Rebuild reads
-  only the complete local `MemberIndex + MemberSecret + EntryKey` generation;
+- Flutter prepares a dedicated native cache after vault unlock, committed
+  policy-2 snapshot/delta repair, and vault or entry mutations. Initial/recovery
+  publication reads complete local credentials; v3 updates read complete current
+  metadata and reveal only changed eligible entries. Both paths use the local
+  `MemberIndex + MemberSecret + EntryKey` generation;
   it never calls a legacy Entry list/detail/reveal projection or one endpoint
   per credential. Vault v2 credentials are eligible only when the current
   MemberIndex explicitly authorizes one or more exact AutoFill domains and its
@@ -61,6 +63,42 @@
   It does not request
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
+
+## Incremental native publication
+
+Android and iOS v3 catalogs retain immutable encrypted credential records. Dart
+retains only acknowledged coordinates and authority/revision fingerprints, with
+no credential-body cache. A single changed Entry reveals one body; deletion
+reveals none. Complete current metadata still validates membership, key version,
+policy, original record bindings and effective lease. Retained ciphertext never
+receives a longer lease merely because the catalog is refreshed.
+
+The app-only native writer holder is separate from provider authorization. Lock
+invalidates its epoch and wipes its key; provider reads still require the original
+platform biometric key-opening path. Mutation transport waits for durable scoped
+denial (or durable global-clear fallback). Even an empty scope performs exact-base
+CAS, so a delayed publication acknowledgment cannot authorize mutation against a
+stale catalog. Picker handoff checks both generation and catalog revision.
+
+Immutable record/catalog files are persisted before the authenticated current
+pointer is committed. Missing, expired, quarantined or unverifiable state cannot
+accept a delta; authoritative full recovery first commits global clear. Scoped
+owner tokens are released only through reconciled current publication. Overlapping
+mutations keep independent deny ownership, including across asynchronous preparation.
+
+iOS uses incremental credential-identity operations only with supported OS state
+and an acknowledged preceding revision; otherwise it publishes the complete identity
+projection from the encrypted catalog. Identity metadata is not credential authority.
+Cross-process file locking and revision checks protect publication and final handoff;
+stale identity callbacks cannot acknowledge or erase a newer generation.
+
+Synthetic benchmark `tool/member-preparation-benchmark/main.dart` exercises real
+SQLite, loopback sync transport and production credential crypto. Native crypto/CAS
+fault tests are separate from this benchmark's count-only bridge sink. Desktop
+measurement does not substitute for physical Android/iOS biometric and process-kill QA.
+The frozen bridge contract and design are in
+`docs/superpowers/specs/2026-11-03-autofill-v3-wire.md` and the adjacent incremental
+cache design; no iOS publication is authorized by implementation alone.
 
 ## Android native authentication handoff
 
