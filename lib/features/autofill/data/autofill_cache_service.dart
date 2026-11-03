@@ -54,6 +54,7 @@ class AutoFillCacheService
 
   int beginSourcePreparation() {
     if (_preparationVisible &&
+        !_accessRevoked &&
         (_preparation.value.phase == AutoFillPreparationPhase.unknown ||
             _preparation.value.phase == AutoFillPreparationPhase.failed)) {
       _report(
@@ -205,6 +206,11 @@ class AutoFillCacheService
     // security boundary into a successful no-op.
     await _sessionActivation;
     ++_generation;
+    // A queued acknowledgement may have completed during activation's await.
+    _report(
+      _generation,
+      const AutoFillPreparation(AutoFillPreparationPhase.unknown),
+    );
     final token = _sessionToken ?? _cleanupToken;
     if (token == null) {
       if (_nativeBridgeUnavailable) return;

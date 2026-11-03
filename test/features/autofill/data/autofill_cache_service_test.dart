@@ -224,6 +224,44 @@ void main() {
     },
   );
 
+  test('source warmup cannot hide a failed native activation', () async {
+    when(
+      bridge.beginCacheSession,
+    ).thenThrow(StateError('synthetic activation failure'));
+    await service.beginSession();
+    service.beginSourcePreparation();
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: [_vault().id],
+    );
+    expect(service.preparation.value.phase.name, 'failed');
+  });
+
+  test(
+    'clear fences a queued publication acknowledgement before reporting unknown',
+    () async {
+      stubCredentialRebuild();
+      final ack = Completer<void>();
+      when(
+        () => bridge.replaceCache(
+          any(),
+          sessionToken: any(named: 'sessionToken'),
+        ),
+      ).thenAnswer((_) => ack.future);
+      final operation = service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: [_vault().id],
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(service.preparation.value.phase.name, 'publishing');
+      ack.complete();
+      final clearing = service.clear();
+      await operation;
+      await clearing;
+      expect(service.preparation.value.phase.name, 'unknown');
+    },
+  );
+
   test('synthetic AutoFill rebuild opens each eligible credential once', () async {
     for (final count in [100, 500]) {
       for (final delayMs in [0, 2]) {
