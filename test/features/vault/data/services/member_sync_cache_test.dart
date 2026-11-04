@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -60,6 +61,49 @@ void main() {
   });
 
   tearDown(() => database.close());
+
+  test('concurrent first readers share one database open', () async {
+    final opened = Completer<Database>();
+    var opens = 0;
+    cache = SqliteMemberSyncCache(
+      databaseLoader: () {
+        opens++;
+        return opened.future;
+      },
+    );
+    final first = cache.vaultIds();
+    final second = cache.state(snapshot.accessContext.vaultId);
+    opened.complete(database);
+    expect(await first, isEmpty);
+    expect(await second, isNull);
+    expect(opens, 1);
+  });
+
+  test('failed first open can be retried by a later reader', () async {
+    var opens = 0;
+    cache = SqliteMemberSyncCache(
+      databaseLoader: () async {
+        if (++opens == 1) throw StateError('synthetic open failure');
+        return database;
+      },
+    );
+    await expectLater(cache.vaultIds(), throwsStateError);
+    expect(await cache.vaultIds(), isEmpty);
+    expect(opens, 2);
+  });
+
+  test('synchronous loader failure does not poison later reads', () async {
+    var opens = 0;
+    cache = SqliteMemberSyncCache(
+      databaseLoader: () {
+        if (++opens == 1) throw StateError('synthetic synchronous failure');
+        return Future.value(database);
+      },
+    );
+    await expectLater(cache.vaultIds(), throwsStateError);
+    expect(await cache.vaultIds(), isEmpty);
+    expect(opens, 2);
+  });
 
   test('snapshot stays unreadable until closing delta promotion', () async {
     final vaultId = snapshot.accessContext.vaultId;

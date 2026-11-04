@@ -84,8 +84,21 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
   final Future<Database> Function() _databaseLoader;
   final int maximumProfileCacheBytes;
   Database? _database;
+  Future<Database>? _opening;
 
-  Future<Database> get _db async => _database ??= await _databaseLoader();
+  Future<Database> get _db {
+    final database = _database;
+    if (database != null) return Future.value(database);
+    return _opening ??= _loadDatabase();
+  }
+
+  Future<Database> _loadDatabase() async {
+    try {
+      return _database = await Future<Database>.sync(_databaseLoader);
+    } finally {
+      _opening = null;
+    }
+  }
 
   static Future<Database> _openDatabase() async {
     final support = await getApplicationSupportDirectory();
