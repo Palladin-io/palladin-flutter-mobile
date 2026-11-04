@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
+
+class _NativeStorage extends Mock implements FlutterSecureStorage {}
 
 class _MockTokenStorage extends Mock implements SecureTokenStorage {}
 
@@ -15,6 +19,86 @@ String _token(Map<String, Object?> payload) {
 }
 
 void main() {
+  test(
+    'preparation snapshot reads once and rejects refresh save clear and other owner',
+    () async {
+      final native = _NativeStorage();
+      var reads = 0;
+      final token = _token({
+        'sub': 'member',
+        'org_id': 'org',
+        'authz_ver': '1',
+        'org_offline_policy': 3,
+        'org_offline_policy_ver': 1,
+      });
+      when(() => native.read(key: any(named: 'key'))).thenAnswer((_) async {
+        reads++;
+        return token;
+      });
+      when(
+        () => native.write(
+          key: any(named: 'key'),
+          value: any(named: 'value'),
+        ),
+      ).thenAnswer((_) async {});
+      when(() => native.deleteAll()).thenAnswer((_) async {});
+      final storage = SecureTokenStorage(native);
+      final provider = MemberSyncSessionAuthorityProvider(storage);
+      final snapshot = await provider.captureForPreparation();
+      for (var index = 0; index < 200; index++) {
+        snapshot.validateCurrent();
+      }
+      expect(reads, 1);
+      expect(
+        () => snapshot.requireProvider(
+          MemberSyncSessionAuthorityProvider(storage),
+        ),
+        throwsStateError,
+      );
+      snapshot.requireProvider(provider);
+      await storage.updateTokens(accessToken: token, refreshToken: 'synthetic');
+      expect(snapshot.validateCurrent, throwsStateError);
+      final refreshed = await provider.captureForPreparation();
+      final save = storage.saveTokens(
+        accessToken: token,
+        refreshToken: 'synthetic',
+        userId: 'member',
+        isOnboarded: true,
+      );
+      expect(refreshed.validateCurrent, throwsStateError);
+      await save;
+      final saved = await provider.captureForPreparation();
+      final clear = storage.clearAll();
+      expect(saved.validateCurrent, throwsStateError);
+      await clear;
+    },
+  );
+
+  test('mutation while token read is pending rejects capture', () async {
+    final native = _NativeStorage();
+    final read = Completer<String?>();
+    when(
+      () => native.read(key: any(named: 'key')),
+    ).thenAnswer((_) => read.future);
+    when(() => native.deleteAll()).thenAnswer((_) async {});
+    final storage = SecureTokenStorage(native);
+    final provider = MemberSyncSessionAuthorityProvider(storage);
+    final capture = provider.captureForPreparation();
+    final rejected = expectLater(capture, throwsStateError);
+    await Future<void>.delayed(Duration.zero);
+    await storage.clearAll();
+    read.complete(
+      _token({
+        'sub': 'member',
+        'org_id': 'org',
+        'authz_ver': '1',
+        'org_offline_policy': 3,
+        'org_offline_policy_ver': 1,
+      }),
+    );
+    await rejected;
+  });
+
   test('binds membership and offline policy claims from the token', () async {
     final storage = _MockTokenStorage();
     when(() => storage.accessToken).thenAnswer(

@@ -79,11 +79,24 @@ class LocalCurrentEntryService {
     memberPrivateKey: memberPrivateKey,
   );
 
+  Future<LocalCurrentEntryReveal> revealPreparedWithAuthority({
+    required String vaultId,
+    required String entryId,
+    required Uint8List memberPrivateKey,
+    required MemberPreparationAuthority authority,
+  }) => _reveal(
+    vaultId: vaultId,
+    entryId: entryId,
+    memberPrivateKey: memberPrivateKey,
+    preparationAuthority: authority,
+  );
+
   Future<LocalCurrentEntryReveal> _reveal({
     required String vaultId,
     required String entryId,
     required Uint8List memberPrivateKey,
     EntryEntity? expected,
+    MemberPreparationAuthority? preparationAuthority,
   }) async {
     Uint8List? vaultKey;
     Map<String, dynamic>? canonical;
@@ -91,12 +104,15 @@ class LocalCurrentEntryService {
     Map<String, dynamic>? adaptedPayload;
     var returningSnapshot = false;
     try {
-      final authority = await _authorityProvider.current();
+      preparationAuthority?.requireProvider(_authorityProvider);
+      final authority =
+          preparationAuthority?.claims ?? await _authorityProvider.current();
       final material = await _reader.readCurrent(
         vaultId: vaultId,
         entryId: entryId,
         authority: authority,
       );
+      preparationAuthority?.validateCurrent();
       if (material == null) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.notFound,
@@ -119,11 +135,13 @@ class LocalCurrentEntryService {
         expectedVaultKeyVersion: material.accessContext.vaultKeyVersion,
         expectedMemberKeyGeneration: material.accessContext.memberKeyGeneration,
       );
+      preparationAuthority?.validateCurrent();
       canonical = await _entryCrypto.openMemberSecret(
         entryKey: item.entryKey!,
         memberSecret: item.memberSecret!,
         vaultKey: vaultKey,
       );
+      preparationAuthority?.validateCurrent();
       adaptedSecret = _canonicalAdapter.adaptCanonicalSecret(canonical);
       final payload = adaptedSecret['content'];
       if (payload is! Map) {
@@ -136,6 +154,7 @@ class LocalCurrentEntryService {
         material: material,
         authority: authority,
       );
+      preparationAuthority?.validateCurrent();
       returningSnapshot = true;
       return LocalCurrentEntryReveal(
         snapshot: CanonicalEntrySnapshot(

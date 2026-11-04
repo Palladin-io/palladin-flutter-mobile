@@ -9,6 +9,14 @@ class MemberSyncSessionAuthorityProvider {
 
   final SecureTokenStorage _tokenStorage;
 
+  Future<MemberPreparationAuthority> captureForPreparation() async {
+    final revision = _tokenStorage.authorityRevision;
+    final claims = await current();
+    final snapshot = MemberPreparationAuthority._(this, claims, revision);
+    snapshot.validateCurrent();
+    return snapshot;
+  }
+
   Future<MemberSyncSessionAuthority> current() async {
     final token = await _tokenStorage.accessToken;
     final payload = token == null
@@ -54,5 +62,27 @@ class MemberSyncSessionAuthorityProvider {
       offlinePolicy: policy,
       offlinePolicyVersion: policyVersion,
     );
+  }
+}
+
+/// Valid only within one preparation operation. Carries no token or key.
+/// Offline duration remains governed by the authenticated Member cache lease.
+final class MemberPreparationAuthority {
+  MemberPreparationAuthority._(this._owner, this.claims, this._revision);
+  final MemberSyncSessionAuthorityProvider _owner;
+  final MemberSyncSessionAuthority claims;
+  final int _revision;
+
+  void validateCurrent() {
+    if (_owner._tokenStorage.authorityRevision != _revision) {
+      throw StateError('Member preparation authority changed');
+    }
+  }
+
+  void requireProvider(MemberSyncSessionAuthorityProvider provider) {
+    if (!identical(_owner, provider)) {
+      throw StateError('Member preparation authority owner mismatch');
+    }
+    validateCurrent();
   }
 }
