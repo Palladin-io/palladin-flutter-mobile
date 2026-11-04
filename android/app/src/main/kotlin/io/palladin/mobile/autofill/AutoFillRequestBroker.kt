@@ -46,6 +46,20 @@ internal object AutoFillRequestBroker {
             return epoch
         }
     }
+    fun sourceSnapshot(): Map<String, Any>? = source.snapshot()?.let {
+        mapOf("sourceEpoch" to it.epoch, "profileDigest" to it.profile)
+    }
+    fun revokeSnapshot(epoch: Long, profile: String): Long {
+        try {
+            val result = source.revokeSnapshot(epoch, profile)
+            sourceSession = null
+            cancel(null)
+            return result
+        } catch (error: Exception) {
+            if ((error as? AutoFillSourceException)?.code != "SOURCE_STALE_SNAPSHOT") cancel(null)
+            throw error
+        }
+    }
     fun activate(session: String, epoch: Long) = source.activate(session, epoch)
     fun invalidate(session: String, epoch: Long): Long = synchronized(AutoFillMutationLock.monitor) {
         val result = source.invalidate(session, epoch)

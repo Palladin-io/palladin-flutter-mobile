@@ -46,6 +46,35 @@ class AutoFillSourceAuthorityTest {
         source.activate("session", ownerB)
         assertTrue(source.current("profile", "session", ownerB))
     }
+    @Test fun `cold snapshot revoke denies durable source without restoring session`() {
+        val live = authority()
+        val epoch = live.begin("profile", "session")
+        live.activate("session", epoch)
+        val restarted = authority()
+        val snapshot = restarted.snapshot()!!
+        assertFalse(restarted.current("profile", "session", epoch))
+        val denied = restarted.revokeSnapshot(snapshot.epoch, snapshot.profile)
+        assertEquals(epoch + 1, denied)
+        assertEquals(AutoFillSourceFence(denied, "profile", false), disk)
+    }
+    @Test fun `old snapshot cannot revoke a newly established session`() {
+        val source = authority()
+        source.begin("profile", "old")
+        val old = source.snapshot()!!
+        val newer = source.begin("profile", "new")
+        source.activate("new", newer)
+        rejected { source.revokeSnapshot(old.epoch, old.profile) }
+        assertTrue(source.current("profile", "new", newer))
+        rejected { source.revokeSnapshot(newer, "wrong-profile") }
+        assertTrue(source.current("profile", "new", newer))
+    }
+    @Test fun `absent snapshot is not authority to fabricate a revoke`() {
+        val source = authority()
+        assertNull(source.snapshot())
+        assertNull(source.snapshot())
+        rejected { source.revokeSnapshot(1, "profile") }
+        assertNull(disk)
+    }
     @Test fun `failed durable denial never acknowledges or permits handoff`() {
         var failWrite = false
         val source = AutoFillSourceAuthority({ disk }, { if (failWrite) error("synthetic write failure") else disk = it })

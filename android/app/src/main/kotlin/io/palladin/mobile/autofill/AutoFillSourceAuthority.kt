@@ -55,6 +55,18 @@ internal class AutoFillSourceAuthority(
         value.epoch
     }
 
+    fun snapshot(): AutoFillSourceFence? = synchronized(AutoFillMutationLock.monitor) { read() }
+
+    fun revokeSnapshot(epoch: Long, profile: String): Long = synchronized(AutoFillMutationLock.monitor) {
+        val current = read() ?: throw AutoFillSourceException("SOURCE_UNAVAILABLE")
+        if (current.epoch != epoch || current.profile != profile) throw AutoFillSourceException("SOURCE_STALE_SNAPSHOT")
+        admitted = false
+        session = null
+        val denied = current.copy(epoch = Math.addExact(epoch, 1), active = false)
+        write(denied)
+        denied.epoch
+    }
+
     fun lock(session: String) = synchronized(AutoFillMutationLock.monitor) {
         if (this.session == session) { this.session = null; admitted = false }
     }

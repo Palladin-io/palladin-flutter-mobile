@@ -53,14 +53,18 @@ internal class AutoFillSourceStore(context: Context) {
     private val integrity = AutoFillCacheStore(context)
     val authority = AutoFillSourceAuthority(::read, ::write)
     private fun read(): AutoFillSourceFence? {
-        if (!file.exists()) return null
-        require(file.isFile && file.length() in 1..4096)
-        val bytes = file.readBytes()
-        return try { AutoFillSourceFenceCodec.decode(bytes, integrity::sourceControlMac) }
-        finally { bytes.fill(0) }
+        try {
+            if (!file.exists()) return null
+            require(file.isFile && file.length() in 1..4096)
+            val bytes = file.readBytes()
+            return try { AutoFillSourceFenceCodec.decode(bytes, integrity::sourceControlMac) }
+            finally { bytes.fill(0) }
+        } catch (_: Exception) { throw AutoFillSourceException("SOURCE_UNAVAILABLE") }
     }
     private fun write(value: AutoFillSourceFence) {
         val bytes = AutoFillSourceFenceCodec.encode(value, integrity::sourceControlMac)
-        try { AutoFillAtomicFileWriter.write(file, bytes) } finally { bytes.fill(0) }
+        try { AutoFillAtomicFileWriter.write(file, bytes) }
+        catch (_: Exception) { throw AutoFillSourceException("SOURCE_UNAVAILABLE") }
+        finally { bytes.fill(0) }
     }
 }

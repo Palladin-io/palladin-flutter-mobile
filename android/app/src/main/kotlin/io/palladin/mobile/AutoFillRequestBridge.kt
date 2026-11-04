@@ -36,6 +36,8 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
                 fun selection() = AutoFillSelection(string("vaultId"), string("entryId"), string("selectedHost"))
                 when (call.method) {
                     "pending" -> result.success(AutoFillRequestBroker.pending())
+                    "sourceSnapshot" -> result.success(AutoFillRequestBroker.sourceSnapshot())
+                    "revokeSource" -> result.success(AutoFillRequestBroker.revokeSnapshot(number("sourceEpoch"), string("profileDigest")))
                     "beginSourceSession" -> result.success(AutoFillRequestBroker.beginSession(AutoFillSourceProfile(
                         string("principalId"), string("organizationId"), string("organizationMembershipGeneration"),
                         string("offlinePolicy"), Math.toIntExact(number("offlinePolicyVersion")), string("profileBinding")), string("sessionId")))
