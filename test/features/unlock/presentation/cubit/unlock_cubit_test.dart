@@ -87,7 +87,7 @@ void main() {
 
   void stubPasswordUnlockSuccess() {
     when(
-      () => datasource.getAccount(),
+      () => datasource.getUnlockAccount(),
     ).thenAnswer((_) async => accountResponse);
     when(
       () => crypto.deriveAndDecrypt(
@@ -173,7 +173,7 @@ void main() {
           await pause('read');
           return recovered;
         });
-        when(() => datasource.getAccount()).thenAnswer((_) async {
+        when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
           await pause('account');
           return accountResponse;
         });
@@ -231,7 +231,7 @@ void main() {
           }
         });
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.decryptWithMasterKey(
@@ -276,7 +276,7 @@ void main() {
         final events = <String>[];
         final mk = Uint8List.fromList(List.filled(32, 31));
         final pk = Uint8List.fromList(List.filled(32, 32));
-        when(() => datasource.getAccount()).thenAnswer((_) async {
+        when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
           events.add('account');
           return accountResponse;
         });
@@ -342,7 +342,7 @@ void main() {
       'password unlock fails before crypto when account setup is incomplete',
       build: () {
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => const AccountResponse(userId: 'account-id'));
         return buildCubit();
       },
@@ -426,7 +426,7 @@ void main() {
         final droppedMasterKey = Uint8List.fromList(List.filled(32, 0xCC));
         final droppedPrivateKey = Uint8List.fromList(List.filled(32, 0xDD));
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.deriveAndDecrypt(
@@ -488,7 +488,7 @@ void main() {
       'unlock emits [Loading, Failed] on wrong master password',
       build: () {
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.deriveAndDecrypt(
@@ -523,7 +523,7 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlock emits Failed(SessionExpiredException) on a 401 from getAccount',
       build: () {
-        when(() => datasource.getAccount()).thenThrow(
+        when(() => datasource.getUnlockAccount()).thenThrow(
           DioException(
             requestOptions: RequestOptions(path: '/api/account'),
             response: Response<dynamic>(
@@ -560,7 +560,7 @@ void main() {
       act: (cubit) => cubit.unlock(''),
       expect: () => const <UnlockState>[],
       verify: (_) {
-        verifyNever(() => datasource.getAccount());
+        verifyNever(() => datasource.getUnlockAccount());
       },
     );
 
@@ -626,7 +626,7 @@ void main() {
           () => keyStore.unlockKey(any()),
         ).thenAnswer((_) async => masterKey);
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.decryptWithMasterKey(
@@ -648,4 +648,53 @@ void main() {
       ],
     );
   });
+  for (final outcome in ['success', 'request-ended', 'locked', 'disposed']) {
+    test('async request binding precedes account crypto: $outcome', () async {
+      final binding = Completer<Future<void> Function()?>();
+      final events = <String>[];
+      when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
+        events.add('account');
+        return accountResponse;
+      });
+      when(
+        () => crypto.deriveAndDecrypt(
+          masterPassword: any(named: 'masterPassword'),
+          accountId: any(named: 'accountId'),
+          kdf: any(named: 'kdf'),
+          encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+        ),
+      ).thenAnswer((_) async {
+        events.add('crypto');
+        return UnlockResult(
+          masterKey: Uint8List(32),
+          privateKey: Uint8List(32),
+        );
+      });
+      final cubit = UnlockCubit(
+        datasource: datasource,
+        cryptoService: crypto,
+        keyStore: keyStore,
+        defaultVaultProvisioner: defaultVaultProvisioner,
+        captureRequestAuthorization: () => binding.future,
+      );
+      final unlocking = cubit.unlock('synthetic');
+      await Future<void>.delayed(Duration.zero);
+      expect(events, isEmpty);
+      if (outcome == 'locked') when(() => keyStore.generation).thenReturn(1);
+      if (outcome == 'disposed') await cubit.close();
+      if (outcome == 'request-ended') {
+        binding.completeError(StateError('Request ended'));
+      } else {
+        binding.complete(() async => events.add('authorize'));
+      }
+      await unlocking;
+      expect(
+        events,
+        outcome == 'success' ? ['account', 'crypto', 'authorize'] : isEmpty,
+      );
+      if (outcome == 'success') expect(cubit.state, isA<UnlockSuccess>());
+      if (outcome == 'request-ended') expect(cubit.state, isA<UnlockFailed>());
+      if (!cubit.isClosed) await cubit.close();
+    });
+  }
 }

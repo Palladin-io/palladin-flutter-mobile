@@ -41,6 +41,74 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
+  const prompt = BiometricPromptCopy(
+    promptTitle: 'Unlock',
+    enrollTitle: 'Enroll',
+    accessTitle: 'Read',
+    cancelLabel: 'Cancel',
+  );
+
+  test(
+    'request-owned native unlock is used without a second plugin prompt',
+    () async {
+      var prompts = 0;
+      store = BiometricStorageKeyStore(
+        markerStorage: const FlutterSecureStorage(),
+        activeRequestUnlock: () => (_) async {
+          prompts++;
+          return Uint8List.fromList(List.filled(32, 7));
+        },
+      );
+      final key = await store.unlockKey(prompt);
+      expect(key, hasLength(32));
+      expect(prompts, 1);
+      key!.fillRange(0, key.length, 0);
+    },
+  );
+
+  test(
+    'request cancellation never falls back to a normal unlock prompt',
+    () async {
+      store = BiometricStorageKeyStore(
+        markerStorage: const FlutterSecureStorage(),
+        activeRequestUnlock: () =>
+            (_) async => throw const BiometricAuthException(
+              BiometricAuthFailureReason.canceled,
+            ),
+      );
+      await expectLater(
+        store.unlockKey(prompt),
+        throwsA(
+          isA<BiometricAuthException>().having(
+            (e) => e.reason,
+            'reason',
+            BiometricAuthFailureReason.canceled,
+          ),
+        ),
+      );
+    },
+  );
+
+  test('clear during request-owned unlock wipes its late key', () async {
+    final pending = Completer<Uint8List?>();
+    final entered = Completer<void>();
+    store = BiometricStorageKeyStore(
+      markerStorage: const FlutterSecureStorage(),
+      activeRequestUnlock: () => (_) {
+        entered.complete();
+        return pending.future;
+      },
+    );
+    final unlock = store.unlockKey(prompt);
+    await entered.future;
+    final clear = store.clear();
+    final key = Uint8List.fromList(List.filled(32, 7));
+    pending.complete(key);
+    await expectLater(unlock, throwsA(isA<BiometricAuthException>()));
+    await clear;
+    expect(key, everyElement(0));
+  });
+
   test('an unlock started before clear cannot enroll afterward', () async {
     final generation = store.generation;
     await store.clear();

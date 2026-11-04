@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -43,7 +44,8 @@ class UnlockCubit extends Cubit<UnlockState> {
   final UnlockCryptoService cryptoService;
   final BiometricKeyStore keyStore;
   final DefaultVaultProvisioner defaultVaultProvisioner;
-  final Future<void> Function()? Function()? captureRequestAuthorization;
+  final FutureOr<Future<void> Function()?> Function()?
+  captureRequestAuthorization;
 
   /// Runs the master-password unlock pipeline.
   ///
@@ -58,8 +60,9 @@ class UnlockCubit extends Cubit<UnlockState> {
     UnlockResult? result;
     var keysHandedOff = false;
     try {
-      final authorizeRequest = captureRequestAuthorization?.call();
-      final account = await datasource.getAccount();
+      final authorizeRequest = await captureRequestAuthorization?.call();
+      if (canceled()) return;
+      final account = await datasource.getUnlockAccount();
       if (canceled()) return;
       final kdf = account.kdf;
       final encryptedPrivateKey = account.encryptedPrivateKey;
@@ -153,7 +156,7 @@ class UnlockCubit extends Cubit<UnlockState> {
         return;
       }
 
-      final account = await datasource.getAccount();
+      final account = await datasource.getUnlockAccount();
       if (canceled()) return;
       final encryptedPrivateKey = account.encryptedPrivateKey;
       if (encryptedPrivateKey == null) {
