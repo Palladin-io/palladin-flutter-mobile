@@ -1,12 +1,24 @@
 # auth
 
-Identity password accounts use only the frozen password-only KDF profile
-`identity-argon2id-password-v1` (`securityVersion: 1`). The exact UTF-8
-password and random 16-byte account salt feed Argon2id (32 MiB, 2 iterations,
-parallelism 1) to produce AccountRoot; HKDF-SHA256 with the RFC 4122 account-id
-bytes as Extract salt derives separate AuthCredential and master-key outputs.
-Only AuthCredential crosses TLS. There is no Account Secret, legacy profile,
-migration endpoint, fallback, or persistent client KDF secret.
+New and upgraded password accounts use `identity-argon2id-account-secret-v2`
+(`securityVersion: 2`, `identity-kdf/v2` with the v3 addendum). The password
+is pre-hashed with HMAC-SHA256 keyed by the 32-byte Secret Key (Account
+Secret), then Argon2id (32 MiB, 2 iterations, parallelism 1) runs over the
+pre-hash with the account salt; HKDF-SHA256 with
+`SHA-256(PLDNID2HK || u16(2) || accountId || kdfSalt)` as salt derives
+AuthCredential and the master key. Only AuthCredential crosses TLS; the Secret
+Key never does. `identity-argon2id-password-v1` remains only to unlock and
+migrate a version-1 account (see [security upgrade](security-upgrade.md)).
+
+Registration generates the Secret Key and an X-Wing member key
+(`palladin-xwing-v1`, 32-byte seed), stores the Secret Key with
+`AccountSecretStore` only after the server accepts the account, and shows the
+mandatory Emergency Kit step before the session is unlocked. Login reads the
+Secret Key from `AccountSecretStore`; without it `LoginSecretKeyRequired`
+opens the [Secret Key acquisition](secret-key.md) page and a received key is
+stored only after the server accepts the derived credential. A version-1
+login signs in locked (`LoginSucceededLocked`), so the unlock screen runs the
+upgrade. Sign-out deletes this account's Secret Key copy.
 
 The anonymous login bootstrap is shape-identical for registered and unknown
 emails. Unknown emails receive a stable deterministic UUIDv4 AccountId and KDF

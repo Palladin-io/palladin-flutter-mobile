@@ -21,4 +21,12 @@ light backgrounds and the existing per-step layout remain unchanged.
   `PUT /api/account/recovery`. Any failure is one `RecoveryChallengeException`;
   the proof is wiped after upload. Vectors: `test/fixtures/account-recovery-challenge-v1/`.
 
+- **Version 2:** a security-version-2 account receives the X-Wing
+  `recoveryChallenge` v2 (1168 B, `RecoveryChallengeV2Crypto`). Recovery keeps
+  the member key and the account's profile, but generates a new Secret Key,
+  KDF salt and recovery phrase. After `PUT /api/account/recovery` succeeds the
+  old Secret Key copy is deleted, the new one stored, and the new Emergency
+  Kit is shown before the new phrase. A version-1 account recovers in version
+  1 and upgrades on its next unlock.
+
 **Cross-feature deps:** `vault` (`VaultProtocolBytes` strict base64url), `onboarding` (mnemonic utilities + shared widgets), `auth` (post-recovery sign-in state).

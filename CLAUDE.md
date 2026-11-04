@@ -44,6 +44,7 @@ The **shared widget catalog lives in this file** (see "## Shared Widget Catalog"
 | api_keys | `docs/architecture/features/api_keys.md` |
 | autofill | `docs/architecture/features/autofill.md` |
 | secret_key | `docs/architecture/features/secret-key.md` |
+| security_upgrade | `docs/architecture/features/security-upgrade.md` |
 
 ## Explicit variants and contracts
 
