@@ -128,7 +128,12 @@ This is call-count evidence, not a physical performance claim.
 The startup supersession mechanism now has a deterministic RED→GREEN:
 36 coordinator tests confirm serialized native calls, independent acknowledgement
 of newer commits, session/deny cancellation and no resurrection of removed Vaults.
-The combined candidate includes the reviewed progress colors; complete validation
-and serialization review are in progress. Next: exact-candidate CI and physical
+The combined candidate includes reviewed progress colors and Home attachment
+deduplication. Real Home→repository→preparer→durable-update tests reduce repeated
+mounts from two synchronizations to one while explicit authoritative refresh
+remains active. Direct session replacement invalidates Vault-list and shared
+preparer state before reattaching search; held-old-load and old/new-principal
+regressions pass. All corrective changes have independent clean security review;
+complete combined validation is in progress. Next: exact-candidate CI and physical
 S22 lifecycle/AutoFill checks before merge and Android Internal Testing. Root owns device diagnostics, PR stack integration and release. No iOS
 publication; diagnostics remain isolated from production commits.

@@ -64,6 +64,17 @@
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
+## Home search attachment
+
+Repeated Home mounts share completed search preparation within the current
+unlocked principal and lock epoch. Each mounted search cubit still queries the
+current index; no query results, index snapshot or key is cached by this gate.
+Failure permits retry. Authoritative unlock/resume/reconnect/mutation preparation
+remains separate and can refresh ciphertext even after Home preparation completes.
+Direct unlocked-session replacement first clears search state, the Vault list and
+shared Member index preparation, then prepares active search views with the new
+session. Old in-flight work cannot become the new session's completed preparation.
+
 ## Incremental native publication
 
 Android and iOS v3 catalogs retain immutable encrypted credential records. Dart
