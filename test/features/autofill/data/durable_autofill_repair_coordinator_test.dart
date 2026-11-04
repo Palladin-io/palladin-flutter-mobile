@@ -58,6 +58,177 @@ void main() {
   });
 
   test(
+    'new commit queues publication behind the active foreground repair',
+    () async {
+      final firstNative = Completer<void>();
+      final followupNative = Completer<void>();
+      var calls = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) {
+        calls++;
+        return calls == 1 ? firstNative.future : followupNative.future;
+      });
+      final first = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a'],
+      );
+      updates.add('vault-a');
+      var secondFinished = false;
+      final second = coordinator
+          .synchronizePreparedIfAllowed(
+            privateKey: session!.privateKey,
+            vaultIds: const ['vault-a'],
+          )
+          .then((value) {
+            secondFinished = true;
+            return value;
+          });
+      final earlyCalls = calls;
+      firstNative.complete();
+      await first;
+      await Future<void>.delayed(Duration.zero);
+      final lateCalls = calls;
+      final prematurelyAcknowledged = secondFinished;
+      followupNative.complete();
+      await second;
+      await coordinator.drainPending();
+      expect(earlyCalls, 1);
+      expect(lateCalls, 2);
+      expect(prematurelyAcknowledged, isFalse);
+      expect(calls, 2);
+    },
+  );
+
+  test(
+    'latest complete Vault set rejects stale queued sets without resurrecting removals',
+    () async {
+      final native = Completer<void>();
+      final published = <Set<String>>[];
+      var active = 0;
+      var peak = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((call) async {
+        published.add(
+          Set<String>.from(call.namedArguments[#vaultIds] as Iterable<String>),
+        );
+        active++;
+        if (active > peak) peak = active;
+        try {
+          if (published.length == 1) await native.future;
+        } finally {
+          active--;
+        }
+      });
+      final first = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['a'],
+      );
+      final stale = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['a', 'b'],
+      );
+      final rejected = expectLater(stale, throwsStateError);
+      final latest = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['c'],
+      );
+      native.complete();
+      await first;
+      await rejected;
+      await latest;
+      expect(published, [
+        {'a'},
+        {'c'},
+      ]);
+      expect(peak, 1);
+    },
+  );
+
+  test(
+    'new authorized owner waits for failed old publication then repairs',
+    () async {
+      final native = Completer<void>();
+      var calls = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) {
+        calls++;
+        return calls == 1 ? native.future : Future<void>.value();
+      });
+      final first = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['a'],
+      );
+      final rejected = expectLater(first, throwsStateError);
+      final deny = coordinator.suspendRepairs();
+      final next = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['a'],
+        releasingDenies: {deny},
+      );
+      expect(calls, 1);
+      native.completeError(StateError('old native failure'));
+      await rejected;
+      expect(await next, isTrue);
+      expect(calls, 2);
+    },
+  );
+
+  for (final boundary in ['deny', 'lock', 'identity']) {
+    test('queued foreground publication stops after $boundary', () async {
+      final native = Completer<void>();
+      var calls = 0;
+      when(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenAnswer((_) {
+        calls++;
+        return native.future;
+      });
+      final first = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a'],
+      );
+      updates.add('vault-a');
+      final second = coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a'],
+      );
+      final rejected = expectLater(second, throwsStateError);
+      switch (boundary) {
+        case 'deny':
+          coordinator.suspendRepairs();
+        case 'lock':
+          coordinator.clearSession();
+          session = null;
+        case 'identity':
+          session = AutoFillRepairSession(
+            principalId: 'principal-1',
+            identity: Object(),
+            privateKey: Uint8List(32),
+          );
+      }
+      native.complete();
+      await first;
+      await rejected;
+      expect(calls, 1);
+    });
+  }
+
+  test(
     'new mutation during completed owner preparation stays denied',
     () async {
       final ownerA = coordinator.suspendRepairs();

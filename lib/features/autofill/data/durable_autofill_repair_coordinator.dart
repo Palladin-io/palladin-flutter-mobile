@@ -59,6 +59,7 @@ final class DurableAutoFillRepairCoordinator {
   int? _readyEpoch;
   int _epoch = 0;
   int _sequence = 0;
+  int _publicationAdmission = 0;
   int? _retriedSequence;
   final Set<AutoFillRepairDeny> _repairDenies = {};
   bool _disposed = false;
@@ -89,7 +90,7 @@ final class DurableAutoFillRepairCoordinator {
   /// Holds committed-index repairs after a native deny until the mutation or
   /// invalidation batch has installed its authoritative replacement.
   AutoFillRepairDeny suspendRepairs() {
-    _publication = null;
+    ++_publicationAdmission;
     _foregroundRetry?.cancel();
     _foregroundRetry = null;
     final deny = AutoFillRepairDeny._();
@@ -204,7 +205,7 @@ final class DurableAutoFillRepairCoordinator {
     _foregroundRetry = null;
     _epoch += 1;
     _retriedSequence = null;
-    _publication = null;
+    ++_publicationAdmission;
     _knownVaultIds.clear();
     _pending.clear();
     _readySessionIdentity = null;
@@ -345,11 +346,21 @@ final class DurableAutoFillRepairCoordinator {
   ) {
     final previous = _publication;
     if (previous != null &&
+        previous.admission == _publicationAdmission &&
         previous.sequence == _sequence &&
         identical(previous.sessionIdentity, session.identity) &&
         previous.vaultIds.length == vaultIds.length &&
         previous.vaultIds.containsAll(vaultIds)) {
       return previous.completion;
+    }
+    if (previous != null) {
+      return _publishAfter(
+        previous,
+        session,
+        vaultIds,
+        _epoch,
+        _publicationAdmission,
+      );
     }
     // Share only concurrent consumers of this commit. Native quarantine can
     // invalidate a completed cache without a Dart event, so later foreground
@@ -357,6 +368,7 @@ final class DurableAutoFillRepairCoordinator {
     // The record contains no key; its Future is detached on every completion.
     final publication = _AutoFillPublication(
       sequence: _sequence,
+      admission: _publicationAdmission,
       sessionIdentity: session.identity,
       vaultIds: Set<String>.unmodifiable(vaultIds),
     );
@@ -373,6 +385,37 @@ final class DurableAutoFillRepairCoordinator {
     return publication.completion;
   }
 
+  Future<void> _publishAfter(
+    _AutoFillPublication previous,
+    AutoFillRepairSession admitted,
+    Set<String> vaultIds,
+    int epoch,
+    int admission,
+  ) async {
+    try {
+      await previous.completion;
+    } catch (_) {
+      // The original caller owns its failure; a later admitted request still
+      // needs its own publication from current authoritative state.
+    }
+    final current = _currentSession();
+    if (_disposed ||
+        _epoch != epoch ||
+        _publicationAdmission != admission ||
+        current == null ||
+        current.principalId != admitted.principalId ||
+        !identical(current.identity, admitted.identity) ||
+        !identical(current.privateKey, admitted.privateKey) ||
+        current.privateKey.isEmpty ||
+        _readyEpoch != epoch ||
+        !identical(_readySessionIdentity, current.identity) ||
+        vaultIds.length != _knownVaultIds.length ||
+        !vaultIds.containsAll(_knownVaultIds)) {
+      throw StateError('Queued AutoFill publication invalidated');
+    }
+    await _publishPrepared(current, Set<String>.from(_knownVaultIds));
+  }
+
   bool _sameUpdates(Map<String, int> left, Map<String, int> right) {
     if (left.length != right.length) return false;
     for (final entry in left.entries) {
@@ -385,11 +428,13 @@ final class DurableAutoFillRepairCoordinator {
 final class _AutoFillPublication {
   _AutoFillPublication({
     required this.sequence,
+    required this.admission,
     required this.sessionIdentity,
     required this.vaultIds,
   });
 
   final int sequence;
+  final int admission;
   final Object sessionIdentity;
   final Set<String> vaultIds;
   late final Future<void> completion;
