@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Real MainActivity/MethodChannel smoke test on an explicitly selected emulator."""
+import argparse
+from pathlib import Path
+import re
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+
+PACKAGE = 'io.palladin.autofill.sourcefixture.local'
+FORM = 'io.palladin.mobile.autofill.SourceFixtureActivity'
+MAIN = 'io.palladin.mobile.MainActivity'
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--adb', required=True)
+    parser.add_argument('--serial', required=True)
+    parser.add_argument('--apk', required=True)
+    parser.add_argument('--aapt', required=True)
+    args = parser.parse_args()
+    if not args.serial.startswith('emulator-'):
+        raise RuntimeError('Only an explicitly selected emulator is supported')
+    def adb(*items):
+        return subprocess.check_output([args.adb, '-s', args.serial, *items], text=True, timeout=45)
+    apk = str(Path(args.apk).resolve())
+    permissions = subprocess.check_output([args.aapt, 'dump', 'permissions', apk], text=True)
+    if 'android.permission.INTERNET' in permissions:
+        raise RuntimeError('Network-capable fixture refused')
+    badging = subprocess.check_output([args.aapt, 'dump', 'badging', apk], text=True)
+    if f"package: name='{PACKAGE}'" not in badging:
+        raise RuntimeError('Unexpected fixture package')
+    manifest = subprocess.check_output([args.aapt, 'dump', 'xmltree', apk, 'AndroidManifest.xml'], text=True)
+    resources = subprocess.check_output([args.aapt, 'dump', 'resources', apk], text=True)
+    if 'com.google.firebase.provider.FirebaseInitProvider' in manifest or any(
+        name in resources for name in ('string/google_app_id', 'string/google_api_key', 'string/default_web_client_id')
+    ):
+        raise RuntimeError('Cloud-configured fixture refused')
+    adb('install', '-r', apk)
+    adb('shell', 'am', 'force-stop', PACKAGE)
+    def nodes():
+        adb('shell', 'rm', '-f', '/sdcard/source-fixture-window.xml')
+        adb('shell', 'uiautomator', 'dump', '/sdcard/source-fixture-window.xml')
+        try:
+            return ET.fromstring(adb('shell', 'cat', '/sdcard/source-fixture-window.xml')).iter('node')
+        except (subprocess.CalledProcessError, ET.ParseError):
+            return iter(())
+    def await_text(text):
+        for _ in range(15):
+            match = next((node for node in nodes() if text in (node.get('text'), node.get('content-desc'))), None)
+            if match is not None:
+                return match
+            time.sleep(.5)
+        raise AssertionError(f'Missing fixed fixture marker: {text}')
+    def launch(component):
+        adb('shell', 'am', 'start', '-n', f'{PACKAGE}/{component}')
+    for temperature in ('cold', 'warm'):
+        launch(FORM)
+        button = await_text('Open native request')
+        left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
+        adb('shell', 'input', 'tap', str((left + right)//2), str((top + bottom)//2))
+        await_text('SOURCE_OWNER_CANCEL_PASS')
+        launch(MAIN)
+        await_text('SOURCE_CHANNEL_CANCEL_PASS')
+        print(f'PASS {temperature}: actual Flutter pending/bind/auth rejection/cancel/original-owner')
+    adb('shell', 'rm', '/sdcard/source-fixture-window.xml')
+
+
+if __name__ == '__main__':
+    main()
