@@ -998,12 +998,14 @@ final class MemberSyncService
     _connectedSessionVaults.add(vaultId);
     _revokedVaults.remove(vaultId);
     final state = await _cache.state(vaultId);
-    if (state != null)
+    _requireCurrent(generation);
+    if (state != null) {
       _scheduleLeaseExpiry(
         vaultId,
         state.accessContext,
         generation: generation,
       );
+    }
     _publishIndexUpdate(vaultId, preservesContent: preservesContent);
 
     return MemberSyncResult(
