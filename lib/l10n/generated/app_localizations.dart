@@ -8863,6 +8863,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The login could not be saved safely. Try again or cancel.'**
   String get autoFillSaveUnavailable;
+
+  /// No description provided for @entrySignInMethodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in method'**
+  String get entrySignInMethodLabel;
+
+  /// No description provided for @entrySignInMethodNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get entrySignInMethodNotSet;
+
+  /// No description provided for @entrySignInMethodWithAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'{provider} · {account}'**
+  String entrySignInMethodWithAccount(String provider, String account);
+
+  /// No description provided for @entrySignInMethodNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'{provider} · Account not specified'**
+  String entrySignInMethodNoAccount(String provider);
+
+  /// No description provided for @entrySignInMethodUnrecognized.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in a format this app does not recognize'**
+  String get entrySignInMethodUnrecognized;
+
+  /// No description provided for @entrySignInMethodAmbiguous.
+  ///
+  /// In en, this message translates to:
+  /// **'More than one sign-in method is saved'**
+  String get entrySignInMethodAmbiguous;
+
+  /// No description provided for @entrySignInMethodEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit sign-in method'**
+  String get entrySignInMethodEdit;
+
+  /// No description provided for @entrySignInMethodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Remember which provider you use to sign in to this service. Palladin does not sign in for you and cannot detect provider sign-ins in other apps or browsers.'**
+  String get entrySignInMethodHint;
+
+  /// No description provided for @entrySignInMethodProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get entrySignInMethodProvider;
+
+  /// No description provided for @entrySignInMethodChooseProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a provider'**
+  String get entrySignInMethodChooseProvider;
+
+  /// No description provided for @entrySignInMethodAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider account (optional)'**
+  String get entrySignInMethodAccount;
+
+  /// No description provided for @entrySignInMethodAccountHint.
+  ///
+  /// In en, this message translates to:
+  /// **'name@example.com'**
+  String get entrySignInMethodAccountHint;
+
+  /// No description provided for @entrySignInMethodAccountTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Use at most 256 characters.'**
+  String get entrySignInMethodAccountTooLong;
+
+  /// No description provided for @entrySignInMethodRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove sign-in method'**
+  String get entrySignInMethodRemove;
+
+  /// No description provided for @entrySignInMethodSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in method saved'**
+  String get entrySignInMethodSaved;
+
+  /// No description provided for @entrySignInMethodRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in method removed'**
+  String get entrySignInMethodRemoved;
+
+  /// No description provided for @signInProviderGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Google'**
+  String get signInProviderGoogle;
+
+  /// No description provided for @signInProviderApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple'**
+  String get signInProviderApple;
+
+  /// No description provided for @signInProviderMicrosoft.
+  ///
+  /// In en, this message translates to:
+  /// **'Microsoft'**
+  String get signInProviderMicrosoft;
+
+  /// No description provided for @signInProviderGithub.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub'**
+  String get signInProviderGithub;
+
+  /// No description provided for @signInProviderFacebook.
+  ///
+  /// In en, this message translates to:
+  /// **'Facebook'**
+  String get signInProviderFacebook;
+
+  /// No description provided for @entrySignInMethodLinkedEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin entry for this provider (optional)'**
+  String get entrySignInMethodLinkedEntry;
+
+  /// No description provided for @entrySignInMethodLinkedEntryNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get entrySignInMethodLinkedEntryNone;
+
+  /// No description provided for @entrySignInMethodLinkedEntryLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for matching entries…'**
+  String get entrySignInMethodLinkedEntryLoading;
+
+  /// No description provided for @entrySignInMethodLinkedEntryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No agent-discoverable entry for this provider'**
+  String get entrySignInMethodLinkedEntryEmpty;
+
+  /// No description provided for @entrySignInMethodAgentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents can see the provider and the linked entry, never the account.'**
+  String get entrySignInMethodAgentHint;
 }
 
 class _AppLocalizationsDelegate

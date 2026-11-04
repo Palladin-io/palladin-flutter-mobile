@@ -6,6 +6,7 @@ import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/sign_in_method.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
@@ -206,19 +207,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
       AppLogger.w('Entry', 'updateEntry failed: ${e.kind.name}');
       emit(EditEntryError(e.kind));
     } on CanonicalEntryDetailException catch (e) {
-      if (e.kind == CanonicalEntryDetailError.conflict) {
-        emit(const EditEntryConflict());
-      } else {
-        emit(
-          EditEntryError(switch (e.kind) {
-            CanonicalEntryDetailError.conflict => EntryErrorKind.validation,
-            CanonicalEntryDetailError.corrupt => EntryErrorKind.cryptoFailure,
-            CanonicalEntryDetailError.forbidden => EntryErrorKind.forbidden,
-            CanonicalEntryDetailError.notFound => EntryErrorKind.notFound,
-            CanonicalEntryDetailError.network => EntryErrorKind.networkError,
-          }),
-        );
-      }
+      _emitCanonicalFailure(e);
     } catch (e, s) {
       AppLogger.e(
         'Entry',
@@ -230,6 +219,137 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     } finally {
       _updateInFlight = false;
     }
+  }
+
+  /// Sets, replaces or (with a null [binding]) removes the Credential's
+  /// `palladin.signin.v1` binding.
+  ///
+  /// The change is applied to a freshly authenticated canonical head, which
+  /// also becomes the optimistic base revision. Every other field, policy and
+  /// presentation value is carried over unchanged; see [_signInAccess] for
+  /// the new field's Agent access. The displayed snapshot stays intact until
+  /// success, so a failed save leaves the details and the Edit base usable.
+  Future<void> saveSignInMethod({
+    required EntryEntity entry,
+    required Uint8List privateKey,
+    required SignInMethodBinding? binding,
+    required String fieldLabel,
+  }) async {
+    if (privateKey.isEmpty || _updateInFlight) return;
+    _updateInFlight = true;
+    final epoch = _sensitiveEpoch;
+    emit(const EditEntryLoading());
+    CanonicalEntrySnapshot? fresh;
+    try {
+      fresh = await canonicalService.reveal(
+        expected: entry,
+        memberPrivateKey: privateKey,
+      );
+      if (epoch != _sensitiveEpoch || isClosed) return;
+      final secret = fresh.secret;
+      final rawPolicy = secret['agentVisibilityPolicy'];
+      if (secret['entryType'] != EntryType.credential.toWire() ||
+          rawPolicy is! Map) {
+        emit(const EditEntryError(EntryErrorKind.validation));
+        return;
+      }
+      final fields = CustomField.listFromPayload(fresh.payload);
+      final next = SignInMethodField.replace(
+        fields,
+        binding: binding,
+        label: fieldLabel,
+        newId: CustomField.newId(),
+      );
+      final content = Map<String, dynamic>.from(fresh.payload)
+        ..['fields'] = CustomField.listToJson(next);
+      final previous = AgentVisibilityPolicy.fromJson(
+        EntryType.credential,
+        Map<String, dynamic>.from(rawPolicy),
+        content: fresh.payload,
+      );
+      final retainedIds = next.map((field) => field.id).toSet();
+      final policyFields = Map<String, AgentFieldAccess>.from(previous.fields)
+        ..removeWhere(
+          (id, _) =>
+              fields.any((field) => field.id == id) &&
+              !retainedIds.contains(id),
+        );
+      final access = _signInAccess(fields, previous);
+      for (final field in next) {
+        if (field.rawType == SignInMethodField.type) {
+          policyFields[field.id] = access;
+        }
+      }
+      final label = secret['memberLabel'] as String? ?? entry.label;
+      final updated = await canonicalService.update(
+        snapshot: fresh,
+        expected: entry,
+        label: label,
+        description: secret['description'] as String? ?? '',
+        icon: secret['iconReference'] as String? ?? '',
+        type: EntryType.credential,
+        content: content,
+        memberPrivateKey: privateKey,
+        agentVisibilityPolicy: previous.copyWith(fields: policyFields),
+        agentLabel: secret['agentLabel'] as String?,
+      );
+      _snapshot = null;
+      emit(EditEntrySuccess(updated));
+    } on EntryException catch (e) {
+      emit(EditEntryError(e.kind));
+    } on CanonicalEntryDetailException catch (e) {
+      _emitCanonicalFailure(e);
+    } catch (e, s) {
+      AppLogger.e(
+        'Entry',
+        'saveSignInMethod failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(const EditEntryError(EntryErrorKind.unknown));
+    } finally {
+      // The fresh head is only this operation's base; the presentation keeps
+      // its own snapshot, which must not be cleared by a failed save.
+      fresh?.clear();
+      _updateInFlight = false;
+    }
+  }
+
+  /// A replaced recognized binding keeps its `never`/`discovery` access;
+  /// otherwise the new field is discoverable exactly when the Credential is.
+  AgentFieldAccess _signInAccess(
+    List<CustomField> fields,
+    AgentVisibilityPolicy policy,
+  ) {
+    if (!policy.discoverable) return AgentFieldAccess.never;
+    final previous = SignInMethodField.read(
+      entryType: EntryType.credential,
+      fields: fields,
+    );
+    if (previous is SignInMethodRecognized) {
+      final access = policy.fields[previous.fieldId];
+      if (access == AgentFieldAccess.never ||
+          access == AgentFieldAccess.discovery) {
+        return access!;
+      }
+    }
+    return AgentFieldAccess.discovery;
+  }
+
+  void _emitCanonicalFailure(CanonicalEntryDetailException e) {
+    if (e.kind == CanonicalEntryDetailError.conflict) {
+      emit(const EditEntryConflict());
+      return;
+    }
+    emit(
+      EditEntryError(switch (e.kind) {
+        CanonicalEntryDetailError.conflict => EntryErrorKind.validation,
+        CanonicalEntryDetailError.corrupt => EntryErrorKind.cryptoFailure,
+        CanonicalEntryDetailError.forbidden => EntryErrorKind.forbidden,
+        CanonicalEntryDetailError.notFound => EntryErrorKind.notFound,
+        CanonicalEntryDetailError.network => EntryErrorKind.networkError,
+      }),
+    );
   }
 
   EntryEntity _entryFromSnapshot(
