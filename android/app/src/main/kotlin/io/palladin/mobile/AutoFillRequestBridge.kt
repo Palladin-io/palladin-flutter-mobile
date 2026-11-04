@@ -42,17 +42,18 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
                         string("principalId"), string("organizationId"), string("organizationMembershipGeneration"),
                         string("offlinePolicy"), Math.toIntExact(number("offlinePolicyVersion")), string("profileBinding")), string("sessionId")))
                     "activateSource" -> result.success(AutoFillRequestBroker.activate(string("sessionId"), number("sourceEpoch")))
-                    "invalidateSource" -> result.success(AutoFillRequestBroker.invalidate(string("sessionId"), number("sourceEpoch")))
+                    "invalidateSource" -> result.success(AutoFillRequestBroker.invalidate(string("sessionId"), number("sourceEpoch"), string("profileBinding")))
+                    "revokeSourceSession" -> result.success(AutoFillRequestBroker.revokeSession(string("sessionId"), number("sourceEpoch"), string("profileBinding")))
                     "invalidateSession" -> { AutoFillRequestBroker.lock(string("sessionId")); result.success(null) }
                     "bind" -> result.success(AutoFillRequestBroker.bind(string("id"), string("principalId"), string("organizationId"), string("sessionId")))
                     "authenticatePresence", "readBiometricMasterKey" -> authenticate(string("id"), string("bindingToken"),
                         call.method == "readBiometricMasterKey", args["promptTitle"] as? String, args["cancelLabel"] as? String, result)
                     "authorizePasswordUnlock" -> result.success(AutoFillRequestBroker.authorizePasswordUnlock(string("id"), string("bindingToken")))
-                    "confirmSelection" -> result.success(AutoFillRequestBroker.confirm(string("id"), string("bindingToken"), string("authorizationToken"), selection()))
-                    "validate" -> result.success(AutoFillRequestBroker.validate(string("id"), string("bindingToken"), string("authorizationToken"), string("selectedHost")))
+                    "confirmSelection" -> result.success(AutoFillRequestBroker.confirm(string("id"), string("bindingToken"), string("authorizationToken"), selection(), number("sourceEpoch")))
+                    "validate" -> result.success(AutoFillRequestBroker.validate(string("id"), string("bindingToken"), string("authorizationToken"), string("selectedHost"), number("sourceEpoch")))
                     "complete" -> {
                         val completed = AutoFillRequestBroker.complete(string("id"), string("bindingToken"), string("authorizationToken"), selection(),
-                            args["consentToken"] as? String, number("effectiveNotAfterMillis"), args["username"] as? String ?: "", args["password"] as? String ?: "")
+                            args["consentToken"] as? String, number("effectiveNotAfterMillis"), number("sourceEpoch"), args["username"] as? String ?: "", args["password"] as? String ?: "")
                         result.success(completed)
                         if (completed) activity.moveTaskToBack(true)
                     }

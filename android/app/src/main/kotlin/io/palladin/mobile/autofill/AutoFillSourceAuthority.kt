@@ -49,6 +49,10 @@ internal class AutoFillSourceAuthority(
         value.epoch == epoch && value.profile == profile
     }
 
+    fun matchesSession(profile: String, session: String): Boolean = synchronized(AutoFillMutationLock.monitor) {
+        this.session == session && read()?.profile == profile
+    }
+
     fun sessionEpoch(profile: String, session: String): Long = synchronized(AutoFillMutationLock.monitor) {
         val value = read() ?: throw AutoFillSourceException("SOURCE_UNAVAILABLE")
         if (!matches(profile, session, value.epoch)) throw AutoFillSourceException("SOURCE_STALE_SESSION")

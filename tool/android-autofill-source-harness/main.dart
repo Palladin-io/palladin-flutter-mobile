@@ -17,7 +17,7 @@ class SourceFixture extends StatefulWidget {
 
 class _SourceFixtureState extends State<SourceFixture> {
   bool running = false;
-  bool sourceStarted = false;
+  int? sourceEpoch;
   String status = 'SOURCE_ENGINE_READY';
   @override
   void initState() {
@@ -40,8 +40,8 @@ class _SourceFixtureState extends State<SourceFixture> {
       }
       // Allow the original owner to stop behind the real Flutter task.
       await Future<void>.delayed(const Duration(seconds: 1));
-      if (!sourceStarted) {
-        await channel.invokeMethod<int>('beginSourceSession', {
+      if (sourceEpoch == null) {
+        sourceEpoch = await channel.invokeMethod<int>('beginSourceSession', {
           'principalId': 'synthetic-member',
           'organizationId': 'synthetic-org',
           'organizationMembershipGeneration': 'synthetic-generation',
@@ -50,7 +50,6 @@ class _SourceFixtureState extends State<SourceFixture> {
           'profileBinding': List.filled(64, 'a').join(),
           'sessionId': 'synthetic-request-session',
         });
-        sourceStarted = true;
       }
       final binding = await channel.invokeMethod<String>('bind', {
         'id': request['id'],
@@ -65,6 +64,7 @@ class _SourceFixtureState extends State<SourceFixture> {
         'id': request['id'],
         'bindingToken': binding,
         'authorizationToken': 'not-authenticated',
+        'sourceEpoch': sourceEpoch,
         'selectedHost': 'fixture.invalid',
       });
       if (valid != false) throw StateError('Unauthenticated request accepted');

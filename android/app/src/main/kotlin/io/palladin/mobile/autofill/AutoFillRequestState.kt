@@ -2,7 +2,7 @@ package io.palladin.mobile.autofill
 
 import java.util.UUID
 
-internal data class AutoFillRequestBinding(val id: String, val token: String, val profile: String, val session: String, val sourceEpoch: Long)
+internal data class AutoFillRequestBinding(val id: String, val token: String, val profile: String, val session: String)
 internal data class AutoFillAuthenticationAttempt(val binding: AutoFillRequestBinding, val nonce: String)
 internal data class AutoFillSelection(val vaultId: String, val entryId: String, val host: String)
 
@@ -13,7 +13,8 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
     private var binding: AutoFillRequestBinding? = null
     private var attempt: AutoFillAuthenticationAttempt? = null
     private var authorization: String? = null
-    private var consent: Pair<AutoFillSelection, String>? = null
+    private data class Consent(val selection: AutoFillSelection, val token: String, val epoch: Long)
+    private var consent: Consent? = null
 
     fun open(mode: AutofillOriginMode, hosts: Set<String>, usernameOnly: Boolean): String = synchronized(AutoFillMutationLock.monitor) {
         cancel()
@@ -27,7 +28,7 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         requireRequest(id)
         if (!source.matches(profile, session, epoch)) rejected()
         authorization = null; consent = null; attempt = null
-        AutoFillRequestBinding(id, token(), profile, session, epoch).also { binding = it }
+        AutoFillRequestBinding(id, token(), profile, session).also { binding = it }
     }
 
     fun beginAuthentication(id: String, binding: String): AutoFillAuthenticationAttempt = synchronized(AutoFillMutationLock.monitor) {
@@ -49,37 +50,39 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         authenticated(beginAuthentication(id, binding))
     }
 
-    fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection): String = synchronized(AutoFillMutationLock.monitor) {
-        if (!validate(id, binding, authorization, selection.host)) rejected()
+    fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection, sourceEpoch: Long): String = synchronized(AutoFillMutationLock.monitor) {
+        if (!validate(id, binding, authorization, selection.host, sourceEpoch)) rejected()
         require(selection.vaultId.isNotBlank() && selection.entryId.isNotBlank())
-        token().also { consent = selection to it }
+        token().also { consent = Consent(selection, it, sourceEpoch) }
     }
 
-    fun validate(id: String, binding: String, authorization: String, host: String): Boolean = synchronized(AutoFillMutationLock.monitor) {
+    fun validate(id: String, binding: String, authorization: String, host: String, sourceEpoch: Long): Boolean = synchronized(AutoFillMutationLock.monitor) {
         try {
             val bound = requireBinding(id, binding)
-            if (!source.current(bound.profile, bound.session, bound.sourceEpoch)) return@synchronized false
+            if (!source.current(bound.profile, bound.session, sourceEpoch)) return@synchronized false
             val current = requireRequest(id)
             this.authorization != null && this.authorization == authorization && host.isNotBlank() &&
                 (current.mode == AutofillOriginMode.MANUAL_NATIVE || host in current.hosts)
         } catch (_: AutoFillSourceException) { false }
     }
 
-    fun consume(id: String, binding: String, authorization: String, selection: AutoFillSelection, consent: String?, notAfter: Long, origin: () -> Boolean, handoff: () -> Unit): Boolean = synchronized(AutoFillMutationLock.monitor) {
-        if (!validate(id, binding, authorization, selection.host)) return@synchronized false
+    fun consume(id: String, binding: String, authorization: String, selection: AutoFillSelection, consent: String?, notAfter: Long, sourceEpoch: Long, origin: () -> Boolean, handoff: () -> Unit): Boolean = synchronized(AutoFillMutationLock.monitor) {
+        if (!validate(id, binding, authorization, selection.host, sourceEpoch)) return@synchronized false
         val current = requireRequest(id)
         val effectiveNow = maxOf(wallTime(), current.createdWall + (now() - current.created))
         if (effectiveNow >= notAfter) return@synchronized false
         if ((current.mode == AutofillOriginMode.MANUAL_NATIVE || current.usernameOnly) &&
-            (this.consent?.first != selection || this.consent?.second != consent)) return@synchronized false
+            (this.consent?.selection != selection || this.consent?.token != consent || this.consent?.epoch != sourceEpoch)) return@synchronized false
         if (!origin()) return@synchronized false
         // Origin verification may block on system services; recheck at consumption.
-        if (!validate(id, binding, authorization, selection.host) ||
+        if (!validate(id, binding, authorization, selection.host, sourceEpoch) ||
             maxOf(wallTime(), current.createdWall + (now() - current.created)) >= notAfter) return@synchronized false
         cancel()
         handoff()
         true
     }
+
+    fun sourceChanged() = synchronized(AutoFillMutationLock.monitor) { consent = null }
 
     fun sourceSessionChanged() = synchronized(AutoFillMutationLock.monitor) {
         if (binding != null) cancel()
@@ -93,7 +96,7 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
     private fun requireBinding(id: String, token: String): AutoFillRequestBinding {
         requireRequest(id)
         val value = binding ?: rejected()
-        if (value.id != id || value.token != token || !source.matches(value.profile, value.session, value.sourceEpoch)) rejected()
+        if (value.id != id || value.token != token || !source.matchesSession(value.profile, value.session)) rejected()
         return value
     }
     private fun requireRequest(id: String): Request {

@@ -16,7 +16,7 @@ class AutoFillRequestStateTest {
     }
     private fun auth(binding: AutoFillRequestBinding): String = state.authenticated(state.beginAuthentication(binding.id, binding.token))
     private fun fill(binding: AutoFillRequestBinding, authorization: String, consent: String? = null, origin: () -> Boolean = { true }): Boolean =
-        state.consume(binding.id, binding.token, authorization, selection, consent, now + 1000, origin) {}
+        state.consume(binding.id, binding.token, authorization, selection, consent, now + 1000, epoch, origin) {}
     @Test fun `actual native authentication is required and single use`() {
         val binding = bind()
         assertFalse(fill(binding, "forged"))
@@ -29,9 +29,9 @@ class AutoFillRequestStateTest {
             val binding = bind(mode, username)
             val authorization = auth(binding)
             assertFalse(fill(binding, authorization))
-            val wrong = state.confirm(binding.id, binding.token, authorization, selection.copy(entryId = "other"))
+            val wrong = state.confirm(binding.id, binding.token, authorization, selection.copy(entryId = "other"), epoch)
             assertFalse(fill(binding, authorization, wrong))
-            val consent = state.confirm(binding.id, binding.token, authorization, selection)
+            val consent = state.confirm(binding.id, binding.token, authorization, selection, epoch)
             assertTrue(fill(binding, authorization, consent))
         }
     }
@@ -56,25 +56,24 @@ class AutoFillRequestStateTest {
         val epoch = coldSource.begin("profile", "cold")
         val bound = cold.bind(id, "profile", "cold", epoch)
         val auth = cold.authenticated(cold.beginAuthentication(id, bound.token))
-        assertFalse(cold.validate(id, bound.token, auth, "example.test"))
+        assertFalse(cold.validate(id, bound.token, auth, "example.test", epoch))
         coldSource.activate("cold", epoch)
-        assertTrue(cold.validate(id, bound.token, auth, "example.test"))
+        assertTrue(cold.validate(id, bound.token, auth, "example.test", epoch))
         coldSource.invalidate("cold", epoch)
-        assertFalse(cold.validate(id, bound.token, auth, "example.test"))
+        assertFalse(cold.validate(id, bound.token, auth, "example.test", epoch))
     }
     @Test fun `selected lease expiry is checked at native consumption`() {
         val binding = bind()
         val authorization = auth(binding)
         var handedOff = false
-        assertFalse(state.consume(binding.id, binding.token, authorization, selection, null, now, { true }) { handedOff = true })
+        assertFalse(state.consume(binding.id, binding.token, authorization, selection, null, now, epoch, { true }) { handedOff = true })
         assertFalse(handedOff)
     }
-    @Test fun `successful prompt cannot attach after source mutation`() {
+    @Test fun `successful prompt cannot attach after security revocation`() {
         val binding = bind()
         val attempt = state.beginAuthentication(binding.id, binding.token)
-        val next = source.invalidate("session", epoch)
-        source.activate("session", next)
-        try { state.authenticated(attempt); fail("Accepted old source authentication") }
+        source.revokeSnapshot(epoch, "profile")
+        try { state.authenticated(attempt); fail("Accepted revoked authentication") }
         catch (_: AutoFillSourceException) {}
     }
     @Test fun `wall clock rollback cannot extend selected lease during request`() {
@@ -85,7 +84,7 @@ class AutoFillRequestStateTest {
         val authorization = clocked.authenticated(clocked.beginAuthentication(id, binding.token))
         now += 2000
         wall = 1000
-        assertFalse(clocked.consume(id, binding.token, authorization, selection, null, 11_000, { true }) {})
+        assertFalse(clocked.consume(id, binding.token, authorization, selection, null, 11_000, epoch, { true }) {})
     }
     @Test fun `cancel and request expiry invalidate native authorization`() {
         val binding = bind()
@@ -93,7 +92,7 @@ class AutoFillRequestStateTest {
         now += 120_000
         assertFalse(fill(binding, authorization))
         state.cancel()
-        assertFalse(state.validate(binding.id, binding.token, authorization, "example.test"))
+        assertFalse(state.validate(binding.id, binding.token, authorization, "example.test", epoch))
     }
     @Test fun `completed password unwrap authorizes only the captured current request`() {
         val binding = bind()
@@ -101,13 +100,13 @@ class AutoFillRequestStateTest {
         assertTrue(fill(binding, authorization))
         assertFalse(fill(binding, authorization))
     }
-    @Test fun `late password completion rejects cancellation mutation and account replacement`() {
+    @Test fun `late password completion rejects cancellation revocation and account replacement`() {
         val canceled = bind()
         state.cancel()
         try { state.authorizePasswordUnlock(canceled.id, canceled.token); fail("Accepted canceled unlock") }
         catch (_: AutoFillSourceException) {}
         val changed = bind()
-        source.invalidate("session", epoch)
+        source.revokeSnapshot(epoch, "profile")
         try { state.authorizePasswordUnlock(changed.id, changed.token); fail("Accepted invalidated unlock") }
         catch (_: AutoFillSourceException) {}
         source.begin("replacement-profile", "replacement-session")
@@ -121,10 +120,46 @@ class AutoFillRequestStateTest {
             val authorization = auth(binding)
             var handedOff = false
             assertFalse(state.consume(binding.id, binding.token, authorization, selection, null,
-                if (advance == 1_000L) now + 1_000 else now + 300_000,
+                if (advance == 1_000L) now + 1_000 else now + 300_000, epoch,
                 { now += advance; true }) { handedOff = true })
             assertFalse(handedOff)
         }
+    }
+
+    @Test fun `routine ciphertext refresh preserves the captured authentication attempt`() {
+        val binding = bind()
+        val attempt = state.beginAuthentication(binding.id, binding.token)
+        val next = source.invalidate("session", epoch)
+        val authorization = state.authenticated(attempt)
+        assertFalse(fill(binding, authorization))
+        source.activate("session", next)
+        assertFalse(fill(binding, authorization)) // Old selected-read epoch is still rejected.
+    }
+
+    @Test fun `routine refresh requires fresh selected read epoch and renewed exact consent`() {
+        val binding = bind(AutofillOriginMode.MANUAL_NATIVE)
+        val authorization = auth(binding)
+        val oldConsent = state.confirm(binding.id, binding.token, authorization, selection, epoch)
+        val next = source.invalidate("session", epoch)
+        state.sourceChanged()
+        assertFalse(state.validate(binding.id, binding.token, authorization, selection.host, next))
+        source.activate("session", next)
+        assertFalse(fill(binding, authorization, oldConsent))
+        assertFalse(state.consume(binding.id, binding.token, authorization, selection, oldConsent,
+            now + 1000, next, { true }) {})
+        val currentConsent = state.confirm(binding.id, binding.token, authorization, selection, next)
+        assertTrue(state.consume(binding.id, binding.token, authorization, selection, currentConsent,
+            now + 1000, next, { true }) {})
+    }
+    @Test fun `refresh during final origin check still rejects selected ciphertext epoch`() {
+        val binding = bind()
+        val authorization = auth(binding)
+        assertFalse(fill(binding, authorization, origin = {
+            val next = source.invalidate("session", epoch)
+            state.sourceChanged()
+            source.activate("session", next)
+            true
+        }))
     }
 
 }

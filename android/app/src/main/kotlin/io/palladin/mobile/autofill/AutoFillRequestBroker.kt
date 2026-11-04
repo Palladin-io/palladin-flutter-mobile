@@ -61,11 +61,19 @@ internal object AutoFillRequestBroker {
         }
     }
     fun activate(session: String, epoch: Long) = source.activate(session, epoch)
-    fun invalidate(session: String, epoch: Long): Long = synchronized(AutoFillMutationLock.monitor) {
+    fun invalidate(session: String, epoch: Long, profileBinding: String): Long = synchronized(AutoFillMutationLock.monitor) {
+        requireProfileBinding(profileBinding)
         val result = source.invalidate(session, epoch)
-        cancel(null)
+        state.sourceChanged()
         result
     }
+    fun revokeSession(session: String, epoch: Long, profileBinding: String): Long = synchronized(AutoFillMutationLock.monitor) {
+        val profile = requireProfileBinding(profileBinding).digest()
+        if (source.sessionEpoch(profile, session) != epoch) throw AutoFillSourceException("SOURCE_STALE_EPOCH")
+        revokeSnapshot(epoch, profile)
+    }
+    private fun requireProfileBinding(value: String): AutoFillSourceProfile = currentProfile?.takeIf { it.profileBinding == value }
+        ?: throw AutoFillSourceException("SOURCE_STALE_SESSION")
     fun lock(session: String) = synchronized(AutoFillMutationLock.monitor) {
         source.lock(session)
         if (sourceSession == session) sourceSession = null
@@ -107,12 +115,12 @@ internal object AutoFillRequestBroker {
     fun beginAuthentication(id: String, binding: String) = state.beginAuthentication(id, binding)
     fun authenticated(attempt: AutoFillAuthenticationAttempt) = state.authenticated(attempt)
     fun authorizePasswordUnlock(id: String, binding: String) = state.authorizePasswordUnlock(id, binding)
-    fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection) = state.confirm(id, binding, authorization, selection)
-    fun validate(id: String, binding: String, authorization: String, host: String): Boolean =
-        state.validate(id, binding, authorization, host) && owner.get()?.originVerified(host) == true
-    fun complete(id: String, binding: String, authorization: String, selection: AutoFillSelection, consent: String?, notAfter: Long, username: String, password: String): Boolean {
+    fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection, sourceEpoch: Long) = state.confirm(id, binding, authorization, selection, sourceEpoch)
+    fun validate(id: String, binding: String, authorization: String, host: String, sourceEpoch: Long): Boolean =
+        state.validate(id, binding, authorization, host, sourceEpoch) && owner.get()?.originVerified(host) == true
+    fun complete(id: String, binding: String, authorization: String, selection: AutoFillSelection, consent: String?, notAfter: Long, sourceEpoch: Long, username: String, password: String): Boolean {
         val activity = owner.get() ?: return false
-        val result = state.consume(id, binding, authorization, selection, consent, notAfter,
+        val result = state.consume(id, binding, authorization, selection, consent, notAfter, sourceEpoch,
             { !activity.isDestroyed && activity.originVerified(selection.host) }) {
             activity.complete(username, password, selection.host)
         }
