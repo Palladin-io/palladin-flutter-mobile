@@ -370,9 +370,10 @@ Future<List<Map<String, Object>>> runBenchmark({
           results.add(result);
           debugPrint('MEMBER_BENCHMARK ${jsonEncode(result)}');
           if (incremental && repetition == repetitions && mode == modes.last) {
+            final preparationAuthority = _Authority();
             final reader = _CountingCurrentEntries(
               reader: sync,
-              authorityProvider: _Authority(),
+              authorityProvider: preparationAuthority,
               vaultKeys: vaultKeys,
               entryCrypto: crypto,
               canonicalAdapter: CanonicalEntryDetailService(
@@ -389,7 +390,7 @@ Future<List<Map<String, Object>>> runBenchmark({
             final publisher = AutoFillIncrementalPublisher(
               bridge: bridge,
               metadata: sync,
-              authority: _Authority(),
+              authority: preparationAuthority,
               entries: reader,
             );
             await publisher.beginSession(1);
@@ -404,6 +405,7 @@ Future<List<Map<String, Object>>> runBenchmark({
                 (a, b) => a + b,
               );
               reader.reveals = 0;
+              preparationAuthority.reads = 0;
               final timer = Stopwatch()..start();
               await publisher.synchronize(
                 privateKey: privateKey,
@@ -424,6 +426,7 @@ Future<List<Map<String, Object>>> runBenchmark({
               }
               final measurement = <String, Object>{
                 'mode': 'incremental-$phase',
+                'authorityReads': preparationAuthority.reads,
                 'elapsedMicros': timer.elapsedMicroseconds,
                 'reveals': reader.reveals,
                 'upserts': bridge.upserts,
@@ -497,15 +500,18 @@ Future<List<Map<String, Object>>> runBenchmark({
 // still validate each server context against these independent fixed claims.
 class _Authority extends MemberSyncSessionAuthorityProvider {
   _Authority() : super(SecureTokenStorage(const FlutterSecureStorage()));
+  int reads = 0;
   @override
-  Future<MemberSyncSessionAuthority> current() async =>
-      const MemberSyncSessionAuthority(
-        principalId: _principal,
-        organizationId: _organization,
-        organizationMembershipGeneration: '1',
-        offlinePolicy: '24h',
-        offlinePolicyVersion: 1,
-      );
+  Future<MemberSyncSessionAuthority> current() async {
+    reads++;
+    return const MemberSyncSessionAuthority(
+      principalId: _principal,
+      organizationId: _organization,
+      organizationMembershipGeneration: '1',
+      offlinePolicy: '24h',
+      offlinePolicyVersion: 1,
+    );
+  }
 }
 
 class _VaultList implements MemberVaultListLoader {
@@ -556,13 +562,15 @@ class _CountingCurrentEntries extends LocalCurrentEntryService {
   });
   int reveals = 0;
   @override
-  Future<LocalCurrentEntryReveal> revealCurrentWithAuthority({
+  Future<LocalCurrentEntryReveal> revealPreparedWithAuthority({
+    required MemberPreparationAuthority authority,
     required String vaultId,
     required String entryId,
     required Uint8List memberPrivateKey,
   }) {
     reveals++;
-    return super.revealCurrentWithAuthority(
+    return super.revealPreparedWithAuthority(
+      authority: authority,
       vaultId: vaultId,
       entryId: entryId,
       memberPrivateKey: memberPrivateKey,

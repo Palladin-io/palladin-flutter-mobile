@@ -31,6 +31,7 @@ void main() {
         );
         final updates = results.skip(4).toList();
         expect(updates.map((row) => row['reveals']), [160, 1, 0]);
+        expect(updates.map((row) => row['authorityReads']), [2, 2, 2]);
         expect(updates.map((row) => row['upserts']), [160, 1, 0]);
         expect(updates.map((row) => row['removals']), [0, 0, 1]);
         expect(updates.every((row) => row['httpRequests'] == 0), isTrue);

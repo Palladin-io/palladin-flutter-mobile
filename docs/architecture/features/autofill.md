@@ -81,6 +81,16 @@ earliest expiry across initial, reveal and final contexts, requiring a global
 lease intersection. Both preserved and fresh leases remain checked at submission
 and acknowledgement; no renewed lease extends a revealed credential's authority.
 
+Preparation captures one provider-owned authority snapshot and performs one fresh
+authority read before publication, instead of reading secure token storage for
+each Entry. The operation-local snapshot retains claims and an in-memory revision,
+never the token or a key. Accepted token refreshes, login and logout invalidate
+that revision before writes. Every asynchronous reveal boundary and the final
+bridge submission/acknowledgement validate it. Per-Entry ciphertext, lease,
+revision and revocation checks are unchanged; ordinary single-Entry reads still
+resolve fresh authority. The synthetic loopback benchmark asserts two authority
+resolutions for full, update and delete publication, with no additional HTTP.
+
 The app-only native writer holder is separate from provider authorization. Lock
 invalidates its epoch and wipes its key; provider reads still require the original
 platform biometric key-opening path. Mutation transport waits for durable scoped

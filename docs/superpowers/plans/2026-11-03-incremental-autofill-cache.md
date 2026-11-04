@@ -105,4 +105,28 @@ Files: `autofill_cache_service.dart`, `durable_autofill_repair_coordinator.dart`
 
 ## Checkpoint
 
-Design security review accepted; implementation is isolated in `palladin-autofill-incremental` (`feat/autofill-incremental-publication`). Android native commit `9f8539dc` is integrated as `d46cbdfc` (148 native tests and real Kotlin compile passed); iOS native `924f10df` is integrated as `ca622d9d` (real CryptoKit synthetic suite and SDK checks passed). Dart publisher/metadata/scoped mutation integration is implemented and under security review. Fixed stale-clear callbacks, pre-await owner capture, and empty-denial CAS; focused race suite passes. Full integrated Dart suite passed 2201 tests (2 skipped), analyzer/notices/secret scan passed. Both native suites also passed from the integrated checkout. Real SQLite/crypto/loopback benchmark passed: 160 initial reveals, one per update, zero per delete and zero publication HTTP requests. Integration exposed full-scope denial release needing authoritative retained-reference reconciliation; security-approved fixes are integrated for both platforms (Android 149 native tests; iOS CryptoKit/SDK tests). Unclassified publication failures globally deny only the current generation; the focused regression passed RED→GREEN. No release readiness or physical v3 parity claim. Cloud round 1 identified a recovery-gate bypass; fixed with RED→GREEN and ordered clear/reset/publication regression. Independent review also identified a final-authority-await metadata race; synchronous publication revision and real durable-commit regressions now close it, with clean re-review. Cloud round 2 identified bridge availability awaits after the publication fence; required bridge guard callback and post-ack validation now close it, with real MethodChannel RED→GREEN for full/delta and held-ack regression. Independent re-review is clean. Next: final allowed cloud round 3 and exact-head CI. A repeat native iOS run is currently blocked by host complete-file-protection EPERM; earlier identical native source passed, and protection is not weakened. Publication branch is a signed-off squash of the tested tree, preserving the reviewable PR153 dependency without rewriting remote history. Diagnostic instrumentation remains separate and excluded.
+Incremental Android/iOS implementation is in PR155, stacked on PR153/152.
+Cloud review completed clean in round3 on c1606519; the subsequent narrow
+SDK-setup-ANR harness fix has independent clean review. Current-head CI41847803108
+passed Flutter and the actual Android save/revoke/process-death flow, but the
+59-case AutoFill runtime lost ADB after many passing cases. Its previous complete
+run passed all59 cases; no blind retry or release readiness is claimed. Native
+Android149 tests and iOS protected-file/SDK tests passed; physical iOS parity and
+publication remain outside this approval.
+
+Physical S22 evidence then identified lease-only renewals aborting long initial
+publication (only issuedAt/notAfter mismatch), and repeated secure-token reads
+accounting for about90% of reveal time. Corrective worktrees are
+`palladin-autofill-physical-preparation` (bounded retries + earliest authenticated
+lease preservation) and `palladin-autofill-authority-snapshot` (operation-scoped
+revision-fenced authority). Both changes have independent clean security review.
+The latter full suite passed2224 tests,2 skipped; analyzer is clean. Real
+SQLite/crypto benchmark reduced authority resolutions from162 to2 for160 Entries,
+with unchanged160/1/0 reveals for full/update/delete and zero publication HTTP.
+This is call-count evidence, not a physical performance claim.
+
+Next unfinished step: resolve a separately identified startup publication
+supersession mechanism, integrate reviewed corrections, then run exact-candidate
+CI and physical S22 lifecycle/AutoFill checks before merge and Android Internal
+Testing. Root owns device diagnostics, PR stack integration and release. No iOS
+publication; diagnostics remain isolated from production commits.

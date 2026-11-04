@@ -108,7 +108,9 @@ class AutoFillIncrementalPublisher {
     // a Dart update event. This durable deny preserves ciphertext for deltas.
     if (_base != null && _denies.isEmpty) await deny(null);
     _requireCurrent(epoch, isCurrent);
-    final claims = await _authority.current();
+    final preparationAuthority = await _authority.captureForPreparation();
+    preparationAuthority.validateCurrent();
+    final claims = preparationAuthority.claims;
     _requireCurrent(epoch, isCurrent);
     final snapshot = await _metadata.readAutoFillMetadata(
       vaultIds: vaultIds,
@@ -196,14 +198,17 @@ class AutoFillIncrementalPublisher {
     try {
       for (final coordinate in changed) {
         _requireCurrent(epoch, isCurrent);
+        preparationAuthority.validateCurrent();
         final index = candidates[coordinate]!;
-        final revealed = await _entries.revealCurrentWithAuthority(
+        final revealed = await _entries.revealPreparedWithAuthority(
+          authority: preparationAuthority,
           vaultId: coordinate.vaultId,
           entryId: coordinate.entryId,
           memberPrivateKey: privateKey,
         );
         try {
           _requireCurrent(epoch, isCurrent);
+          preparationAuthority.validateCurrent();
           final entry = revealed.snapshot.entry;
           if (entry['id'] != coordinate.entryId ||
               entry['vaultId'] != coordinate.vaultId ||
@@ -323,6 +328,7 @@ class AutoFillIncrementalPublisher {
         ),
       );
       void validatePublication() {
+        preparationAuthority.validateCurrent();
         _metadata.validateAutoFillPublication(currentSnapshot);
         _metadata.validateAutoFillPublication(leaseSnapshot);
         _requireCurrent(epoch, isCurrent);

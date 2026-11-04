@@ -1,3 +1,5 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_preparation.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -16,6 +18,20 @@ import 'package:mobile_palladin/features/vault/data/services/local_current_entry
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
+class _PreparationStorage extends SecureTokenStorage {
+  _PreparationStorage() : super(const FlutterSecureStorage());
+  int revision = 0;
+  @override
+  int get authorityRevision => revision;
+}
+
+class _PreparationProvider extends MemberSyncSessionAuthorityProvider {
+  _PreparationProvider(this.read, SecureTokenStorage storage) : super(storage);
+  final Future<MemberSyncSessionAuthority> Function() read;
+  @override
+  Future<MemberSyncSessionAuthority> current() => read();
+}
+
 class _Reader extends Mock implements MemberAutoFillMetadataReader {}
 
 class _Authority extends Mock implements MemberSyncSessionAuthorityProvider {}
@@ -31,6 +47,7 @@ void main() {
   late _Entries entries;
   late _Bridge bridge;
   late AutoFillIncrementalPublisher publisher;
+  late _PreparationStorage preparationStorage;
   late MemberOfflineAccessContext context;
   late MemberSyncSessionAuthority claims;
   late List<MemberIndexEntry> indexes;
@@ -96,7 +113,7 @@ void main() {
       AutoFillCachePayload(manifest: emptyManifest, records: []),
     );
   });
-  setUp(() {
+  setUp(() async {
     context = MemberSnapshotPage.fromJson(
       Map<String, dynamic>.from(
         (jsonDecode(
@@ -128,6 +145,15 @@ void main() {
     entries = _Entries();
     bridge = _Bridge();
     when(() => authority.current()).thenAnswer((_) async => claims);
+    preparationStorage = _PreparationStorage();
+    final preparationProvider = _PreparationProvider(
+      authority.current,
+      preparationStorage,
+    );
+    registerFallbackValue(await preparationProvider.captureForPreparation());
+    when(
+      () => authority.captureForPreparation(),
+    ).thenAnswer((_) => preparationProvider.captureForPreparation());
     when(
       () => reader.readAutoFillMetadata(
         vaultIds: any(named: 'vaultIds'),
@@ -193,7 +219,8 @@ void main() {
       return AutoFillCacheBase(generation: 7, revision: ++revision);
     });
     when(
-      () => entries.revealCurrentWithAuthority(
+      () => entries.revealPreparedWithAuthority(
+        authority: any(named: 'authority'),
         vaultId: any(named: 'vaultId'),
         entryId: any(named: 'entryId'),
         memberPrivateKey: any(named: 'memberPrivateKey'),
@@ -466,6 +493,60 @@ void main() {
       expect(fullCalls, 0);
     },
   );
+
+  for (final phase in ['between-reveals', 'publishing', 'acknowledgement']) {
+    test(
+      'token authority change at $phase cannot acknowledge publication',
+      () async {
+        await publisher.beginSession(7);
+        final phases = <AutoFillPreparationPhase>[];
+        if (phase == 'acknowledgement') {
+          when(
+            () => bridge.replaceCacheV3(
+              any(),
+              sessionToken: any(named: 'sessionToken'),
+              writerEpoch: any(named: 'writerEpoch'),
+              base: any(named: 'base'),
+              releasingDenies: any(named: 'releasingDenies'),
+              validatePublication: any(named: 'validatePublication'),
+            ),
+          ).thenAnswer((_) async {
+            preparationStorage.revision++;
+            return const AutoFillCacheBase(generation: 7, revision: 1);
+          });
+        }
+        await expectLater(
+          publisher.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (p) {
+              phases.add(p.phase);
+              if ((phase == 'between-reveals' &&
+                      p.phase == AutoFillPreparationPhase.preparing &&
+                      p.examined == 1) ||
+                  (phase == 'publishing' &&
+                      p.phase == AutoFillPreparationPhase.publishing)) {
+                preparationStorage.revision++;
+              }
+            },
+          ),
+          throwsA(isA<StateError>()),
+        );
+        expect(phases, isNot(contains(AutoFillPreparationPhase.ready)));
+        expect(
+          await publisher.deny({
+            AutoFillEntryCoordinate(
+              vaultId: context.vaultId,
+              entryId: 'entry-0',
+            ),
+          }),
+          isFalse,
+        );
+        if (phase != 'acknowledgement') expect(fullCalls, 0);
+      },
+    );
+  }
 
   test('one changed Entry reveals one body and removal reveals none', () async {
     await publisher.beginSession(7);
