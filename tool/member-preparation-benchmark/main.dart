@@ -1,4 +1,5 @@
 // Isolated debug workload: synthetic data, loopback HTTP, no account services.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -63,9 +64,10 @@ Future<void> main() async {
 Future<List<Map<String, Object>>> runBenchmark({
   int repetitions = 5,
   bool incremental = false,
+  bool lifecycle = false,
 }) async {
   debugPrint(
-    'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false})}',
+    'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false, 'controlledLifecycleGates': lifecycle})}',
   );
   final sodium = await SodiumProvider.instance();
   final pair = sodium.crypto.box.keyPair();
@@ -74,7 +76,7 @@ Future<List<Map<String, Object>>> runBenchmark({
     VaultPublicKeyKind.memberX25519,
     pair.publicKey,
   );
-  final crypto = EntryV2CryptoService();
+  final crypto = _LifecycleEntryCrypto();
   final vaultKeys = VaultRotationCryptoService();
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
@@ -246,6 +248,8 @@ Future<List<Map<String, Object>>> runBenchmark({
       }
     }
     final requests = <String, int>{};
+    Completer<void>? heldDelta;
+    Completer<void>? deltaEntered;
     var activeRequests = 0;
     var peakRequests = 0;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -268,6 +272,10 @@ Future<List<Map<String, Object>>> runBenchmark({
           request.response.statusCode = 404;
           await request.response.close();
           return;
+        }
+        if (kind == 'delta' && id == _id(2) && heldDelta != null) {
+          deltaEntered?.complete();
+          await heldDelta.future;
         }
         body = {
           'accessContext': contexts[id],
@@ -440,6 +448,92 @@ Future<List<Map<String, Object>>> runBenchmark({
             }
 
             try {
+              if (lifecycle) {
+                final sink = _BenchmarkPublicationSink();
+                final racePublisher = AutoFillIncrementalPublisher(
+                  bridge: sink,
+                  metadata: sync,
+                  authority: preparationAuthority,
+                  entries: reader,
+                );
+                final identity = Object();
+                final errors = <Object>[];
+                final preparedRace = _BenchmarkPreparedPublisher(
+                  racePublisher,
+                  () => requests.values.fold<int>(0, (a, b) => a + b),
+                );
+                final repair = DurableAutoFillRepairCoordinator(
+                  memberIndexes: sync,
+                  autoFill: preparedRace,
+                  currentSession: () => AutoFillRepairSession(
+                    principalId: _principal,
+                    identity: identity,
+                    privateKey: privateKey,
+                  ),
+                  onFailure: errors.add,
+                );
+                var renewals = 0;
+                Future<void> renewDuringPublication() async {
+                  renewals++;
+                  final context = contexts[_id(1)]!;
+                  context['issuedAt'] = issued
+                      .add(Duration(seconds: renewals))
+                      .toIso8601String();
+                  context['notAfter'] = issued
+                      .add(Duration(hours: 24, seconds: renewals))
+                      .toIso8601String();
+                  await entries.load(
+                    vaultId: _id(1),
+                    memberPrivateKey: privateKey,
+                  );
+                }
+
+                final beforeHttp = requests.values.fold<int>(
+                  0,
+                  (a, b) => a + b,
+                );
+                reader.reveals = 0;
+                crypto.afterSecretOpen = renewDuringPublication;
+                sink.beforeAcknowledgement = renewDuringPublication;
+                await racePublisher.beginSession(1);
+                repair.start();
+                repair.replaceKnownVaults(wrappers.keys);
+                try {
+                  await repair.synchronizePreparedIfAllowed(
+                    privateKey: privateKey,
+                    vaultIds: wrappers.keys,
+                  );
+                  await repair.drainPending();
+                  final measurement = <String, Object>{
+                    'mode': 'incremental-lifecycle',
+                    'reveals': reader.reveals,
+                    'renewals': renewals,
+                    'syncHttpRequests':
+                        requests.values.fold<int>(0, (a, b) => a + b) -
+                        beforeHttp,
+                    'nativeWrites': sink.nativeWrites,
+                    'denies': sink.denies,
+                    'failures': errors.length,
+                  };
+                  if (renewals != 2 ||
+                      reader.reveals != 160 ||
+                      sink.nativeWrites != 1 ||
+                      sink.denies != 0 ||
+                      errors.isNotEmpty ||
+                      measurement['syncHttpRequests'] != 2) {
+                    throw StateError(
+                      'Lifecycle renewal invariant failed: ${jsonEncode(measurement)}',
+                    );
+                  }
+                  results.add(measurement);
+                  debugPrint('MEMBER_BENCHMARK ${jsonEncode(measurement)}');
+                } finally {
+                  crypto.afterSecretOpen = null;
+                  sink.beforeAcknowledgement = null;
+                  await repair.dispose();
+                  await racePublisher.endSession();
+                }
+              }
               await publish('full', 160, 160, 0);
               int requestCount() =>
                   requests.values.fold<int>(0, (a, b) => a + b);
@@ -471,16 +565,40 @@ Future<List<Map<String, Object>>> runBenchmark({
                 preparationAuthority.reads = 0;
                 final context = contexts[_id(1)]!;
                 context['issuedAt'] = issued
-                    .add(const Duration(seconds: 1))
+                    .add(const Duration(seconds: 3))
                     .toIso8601String();
                 context['notAfter'] = issued
-                    .add(const Duration(hours: 24, seconds: 1))
+                    .add(const Duration(hours: 24, seconds: 3))
                     .toIso8601String();
                 final renewalTimer = Stopwatch()..start();
+                Future<void>? secondRenewal;
+                if (lifecycle) {
+                  final secondContext = contexts[_id(2)]!;
+                  secondContext['issuedAt'] = context['issuedAt'];
+                  secondContext['notAfter'] = context['notAfter'];
+                  heldDelta = Completer<void>();
+                  deltaEntered = Completer<void>();
+                  secondRenewal = entries
+                      .load(vaultId: _id(2), memberPrivateKey: privateKey)
+                      .then((_) {});
+                  await deltaEntered.future;
+                }
                 await entries.load(
                   vaultId: _id(1),
                   memberPrivateKey: privateKey,
                 );
+                if (lifecycle) {
+                  await Future<void>.delayed(Duration.zero);
+                  if (prepared.calls != 0) {
+                    throw StateError(
+                      'Publication started before second known Vault completed',
+                    );
+                  }
+                  heldDelta!.complete();
+                  await secondRenewal;
+                  heldDelta = null;
+                  deltaEntered = null;
+                }
                 await coordinator.drainPending();
                 renewalTimer.stop();
                 final measurement = <String, Object>{
@@ -497,7 +615,7 @@ Future<List<Map<String, Object>>> runBenchmark({
                 };
                 if (failures.isNotEmpty ||
                     prepared.calls != 1 ||
-                    measurement['syncHttpRequests'] != 1 ||
+                    measurement['syncHttpRequests'] != (lifecycle ? 2 : 1) ||
                     prepared.httpRequests != 0 ||
                     reader.reveals != 0 ||
                     measurement['denies'] != 0 ||
@@ -680,6 +798,7 @@ class _BenchmarkPreparedPublisher implements AutoFillPreparedCacheSynchronizer {
 }
 
 class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
+  Future<void> Function()? beforeAcknowledgement;
   int revision = 0;
   int upserts = 0;
   int removals = 0;
@@ -711,7 +830,11 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     removals = 0;
     _manifest = payload.manifest;
     _owners.removeAll(releasingDenies);
-    return next();
+    final committed = next();
+    final callback = beforeAcknowledgement;
+    beforeAcknowledgement = null;
+    if (callback != null) await callback();
+    return committed;
   }
 
   @override
@@ -786,5 +909,27 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
               next.issuedAt.isBefore(entry.value.notAfter) &&
               entry.value.issuedAt.isBefore(next.notAfter);
         });
+  }
+}
+
+// Test-only timing seam after authentic AEAD opening, before production read
+// revalidation. No credential is inspected or retained by the callback.
+class _LifecycleEntryCrypto extends EntryV2CryptoService {
+  Future<void> Function()? afterSecretOpen;
+  @override
+  Future<Map<String, dynamic>> openMemberSecret({
+    required Map<String, dynamic> entryKey,
+    required Map<String, dynamic> memberSecret,
+    required Uint8List vaultKey,
+  }) async {
+    final result = await super.openMemberSecret(
+      entryKey: entryKey,
+      memberSecret: memberSecret,
+      vaultKey: vaultKey,
+    );
+    final callback = afterSecretOpen;
+    afterSecretOpen = null;
+    if (callback != null) await callback();
+    return result;
   }
 }

@@ -23,8 +23,9 @@ void main() {
         final results = await benchmark.runBenchmark(
           repetitions: 1,
           incremental: true,
+          lifecycle: true,
         );
-        expect(results, hasLength(8));
+        expect(results, hasLength(9));
         expect(
           results.take(4).every((result) => result['entries'] == 160),
           isTrue,
@@ -32,16 +33,29 @@ void main() {
         final renewal = results.singleWhere(
           (row) => row['mode'] == 'incremental-renewal',
         );
-        expect(renewal['syncHttpRequests'], 1);
+        expect(renewal['syncHttpRequests'], 2);
         expect(renewal['httpRequests'], 0);
         expect(renewal['reveals'], 0);
         expect(renewal['denies'], 0);
         expect(renewal['nativeValidationCalls'], 1);
         expect(renewal['nativeWrites'], 0);
         expect(renewal['sameBase'], isTrue);
+        final lifecycle = results.singleWhere(
+          (row) => row['mode'] == 'incremental-lifecycle',
+        );
+        expect(lifecycle['renewals'], 2);
+        expect(lifecycle['reveals'], 160);
+        expect(lifecycle['nativeWrites'], 1);
+        expect(lifecycle['denies'], 0);
+        expect(lifecycle['failures'], 0);
+        expect(lifecycle['syncHttpRequests'], 2);
         final updates = results
             .skip(4)
-            .where((row) => row['mode'] != 'incremental-renewal')
+            .where(
+              (row) =>
+                  row['mode'] != 'incremental-renewal' &&
+                  row['mode'] != 'incremental-lifecycle',
+            )
             .toList();
         expect(updates.map((row) => row['reveals']), [160, 1, 0]);
         expect(updates.map((row) => row['authorityReads']), [2, 2, 2]);
