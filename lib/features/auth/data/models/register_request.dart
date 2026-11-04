@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../unlock/data/services/identity_kdf_service.dart';
 
 /// DTO sent to `POST /api/auth/register`.
@@ -47,7 +48,7 @@ class RegisterRequest {
   /// 16-byte recovery-mnemonic salt.
   final Uint8List recoverySalt;
 
-  /// 32-byte X25519 public key.
+  /// 1216-byte X-Wing member public key.
   final Uint8List publicKey;
 
   /// Private key wrapped under the master key (`nonce || ciphertext`).
@@ -62,12 +63,13 @@ class RegisterRequest {
       'email': email,
       'displayName': displayName,
       'preferredLanguage': preferredLanguage,
-      'securityVersion': IdentityKdfProfile.securityVersion,
-      'kdfProfileId': IdentityKdfProfile.id,
+      'securityVersion': IdentityKdfProfileV2.securityVersion,
+      'kdfProfileId': IdentityKdfProfileV2.id,
       'authCredential': authCredential,
       'kdfSalt': _encodeBytes(kdfSalt),
       'recoverySalt': _encodeBytes(recoverySalt),
       'publicKey': _encodeBytes(publicKey),
+      'memberPublicKeySuite': WrapperSuite.memberKeySuite.wireValue,
       'encryptedPrivateKey': _encodeBytes(encryptedPrivateKey),
       'encryptedPrivateKeyByRecovery': _encodeBytes(
         encryptedPrivateKeyByRecovery,

@@ -254,6 +254,7 @@ void configureDependencies(EnvConfig config) {
   // dropped when the cubit closes.
   getIt.registerFactory<RegisterCubit>(
     () => RegisterCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
       datasource: getIt<PasswordAuthRemoteDatasource>(),
       cryptoService: getIt<PasswordAuthCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
@@ -261,6 +262,7 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<LoginCubit>(
     () => LoginCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
       datasource: getIt<PasswordAuthRemoteDatasource>(),
       identityKdfService: getIt<IdentityKdfService>(),
       accountDatasource: getIt<AccountRemoteDatasource>(),
@@ -336,7 +338,9 @@ void configureDependencies(EnvConfig config) {
     () => AccountRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
-  getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
+  getIt.registerLazySingleton<IdentityKdfService>(
+    () => IdentityKdfService(accountSecrets: getIt<AccountSecretStore>()),
+  );
 
   // Secret Key — trusted-device copy and device-to-device transfer relay.
   getIt.registerLazySingleton<AccountSecretStore>(AccountSecretStore.new);

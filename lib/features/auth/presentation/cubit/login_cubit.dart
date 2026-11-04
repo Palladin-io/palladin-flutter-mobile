@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/storage/account_secret_store.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -42,6 +43,7 @@ class LoginCubit extends Cubit<LoginState> {
     required this.unlockCryptoService,
     required this.tokenStorage,
     required this.keyStore,
+    required this.accountSecrets,
   }) : super(const LoginInitial());
 
   final PasswordAuthRemoteDatasource datasource;
@@ -50,7 +52,18 @@ class LoginCubit extends Cubit<LoginState> {
   final UnlockCryptoService unlockCryptoService;
   final SecureTokenStorage tokenStorage;
   final BiometricKeyStore keyStore;
+  final AccountSecretStore accountSecrets;
   int? _biometricGeneration;
+
+  /// Held in memory only while this device waits for the Secret Key.
+  String? _pendingEmail;
+  String? _pendingPassword;
+  LoginKdfBootstrap? _pendingBootstrap;
+
+  /// Secret Key obtained on this device in this attempt; persisted only after
+  /// the server accepts the derived credential.
+  Uint8List? _newAccountSecret;
+  IdentityKdfVersion? _kdfVersion;
 
   String? _challengeToken;
   Uint8List? _masterKey;
@@ -66,64 +79,151 @@ class LoginCubit extends Cubit<LoginState> {
     try {
       final bootstrap = await datasource.fetchLoginKdf(
         email,
-        profileId: IdentityKdfProfile.id,
+        profileId: IdentityKdfProfileV2.id,
       );
-      if (bootstrap.profileId != IdentityKdfProfile.id ||
-          bootstrap.securityVersion != IdentityKdfProfile.securityVersion ||
-          bootstrap.memoryKiB != IdentityKdfProfile.memoryKiB ||
-          bootstrap.iterations != IdentityKdfProfile.iterations ||
-          bootstrap.parallelism != IdentityKdfProfile.parallelism) {
-        throw const UnsupportedIdentityKdfException('unsupported-kdf-profile');
-      }
-      // Unknown accounts receive a same-shaped deterministic pseudo-bootstrap.
-      // Running the exact KDF and login path keeps account existence out of the
-      // client's observable behavior.
-      final salt = Uint8List.fromList(
-        base64Url.decode(base64Url.normalize(bootstrap.kdfSalt)),
-      );
-      final IdentityKdfOutputs outputs;
-      try {
-        outputs = await identityKdfService.derive(
-          password: password,
-          accountId: bootstrap.accountId,
-          kdfSalt: salt,
-        );
-      } finally {
-        salt.fillRange(0, salt.length, 0);
-      }
-      if (_isCanceled) {
-        outputs.masterKey.fillRange(0, outputs.masterKey.length, 0);
-        outputs.authCredential.fillRange(0, outputs.authCredential.length, 0);
-        return;
-      }
-      _masterKey?.fillRange(0, _masterKey!.length, 0);
-      _masterKey = outputs.masterKey;
-      _accountId = bootstrap.accountId;
-      final authCredential = base64Url
-          .encode(outputs.authCredential)
-          .replaceAll('=', '');
-      outputs.authCredential.fillRange(0, outputs.authCredential.length, 0);
-      final response = await datasource.login(
-        email: email,
-        authCredential: authCredential,
-      );
-
-      if (_isCanceled) {
-        _clearSecrets();
-        return;
-      }
-      switch (response) {
-        case LoginSession(:final session):
-          await _establishSession(session);
-        case LoginTotpRequired(:final challengeToken):
-          AppLogger.i('Login', 'TOTP challenge required');
-          _challengeToken = challengeToken;
-          emit(const LoginTotpChallenge());
+      final version = _verifiedVersion(bootstrap);
+      if (version == IdentityKdfVersion.accountSecretV2) {
+        final stored = await accountSecrets.read(bootstrap.accountId);
+        if (_isCanceled) {
+          stored?.fillRange(0, stored.length, 0);
+          return;
+        }
+        if (stored == null) {
+          _pendingEmail = email;
+          _pendingPassword = password;
+          _pendingBootstrap = bootstrap;
+          emit(
+            LoginSecretKeyRequired(
+              accountId: bootstrap.accountId,
+              email: email,
+            ),
+          );
+          return;
+        }
+        await _signIn(email, password, bootstrap, version, stored);
+      } else {
+        await _signIn(email, password, bootstrap, version, null);
       }
     } catch (e, s) {
       AppLogger.w('Login', 'Login failed: ${e.runtimeType}');
       _clearSecrets();
       if (!isClosed) emit(LoginFailure(_normalize(e, s)));
+    }
+  }
+
+  /// Continues a version-2 sign-in with a Secret Key obtained from another
+  /// device or the Emergency Kit. Takes ownership of [accountSecret].
+  Future<void> continueWithSecretKey(Uint8List accountSecret) async {
+    final email = _pendingEmail;
+    final password = _pendingPassword;
+    final bootstrap = _pendingBootstrap;
+    if (email == null || password == null || bootstrap == null || isClosed) {
+      accountSecret.fillRange(0, accountSecret.length, 0);
+      return;
+    }
+    _biometricGeneration = keyStore.generation;
+    emit(const LoginLoading());
+    _newAccountSecret = accountSecret;
+    try {
+      await _signIn(
+        email,
+        password,
+        bootstrap,
+        IdentityKdfVersion.accountSecretV2,
+        Uint8List.fromList(accountSecret),
+      );
+    } catch (e, s) {
+      AppLogger.w('Login', 'Login failed: ${e.runtimeType}');
+      _clearSecrets();
+      if (!isClosed) emit(LoginFailure(_normalize(e, s)));
+    }
+  }
+
+  /// Abandons a pending Secret Key request and returns to the form.
+  void cancelSecretKeyRequest() {
+    _clearSecrets();
+    if (!isClosed) emit(const LoginInitial());
+  }
+
+  IdentityKdfVersion _verifiedVersion(LoginKdfBootstrap bootstrap) {
+    final v1 =
+        bootstrap.profileId == IdentityKdfProfile.id &&
+        bootstrap.securityVersion == IdentityKdfProfile.securityVersion &&
+        bootstrap.memoryKiB == IdentityKdfProfile.memoryKiB &&
+        bootstrap.iterations == IdentityKdfProfile.iterations &&
+        bootstrap.parallelism == IdentityKdfProfile.parallelism;
+    final v2 =
+        bootstrap.profileId == IdentityKdfProfileV2.id &&
+        bootstrap.securityVersion == IdentityKdfProfileV2.securityVersion &&
+        bootstrap.memoryKiB == IdentityKdfProfileV2.memoryKiB &&
+        bootstrap.iterations == IdentityKdfProfileV2.iterations &&
+        bootstrap.parallelism == IdentityKdfProfileV2.parallelism;
+    if (v2) return IdentityKdfVersion.accountSecretV2;
+    if (v1) return IdentityKdfVersion.passwordV1;
+    throw const UnsupportedIdentityKdfException('unsupported-kdf-profile');
+  }
+
+  /// Unknown accounts receive a same-shaped deterministic pseudo-bootstrap;
+  /// running the exact KDF and login path keeps account existence out of the
+  /// client's observable behavior. Takes ownership of [accountSecret].
+  Future<void> _signIn(
+    String email,
+    String password,
+    LoginKdfBootstrap bootstrap,
+    IdentityKdfVersion version,
+    Uint8List? accountSecret,
+  ) async {
+    final salt = Uint8List.fromList(
+      base64Url.decode(base64Url.normalize(bootstrap.kdfSalt)),
+    );
+    final IdentityKdfOutputs outputs;
+    try {
+      outputs = switch (version) {
+        IdentityKdfVersion.passwordV1 => await identityKdfService.derive(
+          password: password,
+          accountId: bootstrap.accountId,
+          kdfSalt: salt,
+        ),
+        IdentityKdfVersion.accountSecretV2 => await identityKdfService.deriveV2(
+          password: password,
+          accountId: bootstrap.accountId,
+          kdfSalt: salt,
+          accountSecret: accountSecret!,
+        ),
+      };
+    } finally {
+      salt.fillRange(0, salt.length, 0);
+      accountSecret?.fillRange(0, accountSecret.length, 0);
+    }
+    if (_isCanceled) {
+      outputs.dispose();
+      return;
+    }
+    _masterKey?.fillRange(0, _masterKey!.length, 0);
+    _masterKey = Uint8List.fromList(outputs.masterKey);
+    _accountId = bootstrap.accountId;
+    _kdfVersion = version;
+    final authCredential = base64Url
+        .encode(outputs.authCredential)
+        .replaceAll('=', '');
+    outputs.dispose();
+    final response = await datasource.login(
+      email: email,
+      authCredential: authCredential,
+      kdfVersion: version,
+    );
+
+    if (_isCanceled) {
+      _clearSecrets();
+      return;
+    }
+    switch (response) {
+      case LoginSession(:final session):
+        await _establishSession(session);
+      case LoginTotpRequired(:final challengeToken):
+        AppLogger.i('Login', 'TOTP challenge required');
+        _challengeToken = challengeToken;
+        emit(const LoginTotpChallenge());
     }
   }
 
@@ -169,6 +269,18 @@ class LoginCubit extends Cubit<LoginState> {
       isOnboarded: session.isOnboarded,
     );
     await tokenStorage.setAuthProvider(AuthProviderId.password);
+
+    final newSecret = _newAccountSecret;
+    if (newSecret != null && _accountId != null) {
+      await accountSecrets.write(_accountId!, newSecret);
+    }
+    if (_kdfVersion == IdentityKdfVersion.passwordV1) {
+      // The security upgrade runs from the unlock screen, where the password
+      // is entered once more; no keys are handed to the session here.
+      _clearSecrets();
+      if (!isClosed) emit(const LoginSucceededLocked());
+      return;
+    }
 
     final account = await accountDatasource.getAccount();
     if (_isCanceled) {
@@ -216,6 +328,12 @@ class LoginCubit extends Cubit<LoginState> {
   /// Drops the in-memory password / challenge token. Strings can't be
   /// zeroed, but dropping every reference lets them be collected.
   void _clearSecrets() {
+    _pendingEmail = null;
+    _pendingPassword = null;
+    _pendingBootstrap = null;
+    _kdfVersion = null;
+    _newAccountSecret?.fillRange(0, _newAccountSecret!.length, 0);
+    _newAccountSecret = null;
     _biometricGeneration = null;
     _challengeToken = null;
     _accountId = null;
@@ -237,6 +355,7 @@ class LoginCubit extends Cubit<LoginState> {
         error is PasswordAuthServerException) {
       return error;
     }
+    if (error is AccountSecretRequiredException) return error;
     // Master-key derivation or an unexpected failure — surface as a
     // generic server error the page can localize.
     AppLogger.e(

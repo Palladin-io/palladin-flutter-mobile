@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
+import '../../../../core/storage/account_secret_store.dart';
 
 /// Frozen password-only Identity KDF v1 profile.
 abstract final class IdentityKdfProfile {
@@ -77,6 +78,11 @@ final class UnsupportedIdentityKdfException implements Exception {
   final String code;
 }
 
+/// The account is at security version 2 but this device holds no Secret Key.
+final class AccountSecretRequiredException implements Exception {
+  const AccountSecretRequiredException();
+}
+
 /// Domain-separated outputs of the v1 Identity derivation.
 final class IdentityKdfOutputs {
   const IdentityKdfOutputs({
@@ -95,10 +101,46 @@ final class IdentityKdfOutputs {
 
 /// Implements the byte-exact, versioned Identity KDF contract.
 class IdentityKdfService {
-  IdentityKdfService({Future<SodiumSumo> Function()? sodiumLoader})
-    : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  IdentityKdfService({
+    Future<SodiumSumo> Function()? sodiumLoader,
+    AccountSecretStore? accountSecrets,
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
+       _accountSecrets = accountSecrets;
 
   final Future<SodiumSumo> Function() _sodiumLoader;
+  final AccountSecretStore? _accountSecrets;
+
+  /// Runs [action] with this device's Secret Key for [accountId] and wipes
+  /// the copy afterwards.
+  Future<T> withStoredAccountSecret<T>(
+    String accountId,
+    Future<T> Function(Uint8List accountSecret) action,
+  ) async {
+    final secret = await (_accountSecrets ?? AccountSecretStore()).read(
+      accountId,
+    );
+    if (secret == null) throw const AccountSecretRequiredException();
+    try {
+      return await action(secret);
+    } finally {
+      secret.fillRange(0, secret.length, 0);
+    }
+  }
+
+  /// Version-2 derivation with the Secret Key stored on this device.
+  Future<IdentityKdfOutputs> deriveWithStoredSecret({
+    required String password,
+    required String accountId,
+    required Uint8List kdfSalt,
+  }) => withStoredAccountSecret(
+    accountId,
+    (secret) => deriveV2(
+      password: password,
+      accountId: accountId,
+      kdfSalt: kdfSalt,
+      accountSecret: secret,
+    ),
+  );
 
   /// Validates all server-selected metadata before allocating KDF memory and
   /// returns the profile to derive. A version-1 profile is accepted only while
@@ -133,7 +175,8 @@ class IdentityKdfService {
     return sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
   }
 
-  /// Derives v1 outputs from the exact UTF-8 password bytes.
+  /// Derives password-only v1 outputs; used only to unlock and migrate a
+  /// security-version-1 account.
   Future<IdentityKdfOutputs> derive({
     required String password,
     required String accountId,

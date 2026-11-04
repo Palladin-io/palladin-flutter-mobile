@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../onboarding/domain/crypto_params.dart';
 import '../../../unlock/data/services/identity_kdf_service.dart';
+import 'account_key_material_service.dart';
 
 /// Zero-knowledge crypto pipeline for the email + master-password auth
 /// flow (Variant A).
@@ -65,61 +65,33 @@ class PasswordAuthCryptoService {
     required List<String> recoveryMnemonic,
   }) async {
     final sodium = await _sodiumLoader();
-
     final accountId = _newAccountId(sodium);
-    final kdfSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
-    final recoverySalt = sodium.randombytes.buf(CryptoParams.saltLength);
-
-    final outputs = await _identityKdfService.derive(
-      password: password,
-      accountId: accountId,
-      kdfSalt: kdfSalt,
-    );
-    final masterKey = SecureKey.fromList(sodium, outputs.masterKey);
+    final material =
+        await AccountKeyMaterialService(
+          identityKdfService: _identityKdfService,
+          sodiumLoader: _sodiumLoader,
+        ).build(
+          password: password,
+          accountId: accountId,
+          recoveryMnemonic: recoveryMnemonic,
+        );
     try {
-      final recoveryKey = _deriveKey(
-        sodium,
-        recoveryMnemonic.join(' '),
-        recoverySalt,
+      return RegistrationCryptoMaterial(
+        accountId: accountId,
+        authCredential: base64Url
+            .encode(material.authCredential)
+            .replaceAll('=', ''),
+        kdfSalt: material.kdfSalt,
+        recoverySalt: material.recoverySalt,
+        publicKey: material.memberPublicKey,
+        encryptedPrivateKey: material.encryptedPrivateKey,
+        encryptedPrivateKeyByRecovery: material.encryptedPrivateKeyByRecovery,
+        masterKey: Uint8List.fromList(material.masterKey),
+        privateKey: Uint8List.fromList(material.memberPrivateKey),
+        accountSecret: Uint8List.fromList(material.accountSecret),
       );
-      try {
-        final keyPair = sodium.crypto.box.keyPair();
-        try {
-          final privateKeyBytes = keyPair.secretKey.extractBytes();
-          try {
-            return RegistrationCryptoMaterial(
-              accountId: accountId,
-              authCredential: base64Url
-                  .encode(outputs.authCredential)
-                  .replaceAll('=', ''),
-              kdfSalt: kdfSalt,
-              recoverySalt: recoverySalt,
-              publicKey: Uint8List.fromList(keyPair.publicKey),
-              encryptedPrivateKey: _encryptWithKey(
-                sodium,
-                plaintext: privateKeyBytes,
-                key: masterKey,
-              ),
-              encryptedPrivateKeyByRecovery: _encryptWithKey(
-                sodium,
-                plaintext: privateKeyBytes,
-                key: recoveryKey,
-              ),
-              masterKey: Uint8List.fromList(outputs.masterKey),
-              privateKey: Uint8List.fromList(privateKeyBytes),
-            );
-          } finally {
-            privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
-          }
-        } finally {
-          keyPair.dispose();
-        }
-      } finally {
-        recoveryKey.dispose();
-      }
     } finally {
-      masterKey.dispose();
-      outputs.dispose();
+      material.dispose();
     }
   }
 
@@ -133,7 +105,7 @@ class PasswordAuthCryptoService {
     required String kdfSaltBase64,
   }) async {
     final salt = _decodeWireBytes(kdfSaltBase64);
-    final outputs = await _identityKdfService.derive(
+    final outputs = await _identityKdfService.deriveWithStoredSecret(
       password: password,
       accountId: accountId,
       kdfSalt: salt,
@@ -169,7 +141,7 @@ class PasswordAuthCryptoService {
   }) async {
     final sodium = await _sodiumLoader();
     final currentSalt = _decodeWireBytes(currentKdfSaltBase64);
-    final currentOutputs = await _identityKdfService.derive(
+    final currentOutputs = await _identityKdfService.deriveWithStoredSecret(
       password: currentPassword,
       accountId: accountId,
       kdfSalt: currentSalt,
@@ -186,8 +158,8 @@ class PasswordAuthCryptoService {
         currentEncryptedPrivateKeyBase64,
       );
 
-      final newSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
-      final newOutputs = await _identityKdfService.derive(
+      final newSalt = sodium.randombytes.buf(IdentityKdfProfileV2.saltBytes);
+      final newOutputs = await _identityKdfService.deriveWithStoredSecret(
         password: newPassword,
         accountId: accountId,
         kdfSalt: newSalt,
@@ -249,20 +221,6 @@ class PasswordAuthCryptoService {
     }
   }
 
-  /// Runs `crypto_pwhash` (Argon2id) with the project-wide cost
-  /// parameters and returns a [SecureKey] backed by locked memory.
-  SecureKey _deriveKey(SodiumSumo sodium, String password, Uint8List salt) {
-    final utf8Bytes = utf8.encode(password);
-    return sodium.crypto.pwhash.call(
-      outLen: CryptoParams.derivedKeyLength,
-      password: Int8List.fromList(utf8Bytes),
-      salt: salt,
-      opsLimit: CryptoParams.argon2OpsLimit,
-      memLimit: CryptoParams.argon2MemLimit,
-      alg: CryptoPwhashAlgorithm.argon2id13,
-    );
-  }
-
   /// Encrypts [plaintext] with `crypto_secretbox_easy` and returns a
   /// `nonce || ciphertext` blob, matching the format used by onboarding,
   /// unlock, recovery, and the web panel.
@@ -315,6 +273,7 @@ class RegistrationCryptoMaterial {
     required this.encryptedPrivateKeyByRecovery,
     required this.masterKey,
     required this.privateKey,
+    required this.accountSecret,
   });
 
   /// Base64 Argon2id auth hash (from `password + authSalt`).
@@ -328,7 +287,7 @@ class RegistrationCryptoMaterial {
   /// 16-byte salt for the recovery-mnemonic key derivation.
   final Uint8List recoverySalt;
 
-  /// 32-byte X25519 public key.
+  /// 1216-byte X-Wing member public key.
   final Uint8List publicKey;
 
   /// Private key wrapped under the master key (`nonce || ciphertext`).
@@ -340,8 +299,11 @@ class RegistrationCryptoMaterial {
   /// Retained raw 32-byte master key — in memory only.
   final Uint8List masterKey;
 
-  /// Retained raw 32-byte X25519 private key — in memory only.
+  /// Retained raw 32-byte member private key (X-Wing seed) — memory only.
   final Uint8List privateKey;
+
+  /// New Secret Key; stored on this device only after registration succeeds.
+  final Uint8List accountSecret;
 }
 
 /// Crypto material produced by [PasswordAuthCryptoService.buildChangePasswordMaterial].
