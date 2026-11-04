@@ -601,6 +601,80 @@ void main() {
   }
 
   test(
+    'AutoFill stale sync failure cannot invalidate new session content',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<void> sync() async => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final held = Completer<MemberDeltaResult>();
+      remote.deltaCompleter = held;
+      final requests = remote.deltaRequests;
+      final old = sync();
+      final failure = expectLater(old, throwsStateError);
+      while (remote.deltaRequests == requests) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      service.lock();
+      remote.deltaCompleter = null;
+      await sync();
+      final current = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: current.readGeneration,
+          contentRevision: current.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isTrue,
+      );
+      held.completeError(StateError('synthetic old-session transport failure'));
+      await failure;
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: current.readGeneration,
+          contentRevision: current.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'AutoFill publication rejects same-session failed sync before commit',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<void> sync() async => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      remote.deltaResponder = (_, _) =>
+          throw StateError('synthetic transport failure');
+      await expectLater(sync(), throwsStateError);
+      expect(
+        () => service.validateAutoFillPublication(metadata),
+        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+      );
+    },
+  );
+
+  test(
     'AutoFill publication rejects a newer state-only durable commit synchronously',
     () async {
       final vaultId = snapshot.accessContext.vaultId;

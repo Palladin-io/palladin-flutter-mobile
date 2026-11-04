@@ -275,7 +275,7 @@ final class MemberSyncService
         .catchError((Object error, StackTrace stackTrace) {
           // An unsuccessful synchronization provides no proof that publication
           // authority remained unchanged, including a partially committed delta.
-          _autoFillContentRevision++;
+          if (generation == _lockGeneration) _autoFillContentRevision++;
           Error.throwWithStackTrace(error, stackTrace);
         })
         .whenComplete(() {
@@ -556,7 +556,8 @@ final class MemberSyncService
   void validateAutoFillPublication(MemberAutoFillMetadata snapshot) {
     if (_profileQuarantined ||
         snapshot.readGeneration != _lockGeneration ||
-        snapshot.publicationRevision != _autoFillPublicationRevision) {
+        snapshot.publicationRevision != _autoFillPublicationRevision ||
+        snapshot.contentRevision != _autoFillContentRevision) {
       throw const LocalMemberEntryReadInvalidatedException();
     }
     final now = _now().toUtc();
@@ -625,7 +626,8 @@ final class MemberSyncService
   }) async {
     if (_profileQuarantined ||
         snapshot.readGeneration != _lockGeneration ||
-        snapshot.publicationRevision != _autoFillPublicationRevision) {
+        snapshot.publicationRevision != _autoFillPublicationRevision ||
+        snapshot.contentRevision != _autoFillContentRevision) {
       throw const LocalMemberEntryReadInvalidatedException();
     }
     for (final vault in snapshot.vaults.entries) {
