@@ -23,6 +23,7 @@ void main() {
     'sourceChanged',
     'invalidated',
     'expired',
+    'prepareChanged',
   ]) {
     testWidgets(
       '$invalidation authorized picker reads metadata and reveals only explicit selection',
@@ -92,11 +93,22 @@ void main() {
               controller: controller,
               credentials: credentials,
               access: access,
-              prepare: () async => AutoFillRequestSession(
-                privateKey: Uint8List(32),
-                vaultIds: ['vault'],
-                validateCurrent: () {},
-              ),
+              prepare: () async {
+                if (invalidation == 'prepareChanged') {
+                  await messenger.handlePlatformMessage(
+                    channel.name,
+                    const StandardMethodCodec().encodeMethodCall(
+                      const MethodCall('sourceChanged', 'request'),
+                    ),
+                    (_) {},
+                  );
+                }
+                return AutoFillRequestSession(
+                  privateKey: Uint8List(32),
+                  vaultIds: ['vault'],
+                  validateCurrent: () {},
+                );
+              },
               authorizePassword: (_) async {},
               biometricAvailable: () async => false,
             ),
@@ -111,7 +123,7 @@ void main() {
           ),
         );
         expect(find.text('example.com'), findsOneWidget);
-        if (invalidation != null) {
+        if (invalidation != null && invalidation != 'prepareChanged') {
           if (invalidation == 'expired') {
             await tester.pump(const Duration(seconds: 31));
           } else {

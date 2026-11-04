@@ -37,6 +37,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
   List<AutoFillCandidate> _candidates = const [];
   AutoFillRequestSession? _session;
   int _viewGeneration = 0;
+  int? _preparingGeneration;
   late int _selectionRevision;
   bool _busy = false, _failed = false, _biometric = false, _closing = false;
   @override
@@ -65,6 +66,14 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
     final ended = widget.controller.request == null;
     final changed = _selectionRevision != widget.controller.selectionRevision;
     _selectionRevision = widget.controller.selectionRevision;
+    // Preparation may commit ciphertext before candidates have been read.
+    // Keep request authorization, then fence the settled candidate read below.
+    if (!ended &&
+        changed &&
+        widget.controller.isAuthorized &&
+        _preparingGeneration == _viewGeneration) {
+      return;
+    }
     if (ended || changed || !widget.controller.isAuthorized) {
       _viewGeneration++;
       _password.clear();
@@ -112,7 +121,10 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
   Future<void> _load() async {
     if (!mounted || _closing || !widget.controller.isAuthorized) return;
     final generation = ++_viewGeneration;
+    _preparingGeneration = generation;
     setState(() {
+      _session = null;
+      _candidates = const [];
       _busy = true;
       _failed = false;
     });
@@ -127,6 +139,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
       }
 
       final session = await widget.prepare();
+      if (_preparingGeneration == generation) _preparingGeneration = null;
       guard();
       session.validateCurrent();
       final candidates = request.mode == AutoFillRequestMode.manualNative
@@ -152,6 +165,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
         setState(() => _failed = true);
       }
     } finally {
+      if (_preparingGeneration == generation) _preparingGeneration = null;
       if (mounted && !_closing && generation == _viewGeneration) {
         setState(() => _busy = false);
       }
