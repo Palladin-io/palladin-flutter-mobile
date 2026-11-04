@@ -913,3 +913,11 @@ The original immutable Intent binds the expected authentication result shape.
 The final selection rechecks that WEB authority and generation/lease/revoke state
 inside the existing handoff lock. Browser/Chrome, API26–30, generation and save
 contracts retain their prior response/authority paths.
+
+The iOS app registers the shared Member-source control API on
+`io.palladin.mobile/autofill-request`, matching the Dart source controller and
+protected configuration reader. The legacy `io.palladin.mobile/autofill`
+channel remains registered to the **same plugin and source-fence instance** for
+existing save/history and retirement callers. The executable simulator test
+`tool/test_ios_member_registration.sh` exercises registration and encoded calls
+through both channels; it requires `FLUTTER_ROOT` and a booted iOS simulator.

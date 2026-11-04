@@ -37,6 +37,13 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             try? GeneratedPasswordHistory().revokeAll()
         }
         registrar.addMethodCallDelegate(instance, channel: channel)
+        // The app source controller uses the request channel on both platforms.
+        // Share the same fence and RAM capability owner with the legacy bridge.
+        let requestChannel = FlutterMethodChannel(
+            name: "io.palladin.mobile/autofill-request",
+            binaryMessenger: registrar.messenger()
+        )
+        registrar.addMethodCallDelegate(instance, channel: requestChannel)
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
