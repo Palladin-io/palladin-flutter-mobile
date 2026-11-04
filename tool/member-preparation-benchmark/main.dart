@@ -27,6 +27,8 @@ import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.d
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:mobile_palladin/features/autofill/data/autofill_incremental_publisher.dart';
+import 'package:mobile_palladin/features/autofill/data/durable_autofill_repair_coordinator.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_cache_bridge.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_incremental.dart';
@@ -439,6 +441,79 @@ Future<List<Map<String, Object>>> runBenchmark({
 
             try {
               await publish('full', 160, 160, 0);
+              int requestCount() =>
+                  requests.values.fold<int>(0, (a, b) => a + b);
+              final prepared = _BenchmarkPreparedPublisher(
+                publisher,
+                requestCount,
+              );
+              final identity = Object();
+              final failures = <Object>[];
+              final coordinator = DurableAutoFillRepairCoordinator(
+                memberIndexes: sync,
+                autoFill: prepared,
+                currentSession: () => AutoFillRepairSession(
+                  principalId: _principal,
+                  identity: identity,
+                  privateKey: privateKey,
+                ),
+                onFailure: failures.add,
+              );
+              coordinator.start();
+              coordinator.replaceKnownVaults(wrappers.keys);
+              try {
+                final beforeRequests = requestCount();
+                final beforeRevision = bridge.revision;
+                final beforeWrites = bridge.nativeWrites;
+                final beforeDenies = bridge.denies;
+                final beforeValidation = bridge.validationCalls;
+                reader.reveals = 0;
+                preparationAuthority.reads = 0;
+                final context = contexts[_id(1)]!;
+                context['issuedAt'] = issued
+                    .add(const Duration(seconds: 1))
+                    .toIso8601String();
+                context['notAfter'] = issued
+                    .add(const Duration(hours: 24, seconds: 1))
+                    .toIso8601String();
+                final renewalTimer = Stopwatch()..start();
+                await entries.load(
+                  vaultId: _id(1),
+                  memberPrivateKey: privateKey,
+                );
+                await coordinator.drainPending();
+                renewalTimer.stop();
+                final measurement = <String, Object>{
+                  'mode': 'incremental-renewal',
+                  'elapsedMicros': renewalTimer.elapsedMicroseconds,
+                  'syncHttpRequests': requestCount() - beforeRequests,
+                  'httpRequests': prepared.httpRequests,
+                  'reveals': reader.reveals,
+                  'denies': bridge.denies - beforeDenies,
+                  'nativeValidationCalls':
+                      bridge.validationCalls - beforeValidation,
+                  'nativeWrites': bridge.nativeWrites - beforeWrites,
+                  'sameBase': bridge.revision == beforeRevision,
+                };
+                if (failures.isNotEmpty ||
+                    prepared.calls != 1 ||
+                    measurement['syncHttpRequests'] != 1 ||
+                    prepared.httpRequests != 0 ||
+                    reader.reveals != 0 ||
+                    measurement['denies'] != 0 ||
+                    measurement['nativeValidationCalls'] != 1 ||
+                    measurement['nativeWrites'] != 0 ||
+                    measurement['sameBase'] != true) {
+                  throw StateError(
+                    'Real durable renewal must preserve acknowledged native publication: ${jsonEncode(measurement)}',
+                  );
+                }
+                results.add(measurement);
+                debugPrint('MEMBER_BENCHMARK ${jsonEncode(measurement)}');
+              } finally {
+                await coordinator.dispose();
+              }
+
               final coordinate = AutoFillEntryCoordinate(
                 vaultId: _id(1),
                 entryId: _id(1000),
@@ -580,12 +655,44 @@ class _CountingCurrentEntries extends LocalCurrentEntryService {
 
 // Desktop benchmark stops at native publication. It retains counts only, never
 // credential bodies; native ciphertext/CAS/biometric behavior has separate tests.
+class _BenchmarkPreparedPublisher implements AutoFillPreparedCacheSynchronizer {
+  _BenchmarkPreparedPublisher(this.publisher, this.requestCount);
+  final AutoFillIncrementalPublisher publisher;
+  final int Function() requestCount;
+  int calls = 0;
+  int httpRequests = 0;
+
+  @override
+  Future<void> synchronizePrepared({
+    required Uint8List privateKey,
+    required Iterable<String> vaultIds,
+  }) async {
+    calls++;
+    final before = requestCount();
+    await publisher.synchronize(
+      privateKey: privateKey,
+      vaultIds: vaultIds,
+      isCurrent: () => true,
+      onProgress: (_) {},
+    );
+    httpRequests += requestCount() - before;
+  }
+}
+
 class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
   int revision = 0;
   int upserts = 0;
   int removals = 0;
-  AutoFillCacheBase next() =>
-      AutoFillCacheBase(generation: 1, revision: ++revision);
+  int nativeWrites = 0;
+  int denies = 0;
+  int validationCalls = 0;
+  AutoFillCacheManifest? _manifest;
+  final _owners = <String>{};
+  AutoFillCacheBase next() {
+    nativeWrites++;
+    return AutoFillCacheBase(generation: 1, revision: ++revision);
+  }
+
   @override
   Future<int> beginWriterSession({required int sessionToken}) async => 1;
   @override
@@ -602,6 +709,8 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     validatePublication();
     upserts = payload.records.length;
     removals = 0;
+    _manifest = payload.manifest;
+    _owners.removeAll(releasingDenies);
     return next();
   }
 
@@ -610,7 +719,15 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     required AutoFillCacheBase base,
     required int writerEpoch,
     required List<AutoFillEntryCoordinate> entries,
-  }) async => AutoFillScopedDenial(base: next(), token: 'synthetic-$revision');
+  }) async {
+    if (base.revision != revision) throw StateError('Stale synthetic base');
+    denies++;
+    final nextBase = next();
+    final token = 'synthetic-$revision';
+    _owners.add(token);
+    return AutoFillScopedDenial(base: nextBase, token: token);
+  }
+
   @override
   Future<AutoFillCacheBase> applyCacheDelta({
     required AutoFillCacheBase base,
@@ -622,8 +739,52 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     required void Function() validatePublication,
   }) async {
     validatePublication();
+    validationCalls++;
+    if (base.revision != revision) throw StateError('Stale synthetic base');
     this.upserts = upserts.length;
     this.removals = removals.length;
+    if (upserts.isEmpty &&
+        removals.isEmpty &&
+        releasingDenies.isEmpty &&
+        _owners.isEmpty &&
+        _sameAuthority(manifest)) {
+      return base;
+    }
+    if (!_owners.containsAll(releasingDenies)) {
+      throw StateError('Unknown synthetic owner');
+    }
+    _owners.removeAll(releasingDenies);
+    _manifest = manifest;
     return next();
+  }
+
+  bool _sameAuthority(AutoFillCacheManifest candidate) {
+    final previous = _manifest;
+    if (previous == null) return false;
+    Map<String, Object> bindings(AutoFillCacheManifest manifest) {
+      final value = manifest.toPlatformMap();
+      value['vaults'] = (value['vaults'] as List)
+          .map(
+            (raw) => {
+              for (final field in (raw as Map).entries)
+                if (field.key != 'issuedAt' && field.key != 'notAfter')
+                  field.key: field.value,
+            },
+          )
+          .toList();
+      return value;
+    }
+
+    final now = DateTime.now().toUtc();
+    return jsonEncode(bindings(previous)) == jsonEncode(bindings(candidate)) &&
+        previous.vaults.entries.every((entry) {
+          final next = candidate.vaults[entry.key];
+          return next != null &&
+              now.isBefore(entry.value.notAfter) &&
+              now.isBefore(next.notAfter) &&
+              !next.notAfter.isBefore(entry.value.notAfter) &&
+              next.issuedAt.isBefore(entry.value.notAfter) &&
+              entry.value.issuedAt.isBefore(next.notAfter);
+        });
   }
 }

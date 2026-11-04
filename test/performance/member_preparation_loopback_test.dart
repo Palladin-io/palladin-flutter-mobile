@@ -24,12 +24,25 @@ void main() {
           repetitions: 1,
           incremental: true,
         );
-        expect(results, hasLength(7));
+        expect(results, hasLength(8));
         expect(
           results.take(4).every((result) => result['entries'] == 160),
           isTrue,
         );
-        final updates = results.skip(4).toList();
+        final renewal = results.singleWhere(
+          (row) => row['mode'] == 'incremental-renewal',
+        );
+        expect(renewal['syncHttpRequests'], 1);
+        expect(renewal['httpRequests'], 0);
+        expect(renewal['reveals'], 0);
+        expect(renewal['denies'], 0);
+        expect(renewal['nativeValidationCalls'], 1);
+        expect(renewal['nativeWrites'], 0);
+        expect(renewal['sameBase'], isTrue);
+        final updates = results
+            .skip(4)
+            .where((row) => row['mode'] != 'incremental-renewal')
+            .toList();
         expect(updates.map((row) => row['reveals']), [160, 1, 0]);
         expect(updates.map((row) => row['authorityReads']), [2, 2, 2]);
         expect(updates.map((row) => row['upserts']), [160, 1, 0]);
