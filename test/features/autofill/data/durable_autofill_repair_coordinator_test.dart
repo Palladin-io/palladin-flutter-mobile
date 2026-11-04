@@ -57,6 +57,86 @@ void main() {
     await updates.close();
   });
 
+  test('durable repair waits for all known staggered Vault syncs', () async {
+    final second = Completer<void>();
+    when(
+      () => indexes.waitForCurrent('vault-b'),
+    ).thenAnswer((_) => second.future);
+    coordinator.replaceKnownVaults(['vault-a', 'vault-b']);
+    updates.add('vault-a');
+    await Future<void>.delayed(Duration.zero);
+    verifyNever(
+      () => autoFill.synchronizePrepared(
+        privateKey: any(named: 'privateKey'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    );
+    updates.add('vault-b');
+    second.complete();
+    await coordinator.drainPending();
+    verify(
+      () => autoFill.synchronizePrepared(
+        privateKey: session!.privateKey,
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).called(1);
+    verifyNever(() => indexes.waitForCurrent('unrelated'));
+  });
+
+  test(
+    'mutation deny remains immediate while another known Vault is syncing',
+    () async {
+      final second = Completer<void>();
+      when(
+        () => indexes.waitForCurrent('vault-b'),
+      ).thenAnswer((_) => second.future);
+      coordinator.replaceKnownVaults(['vault-a', 'vault-b']);
+      updates.add('vault-a');
+      await Future<void>.delayed(Duration.zero);
+      final deny = coordinator.suspendRepairs();
+      second.complete();
+      await coordinator.drainPending();
+      verifyNever(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      );
+      coordinator.resumeRepairs(deny);
+      await coordinator.drainPending();
+      verify(
+        () => autoFill.synchronizePrepared(
+          privateKey: session!.privateKey,
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).called(1);
+    },
+  );
+
+  test(
+    'known Vault removal while waiting cannot resurrect stale set',
+    () async {
+      final second = Completer<void>();
+      when(
+        () => indexes.waitForCurrent('vault-b'),
+      ).thenAnswer((_) => second.future);
+      coordinator.replaceKnownVaults(['vault-a', 'vault-b']);
+      updates.add('vault-a');
+      await Future<void>.delayed(Duration.zero);
+      coordinator.replaceKnownVaults(['vault-a']);
+      second.complete();
+      await coordinator.drainPending();
+      final captured = verify(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: captureAny(named: 'vaultIds'),
+        ),
+      ).captured;
+      expect(captured, hasLength(1));
+      expect((captured.single as Iterable<String>).toSet(), {'vault-a'});
+    },
+  );
+
   test(
     'new commit queues publication behind the active foreground repair',
     () async {
@@ -312,7 +392,7 @@ void main() {
               as Iterable<String>;
       expect(captured.toSet(), {'vault-a', 'vault-b'});
       expect(waitCalls, greaterThanOrEqualTo(2));
-      verify(() => indexes.waitForCurrent('vault-b')).called(1);
+      verify(() => indexes.waitForCurrent('vault-b')).called(2);
     },
   );
 
@@ -590,7 +670,7 @@ void main() {
       ),
     ).called(2);
     verify(() => indexes.waitForCurrent('vault-b')).called(1);
-    verifyNever(() => indexes.waitForCurrent('vault-a'));
+    verify(() => indexes.waitForCurrent('vault-a')).called(1);
   });
 
   test('failed repair keeps the commit pending for a later retry', () async {

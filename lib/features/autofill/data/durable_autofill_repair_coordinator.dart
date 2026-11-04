@@ -284,10 +284,17 @@ final class DurableAutoFillRepairCoordinator {
       try {
         var covered = Map<String, int>.from(_pending);
         while (true) {
-          await Future.wait(covered.keys.map(_memberIndexes.waitForCurrent));
+          // A publication covers the complete known Vault set, including a
+          // Vault whose running sync has not emitted its first commit yet.
+          final waitingVaults = Set<String>.from(_knownVaultIds);
+          await Future.wait(waitingVaults.map(_memberIndexes.waitForCurrent));
           if (_epoch != initialEpoch || _repairDenies.isNotEmpty) return;
           final latest = Map<String, int>.from(_pending);
-          if (_sameUpdates(covered, latest)) break;
+          if (_sameUpdates(covered, latest) &&
+              waitingVaults.length == _knownVaultIds.length &&
+              waitingVaults.containsAll(_knownVaultIds)) {
+            break;
+          }
           covered = latest;
         }
         // Foreground repair may have consumed this commit while we awaited
