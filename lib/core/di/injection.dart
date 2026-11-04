@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 import '../storage/device_secure_storage.dart';
+import '../storage/account_secret_store.dart';
+import '../crypto/identity/device_pairing.dart';
+import '../../features/secret_key/data/datasources/secret_key_transfer_remote_datasource.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
@@ -331,6 +334,13 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
   getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
+
+  // Secret Key — trusted-device copy and device-to-device transfer relay.
+  getIt.registerLazySingleton<AccountSecretStore>(AccountSecretStore.new);
+  getIt.registerLazySingleton<DevicePairingCrypto>(DevicePairingCrypto.new);
+  getIt.registerLazySingleton<SecretKeyTransferRemoteDatasource>(
+    () => SecretKeyTransferRemoteDatasource(getIt<Dio>()),
+  );
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)
