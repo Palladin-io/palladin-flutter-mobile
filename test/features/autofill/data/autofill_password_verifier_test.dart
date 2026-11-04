@@ -78,4 +78,53 @@ void main() {
       },
     );
   }
+  test(
+    'authority change during KDF cannot authorize and wipes the derived keys',
+    () async {
+      final account = _Account();
+      final crypto = _Crypto();
+      var revision = 0;
+      var authorized = false;
+      final keys = UnlockResult(
+        masterKey: Uint8List.fromList(List.filled(32, 7)),
+        privateKey: Uint8List.fromList(List.filled(32, 8)),
+      );
+      when(account.getUnlockAccount).thenAnswer(
+        (_) async => AccountResponse(
+          userId: 'p',
+          encryptedPrivateKey: 'synthetic',
+          kdf: kdf,
+        ),
+      );
+      when(
+        () => crypto.deriveAndDecrypt(
+          masterPassword: 'synthetic',
+          accountId: 'p',
+          kdf: kdf,
+          encryptedPrivateKeyBase64: 'synthetic',
+        ),
+      ).thenAnswer((_) async {
+        revision++;
+        return keys;
+      });
+      final verifier = AutoFillPasswordVerifier(
+        account: account,
+        crypto: crypto,
+        authority: MemberSyncSessionAuthorityProvider.independent(
+          readClaims: () async => claims,
+          sessionRevision: () => revision,
+        ),
+        captureAuthorization: () => () async {
+          authorized = true;
+        },
+      );
+      await expectLater(
+        verifier.verify('synthetic'),
+        throwsStateError,
+      );
+      expect(authorized, isFalse);
+      expect(keys.masterKey, everyElement(0));
+      expect(keys.privateKey, everyElement(0));
+    },
+  );
 }

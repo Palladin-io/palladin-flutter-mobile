@@ -5098,4 +5098,29 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get autofillPreparationKeepOpen =>
       'Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana.';
+
+  @override
+  String get autofillRequestTitle => 'Uzupełnij login';
+
+  @override
+  String get autofillRequestAuthorize =>
+      'Potwierdź dostęp, aby wybrać zapisany login.';
+
+  @override
+  String get autofillRequestEmpty => 'Brak pasujących zapisanych loginów.';
+
+  @override
+  String get autofillRequestFailed =>
+      'Nie udało się bezpiecznie uzupełnić loginu. Spróbuj ponownie lub anuluj.';
+
+  @override
+  String get autofillRequestManualWarning =>
+      'Ta aplikacja nie ma zweryfikowanego powiązania ze stroną. Potwierdź dokładnie, który login chcesz udostępnić.';
+
+  @override
+  String get autofillRequestUsernameOnly =>
+      'Zostanie uzupełniona tylko nazwa użytkownika.';
+
+  @override
+  String get autofillRequestConfirm => 'Uzupełnij login';
 }

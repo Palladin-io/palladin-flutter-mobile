@@ -1581,5 +1581,12 @@
   "autofillPreparationUnknown": "Stan autouzupełniania nie został jeszcze potwierdzony.",
   "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}},
   "autofillPreparationChecking": "Sprawdzamy autouzupełnianie…",
-  "autofillPreparationKeepOpen": "Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana."
+  "autofillPreparationKeepOpen": "Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana.",
+  "autofillRequestTitle": "Uzupełnij login",
+  "autofillRequestAuthorize": "Potwierdź dostęp, aby wybrać zapisany login.",
+  "autofillRequestEmpty": "Brak pasujących zapisanych loginów.",
+  "autofillRequestFailed": "Nie udało się bezpiecznie uzupełnić loginu. Spróbuj ponownie lub anuluj.",
+  "autofillRequestManualWarning": "Ta aplikacja nie ma zweryfikowanego powiązania ze stroną. Potwierdź dokładnie, który login chcesz udostępnić.",
+  "autofillRequestUsernameOnly": "Zostanie uzupełniona tylko nazwa użytkownika.",
+  "autofillRequestConfirm": "Uzupełnij login"
 }

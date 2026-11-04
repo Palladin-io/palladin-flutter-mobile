@@ -3800,5 +3800,12 @@
   "autofillPreparationUnknown": "AutoFill status has not been confirmed yet.",
   "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}},
   "autofillPreparationChecking": "Checking AutoFill…",
-  "autofillPreparationKeepOpen": "Keep Palladin open until preparation finishes. Work may pause in the background."
+  "autofillPreparationKeepOpen": "Keep Palladin open until preparation finishes. Work may pause in the background.",
+  "autofillRequestTitle": "Fill login",
+  "autofillRequestAuthorize": "Authorize access to choose a saved login.",
+  "autofillRequestEmpty": "No matching saved logins.",
+  "autofillRequestFailed": "The login could not be filled safely. Try again or cancel.",
+  "autofillRequestManualWarning": "This app has no verified website association. Confirm the exact login you want to share.",
+  "autofillRequestUsernameOnly": "Only the username will be filled.",
+  "autofillRequestConfirm": "Fill login"
 }

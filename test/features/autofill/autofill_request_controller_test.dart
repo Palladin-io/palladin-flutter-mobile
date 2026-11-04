@@ -6,6 +6,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_credential_source.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_request_controller.dart';
 import 'support/credential_source_fixture.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_source_access_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +16,7 @@ void main() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late AutoFillRequestController controller;
+  late AutoFillSourceAccessService access;
   late List<String> calls;
   Completer<Object?>? heldAuthorization;
   Completer<bool>? heldValidation;
@@ -21,7 +25,7 @@ void main() {
 
   setUpAll(() => registerFallbackValue(Uint8List(32)));
 
-  setUp(() {
+  setUp(() async {
     calls = [];
     heldAuthorization = null;
     heldValidation = null;
@@ -38,7 +42,11 @@ void main() {
           'usernameOnly': usernameOnly,
           'remainingMs': 30000,
         },
+        'beginSourceSession' => 1,
+        'invalidateSource' => 2,
         'bind' => 'binding-1',
+        'authorizePasswordUnlock' => 'password-authorization',
+        'confirmSelection' => 'selection-consent',
         'authenticatePresence' =>
           heldAuthorization == null
               ? 'authorization-1'
@@ -53,7 +61,20 @@ void main() {
         _ => null,
       };
     });
-    controller = AutoFillRequestController(channel: channel);
+    access = AutoFillSourceAccessService(channel: channel);
+    await access.begin(
+      authority: const MemberSyncSessionAuthority(
+        principalId: 'principal',
+        organizationId: 'org',
+        organizationMembershipGeneration: '1',
+        offlinePolicy: '24h',
+        offlinePolicyVersion: 1,
+      ),
+      profileBinding: 'a' * 64,
+      accountUnlock: const {},
+    );
+    calls.clear();
+    controller = AutoFillRequestController(channel: channel, source: access);
   });
   tearDown(() {
     controller.dispose();
@@ -86,6 +107,7 @@ void main() {
       ),
     ).thenAnswer((_) async => reveal);
     final guard = controller.captureGuard();
+    final selectedSource = await access.ticket();
     final candidate = (await source.candidates(
       vaultIds: ['vault'],
       verifiedHosts: {'example.com'},
@@ -100,6 +122,7 @@ void main() {
         complete: (credential) => controller.completeCredential(
           credential,
           consentToken: consentToken,
+          source: selectedSource,
         ),
       );
     } finally {
@@ -229,4 +252,140 @@ void main() {
     await first;
     expect(calls.where((call) => call == 'authenticatePresence'), hasLength(1));
   });
+  test(
+    'password proof is one-use and bound before asynchronous crypto',
+    () async {
+      await bind();
+      final authorize = controller.capturePasswordAuthorization();
+      expect(controller.isAuthorized, isFalse);
+      await authorize();
+      expect(controller.isAuthorized, isTrue);
+      await expectLater(
+        authorize(),
+        throwsA(isA<AutoFillRequestInvalidated>()),
+      );
+      expect(
+        calls.where((method) => method == 'authorizePasswordUnlock'),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'canceled request cannot authorize a replacement after password crypto',
+    () async {
+      await bind();
+      final old = controller.capturePasswordAuthorization();
+      await controller.cancel();
+      await bind();
+      await expectLater(old(), throwsA(isA<AutoFillRequestInvalidated>()));
+      expect(controller.isAuthorized, isFalse);
+      expect(calls, isNot(contains('authorizePasswordUnlock')));
+    },
+  );
+  test(
+    'source epoch changed during validation rejects old selected plaintext',
+    () async {
+      await bind();
+      await controller.authenticatePresence();
+      heldValidation = Completer<bool>();
+      final pending = fill();
+      final rejected = expectLater(pending, throwsStateError);
+      while (!calls.contains('validate')) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      await access.invalidate();
+      heldValidation!.complete(true);
+      await rejected;
+      expect(completion, isNull);
+    },
+  );
+  Future<void> nativeEvent(String method, Object args) async {
+    final done = Completer<void>();
+    await messenger.handlePlatformMessage(
+      channel.name,
+      const StandardMethodCodec().encodeMethodCall(MethodCall(method, args)),
+      (_) => done.complete(),
+    );
+    await done.future;
+  }
+
+  test('native invalidation cancels only its original request', () async {
+    await bind();
+    await controller.authenticatePresence();
+    await nativeEvent('invalidated', 'older-request');
+    expect(controller.isAuthorized, isTrue);
+    await nativeEvent('invalidated', 'request-1');
+    expect(controller.request, isNull);
+    expect(controller.isAuthorized, isFalse);
+  });
+
+  test(
+    'explicit selection confirmation is fenced to selected source epoch',
+    () async {
+      await bind();
+      await controller.authenticatePresence();
+      final index = TestAutoFillIndex()
+        ..values = [syntheticAutoFillEntry('chosen', domain: 'example.com')];
+      final source = AutoFillCredentialSource(
+        memberIndex: index,
+        localEntries: TestAutoFillEntries(),
+      );
+      final candidate = (await source.candidates(
+        vaultIds: ['vault'],
+        verifiedHosts: {'example.com'},
+        validateRequest: controller.captureGuard(),
+      )).single;
+      final ticket = await access.ticket();
+      expect(
+        await controller.confirmSelection(
+          candidate: candidate,
+          selectedHost: 'example.com',
+          source: ticket,
+        ),
+        'selection-consent',
+      );
+      await access.invalidate();
+      await expectLater(
+        controller.confirmSelection(
+          candidate: candidate,
+          selectedHost: 'example.com',
+          source: ticket,
+        ),
+        throwsStateError,
+      );
+      expect(
+        calls.where((method) => method == 'confirmSelection'),
+        hasLength(1),
+      );
+    },
+  );
+  test(
+    'two cold binding consumers share one original native binding',
+    () async {
+      controller.dispose();
+      controller = AutoFillRequestController(
+        channel: channel,
+        source: access,
+        authority: MemberSyncSessionAuthorityProvider.independent(
+          readClaims: () async => const MemberSyncSessionAuthority(
+            principalId: 'principal',
+            organizationId: 'org',
+            organizationMembershipGeneration: '1',
+            offlinePolicy: '24h',
+            offlinePolicyVersion: 1,
+          ),
+          sessionRevision: () => 0,
+        ),
+      );
+      await controller.poll();
+      final passwordProof = controller.preparePasswordAuthorization();
+      final host = controller.ensureBound();
+      final proof = await passwordProof;
+      await host;
+      expect(calls.where((method) => method == 'bind'), hasLength(1));
+      await proof();
+      expect(controller.isAuthorized, isTrue);
+    },
+  );
 }

@@ -8917,6 +8917,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keep Palladin open until preparation finishes. Work may pause in the background.'**
   String get autofillPreparationKeepOpen;
+
+  /// No description provided for @autofillRequestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill login'**
+  String get autofillRequestTitle;
+
+  /// No description provided for @autofillRequestAuthorize.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorize access to choose a saved login.'**
+  String get autofillRequestAuthorize;
+
+  /// No description provided for @autofillRequestEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching saved logins.'**
+  String get autofillRequestEmpty;
+
+  /// No description provided for @autofillRequestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The login could not be filled safely. Try again or cancel.'**
+  String get autofillRequestFailed;
+
+  /// No description provided for @autofillRequestManualWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This app has no verified website association. Confirm the exact login you want to share.'**
+  String get autofillRequestManualWarning;
+
+  /// No description provided for @autofillRequestUsernameOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the username will be filled.'**
+  String get autofillRequestUsernameOnly;
+
+  /// No description provided for @autofillRequestConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill login'**
+  String get autofillRequestConfirm;
 }
 
 class _AppLocalizationsDelegate

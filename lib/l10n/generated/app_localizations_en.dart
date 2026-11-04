@@ -5047,4 +5047,28 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autofillPreparationKeepOpen =>
       'Keep Palladin open until preparation finishes. Work may pause in the background.';
+
+  @override
+  String get autofillRequestTitle => 'Fill login';
+
+  @override
+  String get autofillRequestAuthorize =>
+      'Authorize access to choose a saved login.';
+
+  @override
+  String get autofillRequestEmpty => 'No matching saved logins.';
+
+  @override
+  String get autofillRequestFailed =>
+      'The login could not be filled safely. Try again or cancel.';
+
+  @override
+  String get autofillRequestManualWarning =>
+      'This app has no verified website association. Confirm the exact login you want to share.';
+
+  @override
+  String get autofillRequestUsernameOnly => 'Only the username will be filled.';
+
+  @override
+  String get autofillRequestConfirm => 'Fill login';
 }
