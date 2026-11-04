@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../../../core/crypto/envelope/envelope_contract.dart';
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart' show WrapperSuite;
 import '../../../approval/data/services/script_execution_package_service.dart';
 
 import '../../../autofill/data/autofill_mutation_notifier.dart';
@@ -44,13 +45,12 @@ enum CanonicalEntryDetailError {
 /// Sequential canonical decrypt session used only by local export.
 class CanonicalEntryExportSession {
   CanonicalEntryExportSession._({
-    required CanonicalEntryDetailService owner,
+    required this._owner,
     required this.vaultId,
     required this.organizationId,
     required this.memberKeyGeneration,
-    required Uint8List vaultKey,
-  }) : _owner = owner,
-       _vaultKey = vaultKey;
+    required Uint8List this._vaultKey,
+  });
 
   final CanonicalEntryDetailService _owner;
   final String vaultId;
@@ -310,24 +310,16 @@ final class CanonicalEntryHistorySnapshot {
 /// AgentDiscovery heads either all advance or none do.
 class CanonicalEntryDetailService implements EntryArchiveRestorer {
   CanonicalEntryDetailService({
-    required EntryRemoteDatasource entries,
-    required VaultRemoteDatasource vaults,
-    required VaultRotationCryptoService keys,
-    VaultCryptoService? vaultCrypto,
-    required VaultEnvelopeCryptography envelopes,
-    required GrantsRemoteDatasource grants,
-    EntryV2CryptoService? entryV2,
-    required AutoFillMutationNotifier autoFillMutationNotifier,
+    required this._entries,
+    required this._vaults,
+    required this._keys,
+    this._vaultCrypto,
+    required this._envelopes,
+    required this._grants,
+    this._entryV2,
+    required this._autoFillMutationNotifier,
     ScriptExecutionPackageService? scriptPackages,
-  }) : _entries = entries,
-       _vaults = vaults,
-       _keys = keys,
-       _vaultCrypto = vaultCrypto,
-       _envelopes = envelopes,
-       _grants = grants,
-       _entryV2 = entryV2,
-       _scriptPackages = scriptPackages ?? ScriptExecutionPackageService(),
-       _autoFillMutationNotifier = autoFillMutationNotifier;
+  }) : _scriptPackages = scriptPackages ?? ScriptExecutionPackageService();
 
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
@@ -2479,6 +2471,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           entryRevision: entryRevision,
           memberKeyGeneration: memberKeyGeneration,
           agentPublicKey: recipient,
+          agentKeySuite: _agentKeySuite(grant.agentKeySuiteId),
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
           approvedMethods: _methodBits(grant.methods),
           deliveryPolicy: 0,
@@ -2737,13 +2730,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             );
           }
         }
+        final agentKeySuite = _agentKeySuite(grant.agentKeySuiteId);
         final recipientKey = VaultProtocolBytes.base64Decode(
           publicKey,
-          maximumBytes: 32,
+          maximumBytes: agentKeySuite.publicKeyBytes,
         );
-        if (recipientKey.length != 32) {
-          throw const FormatException('Invalid Agent public key');
-        }
         recipientKeys.add(recipientKey);
         result.add(
           await _scriptPackages.seal(
@@ -2752,6 +2743,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             agentId: agentId,
             agentAccessEpoch: accessEpoch,
             agentPublicKey: recipientKey,
+            agentKeySuite: agentKeySuite,
             recipientAgentKeyVersion: recipientVersion,
             vaultSigningKeyVersion: vaultSigningKeyVersion,
             vaultSigningPrivateKey: vaultSigningPrivateKey,
@@ -3238,3 +3230,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     }
   }
 }
+
+/// A grant without `agentKeySuiteId` predates suite publication and is legacy;
+/// sealing to it then fails with `key-migration-pending`.
+WrapperSuite _agentKeySuite(String? keySuiteId) => keySuiteId == null
+    ? WrapperSuite.x25519SealedBoxV1
+    : WrapperSuite.tryParse(keySuiteId) ??
+          (throw const FormatException('Unknown Agent key suite'));

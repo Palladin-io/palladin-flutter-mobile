@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart'
+    show WrapperSuite;
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/approval/data/datasources/approval_remote_datasource.dart';
 import 'package:mobile_palladin/features/approval/data/repositories/approval_repository_impl.dart';
@@ -38,6 +40,7 @@ class _Entry extends Fake implements EntryEntity {}
 void main() {
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(WrapperSuite.xwingV1);
     registerFallbackValue(<String, dynamic>{});
     registerFallbackValue(_Entry());
     registerFallbackValue(<String>{});
@@ -164,6 +167,7 @@ void main() {
         agentId: any(named: 'agentId'),
         agentAccessEpoch: any(named: 'agentAccessEpoch'),
         agentPublicKey: any(named: 'agentPublicKey'),
+        agentKeySuite: any(named: 'agentKeySuite'),
         recipientAgentKeyVersion: any(named: 'recipientAgentKeyVersion'),
         vaultSigningKeyVersion: any(named: 'vaultSigningKeyVersion'),
         vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
@@ -207,6 +211,7 @@ void main() {
       scriptEntryId: scriptId,
       agentId: agentId,
       agentPublicKey: base64.encode(List<int>.filled(32, 9)),
+      agentKeySuiteId: 'palladin-xwing-v1',
       recipientKeyVersion: 4,
       agentAccessEpoch: 3,
       privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
@@ -282,6 +287,7 @@ void main() {
         entryId: scriptId,
         agentId: '55555555-5555-4555-8555-555555555555',
         agentPublicKey: base64.encode(List<int>.filled(32, 9)),
+        agentKeySuiteId: 'palladin-xwing-v1',
         recipientKeyVersion: 4,
         agentAccessEpoch: 3,
         privateKey: Uint8List.fromList(List<int>.filled(32, 7)),

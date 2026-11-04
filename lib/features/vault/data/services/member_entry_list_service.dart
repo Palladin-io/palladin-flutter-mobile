@@ -21,16 +21,12 @@ abstract interface class MemberEntryListLoader {
 /// Loads an Entry list exclusively from the locally decrypted MemberIndex.
 final class MemberEntryListService implements MemberEntryListLoader {
   MemberEntryListService({
-    required VaultRemoteDatasource vaults,
-    required VaultRotationCryptoService keys,
-    required MemberSyncCoordinator sync,
-    required MemberSyncSessionAuthorityProvider authorityProvider,
+    required this._vaults,
+    required this._keys,
+    required this._sync,
+    required this._authorityProvider,
     MemberVaultKeyContextStore? keyContexts,
-  }) : _vaults = vaults,
-       _keys = keys,
-       _sync = sync,
-       _authorityProvider = authorityProvider,
-       _keyContexts = keyContexts ?? MemberVaultKeyContextStore();
+  }) : _keyContexts = keyContexts ?? MemberVaultKeyContextStore();
 
   final VaultRemoteDatasource _vaults;
   final VaultRotationCryptoService _keys;

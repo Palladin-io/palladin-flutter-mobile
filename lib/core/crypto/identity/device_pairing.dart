@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../kem/xwing.dart';
 import '../key_wrapper/key_wrapper.dart';
@@ -262,9 +262,8 @@ class DevicePairingCrypto {
       DevicePairingError.malformedEnvelope,
     );
     final sodium = await _sodiumLoader();
-    final sharedSecret = XWing(
-      sodium,
-    ).decapsulate(kemCiphertext, recipientSeed);
+    final sharedSecret = XWing(sodium)
+        .decapsulate(kemCiphertext, recipientSeed);
     final transcript = offer._transcriptHash(kemCiphertext);
     final kek = hkdfSha256(
       ikm: sharedSecret,

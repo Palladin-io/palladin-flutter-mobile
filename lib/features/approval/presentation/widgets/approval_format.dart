@@ -12,6 +12,8 @@ String approvalErrorMessage(AppLocalizations l10n, ApprovalErrorKind kind) {
     ApprovalErrorKind.networkError => l10n.approvalErrorNetwork,
     ApprovalErrorKind.cryptoFailure => l10n.approvalErrorCrypto,
     ApprovalErrorKind.vaultLocked => l10n.approvalErrorVaultLocked,
+    ApprovalErrorKind.keyMigrationPending =>
+      l10n.approvalErrorKeyMigrationPending,
     ApprovalErrorKind.unknown => l10n.approvalErrorUnknown,
   };
 }

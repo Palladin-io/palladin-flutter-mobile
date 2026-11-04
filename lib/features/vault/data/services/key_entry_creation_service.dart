@@ -17,18 +17,13 @@ import 'vault_crypto_service.dart';
 /// Creates one canonical Key revision without exposing plaintext to the server.
 final class KeyEntryCreationService {
   KeyEntryCreationService({
-    required VaultSessionStore sessions,
-    required EntryRemoteDatasource entries,
-    required VaultRemoteDatasource vaults,
-    required VaultCryptoService vaultCrypto,
-    required EntryV2CryptoService entryCrypto,
-    required AutoFillMutationNotifier autoFillMutationNotifier,
-  }) : _sessions = sessions,
-       _entries = entries,
-       _vaults = vaults,
-       _vaultCrypto = vaultCrypto,
-       _entryCrypto = entryCrypto,
-       _autoFillMutationNotifier = autoFillMutationNotifier;
+    required this._sessions,
+    required this._entries,
+    required this._vaults,
+    required this._vaultCrypto,
+    required this._entryCrypto,
+    required this._autoFillMutationNotifier,
+  });
 
   final VaultSessionStore _sessions;
   final EntryRemoteDatasource _entries;

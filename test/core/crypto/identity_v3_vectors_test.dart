@@ -5,7 +5,7 @@ import 'package:mobile_palladin/core/crypto/identity/device_pairing.dart';
 import 'package:mobile_palladin/core/crypto/identity/secret_key_codec.dart';
 import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../support/native_sodium.dart';
 

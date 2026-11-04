@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart'
+    show WrapperSuite;
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_rotation_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/vault_rotation_models.dart';
@@ -24,6 +26,7 @@ void main() {
     registerFallbackValue(CancelToken());
     registerFallbackValue(Uint8List(0));
     registerFallbackValue(VaultAadProfile.vaultDiscoveryKey);
+    registerFallbackValue(WrapperSuite.xwingV1);
   });
 
   setUp(() {
@@ -36,6 +39,9 @@ void main() {
     when(
       () => remote.claim(rotation.vaultId, rotation.id, any()),
     ).thenAnswer((_) async => claim);
+    when(
+      () => remote.currentAgentMessageKeySuite(any(), any(), any(), any()),
+    ).thenAnswer((_) async => WrapperSuite.xwingV1);
     when(
       () => crypto.openMemberVaultKey(
         any(),
@@ -230,8 +236,17 @@ void main() {
       () => remote.claim(rotation.vaultId, rotation.id, any()),
     ).thenAnswer((_) async => claim);
     when(
+      () => remote.currentAgentMessageKeySuite(
+        rotation.vaultId,
+        rotation.id,
+        any(),
+        any(),
+      ),
+    ).thenAnswer((_) async => WrapperSuite.x25519SealedBoxV1);
+    when(
       () => crypto.createPublicTrustAnchors(
         agentMessagePrivateKey: any(named: 'agentMessagePrivateKey'),
+        agentMessageKeySuite: any(named: 'agentMessageKeySuite'),
         manifestSigningPrivateKey: any(named: 'manifestSigningPrivateKey'),
         agentMessageKeyVersion: any(named: 'agentMessageKeyVersion'),
         manifestSigningKeyVersion: any(named: 'manifestSigningKeyVersion'),
@@ -248,7 +263,8 @@ void main() {
       agentAccessEpoch: 3,
       recipientKeyVersion: 4,
       recipientKeyFingerprint: 'fingerprint',
-      x25519PublicKey: 'public-key',
+      publicKey: 'public-key',
+      keySuite: WrapperSuite.xwingV1,
     );
     when(
       () =>
@@ -280,6 +296,15 @@ void main() {
         vaultKey: any(named: 'vaultKey'),
         vaultSigningKeyVersion: 2,
         vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
+      ),
+    ).called(1);
+    verify(
+      () => crypto.createPublicTrustAnchors(
+        agentMessagePrivateKey: any(named: 'agentMessagePrivateKey'),
+        agentMessageKeySuite: WrapperSuite.x25519SealedBoxV1,
+        manifestSigningPrivateKey: any(named: 'manifestSigningPrivateKey'),
+        agentMessageKeyVersion: any(named: 'agentMessageKeyVersion'),
+        manifestSigningKeyVersion: any(named: 'manifestSigningKeyVersion'),
       ),
     ).called(1);
     final prepared = verify(

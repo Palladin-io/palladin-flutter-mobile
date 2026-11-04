@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../kem/xwing.dart';
 import '../sodium_provider.dart';
@@ -36,6 +36,9 @@ enum WrapperSuite {
   /// Suite of every member key at Identity security version 2
   /// (`identity-kdf/v3` `accountKeys.memberEncryptionKeySuite`).
   static const memberKeySuite = WrapperSuite.xwingV1;
+
+  /// The only suite new recipient keys are created on and sealed with.
+  static const active = WrapperSuite.xwingV1;
 
   bool get canSeal => status == WrapperSuiteStatus.active;
 
@@ -185,6 +188,15 @@ class KeyWrapperException implements Exception {
 
   @override
   String toString() => 'KeyWrapperException(${error.code})';
+}
+
+/// The recipient's published key is on a read-only suite, so nothing new may
+/// be sealed to it until its owner rotates (`key-migration-pending`).
+class KeyMigrationPendingException implements Exception {
+  const KeyMigrationPendingException();
+
+  @override
+  String toString() => 'KeyMigrationPendingException(key-migration-pending)';
 }
 
 /// Recipient key taken from an authenticated key directory, never from the

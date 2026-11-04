@@ -29,13 +29,11 @@ final class EntrySharingState {
 
 class EntrySharingCubit extends Cubit<EntrySharingState> {
   EntrySharingCubit({
-    required EntrySharingRemoteDatasource remote,
+    required this._remote,
     required this.vaultId,
     required this.entryId,
-    required Future<EntrySharingSession?> Function() sessionReader,
-  }) : _remote = remote,
-       _sessionReader = sessionReader,
-       super(const EntrySharingState());
+    required this._sessionReader,
+  }) : super(const EntrySharingState());
 
   final EntrySharingRemoteDatasource _remote;
   final String vaultId, entryId;

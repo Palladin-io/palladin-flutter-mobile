@@ -54,18 +54,13 @@ final class EntryShareCreationState {
 
 class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
   EntryShareCreationCubit({
-    required EntrySharingRemoteDatasource remote,
-    required EntryShareCryptoService crypto,
-    required EntryEntity expected,
-    required Future<EntrySharingSession?> Function() sessionReader,
-    required Future<CanonicalEntrySnapshot> Function() sourceReader,
+    required this._remote,
+    required this._crypto,
+    required this._expected,
+    required this._sessionReader,
+    required this._sourceReader,
     DateTime Function()? now,
-  }) : _remote = remote,
-       _crypto = crypto,
-       _expected = expected,
-       _sessionReader = sessionReader,
-       _sourceReader = sourceReader,
-       _now = now ?? DateTime.now,
+  }) : _now = now ?? DateTime.now,
        super(const EntryShareCreationState());
 
   final EntrySharingRemoteDatasource _remote;
@@ -266,9 +261,8 @@ class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
           options: recipient == null
               ? _batchOptions!
               : _batchOptions!.forRecipient(recipient),
-          accessToken: base64UrlEncode(
-            material.secrets.accessToken,
-          ).replaceAll('=', ''),
+          accessToken: base64UrlEncode(material.secrets.accessToken)
+              .replaceAll('=', ''),
           packet: material.packet,
         );
         _expiry ??= Timer(expires.difference(_now().toUtc()), clear);

@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 void main() {
   test(
@@ -99,6 +99,7 @@ void main() {
       keyVersion: 3,
       memberKeyGeneration: 9,
       purposeData: GrantPurposeData(
+        wrapperSuite: WrapperSuite.x25519SealedBoxV1,
         entryRevision: 6,
         recipientKeyVersion: 4,
         recipientFingerprint: Uint8List.fromList(List.filled(32, 0x5a)),
@@ -140,6 +141,7 @@ void main() {
       keyVersion: 1,
       memberKeyGeneration: 1,
       purposeData: GrantPurposeData(
+        wrapperSuite: WrapperSuite.x25519SealedBoxV1,
         entryRevision: 1,
         recipientKeyVersion: 1,
         recipientFingerprint: Uint8List.fromList(List.filled(32, 0x5a)),
@@ -196,7 +198,7 @@ void main() {
   });
 
   test(
-    'X25519 wrapper rejects a caller-supplied plain SHA-256 fingerprint',
+    'the read-only X25519 suite never seals, even with a forged fingerprint',
     () async {
       final publicKey = _fromHex(
         'ff2ee45601ec1b67310c7790404585ae697331eee1c1f8cf2419731c1fff3e6b',
@@ -206,6 +208,7 @@ void main() {
       );
       final valid = _fixtureWrapperContext();
       final invalid = WrapperContext(
+        suiteId: WrapperSuite.x25519SealedBoxV1,
         purpose: valid.purpose,
         scope: valid.scope,
         resourceRevision: valid.resourceRevision,
@@ -227,7 +230,7 @@ void main() {
             publicKey: publicKey,
           ),
         ),
-        throwsA(isA<EnvelopeException>()),
+        throwsA(isA<KeyMigrationPendingException>()),
       );
     },
   );
@@ -413,6 +416,7 @@ void main() {
     );
     expect(
       () => WrapperContext(
+        suiteId: WrapperSuite.x25519SealedBoxV1,
         purpose: WrapperPurpose.reasonDek,
         scope: reasonScope,
         resourceRevision: 1,
@@ -425,6 +429,7 @@ void main() {
       throwsA(isA<EnvelopeException>()),
     );
     final context = WrapperContext(
+      suiteId: WrapperSuite.x25519SealedBoxV1,
       purpose: WrapperPurpose.reasonDek,
       scope: reasonScope,
       resourceRevision: 1,
@@ -460,6 +465,7 @@ EnvelopeDescriptor _fixtureGrantDescriptor() => EnvelopeDescriptor(
   keyVersion: 3,
   memberKeyGeneration: 9,
   purposeData: GrantPurposeData(
+    wrapperSuite: WrapperSuite.x25519SealedBoxV1,
     entryRevision: 6,
     recipientKeyVersion: 4,
     recipientFingerprint: Uint8List.fromList(List.filled(32, 0x5a)),
@@ -475,6 +481,7 @@ EnvelopeDescriptor _fixtureGrantDescriptor() => EnvelopeDescriptor(
 WrapperContext _fixtureWrapperContext({
   int resourceRevision = 7,
 }) => WrapperContext(
+  suiteId: WrapperSuite.x25519SealedBoxV1,
   purpose: WrapperPurpose.grantDek,
   scope: EnvelopeScope(
     organizationId: EnvelopeId.parse('00112233-4455-6677-8899-aabbccddeeff'),

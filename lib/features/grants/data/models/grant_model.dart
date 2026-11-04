@@ -16,6 +16,7 @@ class GrantModel {
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.agentKeySuiteId,
     this.recipientAgentKeyVersion,
     this.agentAccessEpoch,
     this.entryScopes = const [],
@@ -52,6 +53,7 @@ class GrantModel {
   final String? agentName;
   final String? agentIconKey;
   final String? agentPublicKey;
+  final String? agentKeySuiteId;
   final int? recipientAgentKeyVersion;
   final int? agentAccessEpoch;
   final List<GrantEntryScope> entryScopes;
@@ -95,6 +97,7 @@ class GrantModel {
       agentName: json['agentName'] as String?,
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
+      agentKeySuiteId: json['agentKeySuiteId'] as String?,
       recipientAgentKeyVersion: json['recipientAgentKeyVersion'] as int?,
       agentAccessEpoch: json['agentAccessEpoch'] as int?,
       entryScopes: (json['entryScopes'] as List<dynamic>? ?? const [])
@@ -182,6 +185,7 @@ class GrantModel {
       agentName: agentName,
       agentIconKey: agentIconKey,
       agentPublicKey: agentPublicKey,
+      agentKeySuiteId: agentKeySuiteId,
       recipientAgentKeyVersion: recipientAgentKeyVersion,
       agentAccessEpoch: agentAccessEpoch,
       entryScopes: entryScopes,

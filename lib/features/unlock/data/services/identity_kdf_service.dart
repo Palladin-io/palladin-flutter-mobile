@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/storage/account_secret_store.dart';
@@ -103,9 +103,8 @@ final class IdentityKdfOutputs {
 class IdentityKdfService {
   IdentityKdfService({
     Future<SodiumSumo> Function()? sodiumLoader,
-    AccountSecretStore? accountSecrets,
-  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
-       _accountSecrets = accountSecrets;
+    this._accountSecrets,
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final Future<SodiumSumo> Function() _sodiumLoader;
   final AccountSecretStore? _accountSecrets;
@@ -189,7 +188,7 @@ class IdentityKdfService {
     SecureKey? root;
     try {
       final sodium = await _sodiumLoader();
-      root = sodium.crypto.pwhash.call(
+      root = sodium.crypto.pwhash.callRaw(
         outLen: IdentityKdfProfile.outputBytes,
         password: Int8List.sublistView(passwordBytes),
         salt: kdfSalt,
@@ -230,7 +229,7 @@ class IdentityKdfService {
     SecureKey? root;
     try {
       final sodium = await _sodiumLoader();
-      root = sodium.crypto.pwhash.call(
+      root = sodium.crypto.pwhash.callRaw(
         outLen: IdentityKdfProfileV2.outputBytes,
         password: Int8List.sublistView(prehash),
         salt: kdfSalt,

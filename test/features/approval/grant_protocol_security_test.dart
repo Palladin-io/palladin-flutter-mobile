@@ -1,37 +1,24 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
+import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/grant_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    if (configured != null) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(configured),
-      );
-    }
-    if (Platform.isLinux) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open('libsodium.so'),
-      );
-    }
     return await SodiumSumoInit.init();
   } catch (_) {
     return null;
@@ -334,11 +321,13 @@ void main() {
         ],
       };
       final expiry = DateTime.utc(2026, 8, 8, 12, 34, 56, 123, 456);
-      final agent = crypto.crypto.box.keyPair();
-      final agentPrivateKey = agent.secretKey.extractBytes();
-      final fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentEncryption,
-        agent.publicKey,
+      final xwing = XWing(crypto);
+      final agentPrivateKey = xwing.generateSeed();
+      final agentPublicKey = xwing.publicKeyFromSeed(agentPrivateKey);
+      final fingerprint = recipientFingerprint(
+        WrapperSuite.xwingV1,
+        RecipientKeyKind.agentEncryption.id,
+        agentPublicKey,
       );
       final commitment = computeFieldSetCommitment(fieldIds);
       Uint8List? grantKey;
@@ -353,7 +342,8 @@ void main() {
           agentId: agentId,
           entryRevision: 7,
           memberKeyGeneration: 4,
-          agentPublicKey: agent.publicKey,
+          agentPublicKey: agentPublicKey,
+          agentKeySuite: WrapperSuite.xwingV1,
           recipientKeyVersion: 3,
           approvedMethods: 2,
           deliveryPolicy: 0,
@@ -377,6 +367,11 @@ void main() {
         expect(serializedScope['agentId'], agentId);
         expect(serializedScope['memberId'], isNull);
         expect(binding['expiresAt'], expiry.toIso8601String());
+        expect(binding['wrapperSuiteId'], 'palladin-xwing-v1');
+        expect(
+          (envelope['wrappedGrantDek']! as Map)['descriptor']['wrapperSuiteId'],
+          'palladin-xwing-v1',
+        );
 
         final scope = EnvelopeScope(
           organizationId: EnvelopeId.parse(organizationId),
@@ -393,6 +388,7 @@ void main() {
           keyVersion: 1,
           memberKeyGeneration: 4,
           purposeData: GrantPurposeData(
+            wrapperSuite: WrapperSuite.xwingV1,
             entryRevision: 7,
             recipientKeyVersion: 3,
             recipientFingerprint: fingerprint,
@@ -405,6 +401,7 @@ void main() {
           ),
         );
         final wrapper = WrapperContext(
+          suiteId: WrapperSuite.xwingV1,
           purpose: WrapperPurpose.grantDek,
           scope: scope,
           resourceRevision: 1,
@@ -443,8 +440,39 @@ void main() {
         agentPrivateKey.fillRange(0, agentPrivateKey.length, 0);
         fingerprint.fillRange(0, fingerprint.length, 0);
         commitment.fillRange(0, commitment.length, 0);
-        agent.dispose();
       }
+    },
+  );
+
+  test(
+    'a legacy Agent key receives no new grant (key-migration-pending)',
+    () async {
+      final crypto = sodium;
+      if (crypto == null) {
+        markTestSkipped('libsodium unavailable');
+        return;
+      }
+      final agent = crypto.crypto.box.keyPair();
+      addTearDown(agent.dispose);
+      await expectLater(
+        () => EntryV2CryptoService(sodiumLoader: () async => crypto).sealGrant(
+          organizationId: '11111111-1111-4111-8111-111111111111',
+          vaultId: '22222222-2222-4222-8222-222222222222',
+          entryId: '33333333-3333-4333-8333-333333333333',
+          grantId: '77777777-7777-4777-8777-777777777777',
+          agentId: '55555555-5555-4555-8555-555555555555',
+          entryRevision: 1,
+          memberKeyGeneration: 1,
+          agentPublicKey: agent.publicKey,
+          agentKeySuite: WrapperSuite.x25519SealedBoxV1,
+          recipientKeyVersion: 1,
+          approvedMethods: 1,
+          deliveryPolicy: 0,
+          fieldIds: const ['credential.totp'],
+          grantPayload: const {'schema': 'palladin.grant-payload.v2'},
+        ),
+        throwsA(isA<KeyMigrationPendingException>()),
+      );
     },
   );
 

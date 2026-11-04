@@ -1,3 +1,5 @@
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart' show WrapperSuite;
+
 /// Frozen structural plan for one staged Vault key rotation.
 final class VaultRotationModel {
   const VaultRotationModel({
@@ -141,7 +143,8 @@ final class RotationMemberRecipient {
     required this.memberId,
     required this.recipientKeyVersion,
     required this.recipientKeyFingerprint,
-    required this.x25519PublicKey,
+    required this.publicKey,
+    required this.keySuite,
   });
 
   factory RotationMemberRecipient.fromJson(Map<String, dynamic> json) =>
@@ -149,13 +152,17 @@ final class RotationMemberRecipient {
         memberId: _string(json, 'memberId'),
         recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
         recipientKeyFingerprint: _string(json, 'recipientKeyFingerprint'),
-        x25519PublicKey: _legacyPublicKey(json),
+        publicKey: _string(json, 'publicKey'),
+        keySuite: _keySuite(json),
       );
 
   final String memberId;
   final int recipientKeyVersion;
   final String recipientKeyFingerprint;
-  final String x25519PublicKey;
+  final String publicKey;
+
+  /// Suite of [publicKey] from the authenticated key directory.
+  final WrapperSuite keySuite;
 }
 
 final class RotationFullGrantRecipient {
@@ -165,7 +172,8 @@ final class RotationFullGrantRecipient {
     required this.agentAccessEpoch,
     required this.recipientKeyVersion,
     required this.recipientKeyFingerprint,
-    required this.x25519PublicKey,
+    required this.publicKey,
+    required this.keySuite,
   });
 
   factory RotationFullGrantRecipient.fromJson(Map<String, dynamic> json) =>
@@ -175,7 +183,8 @@ final class RotationFullGrantRecipient {
         agentAccessEpoch: _uint(json, 'agentAccessEpoch'),
         recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
         recipientKeyFingerprint: _string(json, 'recipientKeyFingerprint'),
-        x25519PublicKey: _legacyPublicKey(json),
+        publicKey: _string(json, 'publicKey'),
+        keySuite: _keySuite(json),
       );
 
   final String grantId;
@@ -183,7 +192,10 @@ final class RotationFullGrantRecipient {
   final int agentAccessEpoch;
   final int recipientKeyVersion;
   final String recipientKeyFingerprint;
-  final String x25519PublicKey;
+  final String publicKey;
+
+  /// Suite of [publicKey] from the authenticated key directory.
+  final WrapperSuite keySuite;
 }
 
 final class RotationDiscoverySource {
@@ -205,7 +217,8 @@ final class RotationDiscoverySource {
 final class RotationAgentRecipient {
   const RotationAgentRecipient({
     required this.agentId,
-    required this.x25519PublicKey,
+    required this.publicKey,
+    required this.keySuite,
     required this.ed25519PublicKey,
     required this.recipientKeyVersion,
     this.manifestRevision,
@@ -214,27 +227,27 @@ final class RotationAgentRecipient {
   factory RotationAgentRecipient.fromJson(Map<String, dynamic> json) =>
       RotationAgentRecipient(
         agentId: _string(json, 'agentId'),
-        x25519PublicKey: _legacyPublicKey(json),
+        publicKey: _string(json, 'publicKey'),
+        keySuite: _keySuite(json),
         ed25519PublicKey: _string(json, 'ed25519PublicKey'),
         recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
         manifestRevision: json['manifestRevision'] as String?,
       );
 
   final String agentId;
-  final String x25519PublicKey;
+  final String publicKey;
+
+  /// Suite of [publicKey] from the authenticated key directory.
+  final WrapperSuite keySuite;
   final String ed25519PublicKey;
   final int recipientKeyVersion;
   final String? manifestRevision;
 }
 
-/// Rotation still seals with the vault-v2 sealed-box package, so it accepts
-/// only recipients whose published `keySuiteId` is that suite; an X-Wing
-/// recipient fails closed until the rotation contract gains a suite field.
-String _legacyPublicKey(Map<String, dynamic> json) {
-  if (json['keySuiteId'] != 'palladin-x25519-sealed-box-v1') {
-    throw const FormatException('Rotation recipient key suite not supported');
-  }
-  return _string(json, 'publicKey');
+WrapperSuite _keySuite(Map<String, dynamic> json) {
+  final suite = WrapperSuite.tryParse(json['keySuiteId']);
+  if (suite == null) throw const FormatException('Unknown recipient key suite');
+  return suite;
 }
 
 Map<String, dynamic> _map(Map<String, dynamic> json, String field) {

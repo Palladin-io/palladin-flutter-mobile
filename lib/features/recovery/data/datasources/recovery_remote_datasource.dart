@@ -12,10 +12,9 @@ import '../models/recover_account_request.dart';
 /// the user's salts and wrapped private keys after a successful recovery.
 class RecoveryRemoteDatasource {
   RecoveryRemoteDatasource({
-    required Dio dio,
-    required AccountRemoteDatasource accountDatasource,
-  }) : _dio = dio,
-       _accountDatasource = accountDatasource;
+    required this._dio,
+    required this._accountDatasource,
+  });
 
   final Dio _dio;
   final AccountRemoteDatasource _accountDatasource;

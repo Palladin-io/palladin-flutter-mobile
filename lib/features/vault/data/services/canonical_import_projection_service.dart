@@ -39,12 +39,10 @@ final class CanonicalImportPreparationException implements Exception {
 /// endpoint from drifting to a different descriptor or ciphertext shape.
 class CanonicalImportProjectionService {
   CanonicalImportProjectionService({
-    required VaultRemoteDatasource vaults,
-    required VaultCryptoService vaultCrypto,
-    required EntryV2CryptoService entryCrypto,
-  }) : _vaults = vaults,
-       _vaultCrypto = vaultCrypto,
-       _entryCrypto = entryCrypto;
+    required this._vaults,
+    required this._vaultCrypto,
+    required this._entryCrypto,
+  });
 
   final VaultRemoteDatasource _vaults;
   final VaultCryptoService _vaultCrypto;
@@ -284,9 +282,8 @@ class CanonicalImportProjectionService {
 
   String? _domain(String? rawUrl, String? normalizedDomain) {
     final derived = ImportNormalizer.hostFrom(rawUrl)?.toLowerCase();
-    final normalized = ImportNormalizer.hostFrom(
-      normalizedDomain,
-    )?.toLowerCase();
+    final normalized = ImportNormalizer.hostFrom(normalizedDomain)
+        ?.toLowerCase();
     if (derived != null && normalized != null && derived != normalized) {
       throw const FormatException('Credential URL domain mismatch');
     }

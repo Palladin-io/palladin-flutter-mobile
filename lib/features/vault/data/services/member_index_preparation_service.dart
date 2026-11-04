@@ -24,10 +24,9 @@ abstract interface class MemberIndexPreparer {
 
 final class MemberIndexPreparationService implements MemberIndexPreparer {
   MemberIndexPreparationService({
-    required MemberVaultListLoader vaults,
-    required MemberEntryListLoader entries,
-  }) : _vaults = vaults,
-       _entries = entries;
+    required this._vaults,
+    required this._entries,
+  });
 
   final MemberVaultListLoader _vaults;
   final MemberEntryListLoader _entries;

@@ -2820,6 +2820,10 @@
   "@approvalErrorVaultLocked": {
     "description": "Error — vault locked, no in-memory key to produce the envelope"
   },
+  "approvalErrorKeyMigrationPending": "This agent must update its encryption key before it can receive access.",
+  "@approvalErrorKeyMigrationPending": {
+    "description": "Error \u2014 the agent's published encryption key is on a read-only suite (key-migration-pending)"
+  },
   "approvalErrorUnknown": "Something went wrong. Please try again.",
   "@approvalErrorUnknown": {
     "description": "Error — unexpected failure on approval"

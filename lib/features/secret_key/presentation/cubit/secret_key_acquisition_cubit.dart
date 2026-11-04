@@ -77,14 +77,12 @@ enum SecretKeyEntryError {
 class SecretKeyAcquisitionCubit extends Cubit<SecretKeyAcquisitionState> {
   SecretKeyAcquisitionCubit({
     required this.accountId,
-    required SecretKeyTransferRemoteDatasource datasource,
-    required DevicePairingCrypto crypto,
+    required this._datasource,
+    required this._crypto,
     this.pollInterval = const Duration(seconds: 2),
     this.sessionLifetime = const Duration(seconds: 300),
     DateTime Function()? now,
-  }) : _datasource = datasource,
-       _crypto = crypto,
-       _now = now ?? DateTime.now,
+  }) : _now = now ?? DateTime.now,
        super(const SecretKeyAcquisitionChoose());
 
   /// Account from the sign-in bootstrap; the claimed envelope must match.

@@ -52,13 +52,10 @@ final class DeviceTransferSenderFailed extends DeviceTransferSenderState {
 class DeviceTransferSenderCubit extends Cubit<DeviceTransferSenderState> {
   DeviceTransferSenderCubit({
     required this.accountId,
-    required SecretKeyTransferRemoteDatasource datasource,
-    required DevicePairingCrypto crypto,
-    required AccountSecretStore secretStore,
-  }) : _datasource = datasource,
-       _crypto = crypto,
-       _secretStore = secretStore,
-       super(const DeviceTransferSenderReady());
+    required this._datasource,
+    required this._crypto,
+    required this._secretStore,
+  }) : super(const DeviceTransferSenderReady());
 
   final String accountId;
   final SecretKeyTransferRemoteDatasource _datasource;

@@ -58,6 +58,7 @@ class Agent {
     this.iconColor,
     this.publicKeyPrefix = '',
     this.publicKey = '',
+    this.keySuiteId = '',
     this.recipientKeyVersion = 1,
     this.accessEpoch = 1,
     this.enrolledAt,
@@ -100,7 +101,10 @@ class Agent {
   /// never confused with private/secret key material.
   final String publicKey;
 
-  /// Version of the current Agent X25519 recipient key.
+  /// Suite [publicKey] is published under; the authority for sealing to it.
+  final String keySuiteId;
+
+  /// Version of the current Agent encryption key.
   final int recipientKeyVersion;
 
   /// Current server-issued access generation used to bind Agent ciphertext.

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -22,8 +21,7 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_reception.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_share_reception_cubit.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 class _Remote extends Mock implements EntryShareRecipientDatasource {}
 
@@ -91,12 +89,7 @@ void main() {
         protection: '',
       ),
     );
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    sodium = configured != null || Platform.isLinux
-        ? await sodium_ffi.SodiumSumoInit.init(
-            () => DynamicLibrary.open(configured ?? 'libsodium.so'),
-          )
-        : await SodiumSumoInit.init();
+    sodium = await SodiumSumoInit.init();
   });
 
   EntryShareRecipientSession makeSession({

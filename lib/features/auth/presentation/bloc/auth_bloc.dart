@@ -16,9 +16,8 @@ export 'auth_state.dart';
 /// Emits [AuthAuthenticated] on successful login/check, and
 /// [AuthUnauthenticated] after logout or when no stored session exists.
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc({required this.authRepository, VaultSessionStore? vaultSessionStore})
-    : _vaultSessionStore = vaultSessionStore,
-      super(const AuthInitial()) {
+  AuthBloc({required this.authRepository, this._vaultSessionStore})
+    : super(const AuthInitial()) {
     on<AuthLoginWithGoogle>(_onLoginWithGoogle);
     on<AuthRefreshRequested>(_onRefreshRequested);
     on<AuthLogoutRequested>(_onLogout);

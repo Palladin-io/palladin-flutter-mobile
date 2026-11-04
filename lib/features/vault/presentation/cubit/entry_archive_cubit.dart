@@ -14,14 +14,11 @@ export 'entry_archive_state.dart';
 class EntryArchiveCubit extends Cubit<EntryArchiveState> {
   EntryArchiveCubit({
     required this.vaultId,
-    required MemberIndexReader index,
-    required MemberEntryListLoader sync,
-    required EntryArchiveRestorer restorer,
+    required this._index,
+    required this._sync,
+    required this._restorer,
     this.maximumEntries = 20000,
-  }) : _index = index,
-       _sync = sync,
-       _restorer = restorer,
-       super(const EntryArchiveInitial());
+  }) : super(const EntryArchiveInitial());
 
   final String vaultId;
   final MemberIndexReader _index;

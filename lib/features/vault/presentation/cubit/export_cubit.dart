@@ -14,13 +14,10 @@ export 'export_state.dart';
 /// Drives an explicitly confirmed, unlocked, local plaintext export.
 class ExportCubit extends Cubit<ExportState> {
   ExportCubit({
-    required CanonicalExportService service,
-    required ExportSharer sharer,
-    required ProtectedExportStaging staging,
-  }) : _service = service,
-       _sharer = sharer,
-       _staging = staging,
-       super(const ExportInitial());
+    required this._service,
+    required this._sharer,
+    required this._staging,
+  }) : super(const ExportInitial());
 
   final CanonicalExportService _service;
   final ExportSharer _sharer;

@@ -34,14 +34,12 @@ final class AutoFillRepairDeny {
 /// per-Entry requests while repairing the native derivative.
 final class DurableAutoFillRepairCoordinator {
   DurableAutoFillRepairCoordinator({
-    required DurableMemberIndexUpdates memberIndexes,
-    required AutoFillPreparedCacheSynchronizer autoFill,
-    required CurrentAutoFillRepairSession currentSession,
+    required this._memberIndexes,
+    required this._autoFill,
+    required this._currentSession,
     this.retryDelay = const Duration(milliseconds: 250),
     this.onFailure,
-  }) : _memberIndexes = memberIndexes,
-       _autoFill = autoFill,
-       _currentSession = currentSession;
+  });
 
   final DurableMemberIndexUpdates _memberIndexes;
   final AutoFillPreparedCacheSynchronizer _autoFill;

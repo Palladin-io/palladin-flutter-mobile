@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../../core/crypto/sodium_provider.dart';
@@ -53,10 +53,9 @@ final class AccountKeyMaterialV2 {
 /// Builds version-2 credentials, wraps and recovery material client-side.
 class AccountKeyMaterialService {
   AccountKeyMaterialService({
-    required IdentityKdfService identityKdfService,
+    required this._identityKdfService,
     Future<SodiumSumo> Function()? sodiumLoader,
-  }) : _identityKdfService = identityKdfService,
-       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final IdentityKdfService _identityKdfService;
   final Future<SodiumSumo> Function() _sodiumLoader;
@@ -88,7 +87,7 @@ class AccountKeyMaterialService {
         kdfSalt: kdfSalt,
         accountSecret: accountSecret,
       );
-      recoveryKey = sodium.crypto.pwhash.call(
+      recoveryKey = sodium.crypto.pwhash.callRaw(
         outLen: CryptoParams.derivedKeyLength,
         password: Int8List.fromList(utf8.encode(recoveryMnemonic.join(' '))),
         salt: recoverySalt,

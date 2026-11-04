@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,8 +12,7 @@ import 'package:mobile_palladin/features/vault/data/services/new_entry_field_acc
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_copy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 EntryShareSnapshot _snapshot(
   String type,
@@ -524,12 +521,7 @@ void main() {
   test(
     'discoverable copy encrypts with fresh Entry keys and independent Discovery projection',
     () async {
-      final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-      final sodium = configured != null || Platform.isLinux
-          ? await sodium_ffi.SodiumSumoInit.init(
-              () => DynamicLibrary.open(configured ?? 'libsodium.so'),
-            )
-          : await SodiumSumoInit.init();
+      final sodium = await SodiumSumoInit.init();
       final crypto = EntryV2CryptoService(sodiumLoader: () async => sodium);
       final vaultKey = sodium.randombytes.buf(32);
       final discoveryKey = sodium.randombytes.buf(32);

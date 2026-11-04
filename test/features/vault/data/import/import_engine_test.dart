@@ -412,7 +412,7 @@ void main() {
       archive.addFile(ArchiveFile('export.attributes', attrs.length, attrs));
       final data = utf8.encode(exportData);
       archive.addFile(ArchiveFile('export.data', data.length, data));
-      final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive)!);
+      final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
 
       final outcome = ImportEngine.parse(zipBytes, fileName: 'export.1pux');
       expect(outcome, isA<ImportParsed>());
@@ -432,7 +432,7 @@ void main() {
       final archive = Archive();
       final data = utf8.encode(credentials);
       archive.addFile(ArchiveFile('credentials.csv', data.length, data));
-      final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive)!);
+      final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive));
 
       final outcome = ImportEngine.parse(zipBytes);
       expect(outcome, isA<ImportParsed>());

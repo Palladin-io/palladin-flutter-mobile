@@ -299,19 +299,26 @@ class _Footer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CheckboxListTile(
-            key: const ValueKey('emergencyKitSavedConfirm'),
-            value: confirmed,
-            onChanged: enabled ? (value) => onConfirmed(value ?? false) : null,
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            activeColor: AppColors.brandRed,
-            title: Text(
-              l10n.emergencyKitSavedConfirm,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 13,
+          // The footer fill sits between the tile and the page Material, so
+          // the tile needs its own ink surface.
+          Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              key: const ValueKey('emergencyKitSavedConfirm'),
+              value: confirmed,
+              onChanged: enabled
+                  ? (value) => onConfirmed(value ?? false)
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              activeColor: AppColors.brandRed,
+              title: Text(
+                l10n.emergencyKitSavedConfirm,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 13,
+                ),
               ),
             ),
           ),

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import '../key_wrapper/key_wrapper.dart' show WrapperSuite;
+
 /// Protocol-level failures are deliberately non-sensitive and fail closed.
 class EnvelopeException implements Exception {
   const EnvelopeException(this.kind);
@@ -132,11 +134,14 @@ final class WrappingPurposeData extends EnvelopePurposeData {
 
 final class ReasonPurposeData extends EnvelopePurposeData {
   ReasonPurposeData({
+    required this.wrapperSuite,
     required this.agentMessageKeyVersion,
     required Uint8List recipientFingerprint,
     required this.methods,
   }) : _recipientFingerprint = Uint8List.fromList(recipientFingerprint);
 
+  /// Suite of the Vault Agent message key the reason DEK is sealed to.
+  final WrapperSuite wrapperSuite;
   final int agentMessageKeyVersion;
   final Uint8List _recipientFingerprint;
   Uint8List get recipientFingerprint =>
@@ -147,6 +152,7 @@ final class ReasonPurposeData extends EnvelopePurposeData {
 final class GrantPurposeData extends EnvelopePurposeData {
   GrantPurposeData({
     required this.entryRevision,
+    required this.wrapperSuite,
     required this.recipientKeyVersion,
     required Uint8List recipientFingerprint,
     required this.methods,
@@ -159,6 +165,9 @@ final class GrantPurposeData extends EnvelopePurposeData {
        _fieldSetCommitment = Uint8List.fromList(fieldSetCommitment);
 
   final int entryRevision;
+
+  /// Suite of the Agent encryption key the grant DEK is sealed to.
+  final WrapperSuite wrapperSuite;
   final int recipientKeyVersion;
   final Uint8List _recipientFingerprint;
   Uint8List get recipientFingerprint =>
@@ -348,17 +357,19 @@ final class EnvelopeDescriptor {
       case WrappingPurposeData(:final wrappingVaultKeyVersion):
         writer.u32(wrappingVaultKeyVersion);
       case ReasonPurposeData(
+        :final wrapperSuite,
         :final agentMessageKeyVersion,
         :final recipientFingerprint,
         :final methods,
       ):
         writer
-          ..asciiWithU16Length('palladin-x25519-sealed-box-v1')
+          ..asciiWithU16Length(wrapperSuite.wireValue)
           ..u32(agentMessageKeyVersion)
           ..bytes(recipientFingerprint)
           ..u16(methods);
       case GrantPurposeData(
         :final entryRevision,
+        :final wrapperSuite,
         :final recipientKeyVersion,
         :final recipientFingerprint,
         :final methods,
@@ -370,7 +381,7 @@ final class EnvelopeDescriptor {
       ):
         writer
           ..u64(entryRevision)
-          ..asciiWithU16Length('palladin-x25519-sealed-box-v1')
+          ..asciiWithU16Length(wrapperSuite.wireValue)
           ..u32(recipientKeyVersion)
           ..bytes(recipientFingerprint)
           ..u16(methods)

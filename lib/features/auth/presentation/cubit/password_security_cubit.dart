@@ -22,10 +22,9 @@ class PasswordSecurityState {
 /// The password is passed directly to the checker and is never stored in state.
 class PasswordSecurityCubit extends Cubit<PasswordSecurityState> {
   PasswordSecurityCubit({
-    required PasswordBreachChecker check,
+    required this._check,
     this.debounce = const Duration(milliseconds: 500),
-  }) : _check = check,
-       super(const PasswordSecurityState());
+  }) : super(const PasswordSecurityState());
 
   final PasswordBreachChecker _check;
   final Duration debounce;

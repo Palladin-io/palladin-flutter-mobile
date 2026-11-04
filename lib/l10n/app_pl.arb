@@ -907,6 +907,7 @@
   "approvalErrorNetwork": "Nie można połączyć się z serwerem. Sprawdź połączenie.",
   "approvalErrorCrypto": "Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.",
   "approvalErrorVaultLocked": "Najpierw odblokuj sejf, aby zatwierdzić tę prośbę.",
+  "approvalErrorKeyMigrationPending": "Ten agent musi najpierw zaktualizować swój klucz szyfrujący, zanim otrzyma dostęp.",
   "approvalErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie.",
   "grantAccessTitleAgent": "Dodaj agenta",
   "grantAccessTitleVault": "Przyznaj dostęp",

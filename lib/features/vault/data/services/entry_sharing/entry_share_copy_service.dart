@@ -41,14 +41,11 @@ final class PreparedEntryShareDefaultVault {
 
 class EntryShareCopyService {
   EntryShareCopyService({
-    required EntryShareCopyDatasource remote,
-    required VaultCryptoService vaultCrypto,
-    required EntryV2CryptoService entryCrypto,
-    required AutoFillMutationNotifier autoFill,
-  }) : _remote = remote,
-       _vaultCrypto = vaultCrypto,
-       _entryCrypto = entryCrypto,
-       _autoFill = autoFill;
+    required this._remote,
+    required this._vaultCrypto,
+    required this._entryCrypto,
+    required this._autoFill,
+  });
 
   final EntryShareCopyDatasource _remote;
   final VaultCryptoService _vaultCrypto;

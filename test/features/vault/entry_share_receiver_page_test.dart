@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi' show DynamicLibrary;
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -38,8 +37,7 @@ import 'package:mobile_palladin/features/vault/presentation/entry_share_account_
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_share_receiver_page.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_share_field_card.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 class _Remote extends Mock implements EntryShareRecipientDatasource {}
 
@@ -101,12 +99,7 @@ void main() {
         protection: '',
       ),
     );
-    final path = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    sodium = path != null || Platform.isLinux
-        ? await sodium_ffi.SodiumSumoInit.init(
-            () => DynamicLibrary.open(path ?? 'libsodium.so'),
-          )
-        : await SodiumSumoInit.init();
+    sodium = await SodiumSumoInit.init();
     SodiumProvider.debugOverride = sodium;
     final font = Platform.environment['PALLADIN_SHARING_VISUAL_FONT'];
     if (font != null) {

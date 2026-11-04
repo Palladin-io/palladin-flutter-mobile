@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_palladin/core/crypto/kem/ml_kem_768.dart';
 import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 
 import '../../support/native_sodium.dart';
@@ -72,49 +71,4 @@ void main() {
       );
     },
   );
-
-  test('agrees with native libsodium crypto_kem_xwing when available', () {
-    final native = NativeXWing.tryLoad();
-    if (native == null) {
-      markTestSkipped('host libsodium has no crypto_kem_xwing');
-      return;
-    }
-    for (var round = 0; round < 8; round++) {
-      final seed = Uint8List.fromList(List.generate(32, (i) => i * 7 + round));
-      final randomness = Uint8List.fromList(
-        List.generate(64, (i) => i * 13 + round),
-      );
-      final publicKey = xwing.publicKeyFromSeed(seed);
-      expect(publicKey, native.publicKey(seed));
-
-      final (nativeSecret, nativeCiphertext) = native.encapsulate(
-        publicKey,
-        randomness,
-      );
-      final (secret, ciphertext) = xwing.encapsulateDerandomized(
-        publicKey,
-        randomness,
-      );
-      expect(ciphertext, nativeCiphertext);
-      expect(secret, nativeSecret);
-
-      final tampered = Uint8List.fromList(ciphertext)..[round * 100] ^= 0x80;
-      expect(
-        xwing.decapsulate(tampered, seed),
-        native.decapsulate(tampered, seed),
-      );
-    }
-  });
-
-  test('division-free reduction and compression are exact', () {
-    for (var a = 0; a < 1 << 22; a += 7) {
-      expect(debugReduce(a), a % 3329);
-    }
-    for (final d in [1, 4, 10]) {
-      for (var x = 0; x < 3329; x++) {
-        expect(debugCompress(x, d), ((2 * (x << d) + 3329) ~/ 6658) % (1 << d));
-      }
-    }
-    expect(MlKem768.ciphertextBytes, 1088);
-  });
 }

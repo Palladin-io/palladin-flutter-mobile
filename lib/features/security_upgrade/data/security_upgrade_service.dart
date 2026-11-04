@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../core/crypto/key_wrapper/key_wrapper.dart';
@@ -72,16 +72,12 @@ final class RewrapProgress {
 /// idempotent by migration id and re-wrapping skips migrated envelopes.
 class SecurityUpgradeService {
   SecurityUpgradeService({
-    required SecurityUpgradeRemoteDatasource remote,
-    required VaultRemoteDatasource vaults,
-    required IdentityKdfService identityKdf,
-    required AccountSecretStore accountSecrets,
+    required this._remote,
+    required this._vaults,
+    required this._identityKdf,
+    required this._accountSecrets,
     Future<SodiumSumo> Function()? sodiumLoader,
-  }) : _remote = remote,
-       _vaults = vaults,
-       _identityKdf = identityKdf,
-       _accountSecrets = accountSecrets,
-       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final SecurityUpgradeRemoteDatasource _remote;
   final VaultRemoteDatasource _vaults;

@@ -142,20 +142,16 @@ final class MemberSyncService
         LocalMemberEntryReader,
         CurrentEntryCacheInvalidator {
   MemberSyncService({
-    required MemberSyncRemote remote,
-    required MemberSyncCache cache,
-    required EntryV2CryptoService entryCrypto,
-    required VaultRotationCryptoService vaultKeys,
+    required this._remote,
+    required this._cache,
+    required this._entryCrypto,
+    required this._vaultKeys,
     DateTime Function()? now,
     this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
     this.decryptConcurrency =
         VaultPerformanceBudget.memberIndexDecryptConcurrency,
     this.maximumSnapshotRestarts = 2,
-  }) : _remote = remote,
-       _cache = cache,
-       _entryCrypto = entryCrypto,
-       _vaultKeys = vaultKeys,
-       _now = now ?? DateTime.now {
+  }) : _now = now ?? DateTime.now {
     if (maximumIndexedEntries < 1 ||
         decryptConcurrency < 1 ||
         maximumSnapshotRestarts < 0) {

@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -2811,6 +2812,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get approvalErrorVaultLocked =>
       'Unlock your vault first to approve this request.';
+
+  @override
+  String get approvalErrorKeyMigrationPending =>
+      'This agent must update its encryption key before it can receive access.';
 
   @override
   String get approvalErrorUnknown => 'Something went wrong. Please try again.';

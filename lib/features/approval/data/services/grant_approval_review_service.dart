@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
-
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/utils/app_logger.dart';
 
@@ -12,7 +11,6 @@ import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/canonical_entry_detail_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
@@ -68,20 +66,15 @@ abstract interface class GrantApprovalReviewer {
 /// Network and crypto implementation of [GrantApprovalReviewer].
 final class GrantApprovalReviewService implements GrantApprovalReviewer {
   GrantApprovalReviewService({
-    required VaultRemoteDatasource vaults,
-    required CanonicalEntryDetailService entries,
-    required VaultRotationCryptoService keys,
+    required this._vaults,
+    required this._entries,
+    required this._keys,
     required VaultProtocolEnvelopeService envelopes,
     required VaultProtocolSignatureService signatures,
-    required AgentDiscoveryRemote discovery,
-    required ApprovalRemoteDatasource approval,
+    required this._discovery,
+    required this._approval,
     EncryptedReasonCryptoService? reasonCrypto,
-  }) : _vaults = vaults,
-       _entries = entries,
-       _keys = keys,
-       _discovery = discovery,
-       _approval = approval,
-       _reasonCrypto = reasonCrypto ?? EncryptedReasonCryptoService();
+  }) : _reasonCrypto = reasonCrypto ?? EncryptedReasonCryptoService();
 
   final VaultRemoteDatasource _vaults;
   final CanonicalEntryDetailService _entries;
@@ -146,18 +139,21 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
             expectedKeyVersion: reason.agentMessageKeyVersion,
           );
       messagePrivateKey = openedMessagePrivateKey;
-      final sodium = await SodiumProvider.instance();
-      final secret = SecureKey.fromList(sodium, openedMessagePrivateKey);
-      final Uint8List openedMessagePublicKey;
-      try {
-        openedMessagePublicKey = sodium.crypto.scalarmult.base(n: secret);
-        messagePublicKey = openedMessagePublicKey;
-      } finally {
-        secret.dispose();
-      }
+      final messageKeySuite = VaultRotationCryptoService.agentMessageKeySuite(
+        vault,
+        reason.agentMessageKeyVersion,
+      );
+      final openedMessagePublicKey =
+          VaultRotationCryptoService.agentMessagePublicKey(
+            await SodiumProvider.instance(),
+            messageKeySuite,
+            openedMessagePrivateKey,
+          );
+      messagePublicKey = openedMessagePublicKey;
       final fingerprint = VaultProtocolBytes.base64UrlEncode(
-        vaultPublicKeyFingerprint(
-          VaultPublicKeyKind.vaultAgentMessage,
+        recipientFingerprint(
+          messageKeySuite,
+          RecipientKeyKind.vaultAgentMessage.id,
           openedMessagePublicKey,
         ),
       );
@@ -167,6 +163,7 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
       stage = 'reason-key';
       reasonKey = await _reasonCrypto.verifyAndOpenKey(
         reason: reason,
+        messageKeySuite: messageKeySuite,
         signingPublicKey: signingKey,
         recipientPrivateKey: openedMessagePrivateKey,
       );
@@ -177,6 +174,7 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
       stage = 'reason-decrypt';
       plaintext = await _reasonCrypto.decrypt(
         reason: reason,
+        messageKeySuite: messageKeySuite,
         reasonKey: openedReasonKey,
       );
       final decoded = jsonDecode(utf8.decode(plaintext, allowMalformed: false));

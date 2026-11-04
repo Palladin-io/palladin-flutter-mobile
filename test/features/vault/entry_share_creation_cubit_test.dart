@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
@@ -15,8 +13,7 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart'
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_creation.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_list.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_share_creation_cubit.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 class _Remote extends Mock implements EntrySharingRemoteDatasource {}
 
@@ -93,12 +90,7 @@ void main() {
         ),
       ),
     );
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    sodium = configured != null || Platform.isLinux
-        ? await sodium_ffi.SodiumSumoInit.init(
-            () => DynamicLibrary.open(configured ?? 'libsodium.so'),
-          )
-        : await SodiumSumoInit.init();
+    sodium = await SodiumSumoInit.init();
   });
   EntryShareCreationCubit build({DateTime Function()? now}) =>
       EntryShareCreationCubit(

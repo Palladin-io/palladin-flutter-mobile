@@ -25,11 +25,9 @@ class BiometricSetupState {
 class BiometricSetupCubit extends Cubit<BiometricSetupState> {
   BiometricSetupCubit({
     required BiometricKeyStore keyStore,
-    required SharedPreferences preferences,
-    required AuthState Function() currentAuth,
+    required this._preferences,
+    required this._currentAuth,
   }) : _keys = keyStore,
-       _preferences = preferences,
-       _currentAuth = currentAuth,
        super(const BiometricSetupState());
   final BiometricKeyStore _keys;
   final SharedPreferences _preferences;

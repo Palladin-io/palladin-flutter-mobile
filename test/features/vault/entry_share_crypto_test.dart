@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -10,8 +9,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_secrets.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 final _fixture =
     jsonDecode(
@@ -49,15 +47,7 @@ final _invalidLink = throwsA(
   ),
 );
 
-Future<SodiumSumo> _loadSodium() {
-  final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-  if (configured != null || Platform.isLinux) {
-    return sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(configured ?? 'libsodium.so'),
-    );
-  }
-  return SodiumSumoInit.init();
-}
+Future<SodiumSumo> _loadSodium() async => SodiumSumoInit.init();
 
 void main() {
   late SodiumSumo sodium;

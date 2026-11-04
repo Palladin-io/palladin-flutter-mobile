@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../unlock/data/services/identity_kdf_service.dart';
@@ -119,7 +119,7 @@ class OnboardingCryptoService {
   /// password hash identically on mobile and web.
   SecureKey _deriveKey(SodiumSumo sodium, String password, Uint8List salt) {
     final utf8Bytes = utf8.encode(password);
-    return sodium.crypto.pwhash.call(
+    return sodium.crypto.pwhash.callRaw(
       outLen: CryptoParams.derivedKeyLength,
       password: Int8List.fromList(utf8Bytes),
       salt: salt,

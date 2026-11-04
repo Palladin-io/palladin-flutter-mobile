@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi' show DynamicLibrary;
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -38,8 +37,7 @@ import 'package:mobile_palladin/features/vault/presentation/pages/entry_share_cr
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_sharing_tab.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_share_creation_form.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 class _Remote extends Mock implements EntrySharingRemoteDatasource {}
 
@@ -122,12 +120,7 @@ void main() {
         ),
       ),
     );
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    sodium = configured != null || Platform.isLinux
-        ? await sodium_ffi.SodiumSumoInit.init(
-            () => DynamicLibrary.open(configured ?? 'libsodium.so'),
-          )
-        : await SodiumSumoInit.init();
+    sodium = await SodiumSumoInit.init();
   });
   setUp(() {
     remote = _Remote();

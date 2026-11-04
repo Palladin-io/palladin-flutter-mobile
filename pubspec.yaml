@@ -8,7 +8,7 @@ issue_tracker: https://github.com/Palladin-io/palladin-flutter-mobile/issues
 version: 0.1.0+1
 
 environment:
-  sdk: ^3.11.1
+  sdk: ^3.13.0
 
 dependencies:
   flutter:
@@ -43,11 +43,9 @@ dependencies:
   # Biometric authentication (Face ID / fingerprint)
   local_auth: ^2.3.0
 
-  # Crypto — libsodium FFI (Argon2id, X25519, crypto_secretbox)
-  sodium_libs: ^3.4.1+2
-
-  # SHA3/SHAKE for the X-Wing (ML-KEM-768) implementation in core/crypto/kem.
-  pointycastle: ^3.9.1
+  # Crypto — libsodium 1.0.22 built by sodium's native-asset hook
+  # (Argon2id, X25519, crypto_secretbox, X-Wing crypto_kem)
+  sodium: ^4.1.2+1
 
   # BIP-39 mnemonic for recovery key
   bip39: ^1.0.6
@@ -64,8 +62,8 @@ dependencies:
   # directly.
   file_picker: ^8.1.2
   csv: ^6.0.0
-  archive: ^3.6.1
-  xml: ^6.5.0
+  archive: ^4.5.2
+  xml: ^7.1.0
 
   # Image picker for custom vault icon upload
   image_picker: ^1.1.2
@@ -135,7 +133,6 @@ dev_dependencies:
   bloc_test: ^10.0.0
   mocktail: ^1.0.4
   fake_async: ^1.3.1
-  sodium: ^3.4.6
   sqflite_common_ffi: ^2.3.6
 
   # App icons

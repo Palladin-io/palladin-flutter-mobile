@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:mobile_palladin/features/approval/data/models/pending_grant_model.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
 import 'package:mobile_palladin/features/vault/data/models/agent_discovery_provisioning.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart'
+    show WrapperSuite;
 import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/approval/data/datasources/approval_remote_datasource.dart';
@@ -43,6 +46,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(WrapperSuite.xwingV1);
     registerFallbackValue(<String, Object?>{});
     registerFallbackValue(_Entry());
   });
@@ -133,6 +137,7 @@ void main() {
             entryRevision: any(named: 'entryRevision'),
             memberKeyGeneration: any(named: 'memberKeyGeneration'),
             agentPublicKey: any(named: 'agentPublicKey'),
+            agentKeySuite: any(named: 'agentKeySuite'),
             recipientKeyVersion: any(named: 'recipientKeyVersion'),
             approvedMethods: any(named: 'approvedMethods'),
             deliveryPolicy: any(named: 'deliveryPolicy'),
@@ -177,6 +182,7 @@ void main() {
           entryId: entryId,
           agentId: agentId,
           agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+          agentKeySuiteId: 'palladin-xwing-v1',
           recipientKeyVersion: 3,
           agentAccessEpoch: 1,
           privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
@@ -205,6 +211,7 @@ void main() {
               entryRevision: any(named: 'entryRevision'),
               memberKeyGeneration: any(named: 'memberKeyGeneration'),
               agentPublicKey: any(named: 'agentPublicKey'),
+              agentKeySuite: any(named: 'agentKeySuite'),
               recipientKeyVersion: any(named: 'recipientKeyVersion'),
               approvedMethods: any(named: 'approvedMethods'),
               deliveryPolicy: any(named: 'deliveryPolicy'),
@@ -277,7 +284,7 @@ void main() {
                 agentId: agentId,
                 recipientKeyVersion: 3,
                 status: 'current',
-                keySuiteId: 'palladin-x25519-sealed-box-v1',
+                keySuiteId: 'palladin-xwing-v1',
                 publicKey: pending.agentPublicKey,
                 ed25519PublicKey: pending.agentPublicKey,
               ),
@@ -393,6 +400,7 @@ void main() {
             entryRevision: any(named: 'entryRevision'),
             memberKeyGeneration: any(named: 'memberKeyGeneration'),
             agentPublicKey: any(named: 'agentPublicKey'),
+            agentKeySuite: any(named: 'agentKeySuite'),
             recipientKeyVersion: any(named: 'recipientKeyVersion'),
             approvedMethods: any(named: 'approvedMethods'),
             deliveryPolicy: any(named: 'deliveryPolicy'),
@@ -439,6 +447,7 @@ void main() {
           selectedFieldIds: retained,
           agentId: agentId,
           agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+          agentKeySuiteId: 'palladin-xwing-v1',
           recipientKeyVersion: 3,
           agentAccessEpoch: 1,
           privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
@@ -467,6 +476,7 @@ void main() {
               entryRevision: any(named: 'entryRevision'),
               memberKeyGeneration: any(named: 'memberKeyGeneration'),
               agentPublicKey: any(named: 'agentPublicKey'),
+              agentKeySuite: any(named: 'agentKeySuite'),
               recipientKeyVersion: any(named: 'recipientKeyVersion'),
               approvedMethods: any(named: 'approvedMethods'),
               deliveryPolicy: any(named: 'deliveryPolicy'),
@@ -561,6 +571,7 @@ void main() {
           agentAccessEpoch: any(named: 'agentAccessEpoch'),
           vaultKeyVersion: any(named: 'vaultKeyVersion'),
           agentPublicKey: any(named: 'agentPublicKey'),
+          agentKeySuite: any(named: 'agentKeySuite'),
           recipientKeyVersion: any(named: 'recipientKeyVersion'),
           vaultSigningKeyVersion: any(named: 'vaultSigningKeyVersion'),
           vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
@@ -592,6 +603,7 @@ void main() {
         vaultId: vaultId,
         agentId: agentId,
         agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+        agentKeySuiteId: 'palladin-xwing-v1',
         recipientKeyVersion: 3,
         agentAccessEpoch: 2,
         privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
@@ -609,6 +621,7 @@ void main() {
           agentAccessEpoch: 2,
           vaultKeyVersion: 7,
           agentPublicKey: any(named: 'agentPublicKey'),
+          agentKeySuite: any(named: 'agentKeySuite'),
           recipientKeyVersion: 3,
           vaultSigningKeyVersion: 9,
           vaultSigningPrivateKey: openedSigningKey,

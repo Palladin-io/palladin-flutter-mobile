@@ -1,16 +1,15 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
+import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/encrypted_reason_crypto_service.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 String _base64Url(List<int> bytes) =>
     base64UrlEncode(bytes).replaceAll('=', '');
@@ -20,17 +19,6 @@ String _hex(List<int> bytes) =>
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    if (configured != null) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(configured),
-      );
-    }
-    if (Platform.isLinux) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open('libsodium.so'),
-      );
-    }
     return await SodiumSumoInit.init();
   } catch (_) {
     return null;
@@ -79,6 +67,7 @@ void main() {
 
     final transcript = EncryptedReasonCryptoService().signatureTranscript(
       reason,
+      WrapperSuite.x25519SealedBoxV1,
     );
     addTearDown(() => transcript.fillRange(0, transcript.length, 0));
 
@@ -160,6 +149,7 @@ void main() {
       await expectLater(
         () => EncryptedReasonCryptoService().verifyAndOpenKey(
           reason: reason,
+          messageKeySuite: WrapperSuite.x25519SealedBoxV1,
           signingPublicKey: Uint8List(32),
           recipientPrivateKey: Uint8List(32),
         ),
@@ -168,7 +158,7 @@ void main() {
     },
   );
 
-  test('awaits ReasonDEK opening before zeroing the sealed package', () async {
+  test('opens an X-Wing ReasonDEK only under the Vault-named suite', () async {
     final sodium = await _loadSodium();
     if (sodium == null) {
       if (Platform.environment['CI'] == 'true') {
@@ -185,16 +175,18 @@ void main() {
     const grantId = '77777777-7777-4777-8777-777777777777';
     const generation = 4;
     const keyVersion = 3;
-    final recipient = sodium.crypto.box.keyPair();
+    final xwing = XWing(sodium);
+    final recipientPrivateKey = xwing.generateSeed();
+    final recipientPublicKey = xwing.publicKeyFromSeed(recipientPrivateKey);
     final signer = sodium.crypto.sign.keyPair();
-    final recipientPrivateKey = recipient.secretKey.extractBytes();
     final reasonKey = sodium.randombytes.buf(32);
     Uint8List? opened;
     Uint8List? transcript;
     try {
-      final fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.vaultAgentMessage,
-        recipient.publicKey,
+      final fingerprint = recipientFingerprint(
+        WrapperSuite.xwingV1,
+        RecipientKeyKind.vaultAgentMessage.id,
+        recipientPublicKey,
       );
       final scope = EnvelopeScope(
         organizationId: EnvelopeId.parse(organizationId),
@@ -210,12 +202,14 @@ void main() {
         keyVersion: 1,
         memberKeyGeneration: generation,
         purposeData: ReasonPurposeData(
+          wrapperSuite: WrapperSuite.xwingV1,
           agentMessageKeyVersion: keyVersion,
           recipientFingerprint: fingerprint,
           methods: 2,
         ),
       );
       final wrapper = WrapperContext(
+        suiteId: WrapperSuite.xwingV1,
         purpose: WrapperPurpose.reasonDek,
         scope: scope,
         resourceRevision: 1,
@@ -234,7 +228,7 @@ void main() {
               suite: wrapper.suiteId,
               keyKind: RecipientKeyKind.vaultAgentMessage,
               keyVersion: keyVersion,
-              publicKey: recipient.publicKey,
+              publicKey: recipientPublicKey,
             ),
           );
       final unsigned = EncryptedReason(
@@ -254,7 +248,7 @@ void main() {
           'keyVersion': 1,
           'memberKeyGeneration': generation,
           'binding': {
-            'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+            'wrapperSuiteId': 'palladin-xwing-v1',
             'recipientKeyVersion': keyVersion,
             'recipientKeyFingerprint': _base64Url(fingerprint),
             'requestedMethods': 2,
@@ -264,7 +258,7 @@ void main() {
         wrappedReasonDek: {
           'descriptor': {
             'protocolVersion': 2,
-            'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+            'wrapperSuiteId': 'palladin-xwing-v1',
             'purpose': 'reasonDek',
             'scope': {
               'organizationId': organizationId,
@@ -289,7 +283,7 @@ void main() {
       final service = EncryptedReasonCryptoService(
         sodiumLoader: () async => sodium,
       );
-      transcript = service.signatureTranscript(unsigned);
+      transcript = service.signatureTranscript(unsigned, WrapperSuite.xwingV1);
       final signature = sodium.crypto.sign.detached(
         message: transcript,
         secretKey: signer.secretKey,
@@ -301,8 +295,19 @@ void main() {
         agentSignature: _base64Url(signature),
       );
 
+      await expectLater(
+        () => service.verifyAndOpenKey(
+          reason: signed,
+          messageKeySuite: WrapperSuite.x25519SealedBoxV1,
+          signingPublicKey: signer.publicKey,
+          recipientPrivateKey: recipientPrivateKey,
+        ),
+        throwsA(isA<FormatException>()),
+        reason: 'the Vault, not the reason, names the message key suite',
+      );
       opened = await service.verifyAndOpenKey(
         reason: signed,
+        messageKeySuite: WrapperSuite.xwingV1,
         signingPublicKey: signer.publicKey,
         recipientPrivateKey: recipientPrivateKey,
       );
@@ -316,7 +321,6 @@ void main() {
       transcript?.fillRange(0, transcript.length, 0);
       reasonKey.fillRange(0, reasonKey.length, 0);
       recipientPrivateKey.fillRange(0, recipientPrivateKey.length, 0);
-      recipient.dispose();
       signer.dispose();
     }
   });

@@ -1,11 +1,12 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
+import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
@@ -15,6 +16,9 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/models/vault_rotation_models.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
+import 'package:sodium/sodium_sumo.dart' show SecureKey;
+
+import '../../../../support/legacy_key_wrapper.dart';
 
 void main() {
   test('opens the canonical Agent-message private-key contract', () async {
@@ -232,12 +236,7 @@ void main() {
   });
 
   test('opens the canonical pending Member Vault key package', () async {
-    final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    final sodium = await _loadSodium(library);
-    if (sodium == null) {
-      markTestSkipped('libsodium is unavailable on this test host');
-      return;
-    }
+    final sodium = await sodium_ffi.SodiumSumoInit.init();
     final service = VaultRotationCryptoService(
       memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       sodiumLoader: () async => sodium,
@@ -273,17 +272,12 @@ void main() {
       recipientKeyVersion: 2,
       recipientFingerprint: fingerprint,
     );
-    final sealed = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
-        .seal(
-          key: expectedKey,
-          context: context,
-          recipient: RecipientPublicKey(
-            suite: context.suiteId,
-            keyKind: RecipientKeyKind.memberEncryption,
-            keyVersion: context.recipientKeyVersion,
-            publicKey: publicKey,
-          ),
-        );
+    final sealed = sealLegacyForTest(
+      sodium,
+      key: expectedKey,
+      context: context,
+      recipientPublicKey: publicKey,
+    );
     final envelope = <String, dynamic>{
       'wrappedVaultKey': {
         'descriptor': {
@@ -320,21 +314,18 @@ void main() {
   });
 
   test('seals the whole Vault key once for an active FULL grant', () async {
-    final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    final sodium = await _loadSodium(library);
-    if (sodium == null) {
-      markTestSkipped('libsodium is unavailable on this test host');
-      return;
-    }
+    final sodium = await sodium_ffi.SodiumSumoInit.init();
     const organizationId = '11111111-1111-4111-8111-111111111111';
     const vaultId = '22222222-2222-4222-8222-222222222222';
     const grantId = '33333333-3333-4333-8333-333333333333';
     const agentId = '44444444-4444-4444-8444-444444444444';
-    final keyPair = sodium.crypto.box.keyPair();
-    final privateKey = keyPair.secretKey.extractBytes();
-    final fingerprint = vaultPublicKeyFingerprint(
-      VaultPublicKeyKind.agentEncryption,
-      keyPair.publicKey,
+    final xwing = XWing(sodium);
+    final privateKey = xwing.generateSeed();
+    final publicKey = xwing.publicKeyFromSeed(privateKey);
+    final fingerprint = recipientFingerprint(
+      WrapperSuite.xwingV1,
+      RecipientKeyKind.agentEncryption.id,
+      publicKey,
     );
     final vaultKey = Uint8List.fromList(
       List<int>.generate(32, (index) => index + 1),
@@ -354,7 +345,8 @@ void main() {
         recipientKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
           fingerprint,
         ),
-        x25519PublicKey: VaultProtocolBytes.base64UrlEncode(keyPair.publicKey),
+        publicKey: VaultProtocolBytes.base64UrlEncode(publicKey),
+        keySuite: WrapperSuite.xwingV1,
       ),
       organizationId: organizationId,
       vaultId: vaultId,
@@ -369,6 +361,7 @@ void main() {
     final descriptor = Map<String, Object?>.from(wrapped['descriptor']! as Map);
 
     expect(descriptor['purpose'], WrapperPurpose.agentVaultKey.id);
+    expect(descriptor['wrapperSuiteId'], 'palladin-xwing-v1');
     expect(descriptor['resourceRevision'], '7');
     expect(descriptor['wrappedKeyVersion'], 3);
     expect(descriptor['memberKeyGeneration'], isNull);
@@ -393,6 +386,7 @@ void main() {
             wrapped['encodedSealedKeyPackage']! as String,
           ),
           context: WrapperContext(
+            suiteId: WrapperSuite.xwingV1,
             purpose: WrapperPurpose.agentVaultKey,
             scope: EnvelopeScope(
               organizationId: EnvelopeId.parse(organizationId),
@@ -415,16 +409,318 @@ void main() {
     vaultKey.fillRange(0, vaultKey.length, 0);
     signingPrivateKey.fillRange(0, signingPrivateKey.length, 0);
     signingPair.dispose();
-    keyPair.dispose();
+  });
+
+  group('recipient suite from the authenticated key directory', () {
+    const organizationId = '11111111-1111-4111-8111-111111111111';
+    const vaultId = '22222222-2222-4222-8222-222222222222';
+    const memberId = '44444444-4444-4444-8444-444444444444';
+
+    test('seals the target VK to an X-Wing member in the key-wrapper '
+        'contract and the member opens it', () async {
+      final sodium = await sodium_ffi.SodiumSumoInit.init();
+      final xwing = XWing(sodium);
+      final seed = xwing.generateSeed();
+      final publicKey = xwing.publicKeyFromSeed(seed);
+      final vaultKey = sodium.randombytes.buf(32);
+      final service = VaultRotationCryptoService(
+        sodiumLoader: () async => sodium,
+      );
+      final envelope = await service.sealMemberVaultKey(
+        recipient: RotationMemberRecipient(
+          memberId: memberId,
+          recipientKeyVersion: 2,
+          recipientKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
+            recipientFingerprint(
+              WrapperSuite.xwingV1,
+              RecipientKeyKind.memberEncryption.id,
+              publicKey,
+            ),
+          ),
+          publicKey: VaultProtocolBytes.base64UrlEncode(publicKey),
+          keySuite: WrapperSuite.xwingV1,
+        ),
+        organizationId: organizationId,
+        vaultId: vaultId,
+        vkVersion: 6,
+        memberKeyGeneration: 3,
+        vaultKey: vaultKey,
+      );
+      final descriptor =
+          (envelope['wrappedVaultKey'] as Map)['descriptor'] as Map;
+      expect(descriptor['wrapperSuiteId'], 'palladin-xwing-v1');
+      expect(descriptor['resourceRevision'], '6');
+      expect(descriptor['wrappedKeyVersion'], 6);
+      expect(
+        await service.openMemberVaultKey(
+          envelope,
+          seed,
+          expectedOrganizationId: organizationId,
+          expectedVaultId: vaultId,
+          expectedVaultKeyVersion: 6,
+          expectedMemberKeyGeneration: 3,
+        ),
+        vaultKey,
+      );
+    });
+
+    test(
+      'a legacy member blocks the VK rotation (key-migration-pending)',
+      () async {
+        final sodium = await sodium_ffi.SodiumSumoInit.init();
+        final pair = sodium.crypto.box.keyPair();
+        addTearDown(pair.dispose);
+        await expectLater(
+          VaultRotationCryptoService(
+            sodiumLoader: () async => sodium,
+          ).sealMemberVaultKey(
+            recipient: RotationMemberRecipient(
+              memberId: memberId,
+              recipientKeyVersion: 1,
+              recipientKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
+                recipientFingerprint(
+                  WrapperSuite.x25519SealedBoxV1,
+                  RecipientKeyKind.memberEncryption.id,
+                  pair.publicKey,
+                ),
+              ),
+              publicKey: VaultProtocolBytes.base64UrlEncode(pair.publicKey),
+              keySuite: WrapperSuite.x25519SealedBoxV1,
+            ),
+            organizationId: organizationId,
+            vaultId: vaultId,
+            vkVersion: 2,
+            memberKeyGeneration: 1,
+            vaultKey: Uint8List(32),
+          ),
+          throwsA(isA<KeyMigrationPendingException>()),
+        );
+      },
+    );
+
+    test(
+      'a directory fingerprint that does not bind the suite is rejected',
+      () async {
+        final sodium = await sodium_ffi.SodiumSumoInit.init();
+        final xwing = XWing(sodium);
+        final publicKey = xwing.publicKeyFromSeed(xwing.generateSeed());
+        await expectLater(
+          VaultRotationCryptoService(
+            sodiumLoader: () async => sodium,
+          ).sealMemberVaultKey(
+            recipient: RotationMemberRecipient(
+              memberId: memberId,
+              recipientKeyVersion: 1,
+              // A fingerprint that omits the suite id from its preimage.
+              recipientKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
+                Uint8List.fromList(
+                  sha256.convert([
+                    ...ascii.encode('PLDNV2FP'),
+                    0,
+                    2,
+                    0,
+                    5,
+                    ...publicKey,
+                  ]).bytes,
+                ),
+              ),
+              publicKey: VaultProtocolBytes.base64UrlEncode(publicKey),
+              keySuite: WrapperSuite.xwingV1,
+            ),
+            organizationId: organizationId,
+            vaultId: vaultId,
+            vkVersion: 2,
+            memberKeyGeneration: 1,
+            vaultKey: Uint8List(32),
+          ),
+          throwsFormatException,
+        );
+      },
+    );
+
+    test('discovery material seals the VDK to the Agent suite and signs the '
+        'Vault Agent message key suite', () async {
+      final sodium = await sodium_ffi.SodiumSumoInit.init();
+      final xwing = XWing(sodium);
+      final agentSeed = xwing.generateSeed();
+      final agentPublicKey = xwing.publicKeyFromSeed(agentSeed);
+      final agentSigning = sodium.crypto.sign.keyPair();
+      addTearDown(agentSigning.dispose);
+      final service = VaultRotationCryptoService(
+        sodiumLoader: () async => sodium,
+      );
+      final vdk = sodium.randombytes.buf(32);
+      final messageSeed = xwing.generateSeed();
+      final signingSeed = sodium.randombytes.buf(32);
+      const agentId = '55555555-5555-4555-8555-555555555555';
+      final agent = RotationAgentRecipient(
+        agentId: agentId,
+        publicKey: base64.encode(agentPublicKey),
+        keySuite: WrapperSuite.xwingV1,
+        ed25519PublicKey: base64.encode(agentSigning.publicKey),
+        recipientKeyVersion: 3,
+      );
+      const epoch = VaultKeyEpochModel(
+        vaultKeyVersion: 1,
+        vdkVersion: 2,
+        agentMessageKeyVersion: 3,
+        manifestSigningKeyVersion: 1,
+      );
+      final material = await service.createAgentMaterial(
+        agent: agent,
+        organizationId: organizationId,
+        vaultId: vaultId,
+        epoch: epoch,
+        vdk: vdk,
+        messagePrivateKey: messageSeed,
+        messageKeySuite: WrapperSuite.xwingV1,
+        signingSeed: signingSeed,
+      );
+      final manifest = Map<String, Object?>.from(material['manifest'] as Map);
+      expect(manifest['wrapperSuiteId'], 'palladin-xwing-v1');
+      expect(manifest['vaultAgentMessageKeySuiteId'], 'palladin-xwing-v1');
+      expect(
+        manifest['vaultAgentMessagePublicKey'],
+        VaultProtocolBytes.base64UrlEncode(
+          xwing.publicKeyFromSeed(messageSeed),
+        ),
+      );
+      final signing = sodium.crypto.sign.seedKeyPair(
+        SecureKey.fromList(sodium, signingSeed),
+      );
+      addTearDown(signing.dispose);
+      expect(
+        await VaultProtocolSignatureService(
+          sodiumLoader: () async => sodium,
+        ).verify(
+          domainPrefix: 'PLDNV2SIG:VAULT-MANIFEST:',
+          unsignedObject: Map.of(manifest)..remove('signature'),
+          signature: manifest['signature']! as String,
+          publicKey: signing.publicKey,
+        ),
+        isTrue,
+      );
+      final wrapped = Map<String, dynamic>.from(
+        (material['envelope'] as Map)['wrappedVdk'] as Map,
+      );
+      final descriptor = Map<String, dynamic>.from(
+        wrapped['descriptor'] as Map,
+      );
+      expect(descriptor['wrapperSuiteId'], 'palladin-xwing-v1');
+      final opened = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
+          .open(
+            wrapped: VaultProtocolBytes.base64UrlDecode(
+              wrapped['encodedSealedKeyPackage'] as String,
+            ),
+            context: WrapperContext(
+              suiteId: WrapperSuite.xwingV1,
+              purpose: WrapperPurpose.agentVdk,
+              scope: EnvelopeScope(
+                organizationId: EnvelopeId.parse(organizationId),
+                vaultId: EnvelopeId.parse(vaultId),
+                agentId: EnvelopeId.parse(agentId),
+              ),
+              resourceRevision: 2,
+              wrappedKeyVersion: 2,
+              recipientKeyVersion: 3,
+              recipientFingerprint: recipientFingerprint(
+                WrapperSuite.xwingV1,
+                RecipientKeyKind.agentEncryption.id,
+                agentPublicKey,
+              ),
+            ),
+            recipientSecretKey: agentSeed,
+          );
+      expect(opened, vdk);
+
+      await expectLater(
+        service.createAgentMaterial(
+          agent: RotationAgentRecipient(
+            agentId: agentId,
+            publicKey: base64.encode(Uint8List(32)),
+            keySuite: WrapperSuite.x25519SealedBoxV1,
+            ed25519PublicKey: base64.encode(agentSigning.publicKey),
+            recipientKeyVersion: 1,
+          ),
+          organizationId: organizationId,
+          vaultId: vaultId,
+          epoch: epoch,
+          vdk: vdk,
+          messagePrivateKey: messageSeed,
+          messageKeySuite: WrapperSuite.xwingV1,
+          signingSeed: signingSeed,
+        ),
+        throwsA(isA<KeyMigrationPendingException>()),
+      );
+    });
+
+    test('a legacy Vault Agent message key keeps the manifest without the '
+        'successor suite field', () async {
+      final sodium = await sodium_ffi.SodiumSumoInit.init();
+      final xwing = XWing(sodium);
+      final agentSigning = sodium.crypto.sign.keyPair();
+      addTearDown(agentSigning.dispose);
+      final legacyMessage = sodium.crypto.box.keyPair();
+      addTearDown(legacyMessage.dispose);
+      final material =
+          await VaultRotationCryptoService(
+            sodiumLoader: () async => sodium,
+          ).createAgentMaterial(
+            agent: RotationAgentRecipient(
+              agentId: '55555555-5555-4555-8555-555555555555',
+              publicKey: base64.encode(
+                xwing.publicKeyFromSeed(xwing.generateSeed()),
+              ),
+              keySuite: WrapperSuite.xwingV1,
+              ed25519PublicKey: base64.encode(agentSigning.publicKey),
+              recipientKeyVersion: 1,
+            ),
+            organizationId: organizationId,
+            vaultId: vaultId,
+            epoch: const VaultKeyEpochModel(
+              vaultKeyVersion: 1,
+              vdkVersion: 2,
+              agentMessageKeyVersion: 1,
+              manifestSigningKeyVersion: 1,
+            ),
+            vdk: sodium.randombytes.buf(32),
+            messagePrivateKey: legacyMessage.secretKey.extractBytes(),
+            messageKeySuite: WrapperSuite.x25519SealedBoxV1,
+            signingSeed: sodium.randombytes.buf(32),
+          );
+      final manifest = material['manifest'] as Map;
+      expect(manifest.containsKey('vaultAgentMessageKeySuiteId'), isFalse);
+      expect(
+        manifest['vaultAgentMessagePublicKey'],
+        VaultProtocolBytes.base64UrlEncode(legacyMessage.publicKey),
+      );
+    });
+
+    test('the Vault response names only the current message key suite', () {
+      final vault = {
+        'vaultAgentMessagePublicKey': {'keyVersion': 4},
+        'vaultAgentMessageKeySuiteId': 'palladin-xwing-v1',
+      };
+      expect(
+        VaultRotationCryptoService.agentMessageKeySuite(vault, 4),
+        WrapperSuite.xwingV1,
+      );
+      expect(
+        VaultRotationCryptoService.agentMessageKeySuite(vault, 3),
+        WrapperSuite.x25519SealedBoxV1,
+      );
+      expect(
+        () => VaultRotationCryptoService.agentMessageKeySuite({
+          'vaultAgentMessagePublicKey': {'keyVersion': 4},
+          'vaultAgentMessageKeySuiteId': 'palladin-unknown-v9',
+        }, 4),
+        throwsFormatException,
+      );
+    });
   });
 
   test('rewraps a canonical Entry DEK into the target generation', () async {
-    final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    final sodium = await _loadSodium(library);
-    if (sodium == null) {
-      markTestSkipped('libsodium is unavailable on this test host');
-      return;
-    }
+    final sodium = await sodium_ffi.SodiumSumoInit.init();
     final envelopeService = VaultProtocolEnvelopeService(
       sodiumLoader: () async => sodium,
     );
@@ -498,14 +794,4 @@ final class _RecordingSuite implements ClientEnvelopeSuite {
     required Uint8List plaintext,
     Uint8List? nonce,
   }) => throw UnimplementedError();
-}
-
-Future<sodium_ffi.SodiumSumo?> _loadSodium(String? library) async {
-  try {
-    return await sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(library ?? 'libsodium.so'),
-    );
-  } on ArgumentError {
-    return null;
-  }
 }

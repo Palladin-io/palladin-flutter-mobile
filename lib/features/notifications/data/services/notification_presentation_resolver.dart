@@ -12,14 +12,11 @@ import '../../domain/entities/inbox_notification.dart';
 /// Resolves zero-knowledge notification labels from the unlocked local index.
 final class NotificationPresentationResolver {
   const NotificationPresentationResolver({
-    required MemberIndexReader index,
-    GrantsRepository? grants,
-    AgentsRepository? agents,
-    OrganizationMemberDirectoryService? memberDirectory,
-  }) : _index = index,
-       _grants = grants,
-       _agents = agents,
-       _memberDirectory = memberDirectory;
+    required this._index,
+    this._grants,
+    this._agents,
+    this._memberDirectory,
+  });
 
   final MemberIndexReader _index;
   final GrantsRepository? _grants;

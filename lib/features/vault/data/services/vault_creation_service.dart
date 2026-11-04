@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 
@@ -49,16 +49,12 @@ abstract interface class VaultCreator {
 
 class VaultCreationService implements VaultCreator {
   VaultCreationService({
-    required VaultRemoteDatasource remote,
-    required AccountRemoteDatasource accountRemote,
-    required SecureTokenStorage tokenStorage,
-    required VaultCryptoService crypto,
+    required this._remote,
+    required this._accountRemote,
+    required this._tokenStorage,
+    required this._crypto,
     Future<SodiumSumo> Function()? sodiumLoader,
-  }) : _remote = remote,
-       _accountRemote = accountRemote,
-       _tokenStorage = tokenStorage,
-       _crypto = crypto,
-       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final VaultRemoteDatasource _remote;
   final AccountRemoteDatasource _accountRemote;

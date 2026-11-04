@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart'
+    show WrapperSuite;
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/approval/data/services/encrypted_reason_crypto_service.dart';
 import 'package:mobile_palladin/features/approval/data/services/grant_history_reason_resolver.dart';
@@ -88,6 +90,8 @@ void main() {
       (_) async => <String, dynamic>{
         'organizationId': 'org-1',
         'memberVaultKey': <String, dynamic>{'wrappedVaultKey': const {}},
+        'vaultAgentMessagePublicKey': {'keyVersion': 1},
+        'vaultAgentMessageKeySuiteId': 'palladin-xwing-v1',
         'vaultPrivateKeys': <Map<String, dynamic>>[
           {
             'descriptor': {
@@ -123,6 +127,7 @@ void main() {
     when(
       () => reasonCrypto.verifyAndOpenKey(
         reason: any(named: 'reason'),
+        messageKeySuite: WrapperSuite.xwingV1,
         signingPublicKey: any(named: 'signingPublicKey'),
         recipientPrivateKey: any(named: 'recipientPrivateKey'),
       ),
@@ -130,6 +135,7 @@ void main() {
     when(
       () => reasonCrypto.decrypt(
         reason: any(named: 'reason'),
+        messageKeySuite: WrapperSuite.xwingV1,
         reasonKey: reasonKey,
       ),
     ).thenAnswer((_) async => plaintext);
@@ -140,7 +146,7 @@ void main() {
           keys: keys,
           discovery: discovery,
           reasonCrypto: reasonCrypto,
-          messageKeyFingerprint: (_) async => fingerprint,
+          messageKeyFingerprint: (_, _) async => fingerprint,
         ).resolve(
           grants: [grant],
           memberPrivateKey: Uint8List.fromList(List<int>.filled(32, 5)),

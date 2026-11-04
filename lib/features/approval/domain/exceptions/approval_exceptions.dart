@@ -29,6 +29,10 @@ enum ApprovalErrorKind {
   /// the VK, so the envelope cannot be produced.
   vaultLocked,
 
+  /// The Agent's encryption key is still on a read-only suite; it must
+  /// rotate onto the active suite before it can receive new access.
+  keyMigrationPending,
+
   /// Any other unexpected failure.
   unknown,
 }

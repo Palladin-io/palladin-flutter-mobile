@@ -35,10 +35,9 @@ class RecoveryCubit extends Cubit<RecoveryState> {
   RecoveryCubit({
     required this.datasource,
     required this.cryptoService,
-    required Future<String?> Function() sessionUserId,
+    required this._sessionUserId,
     this.accountSecrets,
-  }) : _sessionUserId = sessionUserId,
-       super(const RecoveryInitial());
+  }) : super(const RecoveryInitial());
 
   final RecoveryRemoteDatasource datasource;
   final RecoveryCryptoService cryptoService;

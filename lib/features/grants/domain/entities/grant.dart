@@ -106,6 +106,7 @@ class Grant {
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.agentKeySuiteId,
     this.recipientAgentKeyVersion,
     this.agentAccessEpoch,
     this.entryScopes = const [],
@@ -152,6 +153,9 @@ class Grant {
   /// Agent's base64 X25519 public key — needed to seal a DEK when re-granting
   /// ("Grant again"). Public by design (it can only seal *to* the agent).
   final String? agentPublicKey;
+
+  /// Suite [agentPublicKey] is published under; absent means legacy.
+  final String? agentKeySuiteId;
 
   /// Current public recipient-key version used for a refreshed envelope.
   final int? recipientAgentKeyVersion;

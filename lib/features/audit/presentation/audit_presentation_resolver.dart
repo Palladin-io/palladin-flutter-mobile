@@ -51,16 +51,12 @@ abstract interface class AuditPresentationResolver {
 final class LocalAuditPresentationResolver
     implements AuditPresentationResolver {
   const LocalAuditPresentationResolver({
-    required AgentsRepository agentsRepository,
-    AgentsCubit? agentsCubit,
-    required VaultListCubit vaultListCubit,
-    required VaultMembersRepository vaultMembersRepository,
-    required MemberIndexReader memberIndex,
-  }) : _agentsRepository = agentsRepository,
-       _agentsCubit = agentsCubit,
-       _vaultListCubit = vaultListCubit,
-       _vaultMembersRepository = vaultMembersRepository,
-       _memberIndex = memberIndex;
+    required this._agentsRepository,
+    this._agentsCubit,
+    required this._vaultListCubit,
+    required this._vaultMembersRepository,
+    required this._memberIndex,
+  });
 
   final AgentsRepository _agentsRepository;
   final AgentsCubit? _agentsCubit;

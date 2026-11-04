@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
-import 'package:mobile_palladin/core/crypto/key_wrapper/key_wrapper.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/core/storage/account_secret_store.dart';
 import 'package:mobile_palladin/features/security_upgrade/data/security_upgrade_remote_datasource.dart';
@@ -14,9 +13,11 @@ import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_dat
 import 'package:mobile_palladin/features/vault/data/models/encrypted_vault_summary_model.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../support/native_sodium.dart';
+
+import '../../support/legacy_key_wrapper.dart';
 
 class _Remote extends Mock implements SecurityUpgradeRemoteDatasource {}
 
@@ -140,17 +141,12 @@ void main() {
           legacyPair.publicKey,
         ),
       );
-      final sealed = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
-          .seal(
-            key: vaultKey,
-            context: legacyContext,
-            recipient: RecipientPublicKey(
-              suite: WrapperSuite.x25519SealedBoxV1,
-              keyKind: RecipientKeyKind.memberEncryption,
-              keyVersion: 1,
-              publicKey: legacyPair.publicKey,
-            ),
-          );
+      final sealed = sealLegacyForTest(
+        sodium,
+        key: vaultKey,
+        context: legacyContext,
+        recipientPublicKey: legacyPair.publicKey,
+      );
       final envelope = {
         'wrappedVaultKey': {
           'descriptor': {

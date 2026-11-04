@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../../core/crypto/sodium_provider.dart';
+import '../../../../core/crypto/kem/xwing.dart';
 import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../../core/crypto/vault_session_store.dart';
 import '../../domain/entities/vault_entity.dart';
@@ -285,13 +286,13 @@ class VaultCryptoService {
     final sodium = await _sodiumLoader();
     final vk = sodium.randombytes.buf(32);
     final vdk = sodium.randombytes.buf(32);
-    final messageKeys = sodium.crypto.box.keyPair();
+    final xwing = XWing(sodium);
+    final messagePrivate = xwing.generateSeed();
+    final messagePublic = xwing.publicKeyFromSeed(messagePrivate);
     final signingKeys = sodium.crypto.sign.keyPair();
-    Uint8List? messagePrivate;
     Uint8List? signingPrivate;
     Uint8List? metadataPlaintext;
     try {
-      messagePrivate = messageKeys.secretKey.extractBytes();
       signingPrivate = signingKeys.secretKey.extractBytes();
       final memberPublic = memberPublicKeyFromPrivate(sodium, memberPrivateKey);
       final scope = EnvelopeScope(
@@ -370,7 +371,11 @@ class VaultCryptoService {
               publicKey: memberPublic,
             ),
           );
-      final messageFingerprint = _fingerprint(messageKeys.publicKey, 4);
+      final messageFingerprint = recipientFingerprint(
+        WrapperSuite.active,
+        RecipientKeyKind.vaultAgentMessage.id,
+        messagePublic,
+      );
       final signingFingerprint = _fingerprint(signingKeys.publicKey, 3);
       final request = CreateVaultV2Request(
         vaultId: vaultId,
@@ -403,10 +408,10 @@ class VaultCryptoService {
           ),
         ],
         vaultAgentMessagePublicKey: VaultPublicKeyContractModel(
-          schemeId: 'palladin-x25519-v1',
+          schemeId: WrapperSuite.active.wireValue,
           keyKind: VaultPublicKeyKind.agentMessage,
           keyVersion: 1,
-          encodedPublicKey: _b64(messageKeys.publicKey),
+          encodedPublicKey: _b64(messagePublic),
           fingerprint: _b64(messageFingerprint),
         ),
         vaultManifestSigningPublicKey: VaultPublicKeyContractModel(
@@ -427,10 +432,9 @@ class VaultCryptoService {
     } finally {
       vk.fillRange(0, vk.length, 0);
       vdk.fillRange(0, vdk.length, 0);
-      messagePrivate?.fillRange(0, messagePrivate.length, 0);
+      messagePrivate.fillRange(0, messagePrivate.length, 0);
       signingPrivate?.fillRange(0, signingPrivate.length, 0);
       metadataPlaintext?.fillRange(0, metadataPlaintext.length, 0);
-      messageKeys.dispose();
       signingKeys.dispose();
     }
   }

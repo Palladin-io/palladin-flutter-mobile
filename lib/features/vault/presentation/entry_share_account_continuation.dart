@@ -14,10 +14,9 @@ final class EntryShareAccountContinuation extends ChangeNotifier
   EntryShareAccountContinuation({
     required AuthBloc auth,
     required EntryShareIngress ingress,
-    required Future<EntryShareRecipientOwner?> Function(String?) ownerReader,
+    required this._ownerReader,
   }) : _auth = auth,
-       _ingress = ingress,
-       _ownerReader = ownerReader {
+       _ingress = ingress {
     _subscription = auth.stream.listen(_authChanged);
     ingress.addListener(_linkChanged);
     WidgetsBinding.instance.addObserver(this);

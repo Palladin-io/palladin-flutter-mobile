@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
+import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/member_sync_remote_datasource.dart';
@@ -20,7 +21,6 @@ import 'package:mobile_palladin/features/vault/data/services/member_sync_service
 import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_vault_key_context_store.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -51,16 +51,16 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
     'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false})}',
   );
   final sodium = await SodiumProvider.instance();
-  final pair = sodium.crypto.box.keyPair();
-  final privateKey = pair.secretKey.extractBytes();
-  final fingerprint = vaultPublicKeyFingerprint(
-    VaultPublicKeyKind.memberEncryption,
-    pair.publicKey,
+  final xwing = XWing(sodium);
+  final privateKey = xwing.generateSeed();
+  final publicKey = xwing.publicKeyFromSeed(privateKey);
+  final fingerprint = recipientFingerprint(
+    WrapperSuite.memberKeySuite,
+    RecipientKeyKind.memberEncryption.id,
+    publicKey,
   );
   final crypto = EntryV2CryptoService();
-  final vaultKeys = VaultRotationCryptoService(
-    memberKeySuite: WrapperSuite.x25519SealedBoxV1,
-  );
+  final vaultKeys = VaultRotationCryptoService();
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
   final heads = <String, List<Map<String, Object?>>>{};
@@ -93,6 +93,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
       final vaultId = _id(v + 1);
       final vaultKey = sodium.randombytes.buf(32);
       final wrapperContext = WrapperContext(
+        suiteId: WrapperSuite.memberKeySuite,
         purpose: WrapperPurpose.memberVaultKey,
         scope: EnvelopeScope(
           organizationId: EnvelopeId.parse(_organization),
@@ -114,14 +115,14 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
             suite: wrapperContext.suiteId,
             keyKind: RecipientKeyKind.memberEncryption,
             keyVersion: wrapperContext.recipientKeyVersion,
-            publicKey: pair.publicKey,
+            publicKey: publicKey,
           ),
         );
         wrappers[vaultId] = {
           'wrappedVaultKey': {
             'descriptor': {
               'protocolVersion': 2,
-              'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+              'wrapperSuiteId': WrapperSuite.memberKeySuite.wireValue,
               'purpose': 1,
               'scope': {
                 'organizationId': _organization,
@@ -359,7 +360,6 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
     await database.close();
     await directory.delete(recursive: true);
     privateKey.fillRange(0, privateKey.length, 0);
-    pair.secretKey.dispose();
     fingerprint.fillRange(0, fingerprint.length, 0);
   }
 }

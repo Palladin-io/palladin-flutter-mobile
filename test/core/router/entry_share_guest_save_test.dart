@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi' show DynamicLibrary;
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -67,8 +66,7 @@ import 'package:mobile_palladin/features/vault/presentation/entry_share_account_
 import 'package:mobile_palladin/features/vault/presentation/entry_share_navigation.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_share_receiver_page.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 // This file talks only to its own loopback fixture; no backend or identity provider.
 class _LoopbackBinding extends AutomatedTestWidgetsFlutterBinding {
@@ -178,11 +176,7 @@ void main() {
         'MaterialIcons',
       )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     }
-    sodium = await sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(
-        Platform.environment['PALLADIN_LIBSODIUM_PATH'] ?? 'libsodium.so',
-      ),
-    );
+    sodium = await SodiumSumoInit.init();
     SodiumProvider.debugOverride = sodium;
     fixture =
         jsonDecode(

@@ -14,12 +14,11 @@ import '../../domain/repositories/local_search_repository.dart';
 final class LocalSearchRepositoryImpl implements LocalSearchRepository {
   LocalSearchRepositoryImpl({
     required VaultListCubit vaults,
-    required MemberIndexReader memberIndex,
+    required this._memberIndex,
     required MemberEntryListLoader entryLoader,
     MemberIndexPreparationService? preparation,
     this.maximumCandidates = VaultPerformanceBudget.maximumIndexedEntries,
   }) : _vaults = vaults,
-       _memberIndex = memberIndex,
        _preparation =
            preparation ??
            MemberIndexPreparationService(vaults: vaults, entries: entryLoader);

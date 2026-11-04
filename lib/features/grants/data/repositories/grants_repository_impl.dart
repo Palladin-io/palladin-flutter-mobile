@@ -21,12 +21,10 @@ import '../services/grant_reason_resolver.dart';
 class GrantsRepositoryImpl implements GrantsRepository {
   GrantsRepositoryImpl(
     this._dataSource, {
-    GrantReasonResolver? reasonResolver,
-    GrantEntryLabelResolver? entryLabelResolver,
-    VaultSessionStore? vaultSessionStore,
-  }) : _reasonResolver = reasonResolver,
-       _entryLabelResolver = entryLabelResolver,
-       _vaultSessionStore = vaultSessionStore;
+    this._reasonResolver,
+    this._entryLabelResolver,
+    this._vaultSessionStore,
+  });
 
   final GrantsRemoteDatasource _dataSource;
   final GrantReasonResolver? _reasonResolver;

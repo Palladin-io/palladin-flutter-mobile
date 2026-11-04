@@ -100,13 +100,14 @@ Environment values are defined in
 
 ## Prerequisites
 
-- Flutter 3.41.4 stable with Dart 3.11.1 (the revision is recorded in
+- Flutter 3.47.9 stable with Dart 3.13.7 (the revision is recorded in
   `.metadata`)
 - Android Studio/SDK for Android development
 - Xcode and CocoaPods for iOS development
 - a Palladin-compatible API listening on port 5000 for the `local` flavor
-- libsodium for native protocol-vector tests (`libsodium-dev` on Ubuntu or
-  `libsodium` through Homebrew)
+- a C toolchain (Xcode command-line tools, `build-essential`, or the Android
+  NDK): the `sodium` package compiles its pinned libsodium 1.0.22 source in a
+  native-asset build hook for every target, including `flutter test`
 
 This repository is self-contained for dependency resolution, static analysis,
 and tests. It does not require a parent monorepo or private package checkout.

@@ -18,14 +18,11 @@ import 'autofill_cache_bridge.dart';
 class AutoFillCacheService
     implements AutoFillCacheInvalidator, AutoFillPreparedCacheSynchronizer {
   AutoFillCacheService({
-    required MemberIndexPreparer indexPreparation,
-    required LocalCurrentEntryService localEntries,
-    required AutoFillCacheBridge bridge,
-    required MemberIndexReader memberIndex,
-  }) : _indexPreparation = indexPreparation,
-       _localEntries = localEntries,
-       _bridge = bridge,
-       _memberIndex = memberIndex;
+    required this._indexPreparation,
+    required this._localEntries,
+    required this._bridge,
+    required this._memberIndex,
+  });
 
   final MemberIndexPreparer _indexPreparation;
   final LocalCurrentEntryService _localEntries;

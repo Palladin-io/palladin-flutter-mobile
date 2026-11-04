@@ -16,15 +16,11 @@ typedef EntryShareInbound = ({
 /// Native messages are an independent input boundary, never router state.
 final class EntryShareIngress extends ChangeNotifier {
   EntryShareIngress({
-    required EntryShareLinkService links,
-    MethodChannel channel = const MethodChannel(
-      'io.palladin.mobile/entry-sharing',
-    ),
+    required this._links,
+    this._channel = const MethodChannel('io.palladin.mobile/entry-sharing'),
     DateTime Function()? now,
     Duration Function()? elapsed,
-  }) : _links = links,
-       _channel = channel,
-       _now = now ?? DateTime.now,
+  }) : _now = now ?? DateTime.now,
        _elapsed = elapsed ?? (Stopwatch()..start()).elapsedGetter;
 
   final EntryShareLinkService _links;

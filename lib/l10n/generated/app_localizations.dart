@@ -5012,6 +5012,12 @@ abstract class AppLocalizations {
   /// **'Unlock your vault first to approve this request.'**
   String get approvalErrorVaultLocked;
 
+  /// Error — the agent's published encryption key is on a read-only suite (key-migration-pending)
+  ///
+  /// In en, this message translates to:
+  /// **'This agent must update its encryption key before it can receive access.'**
+  String get approvalErrorKeyMigrationPending;
+
   /// Error — unexpected failure on approval
   ///
   /// In en, this message translates to:

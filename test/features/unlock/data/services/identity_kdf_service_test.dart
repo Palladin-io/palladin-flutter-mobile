@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,14 +32,7 @@ void main() {
     });
 
     test('matches the pinned production Argon2id vector', () async {
-      final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-      if (library == null || library.isEmpty) {
-        markTestSkipped('PALLADIN_LIBSODIUM_PATH is not configured');
-        return;
-      }
-      final sodium = await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(library),
-      );
+      final sodium = await sodium_ffi.SodiumSumoInit.init();
       final outputs = await IdentityKdfService(sodiumLoader: () async => sodium)
           .derive(
             password: 'Pąssw🔐rd-密碼-v1',

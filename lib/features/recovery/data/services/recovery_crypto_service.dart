@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
@@ -362,7 +362,7 @@ class RecoveryCryptoService {
   /// and returns a [SecureKey] backed by locked memory.
   SecureKey _deriveKey(SodiumSumo sodium, String password, Uint8List salt) {
     final utf8Bytes = utf8.encode(password);
-    return sodium.crypto.pwhash.call(
+    return sodium.crypto.pwhash.callRaw(
       outLen: CryptoParams.derivedKeyLength,
       password: Int8List.fromList(utf8Bytes),
       salt: salt,

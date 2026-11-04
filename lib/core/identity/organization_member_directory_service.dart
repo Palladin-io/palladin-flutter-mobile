@@ -14,11 +14,10 @@ final class MemberDirectorySnapshot {
 /// Memory-only current/former member directory scoped to the active account and tenant.
 final class OrganizationMemberDirectoryService {
   OrganizationMemberDirectoryService({
-    required Dio dio,
-    required SecureTokenStorage tokenStorage,
+    required this._dio,
+    required this._tokenStorage,
     this.staleTime = const Duration(minutes: 5),
-  }) : _dio = dio,
-       _tokenStorage = tokenStorage;
+  });
 
   final Dio _dio;
   final SecureTokenStorage _tokenStorage;

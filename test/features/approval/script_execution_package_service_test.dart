@@ -1,34 +1,20 @@
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
+import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/script_execution_package_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    if (configured != null) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(configured),
-      );
-    }
-    if (Platform.isLinux) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open('libsodium.so'),
-      );
-    }
     return await SodiumSumoInit.init();
   } catch (_) {
     return null;
@@ -47,7 +33,8 @@ void main() {
           packageRevision: 1,
           agentId: '55555555-5555-4555-8555-555555555555',
           agentAccessEpoch: 1,
-          agentPublicKey: Uint8List(32),
+          agentPublicKey: Uint8List(XWing.publicKeyBytes),
+          agentKeySuite: WrapperSuite.xwingV1,
           recipientAgentKeyVersion: 1,
           vaultSigningKeyVersion: 1,
           vaultSigningPrivateKey: Uint8List(32),
@@ -81,7 +68,8 @@ void main() {
         packageRevision: 1,
         agentId: '55555555-5555-4555-8555-555555555555',
         agentAccessEpoch: 1,
-        agentPublicKey: Uint8List(32),
+        agentPublicKey: Uint8List(XWing.publicKeyBytes),
+        agentKeySuite: WrapperSuite.xwingV1,
         recipientAgentKeyVersion: 1,
         vaultSigningKeyVersion: 1,
         vaultSigningPrivateKey: Uint8List(32),
@@ -117,7 +105,8 @@ void main() {
           packageRevision: 1,
           agentId: '55555555-5555-4555-8555-555555555555',
           agentAccessEpoch: 1,
-          agentPublicKey: Uint8List(32),
+          agentPublicKey: Uint8List(XWing.publicKeyBytes),
+          agentKeySuite: WrapperSuite.xwingV1,
           recipientAgentKeyVersion: 1,
           vaultSigningKeyVersion: 1,
           vaultSigningPrivateKey: Uint8List(32),
@@ -167,9 +156,10 @@ void main() {
       'credential.password',
       'key.value',
     ];
-    final agent = sodium.crypto.box.keyPair();
+    final xwing = XWing(sodium);
     final signer = sodium.crypto.sign.keyPair();
-    final agentPrivateKey = agent.secretKey.extractBytes();
+    final agentPrivateKey = xwing.generateSeed();
+    final agentPublicKey = xwing.publicKeyFromSeed(agentPrivateKey);
     final signingPrivateKey = signer.secretKey.extractBytes();
     final entries = <ScriptExecutionPackageEntryInput>[];
     final entryPlaintexts = <Uint8List>[];
@@ -231,7 +221,8 @@ void main() {
             packageRevision: 1,
             agentId: agentId,
             agentAccessEpoch: 3,
-            agentPublicKey: agent.publicKey,
+            agentPublicKey: agentPublicKey,
+            agentKeySuite: WrapperSuite.xwingV1,
             recipientAgentKeyVersion: 4,
             vaultSigningKeyVersion: 5,
             vaultSigningPrivateKey: signingPrivateKey,
@@ -300,9 +291,10 @@ void main() {
         ...aad,
       ]);
       parentHash = Uint8List.fromList(sha256.convert(parentInput).bytes);
-      fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentEncryption,
-        agent.publicKey,
+      fingerprint = recipientFingerprint(
+        WrapperSuite.xwingV1,
+        RecipientKeyKind.agentEncryption.id,
+        agentPublicKey,
       );
       final container =
           jsonDecode(
@@ -313,7 +305,9 @@ void main() {
                 ),
               )
               as Map<String, dynamic>;
+      expect(package['wrapperSuiteId'], 'palladin-xwing-v1');
       final context = WrapperContext(
+        suiteId: WrapperSuite.xwingV1,
         purpose: WrapperPurpose.scriptExecutionDek,
         scope: EnvelopeScope(
           organizationId: EnvelopeId.parse(organizationId),
@@ -405,7 +399,6 @@ void main() {
       }
       agentPrivateKey.fillRange(0, agentPrivateKey.length, 0);
       signingPrivateKey.fillRange(0, signingPrivateKey.length, 0);
-      agent.dispose();
       signer.dispose();
     }
   });

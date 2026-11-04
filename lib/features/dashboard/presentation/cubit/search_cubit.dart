@@ -22,14 +22,12 @@ import 'search_state.dart';
 /// no stale results leak across visits.
 class SearchCubit extends Cubit<SearchState> {
   SearchCubit({
-    required DashboardRepository repository,
+    required this._repository,
     LocalSearchRepository? localRepository,
-    required AnalyticsService analytics,
+    required this._analytics,
     SearchSessionController? sessionController,
-  }) : _repository = repository,
-       _localRepository =
+  }) : _localRepository =
            localRepository ?? const _EmptyLocalSearchRepository(),
-       _analytics = analytics,
        _sessionController = sessionController ?? SearchSessionController(),
        super(const SearchIdle()) {
     _sessionController.attach(this);

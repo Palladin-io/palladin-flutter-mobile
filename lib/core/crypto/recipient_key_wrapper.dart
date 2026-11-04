@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import 'envelope/envelope_contract.dart';
 import 'kem/xwing.dart';
@@ -10,7 +10,13 @@ import 'key_wrapper/key_wrapper.dart';
 import 'sodium_provider.dart';
 
 export 'key_wrapper/key_wrapper.dart'
-    show RecipientKeyKind, RecipientPublicKey, WrapperSuite;
+    show
+        KeyMigrationPendingException,
+        KeyWrapperException,
+        RecipientKeyKind,
+        RecipientPublicKey,
+        WrapperSuite,
+        recipientFingerprint;
 
 /// Wrapper contexts are closed and have purpose-specific scope requirements.
 enum WrapperPurpose {
@@ -50,7 +56,7 @@ enum WrapperPurpose {
 final class WrapperContext {
   WrapperContext({
     this.protocolVersion = 2,
-    this.suiteId = WrapperSuite.x25519SealedBoxV1,
+    required this.suiteId,
     required this.purpose,
     required this.scope,
     required this.resourceRevision,
@@ -163,6 +169,47 @@ final class WrapperContext {
   static Uint8List hashParent(EnvelopeDescriptor descriptor) =>
       Uint8List.fromList(sha256.convert(descriptor.encodeAad()).bytes);
 
+  /// Wire `WrappedKeyContract`: the descriptor with every scope slot and
+  /// optional field present (null when absent) plus the sealed package.
+  Map<String, Object?> wrappedKeyJson(List<int> sealedPackage) => {
+    'descriptor': {
+      'protocolVersion': protocolVersion,
+      'wrapperSuiteId': suiteId.wireValue,
+      'purpose': purpose.id,
+      'scope': {
+        'organizationId': _uuid(scope.organizationId),
+        'vaultId': _uuid(scope.vaultId),
+        'entryId': switch (scope.entryId) {
+          final id? => _uuid(id),
+          null => null,
+        },
+        'grantOrRequestId': switch (scope.grantOrRequestId) {
+          final id? => _uuid(id),
+          null => null,
+        },
+        'agentId': switch (scope.agentId) {
+          final id? => _uuid(id),
+          null => null,
+        },
+        'memberId': switch (scope.memberId) {
+          final id? => _uuid(id),
+          null => null,
+        },
+      },
+      'resourceRevision': resourceRevision.toString(),
+      'wrappedKeyVersion': wrappedKeyVersion,
+      'memberKeyGeneration': memberKeyGeneration,
+      'recipientKeyKind': recipientKeyKind,
+      'recipientKeyVersion': recipientKeyVersion,
+      'recipientFingerprint': _b64(recipientFingerprint),
+      'parentDescriptorHash': switch (parentDescriptorHash) {
+        final hash? => _b64(hash),
+        null => null,
+      },
+    },
+    'encodedSealedKeyPackage': _b64(sealedPackage),
+  };
+
   /// The same context as a `key-wrapper/v1` descriptor.
   KeyWrapperDescriptor toDescriptor() => KeyWrapperDescriptor(
     protocolVersion: protocolVersion,
@@ -202,9 +249,8 @@ String _b64(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
 /// Seals or opens one 32-byte key for the recipient named by a
 /// [WrapperContext]; the context's suite selects the algorithm.
 ///
-/// X-Wing goes through the registry-checked [KeyWrapper]. The legacy sealed
-/// box remains only for recipients whose authenticated key directory still
-/// names it (agent keys before their rotation, opens during migration).
+/// Sealing goes through the registry-checked [KeyWrapper]. The legacy sealed
+/// box is open-only, for envelopes written before the recipient migrated.
 final class RecipientKeyWrapper {
   RecipientKeyWrapper({Future<SodiumSumo> Function()? sodiumLoader})
     : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
@@ -215,6 +261,8 @@ final class RecipientKeyWrapper {
   static const int _plaintextBytes = 72;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
+  /// Seals only with an active suite: a recipient whose published key is
+  /// still on a read-only suite fails with [KeyMigrationPendingException].
   Future<Uint8List> seal({
     required Uint8List key,
     required WrapperContext context,
@@ -226,35 +274,15 @@ final class RecipientKeyWrapper {
     if (recipient.suite != context.suiteId) {
       throw const EnvelopeException(EnvelopeErrorKind.authenticationFailed);
     }
-    if (context.suiteId == WrapperSuite.xwingV1) {
-      final encoded = await _keyWrapper(
-        () => KeyWrapper(sodiumLoader: _sodiumLoader).seal(
-          descriptor: context.toDescriptor(),
-          key: key,
-          recipient: recipient,
-        ),
-      );
-      return Uint8List.fromList(base64Url.decode(base64Url.normalize(encoded)));
-    }
-    _verifyRecipient(recipient.publicKey, context);
-    final contextHash = _contextHash(context);
-    final plaintext = Uint8List(_plaintextBytes)
-      ..setRange(0, 8, ascii.encode('PLDNX2K1'))
-      ..setRange(8, 40, key)
-      ..setRange(40, 72, contextHash);
-    try {
-      final sodium = await _sodiumLoader();
-      final sealed = sodium.crypto.box.seal(
-        message: plaintext,
-        publicKey: recipient.publicKey,
-      );
-      if (sealed.length != legacyEncodedBytes) {
-        throw const EnvelopeException(EnvelopeErrorKind.invalidPayload);
-      }
-      return sealed;
-    } finally {
-      plaintext.fillRange(0, plaintext.length, 0);
-    }
+    if (!recipient.suite.canSeal) throw const KeyMigrationPendingException();
+    final encoded = await _keyWrapper(
+      () => KeyWrapper(sodiumLoader: _sodiumLoader).seal(
+        descriptor: context.toDescriptor(),
+        key: key,
+        recipient: recipient,
+      ),
+    );
+    return Uint8List.fromList(base64Url.decode(base64Url.normalize(encoded)));
   }
 
   /// Opens with the recipient's private key; its public key is derived
@@ -338,9 +366,9 @@ final class RecipientKeyWrapper {
   }
 }
 
-/// Builds the sole ciphertext material added by a FULL grant. The plaintext
-/// Vault key is copied only into the native sealed-box call and is never
-/// returned by this helper.
+/// Builds the sole ciphertext material added by a FULL grant, sealed with the
+/// suite of the Agent's published encryption key. The plaintext Vault key is
+/// copied only into the native seal call and is never returned.
 Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
   required Uint8List vaultKey,
   required String organizationId,
@@ -350,6 +378,7 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
   required int agentAccessEpoch,
   required int vaultKeyVersion,
   required Uint8List agentPublicKey,
+  required WrapperSuite agentKeySuite,
   required int recipientKeyVersion,
   required int vaultSigningKeyVersion,
   required Uint8List vaultSigningKeyFingerprint,
@@ -360,15 +389,19 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
   if (vaultSigningKeyVersion <= 0 || vaultSigningKeyFingerprint.length != 32) {
     throw const FormatException('Vault signing producer binding is invalid');
   }
-  final fingerprint = Uint8List.fromList(
-    sha256.convert([
-      ...ascii.encode('PLDNV2FP'),
-      ..._u16(2),
-      ..._u16(1),
-      ...agentPublicKey,
-    ]).bytes,
-  );
+  if (!agentKeySuite.canSeal) throw const KeyMigrationPendingException();
+  final Uint8List fingerprint;
+  try {
+    fingerprint = recipientFingerprint(
+      agentKeySuite,
+      RecipientKeyKind.agentEncryption.id,
+      agentPublicKey,
+    );
+  } on KeyWrapperException {
+    throw const FormatException('Invalid Agent recipient key');
+  }
   final context = WrapperContext(
+    suiteId: agentKeySuite,
     purpose: WrapperPurpose.agentVaultKey,
     scope: EnvelopeScope(
       organizationId: EnvelopeId.parse(organizationId),
@@ -398,31 +431,7 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
         vaultSigningKeyFingerprint,
       ).replaceAll('=', ''),
       'vaultSigningKeyVersion': vaultSigningKeyVersion,
-      'wrappedVaultKey': {
-        'descriptor': {
-          'protocolVersion': context.protocolVersion,
-          'wrapperSuiteId': context.suiteId.wireValue,
-          'purpose': context.purpose.id,
-          'scope': {
-            'organizationId': organizationId,
-            'vaultId': vaultId,
-            'entryId': null,
-            'grantOrRequestId': grantId,
-            'agentId': agentId,
-            'memberId': null,
-          },
-          'resourceRevision': agentAccessEpoch.toString(),
-          'wrappedKeyVersion': vaultKeyVersion,
-          'memberKeyGeneration': null,
-          'recipientKeyKind': 1,
-          'recipientKeyVersion': recipientKeyVersion,
-          'recipientFingerprint': base64UrlEncode(
-            fingerprint,
-          ).replaceAll('=', ''),
-          'parentDescriptorHash': null,
-        },
-        'encodedSealedKeyPackage': base64UrlEncode(sealed).replaceAll('=', ''),
-      },
+      'wrappedVaultKey': context.wrappedKeyJson(sealed),
     };
     final producerSignature = await signProducer(unsigned);
     final signatureBytes = base64Url.decode(

@@ -92,11 +92,10 @@ final class SecurityUpgradeDone extends SecurityUpgradeState {
 /// continues without repeating finished work.
 class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
   SecurityUpgradeCubit({
-    required SecurityUpgradeService service,
+    required this._service,
     required SecurityUpgradeStart start,
     Random? random,
-  }) : _service = service,
-       _start = start,
+  }) : _start = start,
        _random = random ?? Random.secure(),
        super(const SecurityUpgradeProgress()) {
     _migrationId = _uuid();

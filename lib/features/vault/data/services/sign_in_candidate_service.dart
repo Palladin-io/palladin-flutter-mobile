@@ -29,11 +29,7 @@ final class SignInProviderCandidate {
 /// `urlDomain` belongs to the provider and whose username is non-empty; each
 /// snapshot is cleared immediately. Nothing is sent to the backend.
 class SignInCandidateService {
-  SignInCandidateService({
-    required MemberIndexReader index,
-    required LocalCurrentEntryService entries,
-  }) : _index = index,
-       _entries = entries;
+  SignInCandidateService({required this._index, required this._entries});
 
   /// Bounds the decryption work of one lookup.
   static const maximumOpened = 20;

@@ -7,13 +7,13 @@ import '../domain/services/public_hostname.dart';
 /// Debounced, stale-safe URL resolver for entry forms.
 class WebsiteIconAutoResolver {
   WebsiteIconAutoResolver({
-    WebsiteIconService? service,
+    this._service,
     required this.onReference,
     required this.onResolved,
     this.onAutomaticCleared,
     this.debounce = const Duration(milliseconds: 500),
     this.previewTimeout = const Duration(seconds: 5),
-  }) : _service = service;
+  });
 
   final WebsiteIconService? _service;
   final void Function(String reference) onReference;

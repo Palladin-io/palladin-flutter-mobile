@@ -16,6 +16,7 @@ class AgentModel {
     this.iconColor,
     this.publicKeyPrefix = '',
     this.publicKey = '',
+    this.keySuiteId = '',
     this.recipientKeyVersion = 1,
     this.accessEpoch = 1,
     this.enrolledAt,
@@ -56,6 +57,7 @@ class AgentModel {
   /// Full public key. Defaults to `''` for older payloads that only
   /// exposed the suffix.
   final String publicKey;
+  final String keySuiteId;
   final int recipientKeyVersion;
   final int accessEpoch;
 
@@ -101,6 +103,7 @@ class AgentModel {
       iconColor: json['iconColor'] as String?,
       publicKeyPrefix: (json['publicKeyPrefix'] as String?) ?? '',
       publicKey: (json['publicKey'] as String?) ?? '',
+      keySuiteId: (json['keySuiteId'] as String?) ?? '',
       recipientKeyVersion: (json['recipientKeyVersion'] as num?)?.toInt() ?? 1,
       accessEpoch: (json['accessEpoch'] as num).toInt(),
       publicKeySuffix: (json['publicKeySuffix'] as String?) ?? '',
@@ -126,6 +129,7 @@ class AgentModel {
       iconColor: iconColor,
       publicKeyPrefix: publicKeyPrefix,
       publicKey: publicKey,
+      keySuiteId: keySuiteId,
       recipientKeyVersion: recipientKeyVersion,
       accessEpoch: accessEpoch,
       publicKeySuffix: publicKeySuffix,
