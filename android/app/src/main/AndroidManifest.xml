@@ -77,6 +77,9 @@
             android:exported="false"
             android:noHistory="true"
             android:theme="@style/AutofillAuthenticationTheme" />
+        <activity android:name=".autofill.SourceAutofillAuthenticationActivity"
+            android:exported="false" android:excludeFromRecents="true"
+            android:theme="@style/AutofillAuthenticationTheme" />
         <!-- firebase_messaging: default channel for background/terminated
              notifications. Must match the channel id created in
              PushNotificationService (palladin_default). -->

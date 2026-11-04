@@ -27,6 +27,7 @@ import java.security.KeyStore
 import io.palladin.mobile.security.BiometricKeyCleanup
 
 class MainActivity : FlutterFragmentActivity() {
+    private var autoFillRequestBridge: AutoFillRequestBridge? = null
     private var autoFillWriterStore: AutoFillCacheStore? = null
     private val cacheExecutor = Executors.newSingleThreadExecutor()
     private val historyExecutor = Executors.newSingleThreadExecutor()
@@ -44,6 +45,7 @@ class MainActivity : FlutterFragmentActivity() {
         val sanitized = sanitizeDirectIntent(intent)
         super.onNewIntent(sanitized)
         acceptAutoFillSave(sanitized)
+        io.palladin.mobile.autofill.AutoFillRequestBroker.onPending?.invoke()
     }
 
     private fun acceptAutoFillSave(source: Intent) {
@@ -67,6 +69,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        autoFillRequestBridge = AutoFillRequestBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "io.palladin.mobile/biometric-key-cleanup").setMethodCallHandler { call, result ->
             if (call.method != "deleteKey") {
@@ -326,7 +329,14 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    override fun onStop() {
+        autoFillRequestBridge?.background()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        autoFillRequestBridge?.close()
+        autoFillRequestBridge = null
         autoFillWriterStore?.invalidateWriter()
         autoFillWriterStore = null
         EntryShareIngressBridge.detach(sharingAttachment)

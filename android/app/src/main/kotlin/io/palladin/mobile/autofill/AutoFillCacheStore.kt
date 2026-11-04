@@ -898,6 +898,12 @@ internal class AutoFillCacheStore(
         runCatching { purgeLegacyLocked() }
     }
 
+    internal fun sourceControlMac(payload: ByteArray): ByteArray = Mac.getInstance(HMAC_ALGORITHM).run {
+        init(getOrCreateIntegrityKey())
+        update("palladin-autofill-source-fence-v1:".toByteArray(Charsets.UTF_8))
+        doFinal(payload)
+    }
+
     private fun fenceMac(
         fence: AutoFillFence,
         integrityKey: java.security.Key = getOrCreateIntegrityKey(),
