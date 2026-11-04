@@ -117,6 +117,10 @@ dependencies:
   # it into their authenticator app. Display-only; never scans.
   qr_flutter: ^4.1.0
 
+  # Emergency Kit PDF generated on the device and shared through the share
+  # sheet; never uploaded or cached.
+  pdf: ^3.12.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -156,3 +160,6 @@ flutter:
 
   assets:
     - assets/images/
+    # Roboto (Apache 2.0, license alongside) renders Polish text in the
+    # Emergency Kit PDF without fetching fonts at runtime.
+    - assets/fonts/

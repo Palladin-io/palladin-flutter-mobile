@@ -5151,4 +5151,360 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get entrySignInMethodAgentHint =>
       'Agenci widzą dostawcę i powiązany wpis, nigdy konto.';
+
+  @override
+  String get emergencyKitTitle => 'Zapisz Emergency Kit';
+
+  @override
+  String get emergencyKitIntro =>
+      'Jeśli stracisz wszystkie zalogowane urządzenia, tylko Emergency Kit i hasło pozwolą wrócić do konta.';
+
+  @override
+  String get emergencyKitSecretKeyTitle => 'Secret Key';
+
+  @override
+  String get emergencyKitSecretKeyHint =>
+      'Jest w Emergency Kit. Razem z hasłem pozwala zalogować się na nowym urządzeniu.';
+
+  @override
+  String get emergencyKitRecoveryPhraseTitle => 'Fraza odzyskiwania';
+
+  @override
+  String get emergencyKitRecoveryPhraseHint =>
+      'Zapisane przed chwilą 24 słowa. Pozwalają zresetować zapomniane hasło.';
+
+  @override
+  String get emergencyKitPreviewAccount => 'Konto';
+
+  @override
+  String get emergencyKitPreviewPassword => 'Hasło główne';
+
+  @override
+  String get emergencyKitContents =>
+      'Zawartość: e-mail, Secret Key, kod QR i puste pole na hasło. Nigdy fraza odzyskiwania.';
+
+  @override
+  String get emergencyKitSave => 'Zapisz Emergency Kit (PDF)';
+
+  @override
+  String get emergencyKitStoreSeparatelyTitle => 'Przechowuj osobno';
+
+  @override
+  String get emergencyKitStoreSeparatelyMessage =>
+      'Trzymaj Emergency Kit z dala od frazy odzyskiwania, na przykład w Plikach lub wydrukowany.';
+
+  @override
+  String get emergencyKitSavedConfirm => 'Zapisałem Emergency Kit';
+
+  @override
+  String get emergencyKitContinue => 'Dalej';
+
+  @override
+  String get emergencyKitSaveFailed =>
+      'Nie udało się utworzyć Emergency Kit. Spróbuj ponownie.';
+
+  @override
+  String get emergencyKitPdfTitle => 'Palladin Emergency Kit';
+
+  @override
+  String get emergencyKitPdfIntro =>
+      'Użyj tego dokumentu razem z hasłem głównym, aby zalogować się na nowym urządzeniu, gdy nie masz innego zalogowanego urządzenia.';
+
+  @override
+  String get emergencyKitPdfAccount => 'E-mail konta';
+
+  @override
+  String get emergencyKitPdfSecretKey => 'Secret Key';
+
+  @override
+  String get emergencyKitPdfQr => 'Kod QR z Secret Key';
+
+  @override
+  String get emergencyKitPdfPassword => 'Hasło główne';
+
+  @override
+  String get emergencyKitPdfSignIn => 'Adres logowania';
+
+  @override
+  String get emergencyKitPdfGenerated => 'Utworzono';
+
+  @override
+  String get emergencyKitPdfFooter =>
+      'Utworzono na Twoim urządzeniu. Palladin nigdy nie otrzymuje kopii. Przechowuj ten dokument z dala od frazy odzyskiwania.';
+
+  @override
+  String get emergencyKitSettingsTitle => 'Emergency Kit';
+
+  @override
+  String get emergencyKitSettingsSubtitle => 'Secret Key';
+
+  @override
+  String get emergencyKitSettingsTileTitle => 'Zapisz Emergency Kit';
+
+  @override
+  String get emergencyKitSettingsTileHint =>
+      'Twój Secret Key do logowania na nowym urządzeniu';
+
+  @override
+  String get emergencyKitSettingsConfirmTitle => 'Potwierdź hasło';
+
+  @override
+  String get emergencyKitSettingsConfirmMessage =>
+      'Emergency Kit zawiera Twój Secret Key. Plik PDF powstaje na tym telefonie i nigdy nie jest wysyłany.';
+
+  @override
+  String get emergencyKitSettingsPasswordLabel => 'Hasło główne';
+
+  @override
+  String get emergencyKitSettingsCreate => 'Utwórz Emergency Kit';
+
+  @override
+  String get emergencyKitSettingsWrongPassword => 'Nieprawidłowe hasło główne.';
+
+  @override
+  String get emergencyKitSettingsMissing =>
+      'Ten telefon nie ma Twojego Secret Key. Zaloguj się ponownie z Emergency Kit albo zatwierdź ten telefon na innym zalogowanym urządzeniu.';
+
+  @override
+  String get emergencyKitSettingsLocked =>
+      'Odblokuj Palladin, aby zapisać Emergency Kit.';
+
+  @override
+  String get emergencyKitSettingsLoadFailed =>
+      'Nie udało się wczytać konta. Spróbuj ponownie.';
+
+  @override
+  String get emergencyKitSettingsRetry => 'Spróbuj ponownie';
+
+  @override
+  String get emergencyKitSettingsShared => 'Utworzono Emergency Kit.';
+
+  @override
+  String get deviceTransferSettingsTitle => 'Urządzenia';
+
+  @override
+  String get deviceTransferSettingsSubtitle =>
+      'Przekaż Secret Key nowemu telefonowi lub przeglądarce.';
+
+  @override
+  String get deviceTransferDevicesSubtitle =>
+      'Przekaż Secret Key nowemu telefonowi lub przeglądarce, skanując wyświetlany przez nie kod.';
+
+  @override
+  String get deviceTransferThisPhone => 'Ten telefon';
+
+  @override
+  String get deviceTransferSecretKeySaved =>
+      'Secret Key zapisany w bezpiecznym magazynie';
+
+  @override
+  String get deviceTransferSecretKeyMissing =>
+      'Ten telefon nie ma zapisanego Secret Key';
+
+  @override
+  String get deviceTransferCurrent => 'Bieżące';
+
+  @override
+  String get deviceTransferAddDevice => 'Dodaj urządzenie';
+
+  @override
+  String get deviceTransferAddDeviceHint =>
+      'Nowe urządzenie pokaże kod QR po zalogowaniu się na nim hasłem.';
+
+  @override
+  String get deviceTransferScanInstruction =>
+      'Skieruj aparat na kod wyświetlany na nowym telefonie lub w przeglądarce.';
+
+  @override
+  String get deviceTransferCompareTitle => 'Porównaj kody';
+
+  @override
+  String get deviceTransferCompareBody =>
+      'Zatwierdź tylko wtedy, gdy nowe urządzenie pokazuje dokładnie ten kod. Dzięki temu nikt inny nie otrzyma Twojego Secret Key.';
+
+  @override
+  String get deviceTransferCodeOnThisPhone => 'Kod na tym telefonie';
+
+  @override
+  String get deviceTransferReject => 'Odrzuć';
+
+  @override
+  String get deviceTransferApprove => 'Zatwierdź';
+
+  @override
+  String get deviceTransferNotYou =>
+      'To nie Ty? Odrzuć prośbę i zmień hasło główne.';
+
+  @override
+  String get deviceTransferApprovedTitle => 'Urządzenie zatwierdzone';
+
+  @override
+  String get deviceTransferApprovedBody =>
+      'Nowe urządzenie otrzymało Secret Key i może teraz zalogować się Twoim hasłem.';
+
+  @override
+  String get deviceTransferDone => 'Gotowe';
+
+  @override
+  String get deviceTransferRejectedTitle => 'Prośba odrzucona';
+
+  @override
+  String get deviceTransferRejectedBody =>
+      'Nic nie zostało wysłane. Jeśli to nie Ty, zmień hasło główne.';
+
+  @override
+  String get deviceTransferExpiredTitle => 'Kod wygasł';
+
+  @override
+  String get deviceTransferExpiredBody =>
+      'Kody działają przez 5 minut i tylko raz. Poproś nowe urządzenie o nowy kod.';
+
+  @override
+  String get deviceTransferScanAgain => 'Skanuj ponownie';
+
+  @override
+  String get deviceTransferTryAgain => 'Spróbuj ponownie';
+
+  @override
+  String get deviceTransferFailedTitle => 'Nie udało się dokończyć';
+
+  @override
+  String get deviceTransferErrorInvalidCode =>
+      'To nie jest kod urządzenia Palladin.';
+
+  @override
+  String get deviceTransferErrorKeyMismatch =>
+      'Kod nie zgadza się z prośbą na serwerze. Nic nie zostało wysłane.';
+
+  @override
+  String get deviceTransferErrorAccountMismatch =>
+      'Ten kod należy do innego konta.';
+
+  @override
+  String get deviceTransferErrorDecrypt =>
+      'Nie udało się odebrać Secret Key. Zacznij od nowa na obu urządzeniach.';
+
+  @override
+  String get deviceTransferErrorSecretKeyMissing =>
+      'Ten telefon nie ma Twojego Secret Key, więc nie może zatwierdzać innych urządzeń.';
+
+  @override
+  String get deviceTransferErrorNetwork =>
+      'Nie udało się połączyć. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
+  String get deviceTransferErrorServer =>
+      'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get deviceTransferCameraDenied =>
+      'Dostęp do aparatu jest wyłączony. Włącz go w ustawieniach systemu, aby zeskanować kod.';
+
+  @override
+  String get deviceTransferOpenSettings => 'Otwórz ustawienia';
+
+  @override
+  String deviceTransferExpiresIn(String time) {
+    return 'Wygasa za $time';
+  }
+
+  @override
+  String get secretKeyEntryTitle => 'Skonfiguruj ten telefon';
+
+  @override
+  String get secretKeyEntryIntro =>
+      'Ten telefon jeden raz potrzebuje Twojego Secret Key. Pobierz go z urządzenia, na którym jesteś już zalogowany, albo z Emergency Kit.';
+
+  @override
+  String get secretKeyEntryScanComputer => 'Zeskanuj kod z komputera';
+
+  @override
+  String get secretKeyEntryScanComputerHint =>
+      'W panelu webowym otwórz Ustawienia › Dodaj telefon.';
+
+  @override
+  String get secretKeyEntryScanComputerInstruction =>
+      'W panelu webowym otwórz Ustawienia › Dodaj telefon i skieruj aparat na kod.';
+
+  @override
+  String get secretKeyEntryShowCode => 'Pokaż kod innemu telefonowi';
+
+  @override
+  String get secretKeyEntryShowCodeHint =>
+      'Zeskanuj go w aplikacji Palladin na zalogowanym telefonie.';
+
+  @override
+  String get secretKeyEntryOr => 'lub';
+
+  @override
+  String get secretKeyEntryUseKit => 'Użyj Emergency Kit';
+
+  @override
+  String get secretKeyEntryUseKitHint =>
+      'Zeskanuj kod QR z Emergency Kit albo wpisz Secret Key.';
+
+  @override
+  String get secretKeyEntryCompareComputerBody =>
+      'Komputer też pokazuje kod. Zatwierdź tam tylko wtedy, gdy oba kody są takie same.';
+
+  @override
+  String get secretKeyEntryWaitingComputer =>
+      'Czekamy na zatwierdzenie na komputerze…';
+
+  @override
+  String get secretKeyEntryShowCodeTitle => 'Pokaż kod telefonowi';
+
+  @override
+  String get secretKeyEntryShowCodeBody =>
+      'Na zalogowanym telefonie otwórz Ustawienia › Dodaj urządzenie i zeskanuj ten kod.';
+
+  @override
+  String get secretKeyEntrySameCode =>
+      'Drugi telefon powinien pokazać ten sam kod';
+
+  @override
+  String get secretKeyEntryWaiting => 'Czekamy na zatwierdzenie…';
+
+  @override
+  String get secretKeyEntryCancel => 'Anuluj';
+
+  @override
+  String get secretKeyEntryKitBody =>
+      'Zeskanuj kod QR z Emergency Kit albo wpisz wydrukowany obok Secret Key.';
+
+  @override
+  String get secretKeyEntryScanKit => 'Zeskanuj kod QR z Emergency Kit';
+
+  @override
+  String get secretKeyEntryScanKitInstruction =>
+      'Skieruj aparat na kod QR z Emergency Kit.';
+
+  @override
+  String get secretKeyEntryFieldLabel => 'Secret Key';
+
+  @override
+  String get secretKeyEntryFieldHint =>
+      'Zaczyna się od PSK2, potem 9 grup po 6 znaków. Myślniki i spacje są opcjonalne.';
+
+  @override
+  String get secretKeyEntryContinue => 'Dalej';
+
+  @override
+  String get secretKeyEntryErrorMalformed =>
+      'To nie wygląda na Secret Key. Sprawdź znaki i spróbuj ponownie.';
+
+  @override
+  String get secretKeyEntryErrorChecksum =>
+      'Ten Secret Key nie pasuje do tego konta. Sprawdź, czy nie ma literówek.';
+
+  @override
+  String get secretKeyEntryErrorKitAccount =>
+      'Ten Emergency Kit należy do innego konta.';
+
+  @override
+  String get secretKeyEntryErrorKitQr => 'To nie jest kod QR z Emergency Kit.';
+
+  @override
+  String get secretKeyEntryCantScan =>
+      'Nie możesz zeskanować? Użyj Emergency Kit';
 }

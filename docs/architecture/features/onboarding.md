@@ -45,3 +45,11 @@ OAuth onboarding and password registration. Light backgrounds stay unchanged.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
 Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.
+
+`EmergencyKitStep` (`lib/features/secret_key/presentation/widgets/`) is the
+mandatory Emergency Kit step reused by onboarding, the security upgrade and
+account recovery. Continue unlocks only after the PDF was shared and the user
+confirmed saving it. The kit holds the e-mail, the Secret Key text and QR, a
+blank password field, the sign-in address and the date — never the recovery
+phrase. Its PDF uses the bundled Roboto font (`assets/fonts/`, Apache 2.0) so
+Polish text renders without fetching fonts.

@@ -3,6 +3,9 @@ import '../storage/device_secure_storage.dart';
 import '../storage/account_secret_store.dart';
 import '../crypto/identity/device_pairing.dart';
 import '../../features/secret_key/data/datasources/secret_key_transfer_remote_datasource.dart';
+import '../../features/secret_key/presentation/cubit/device_transfer_sender_cubit.dart';
+import '../../features/secret_key/presentation/cubit/secret_key_acquisition_cubit.dart';
+import '../../features/secret_key/data/services/emergency_kit_pdf_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
@@ -340,6 +343,24 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<DevicePairingCrypto>(DevicePairingCrypto.new);
   getIt.registerLazySingleton<SecretKeyTransferRemoteDatasource>(
     () => SecretKeyTransferRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerFactoryParam<DeviceTransferSenderCubit, String, void>(
+    (accountId, _) => DeviceTransferSenderCubit(
+      accountId: accountId,
+      datasource: getIt<SecretKeyTransferRemoteDatasource>(),
+      crypto: getIt<DevicePairingCrypto>(),
+      secretStore: getIt<AccountSecretStore>(),
+    ),
+  );
+  getIt.registerFactoryParam<SecretKeyAcquisitionCubit, String, void>(
+    (accountId, _) => SecretKeyAcquisitionCubit(
+      accountId: accountId,
+      datasource: getIt<SecretKeyTransferRemoteDatasource>(),
+      crypto: getIt<DevicePairingCrypto>(),
+    ),
+  );
+  getIt.registerLazySingleton<EmergencyKitPdfService>(
+    EmergencyKitPdfService.new,
   );
 
   // Unlock — presentation layer (factory: fresh cubit on each mount

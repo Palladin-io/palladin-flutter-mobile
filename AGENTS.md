@@ -43,6 +43,7 @@ The **shared widget catalog lives in this file** (see "## Shared Widget Catalog"
 | settings | `docs/architecture/features/settings.md` |
 | api_keys | `docs/architecture/features/api_keys.md` |
 | autofill | `docs/architecture/features/autofill.md` |
+| secret_key | `docs/architecture/features/secret-key.md` |
 
 ## Explicit variants and contracts
 
@@ -265,6 +266,7 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 | `ApiKeyStatusBadge` | `lib/features/api_keys/presentation/widgets/api_key_status_badge.dart` | Status pill (active/revoked) — same shape as `AgentStatusBadge` |
 | `AgentCard` | `lib/features/agents/presentation/widgets/agent_card.dart` | Tappable agent row (identity + footer zones) |
 | `GrantDetailRow` | `lib/features/grants/presentation/widgets/org_grant_card.dart` (exported) | Fixed 76px label column + value text row. Used by `OrgGrantCard`, `NotificationCard` |
+| `EmergencyKitStep` | `lib/features/secret_key/presentation/widgets/emergency_kit_step.dart` | Mandatory save-your-Emergency-Kit step (local PDF + share sheet, confirm before Continue). Reused by onboarding, security upgrade and recovery |
 
 ### Widgets to extract (missing shared widgets)
 

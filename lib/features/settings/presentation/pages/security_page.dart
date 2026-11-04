@@ -62,6 +62,13 @@ class SecurityPage extends StatelessWidget {
             onTap: () => context.push(AppRoutes.generatedPasswords),
           ),
           const SizedBox(height: AppSpacing.cardGap),
+          _SecurityAction(
+            icon: Icons.ios_share,
+            title: l10n.emergencyKitSettingsTileTitle,
+            subtitle: l10n.emergencyKitSettingsTileHint,
+            onTap: () => context.push(AppRoutes.settingsEmergencyKit),
+          ),
+          const SizedBox(height: AppSpacing.cardGap),
           if (isPasswordAccount) ...[
             _SecurityAction(
               icon: Icons.password_outlined,
@@ -71,6 +78,13 @@ class SecurityPage extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.cardGap),
           ],
+          _SecurityAction(
+            icon: Icons.devices_outlined,
+            title: l10n.deviceTransferSettingsTitle,
+            subtitle: l10n.deviceTransferSettingsSubtitle,
+            onTap: () => context.push(AppRoutes.settingsAddDevice),
+          ),
+          const SizedBox(height: AppSpacing.cardGap),
           _TwoFactorAction(
             loadAccount:
                 loadAccount ??

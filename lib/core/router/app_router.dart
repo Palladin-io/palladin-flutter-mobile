@@ -28,6 +28,7 @@ import '../../features/settings/presentation/pages/team_detail_pages.dart';
 import '../../features/settings/presentation/pages/permissions_page.dart';
 import '../../features/settings/presentation/pages/permission_role_page.dart';
 import '../../features/settings/presentation/pages/security_page.dart';
+import '../../features/secret_key/presentation/pages/emergency_kit_settings_page.dart';
 import '../../features/settings/presentation/pages/data_import_page.dart';
 import '../../features/settings/presentation/pages/billing_page.dart';
 import '../../features/shell/presentation/pages/app_shell.dart';
@@ -47,6 +48,8 @@ import '../../config/env_config.dart';
 import '../di/injection.dart';
 import '../permissions.dart';
 import 'shell_tab_page.dart';
+import '../../features/secret_key/presentation/pages/device_transfer_approve_page.dart';
+import '../../features/secret_key/presentation/pages/secret_key_acquisition_page.dart';
 
 /// Centralized route paths and builders, so widgets navigate via
 /// `AppRoutes.agentDetail(id)` instead of scattering string literals
@@ -62,6 +65,9 @@ abstract final class AppRoutes {
   static const String settingsAudit = '/settings/audit';
   static const String settingsBilling = '/settings/billing';
   static const String settingsSecurity = '/settings/security';
+  static const String settingsAddDevice = '/settings/add-device';
+  static const String secretKeyAcquire = '/secret-key/acquire';
+  static const String settingsEmergencyKit = '/settings/emergency-kit';
   static const String generatedPasswords =
       '/settings/security/generated-passwords';
   static const String settingsPrivacy = '/settings/privacy';
@@ -188,6 +194,9 @@ GoRouter createRouter(
       final isOnOnboardingPage = location == '/onboarding';
       final isOnUnlockPage = location == '/unlock';
       final isOnRecoveryPage = location == '/recovery';
+      // A new device fetches its Secret Key before (login) or after (unlock)
+      // a session exists; the page itself holds no account state.
+      final isOnSecretKeyAcquire = location == AppRoutes.secretKeyAcquire;
 
       final isAuthenticated = authState is AuthAuthenticated;
 
@@ -199,7 +208,10 @@ GoRouter createRouter(
         // Registration and a verification deep link carrying a token are the
         // only routes reachable without a session. The token-less verify gate
         // belongs to an authenticated account, so logout returns to login.
-        if (isOnLoginPage || isOnRegisterPage || isVerificationDeepLink) {
+        if (isOnLoginPage ||
+            isOnRegisterPage ||
+            isVerificationDeepLink ||
+            isOnSecretKeyAcquire) {
           return null;
         }
         return '/login';
@@ -225,7 +237,9 @@ GoRouter createRouter(
         // Recovery is the only flow available to a locked-but-authenticated
         // session besides unlock — the user needs it precisely because
         // they can't unlock.
-        if (isOnUnlockPage || isOnRecoveryPage) return null;
+        if (isOnUnlockPage || isOnRecoveryPage || isOnSecretKeyAcquire) {
+          return null;
+        }
         return '/unlock';
       }
 
@@ -290,6 +304,12 @@ GoRouter createRouter(
         builder: (_, _) => accountFrame(const UnlockPage()),
       ),
       GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
+      GoRoute(
+        path: AppRoutes.secretKeyAcquire,
+        builder: (_, state) => SecretKeyAcquisitionPage(
+          args: state.extra! as SecretKeyAcquisitionArgs,
+        ),
+      ),
       GoRoute(
         // Master-password change — a focused full-screen flow
         // pushed from Settings; sits outside the shell so it has no bottom
@@ -485,6 +505,10 @@ GoRouter createRouter(
             builder: (_, _) => const BillingPage(),
           ),
           GoRoute(
+            path: '/settings/emergency-kit',
+            builder: (_, _) => const EmergencyKitSettingsPage(),
+          ),
+          GoRoute(
             path: '/settings/security',
             builder: (_, _) => const SecurityPage(),
             routes: [
@@ -493,6 +517,10 @@ GoRouter createRouter(
                 builder: (_, _) => const GeneratedPasswordHistoryPage(),
               ),
             ],
+          ),
+          GoRoute(
+            path: AppRoutes.settingsAddDevice,
+            builder: (_, _) => const DeviceTransferApprovePage(),
           ),
           GoRoute(
             path: '/settings/data-import',

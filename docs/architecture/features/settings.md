@@ -116,3 +116,19 @@ sheet and settle on `/settings/security` when dismissed.
 General Save, Team member/invitation Save and editable Permission Role Save use
 `AppActionFooter` for one shared bottom safe-area contract. Their hosts leave
 bottom inset ownership to the footer, so system navigation cannot cover actions.
+
+## Emergency Kit (Security)
+
+Security links to `/settings/emergency-kit` (`EmergencyKitSettingsPage`,
+`secret_key` feature). The page requires an unlocked session and shows only a
+masked Secret Key (`PSK2-••••••-••••••-…-••` plus the last four symbols). Before
+re-creating the kit the user re-enters the master password; the cubit derives
+the security-version-2 master key from it and the device Secret Key and
+compares it in constant time with the unlocked session's master key, without a
+network call. A device without a stored Secret Key shows an explanatory state.
+The PDF is built on the device by `EmergencyKitPdfService` and shared through
+the system sheet from a private temporary copy deleted when the sheet closes.
+
+Security also links **Devices** (`/settings/add-device`), which approves a new
+phone or browser by sealing the Secret Key to the code it shows; see
+[secret_key](secret-key.md).
