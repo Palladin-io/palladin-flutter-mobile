@@ -115,4 +115,16 @@ class AutoFillRequestStateTest {
         catch (_: AutoFillSourceException) {}
     }
 
+    @Test fun `origin verification cannot carry a request past lease or request deadline`() {
+        for (advance in listOf(1_000L, AutoFillRequestState.MAX_AGE_MS)) {
+            val binding = bind()
+            val authorization = auth(binding)
+            var handedOff = false
+            assertFalse(state.consume(binding.id, binding.token, authorization, selection, null,
+                if (advance == 1_000L) now + 1_000 else now + 300_000,
+                { now += advance; true }) { handedOff = true })
+            assertFalse(handedOff)
+        }
+    }
+
 }

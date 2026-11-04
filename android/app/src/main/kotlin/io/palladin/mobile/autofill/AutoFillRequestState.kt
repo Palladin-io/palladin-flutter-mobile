@@ -73,6 +73,9 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         if ((current.mode == AutofillOriginMode.MANUAL_NATIVE || current.usernameOnly) &&
             (this.consent?.first != selection || this.consent?.second != consent)) return@synchronized false
         if (!origin()) return@synchronized false
+        // Origin verification may block on system services; recheck at consumption.
+        if (!validate(id, binding, authorization, selection.host) ||
+            maxOf(wallTime(), current.createdWall + (now() - current.created)) >= notAfter) return@synchronized false
         cancel()
         handoff()
         true
