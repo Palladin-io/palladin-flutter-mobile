@@ -44,6 +44,11 @@ class AutofillAuthenticationActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        // PendingIntents issued before migration must not reopen the retired credential cache.
+        if (!intent.getBooleanExtra(EXTRA_GENERATE, false)) {
+            finishCanceled()
+            return
+        }
         cacheStore = AutoFillCacheStore(this)
 
         val domain = AutoFillCacheStore.normalizeDomain(

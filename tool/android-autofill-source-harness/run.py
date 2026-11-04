@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--serial', required=True)
     parser.add_argument('--apk', required=True)
     parser.add_argument('--aapt', required=True)
+    parser.add_argument('--legacy-only', action='store_true')
     args = parser.parse_args()
     if not args.serial.startswith('emulator-'):
         raise RuntimeError('Only an explicitly selected emulator is supported')
@@ -47,14 +48,18 @@ def main():
             return iter(())
     def await_text(text):
         for _ in range(15):
-            match = next((node for node in nodes() if text in (node.get('text'), node.get('content-desc'))), None)
+            tree = list(nodes())
+            if any(node.get('text') in ('LEGACY_CACHE_TOUCHED', 'SOURCE_OWNER_FAIL') for node in tree):
+                raise AssertionError('Native owner violated expected fixture boundary')
+            match = next((node for node in tree if text in (node.get('text'), node.get('content-desc'))), None)
             if match is not None:
                 return match
             time.sleep(.5)
         raise AssertionError(f'Missing fixed fixture marker: {text}')
     def launch(component, *extras):
         adb('shell', 'am', 'start', '-n', f'{PACKAGE}/{component}', '-f', '0x24000000', *extras)
-    for temperature, username_only in (('cold', False), ('warm', False), ('warm-username', True)):
+    cases = () if args.legacy_only else (('cold', False), ('warm', False), ('warm-username', True))
+    for temperature, username_only in cases:
         adb('shell', 'am', 'force-stop', 'io.palladin.autofill.harness.form')
         launch(FORM, '--ez', 'usernameOnly', str(username_only).lower())
         button = await_text('Open native request')
@@ -64,6 +69,12 @@ def main():
         launch(MAIN)
         await_text('SOURCE_CHANNEL_USERNAME_CANCEL_PASS' if username_only else 'SOURCE_CHANNEL_CANCEL_PASS')
         print(f'PASS {temperature}: actual Flutter pending/bind/auth rejection/cancel/original-owner')
+    launch(FORM, '--ez', 'legacy', 'true')
+    button = await_text('Open native request')
+    left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
+    adb('shell', 'input', 'tap', str((left + right)//2), str((top + bottom)//2))
+    await_text('LEGACY_CACHE_UNTOUCHED')
+    print('PASS legacy credential intent: canceled without old cache access', flush=True)
     adb('shell', 'rm', '/sdcard/source-fixture-window.xml')
 
 

@@ -57,3 +57,16 @@ username-only request handoff. Search and HTTP WebView requests were suppressed 
 framework in this run (no service diagnosis); they are not reported as runtime passes.
 Existing classifier and origin-policy unit regressions retain search, OTP, confirmation,
 hidden/disabled, cleartext/missing/mixed schemes and unverified origins coverage.
+
+## Retired PendingIntent boundary
+
+The runner also invokes the legacy non-generation Activity with an inert, public marker
+in the synthetic package's old cache location. Before retirement, the old credential path
+reached cache maintenance and deleted this marker (LEGACY_CACHE_TOUCHED). It must now return
+canceled before cache construction, leaving the marker untouched. The fixture removes
+the marker afterward. `--legacy-only` runs this negative migration test alone.
+
+The old native harness's direct credential inspector targets the retired Activity and is
+therefore no longer positive fill evidence; it must be migrated to the integrated canonical
+source controller before that end-to-end CI gate can be claimed passing. Generated-password
+and save fixtures remain separate; this guard does not change their format or lifecycle.
