@@ -70,7 +70,8 @@ internal object AutoFillRequestBroker {
     fun revokeSession(session: String, epoch: Long, profileBinding: String): Long = synchronized(AutoFillMutationLock.monitor) {
         val profile = requireProfileBinding(profileBinding).digest()
         if (source.sessionEpoch(profile, session) != epoch) throw AutoFillSourceException("SOURCE_STALE_EPOCH")
-        revokeSnapshot(epoch, profile)
+        // Revoke this fill authorization, retaining the owner's exact-CAS repair session.
+        try { source.invalidate(session, epoch) } finally { cancel(null) }
     }
     private fun requireProfileBinding(value: String): AutoFillSourceProfile = currentProfile?.takeIf { it.profileBinding == value }
         ?: throw AutoFillSourceException("SOURCE_STALE_SESSION")

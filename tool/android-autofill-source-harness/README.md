@@ -70,3 +70,8 @@ The old native harness's direct credential inspector targets the retired Activit
 therefore no longer positive fill evidence; it must be migrated to the integrated canonical
 source controller before that end-to-end CI gate can be claimed passing. Generated-password
 and save fixtures remain separate; this guard does not change their format or lifecycle.
+
+The actual channel fixture additionally checks live authorization revocation followed by
+authoritative activation of the returned epoch by the same app session. Cold snapshot
+revocation still destroys that session; live request revocation must cancel request/auth
+without making source repair permanently fail with SOURCE_STALE_SESSION.

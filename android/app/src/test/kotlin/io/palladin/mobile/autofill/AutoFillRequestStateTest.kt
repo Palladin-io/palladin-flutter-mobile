@@ -162,4 +162,18 @@ class AutoFillRequestStateTest {
         }))
     }
 
+    @Test fun `repair after live hard cancellation never restores prior authorization`() {
+        val prior = bind()
+        val oldAuthorization = auth(prior)
+        val next = source.invalidate("session", epoch)
+        state.cancel()
+        source.activate("session", next)
+        assertFalse(state.validate(prior.id, prior.token, oldAuthorization, selection.host, next))
+        val id = state.open(AutofillOriginMode.WEB, setOf(selection.host), false)
+        val current = state.bind(id, "profile", "session", next)
+        val authorization = auth(current)
+        assertTrue(state.consume(id, current.token, authorization, selection, null,
+            now + 1000, next, { true }) {})
+    }
+
 }

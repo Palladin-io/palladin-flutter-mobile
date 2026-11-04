@@ -82,7 +82,37 @@ class _SourceFixtureState extends State<SourceFixture> {
     }
   }
 
+  Future<void> verifyHardRepair() async {
+    try {
+      final next = await channel.invokeMethod<int>('revokeSourceSession', {
+        'sessionId': 'synthetic-request-session',
+        'sourceEpoch': sourceEpoch,
+        'profileBinding': List.filled(64, 'a').join(),
+      });
+      await channel.invokeMethod<int>('activateSource', {
+        'sessionId': 'synthetic-request-session',
+        'sourceEpoch': next,
+      });
+      sourceEpoch = next;
+      if (mounted) setState(() => status = 'SOURCE_HARD_REPAIR_PASS');
+    } on PlatformException {
+      if (mounted) setState(() => status = 'SOURCE_HARD_REPAIR_FAIL');
+    }
+  }
+
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(body: Center(child: Text(status)));
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(status),
+          TextButton(
+            onPressed: verifyHardRepair,
+            child: const Text('Verify hard revoke repair'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

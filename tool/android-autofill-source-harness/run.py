@@ -49,7 +49,8 @@ def main():
     def await_text(text):
         for _ in range(15):
             tree = list(nodes())
-            if any(node.get('text') in ('LEGACY_CACHE_TOUCHED', 'SOURCE_OWNER_FAIL') for node in tree):
+            if any(value in ('LEGACY_CACHE_TOUCHED', 'SOURCE_OWNER_FAIL', 'SOURCE_HARD_REPAIR_FAIL')
+                   for node in tree for value in (node.get('text'), node.get('content-desc'))):
                 raise AssertionError('Native owner violated expected fixture boundary')
             match = next((node for node in tree if text in (node.get('text'), node.get('content-desc'))), None)
             if match is not None:
@@ -69,6 +70,12 @@ def main():
         launch(MAIN)
         await_text('SOURCE_CHANNEL_USERNAME_CANCEL_PASS' if username_only else 'SOURCE_CHANNEL_CANCEL_PASS')
         print(f'PASS {temperature}: actual Flutter pending/bind/auth rejection/cancel/original-owner')
+    if not args.legacy_only:
+        button = await_text('Verify hard revoke repair')
+        left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
+        adb('shell', 'input', 'tap', str((left + right)//2), str((top + bottom)//2))
+        await_text('SOURCE_HARD_REPAIR_PASS')
+        print('PASS live hard revoke: same owning session repairs exact epoch', flush=True)
     launch(FORM, '--ez', 'legacy', 'true')
     button = await_text('Open native request')
     left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
