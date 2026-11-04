@@ -7,7 +7,7 @@
 "credential_provider_generate_action" = "Wygeneruj i uzupełnij";
 "credential_provider_generate_biometric" = "Uwierzytelnij się, aby zapisać wygenerowane hasło w Palladin";
 "credential_provider_cancel" = "Anuluj";
-"credential_provider_search" = "Szukaj nazwy, loginu lub domeny";
+"credential_provider_search" = "Szukaj nazwy lub domeny";
 "credential_provider_manual_warning" = "Ta aplikacja lub witryna nie przekazała zweryfikowanej domeny. Wybierz wpis tylko wtedy, gdy ufasz odbiorcy. Ten wybór nie zostanie zapamiętany.";
 "credential_provider_manual_confirm_title" = "Uzupełnić tym wpisem?";
 "credential_provider_manual_confirm_message" = "Wpis: %@\nZapisane domeny: %@\n\nPalladin nie może potwierdzić, że ta aplikacja lub witryna należy do tych domen. Uzupełnij tylko wtedy, gdy jej ufasz.";
@@ -15,3 +15,7 @@
 "credential_provider_save_prompt" = "Zachować tymczasowo hasło dla %@? Po potwierdzeniu biometrią otwórz Palladin w ciągu dwóch minut, odblokuj to samo konto, wybierz Vault i potwierdź utworzenie. Ten krok nie zapisuje jeszcze Entry w Twoim Vault. Ponowne uruchomienie Palladin usuwa to żądanie.";
 "credential_provider_save_action" = "Zachowaj do sprawdzenia w Palladin";
 "credential_provider_save_biometric" = "Zatwierdź tymczasowe przekazanie hasła do Palladin";
+"credential_provider_unlock_choice" = "Odblokuj Palladina, aby wybrać login.";
+"credential_provider_master_password" = "Hasło główne";
+"credential_provider_unlock_password" = "Odblokuj hasłem";
+"credential_provider_unlock_biometric" = "Użyj biometrii";

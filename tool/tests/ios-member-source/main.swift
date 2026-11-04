@@ -117,3 +117,65 @@ rejects { try fence.withCurrentSource(nextAccount,requireActive:true) {} }
 durable = Data("{}".utf8)
 rejects { _ = try secondFence.sourceSnapshot() }
 print("PASS cold protected snapshot CAS without app-session restoration")
+
+// Exercise the real method-channel dispatch owner, including cold CAS and RAM lock.
+durable = nil
+let bridge = SharedMemberSourceBridge(source:fence, containerURL:directory, accessGroup:"synthetic")
+var beginArguments = claims.arguments
+beginArguments["sessionId"] = "bridge-owner"
+beginArguments["profileBinding"] = profile
+beginArguments["accountUnlock"] = unlock
+let bridgeEpoch = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+let control: [String:Any] = ["sessionId":"bridge-owner", "sourceEpoch":bridgeEpoch]
+let acknowledgedEpoch = try bridge.handle("activateSource", arguments:control) as? Int
+expect(acknowledgedEpoch == bridgeEpoch,"bridge activation must acknowledge captured epoch")
+let bridgeActive = try fence.current()
+_ = try bridge.handle("invalidateSession", arguments:["sessionId":"bridge-owner"])
+rejects { _ = try bridge.handle("invalidateSource", arguments:control) }
+try fence.withCurrentSource(bridgeActive, requireActive:true) {}
+let bridgeSnapshot = try bridge.handle("sourceSnapshot", arguments:[:]) as! [String:Any]
+_ = try bridge.handle("revokeSource", arguments:bridgeSnapshot)
+rejects { try fence.withCurrentSource(bridgeActive, requireActive:true) {} }
+rejects { _ = try bridge.handle("revokeSource", arguments:bridgeSnapshot) }
+print("PASS source bridge dispatch, ordinary lock and exact cold revoke")
+
+// Explicit live hard revoke invalidates the captured request epoch, while the
+// authenticated app may still repair its canonical source under the new ticket.
+durable = nil
+let hardEpoch = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+let hardControl: [String:Any] = ["sessionId":"bridge-owner", "sourceEpoch":hardEpoch]
+_ = try bridge.handle("activateSource", arguments:hardControl)
+let beforeHard = try fence.current()
+let afterHard = try bridge.handle("revokeSourceSession", arguments:hardControl) as! Int
+expect(afterHard > hardEpoch,"hard revoke must advance epoch")
+rejects { try fence.withCurrentSource(beforeHard, requireActive:true) {} }
+rejects { _ = try bridge.handle("revokeSourceSession", arguments:hardControl) }
+print("PASS current-session hard revoke and stale-ticket rejection")
+
+// Protected offline configuration is not reconstructed from the SQLite DB.
+rejects { _ = try bridge.handle("sourceConfiguration", arguments:[:]) }
+let configEpoch = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+let configControl:[String:Any] = ["sessionId":"bridge-owner","sourceEpoch":configEpoch,"profileBinding":profile]
+_ = try bridge.handle("activateSource", arguments:configControl)
+var expectedConfiguration = claims.arguments; expectedConfiguration["profileBinding"] = profile
+var wrongConfiguration = expectedConfiguration; wrongConfiguration["organizationId"] = "other"
+rejects { _ = try bridge.handle("sourceConfiguration", arguments:wrongConfiguration) }
+let configuration = try bridge.handle("sourceConfiguration", arguments:expectedConfiguration) as! [String:Any]
+expect(configuration["profileBinding"] as? String == profile,"protected profile binding")
+expect(configuration["principalId"] as? String == claims.principalId,"independent principal")
+expect((configuration["accountUnlock"] as? [String:Any])?["encryptedPrivateKey"] as? String == unlock["encryptedPrivateKey"] as? String,"encrypted account material")
+rejects { _ = try bridge.handle("commitMemberSourceMigration",arguments:configControl) }
+let migrationEpoch = try bridge.handle("invalidateSource",arguments:configControl) as! Int
+let migrationDirectory = directory.appendingPathComponent("member-source")
+try FileManager.default.createDirectory(at:migrationDirectory,withIntermediateDirectories:true)
+try Data("synthetic-encrypted-sqlite".utf8).write(to:migrationDirectory.appendingPathComponent("vault_member_sync.db.migrating"))
+rejects { _ = try bridge.handle("sourceConfiguration",arguments:[:]) }
+rejects { _ = try bridge.handle("commitMemberSourceMigration",arguments:configControl) }
+var migrationControl = configControl; migrationControl["sourceEpoch"] = migrationEpoch
+var wrongMigration = migrationControl; wrongMigration["profileBinding"] = String(repeating:"e",count:64)
+rejects { _ = try bridge.handle("commitMemberSourceMigration",arguments:wrongMigration) }
+_ = try bridge.handle("commitMemberSourceMigration",arguments:migrationControl)
+expect(FileManager.default.fileExists(atPath:migrationDirectory.appendingPathComponent("vault_member_sync.db").path),"canonical ciphertext migration committed")
+let afterMigration = try fence.current()
+expect(afterMigration.state == .quarantined,"migration must not activate source")
+print("PASS active-only configuration and captured quarantined migration ticket")

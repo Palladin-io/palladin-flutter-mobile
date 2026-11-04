@@ -15,6 +15,7 @@ final class AutoFillBridgeMutationQueue {
 
 public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     private let mutationQueue = AutoFillBridgeMutationQueue()
+    private let memberSource = try? SharedMemberSourceBridge()
     private let incrementalWriter = AutoFillV3Writer()
     private let historyQueue = DispatchQueue(
         label: "io.palladin.mobile.autofill.generated-history",
@@ -28,6 +29,10 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
         )
         PendingPasswordSavePlugin.register(with: registrar)
         let instance = PalladinAutoFillBridgePlugin()
+        if let bridge = instance.memberSource {
+            SharedBiometricUnlockPlugin.register(with: registrar, source: bridge.source,
+                containerURL: bridge.containerURL, accessGroup: bridge.accessGroup, allowLegacyMigration: true)
+        }
         instance.historyQueue.async {
             try? GeneratedPasswordHistory().revokeAll()
         }
@@ -35,6 +40,16 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        if SharedMemberSourceBridge.methods.contains(call.method) {
+            do {
+                guard let bridge = memberSource else { throw SharedMemberSourceError.unavailable }
+                // Source denial must not sit behind legacy publication/identity work.
+                result(try bridge.handle(call.method, arguments: call.arguments as? [String: Any] ?? [:]))
+            } catch {
+                result(FlutterError(code: "AUTOFILL_SOURCE_UNAVAILABLE", message: nil, details: nil))
+            }
+            return
+        }
         if call.method == "getProviderStatus" {
             ASCredentialIdentityStore.shared.getState { state in
                 DispatchQueue.main.async {

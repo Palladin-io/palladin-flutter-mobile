@@ -1,19 +1,24 @@
 import AuthenticationServices
 import UIKit
+import LocalAuthentication
 
 final class CredentialProviderViewController: ASCredentialProviderViewController, UISearchBarDelegate {
     private let statusLabel = UILabel()
     private let credentialsStack = UIStackView()
     private let searchBar = UISearchBar()
     private var saveOperation: PasswordSaveOperation?
-    private var picker: AutoFillCredentialPicker?
+    private var memberRuntime: MemberCredentialRuntime?
+    private var memberRequest: SharedMemberCredentialRequest?
+    private var sourceBridge: SharedMemberSourceBridge?
+    private var authenticationContext: LAContext?
     private var requestActive = false
     private lazy var requestLifecycle = AutoFillCredentialRequestLifecycle(
         notificationCenter: .default,
         hostBackgroundNotification: .NSExtensionHostDidEnterBackground,
         onHostBackground: { [weak self] in self?.cancelForHostLoss() }
     )
-    private var visibleCredentials: [AutoFillCredentialLease] = []
+    private var visibleCredentials: [SharedMemberCandidate] = []
+    private var allCredentials: [SharedMemberCandidate] = []
     private var visibleServiceIdentifiers: [ASCredentialServiceIdentifier] = []
 
     override func viewDidLoad() {
@@ -92,12 +97,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
-        unlockRecords { [weak self] result in
-            self?.show(
-                result.credentials,
-                serviceIdentifiers: serviceIdentifiers
-            )
-        }
+        prepareMemberRequest(serviceIdentifiers: serviceIdentifiers)
     }
 
     override func provideCredentialWithoutUserInteraction(
@@ -276,111 +276,129 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         )
     }
 
-    private func unlockAndComplete(
-        recordIdentifier: String?,
-        serviceIdentifiers: [ASCredentialServiceIdentifier]
-    ) {
-        guard let recordIdentifier, !serviceIdentifiers.isEmpty else {
-            requireUserInteraction()
-            return
-        }
-        unlockRecords { [weak self] result in
-            guard let self,
-                  let credential = result.credentials.first(where: {
-                      $0.record.id == recordIdentifier &&
-                      $0.record.matches(serviceIdentifiers: serviceIdentifiers)
-                  }) else {
-                self?.showUnavailableMessage()
-                return
-            }
-            self.complete(credential, serviceIdentifiers: serviceIdentifiers)
-        }
+    private func unlockAndComplete(recordIdentifier: String?, serviceIdentifiers: [ASCredentialServiceIdentifier]) {
+        // OS identity metadata is only a navigation hint. Resolve current local
+        // index metadata after authentication, never trust an old record ID.
+        prepareMemberRequest(serviceIdentifiers: serviceIdentifiers)
     }
 
-    private func unlockRecords(completion: @escaping (AutoFillCacheReadResult) -> Void) {
+    private func prepareMemberRequest(serviceIdentifiers: [ASCredentialServiceIdentifier]) {
         loadViewIfNeeded()
         clearCredentials()
-        let generation = requestLifecycle.generation
-        requestActive = true
-        statusLabel.text = NSLocalizedString(
-            "credential_provider_unlocking",
-            comment: "Shown while the provider waits for biometric authentication."
-        )
-        credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        DispatchQueue.global(qos: .userInitiated).async {
-            var operation: AutoFillUnwrapOperation?
+        do {
+            var hosts = Set<String>()
+            for service in serviceIdentifiers {
+                if service.type == .URL {
+                    guard URLComponents(string: service.identifier)?.scheme?.lowercased() == "https" else {
+                        throw SharedMemberSourceError.invalid
+                    }
+                } else if service.type != .domain { throw SharedMemberSourceError.invalid }
+                guard let host = AutoFillCredentialRecord.normalizeDomain(service.identifier) else {
+                    throw SharedMemberSourceError.invalid
+                }
+                hosts.insert(host)
+            }
+            let bridge = try SharedMemberSourceBridge()
+            let request = try SharedMemberCredentialRequest(source: bridge.source,
+                snapshot: bridge.source.current(), verifiedHosts: hosts)
+            sourceBridge = bridge; memberRequest = request
+            visibleServiceIdentifiers = serviceIdentifiers
+            requestActive = true
+            statusLabel.text = NSLocalizedString("credential_provider_unlock_choice", comment: "Unlock choices")
+            let password = UITextField()
+            password.isSecureTextEntry = true
+            password.textContentType = .password
+            password.borderStyle = .roundedRect
+            password.placeholder = NSLocalizedString("credential_provider_master_password", comment: "Master password")
+            password.accessibilityLabel = password.placeholder
+            let unlock = UIButton(type: .system)
+            unlock.setTitle(NSLocalizedString("credential_provider_unlock_password", comment: "Unlock with password"), for: .normal)
+            unlock.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+            unlock.addAction(UIAction { [weak self, weak password] _ in
+                guard let self, let value = password?.text, !value.isEmpty else { return }
+                password?.text = nil
+                self.openMemberRuntime(password: value, key: nil, request: request)
+            }, for: .touchUpInside)
+            let biometric = UIButton(type: .system)
+            biometric.setTitle(NSLocalizedString("credential_provider_unlock_biometric", comment: "Optional biometric unlock"), for: .normal)
+            biometric.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+            biometric.addAction(UIAction { [weak self] _ in self?.unlockMemberBiometrically(request: request, bridge: bridge) }, for: .touchUpInside)
+            [password, unlock, biometric].forEach { credentialsStack.addArrangedSubview($0) }
+        } catch { showUnavailableMessage() }
+    }
+
+    private func unlockMemberBiometrically(request: SharedMemberCredentialRequest, bridge: SharedMemberSourceBridge) {
+        guard memberRequest === request, requestActive, memberRuntime == nil else { return }
+        let context = LAContext()
+        context.localizedReason = NSLocalizedString("credential_provider_biometric_prompt", comment: "Biometric prompt")
+        authenticationContext?.invalidate()
+        authenticationContext = context
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
-                let store = try AutoFillCacheStore()
-                let preparedOperation = try store.createUnwrapOperation()
-                operation = preparedOperation
-                let result = try store.read(
-                    operation: preparedOperation,
-                    authenticationPrompt: NSLocalizedString(
-                        "credential_provider_biometric_prompt",
-                        comment: "Biometric prompt for releasing an AutoFill credential."
-                    )
-                )
-                DispatchQueue.main.async { [weak self] in
-                    guard self?.requestLifecycle.generation == generation else { return }
-                    completion(result)
+                let store = try SharedBiometricUnlock(containerURL: bridge.containerURL, accessGroup: bridge.accessGroup)
+                var key = try store.read(profileBinding: request.snapshot.profileBinding, context: context,
+                    validateOperation: { try request.validate() })
+                DispatchQueue.main.sync {
+                    defer { key.resetBytes(in: 0..<key.count) }
+                    guard let self, self.memberRequest === request, self.requestActive else { return }
+                    self.authenticationContext = nil
+                    self.openMemberRuntime(password: nil, key: key, request: request)
                 }
             } catch {
-                if let store = try? AutoFillCacheStore(), let operation {
-                    try? store.quarantine(
-                        generation: operation.generation,
-                        cacheId: operation.cacheId
-                    )
-                    AutoFillCacheStore.clearIdentities(
-                        store: store,
-                        onlyIf: { !store.hasActiveCache() }
-                    ) { _ in }
-                }
                 DispatchQueue.main.async { [weak self] in
-                    guard self?.requestLifecycle.generation == generation else { return }
-                    self?.showUnavailableMessage()
+                    guard let self, self.memberRequest === request else { return }
+                    self.authenticationContext = nil
+                    // Cancellation does not revoke the source or make password mandatory biometry.
+                    self.statusLabel.text = NSLocalizedString("credential_provider_unlock_choice", comment: "Unlock choices")
                 }
             }
         }
     }
 
-    private func show(
-        _ credentials: [AutoFillCredentialLease],
-        serviceIdentifiers: [ASCredentialServiceIdentifier]
-    ) {
-        picker = AutoFillCredentialPicker(credentials: credentials, serviceIdentifiers: serviceIdentifiers)
-        visibleServiceIdentifiers = serviceIdentifiers
-        searchBar.isHidden = !serviceIdentifiers.isEmpty
-        renderCandidates()
+    private func openMemberRuntime(password: String?, key: Data?, request: SharedMemberCredentialRequest) {
+        guard memberRequest === request, requestActive, memberRuntime == nil, let sourceBridge else { return }
+        authenticationContext?.invalidate(); authenticationContext = nil
+        credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        statusLabel.text = NSLocalizedString("credential_provider_unlocking", comment: "Unlocking")
+        let runtime = MemberCredentialRuntime(request: request) { [weak self] user, password in
+            guard let self, self.memberRequest === request, self.requestActive else { throw SharedMemberSourceError.stale }
+            self.requestActive = false
+            self.extensionContext.completeRequest(withSelectedCredential: ASPasswordCredential(user: user, password: password), completionHandler: nil)
+        }
+        memberRuntime = runtime
+        do {
+            try runtime.open(databaseURL: sourceBridge.containerURL.appendingPathComponent("member-source/vault_member_sync.db"),
+                masterPassword: password, masterKey: key, rows: { [weak self] rows in
+                    guard let self, self.memberRequest === request, self.requestActive else { return }
+                    self.allCredentials = rows
+                    self.searchBar.isHidden = !request.verifiedHosts.isEmpty
+                    self.renderCandidates()
+                }, failure: { [weak self] in
+                    guard self?.memberRequest === request else { return }
+                    self?.showUnavailableMessage()
+                })
+        } catch { showUnavailableMessage() }
     }
 
-    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        renderCandidates()
-    }
-
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.resignFirstResponder()
-    }
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) { renderCandidates() }
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) { searchBar.resignFirstResponder() }
 
     private func renderCandidates() {
-        visibleCredentials = picker?.candidates(query: searchBar.text ?? "") ?? []
+        let query = searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        visibleCredentials = allCredentials.filter { query.isEmpty || $0.label.localizedCaseInsensitiveContains(query) || $0.domains.contains(where: { $0.localizedCaseInsensitiveContains(query) }) }
         credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let manual = picker?.requiresManualConfirmation == true
-        statusLabel.text = manual
-            ? NSLocalizedString("credential_provider_manual_warning", comment: "Unverified destination warning")
-            : nil
+        let manual = memberRequest?.verifiedHosts.isEmpty == true
+        statusLabel.text = manual ? NSLocalizedString("credential_provider_manual_warning", comment: "Unverified destination warning") : nil
         if visibleCredentials.isEmpty {
-            let noMatches = NSLocalizedString("credential_provider_no_matches", comment: "No matching credentials")
-            statusLabel.text = [statusLabel.text, noMatches].compactMap { $0 }.joined(separator: "\n\n")
+            statusLabel.text = [statusLabel.text, NSLocalizedString("credential_provider_no_matches", comment: "No matches")].compactMap { $0 }.joined(separator: "\n\n")
         }
         for (index, credential) in visibleCredentials.enumerated() {
-            let record = credential.record
             let button = UIButton(type: .system)
-            let details = manual ? "\(record.username)\n\(record.domains.joined(separator: ", "))" : record.username
-            button.setTitle("\(record.label)\n\(details)", for: .normal)
+            button.setTitle("\(credential.label)\n\(credential.domains.joined(separator: ", "))", for: .normal)
             button.setImage(UIImage(systemName: "key.fill"), for: .normal)
             button.titleLabel?.numberOfLines = 0
             button.contentHorizontalAlignment = .leading
-            button.imageEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 8)
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
             button.tag = index
             button.addTarget(self, action: #selector(selectCredential(_:)), for: .touchUpInside)
             credentialsStack.addArrangedSubview(button)
@@ -388,102 +406,38 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     @objc private func selectCredential(_ sender: UIButton) {
-        guard presentedViewController == nil, requestActive,
-              visibleCredentials.indices.contains(sender.tag), let picker else { return }
-        if let credential = picker.select(recordID: visibleCredentials[sender.tag].record.id) {
-            complete(credential, serviceIdentifiers: visibleServiceIdentifiers)
+        guard presentedViewController == nil, requestActive, visibleCredentials.indices.contains(sender.tag),
+              let request = memberRequest else { return }
+        let credential = visibleCredentials[sender.tag]
+        if let host = credential.domains.first(where: { request.verifiedHosts.contains($0) }) {
+            complete(credential, host: host, manual: false)
             return
         }
-        guard let pending = picker.pendingConfirmation,
-              let confirmationID = picker.pendingConfirmationID else { return }
-        let generation = requestLifecycle.generation
-        let alert = UIAlertController(
-            title: NSLocalizedString("credential_provider_manual_confirm_title", comment: "Manual fill confirmation"),
-            message: String(format: NSLocalizedString(
-                "credential_provider_manual_confirm_message", comment: "Selected credential and domains"
-            ), pending.record.label, pending.record.domains.joined(separator: ", ")),
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(
-            title: NSLocalizedString("credential_provider_cancel", comment: "Cancel manual selection"), style: .cancel
-        ) { [weak picker] _ in picker?.cancelSelection() })
-        alert.addAction(UIAlertAction(
-            title: NSLocalizedString("credential_provider_manual_fill", comment: "Confirm one manual fill"), style: .default
-        ) { [weak self, weak picker] _ in
-            guard let self, let picker, self.picker === picker,
-                  self.requestActive, self.requestLifecycle.generation == generation,
-                  let selection = picker.confirmManualSelection(confirmationID: confirmationID) else { return }
-            self.completeManualSelection(selection)
+        guard request.verifiedHosts.isEmpty, let host = credential.domains.first else { return }
+        let alert = UIAlertController(title: NSLocalizedString("credential_provider_manual_confirm_title", comment: "Manual confirmation"),
+            message: String(format: NSLocalizedString("credential_provider_manual_confirm_message", comment: "Manual destination"), credential.label, host), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("credential_provider_cancel", comment: "Cancel"), style: .cancel))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("credential_provider_manual_fill", comment: "Fill once"), style: .default) { [weak self] _ in
+            guard let self, self.memberRequest === request, self.requestActive else { return }
+            self.complete(credential, host: host, manual: true)
         })
         present(alert, animated: true)
     }
 
-    private func completeManualSelection(_ selection: AutoFillManualSelection) {
-        do {
-            let store = try AutoFillCacheStore()
-            try store.withRevalidatedManualSelection(selection) {
-                requestActive = false
-                extensionContext.completeRequest(withSelectedCredential: ASPasswordCredential(
-                    user: selection.credential.record.username,
-                    password: selection.credential.record.password
-                ), completionHandler: nil)
-            }
-            clearCredentials()
-        } catch {
-            if let store = try? AutoFillCacheStore() {
-                try? store.quarantine(
-                    generation: selection.credential.generation,
-                    cacheId: selection.credential.cacheId
-                )
-            }
-            showUnavailableMessage()
-        }
+    private func complete(_ credential: SharedMemberCandidate, host: String, manual: Bool) {
+        do { try memberRuntime?.select(credential, host: host, manualConfirmed: manual) }
+        catch { showUnavailableMessage() }
     }
 
     private func clearCredentials() {
-        saveOperation?.cancel()
-        saveOperation = nil
-        requestActive = false
-        requestLifecycle.invalidate()
-        picker?.clear()
-        picker = nil
-        visibleCredentials.removeAll(keepingCapacity: false)
-        visibleServiceIdentifiers.removeAll(keepingCapacity: false)
+        saveOperation?.cancel(); saveOperation = nil
+        requestActive = false; requestLifecycle.invalidate()
+        authenticationContext?.invalidate(); authenticationContext = nil
+        memberRuntime?.close(); memberRuntime = nil
+        memberRequest?.cancel(); memberRequest = nil; sourceBridge = nil
+        visibleCredentials.removeAll(); allCredentials.removeAll(); visibleServiceIdentifiers.removeAll()
         credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        searchBar.text = nil
-        searchBar.isHidden = true
-    }
-
-    private func complete(
-        _ credential: AutoFillCredentialLease,
-        serviceIdentifiers: [ASCredentialServiceIdentifier]
-    ) {
-        do {
-            let store = try AutoFillCacheStore()
-            try store.withRevalidatedCredential(
-                credential,
-                serviceIdentifiers: serviceIdentifiers
-            ) {
-                let passwordCredential = ASPasswordCredential(
-                    user: credential.record.username,
-                    password: credential.record.password
-                )
-                requestActive = false
-                extensionContext.completeRequest(
-                    withSelectedCredential: passwordCredential,
-                    completionHandler: nil
-                )
-            }
-            clearCredentials()
-        } catch {
-            if let store = try? AutoFillCacheStore() {
-                try? store.quarantine(
-                    generation: credential.generation,
-                    cacheId: credential.cacheId
-                )
-            }
-            showUnavailableMessage()
-        }
+        searchBar.text = nil; searchBar.isHidden = true
     }
 
     private func requireUserInteraction() {

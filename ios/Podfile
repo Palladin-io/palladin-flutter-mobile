@@ -46,6 +46,15 @@ target 'Runner' do
   end
 end
 
+# The credential extension starts only the readonly Member runtime. Do not
+# register the app plugin graph (Firebase/account/network/UI services).
+target 'CredentialProvider' do
+  use_frameworks!
+  pod 'Flutter', :path => 'Flutter'
+  pod 'sqflite_darwin', :path => '.symlinks/plugins/sqflite_darwin/darwin'
+  pod 'sodium_libs', :path => '.symlinks/plugins/sodium_libs/darwin'
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
