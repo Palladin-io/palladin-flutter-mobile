@@ -59,6 +59,7 @@ final class DurableAutoFillRepairCoordinator {
   int? _readyEpoch;
   int _epoch = 0;
   int _sequence = 0;
+  int? _retriedSequence;
   final Set<AutoFillRepairDeny> _repairDenies = {};
   bool _disposed = false;
   _AutoFillPublication? _publication;
@@ -131,6 +132,9 @@ final class DurableAutoFillRepairCoordinator {
       }
       return false;
     }
+    _retriedSequence = null;
+    _retry?.cancel();
+    _retry = null;
     final epoch = _epoch;
     final completeVaultIds = Set<String>.unmodifiable(vaultIds);
     _installKnownVaults(completeVaultIds);
@@ -199,6 +203,7 @@ final class DurableAutoFillRepairCoordinator {
     _foregroundRetry?.cancel();
     _foregroundRetry = null;
     _epoch += 1;
+    _retriedSequence = null;
     _publication = null;
     _knownVaultIds.clear();
     _pending.clear();
@@ -225,6 +230,7 @@ final class DurableAutoFillRepairCoordinator {
       if (identical(_running, operation)) _running = null;
       if (_pending.isNotEmpty &&
           _retry == null &&
+          _retriedSequence != _sequence &&
           _repairDenies.isEmpty &&
           !_disposed &&
           _readyEpoch == _epoch &&
@@ -273,6 +279,7 @@ final class DurableAutoFillRepairCoordinator {
           !identical(_readySessionIdentity, initialSession.identity)) {
         return;
       }
+      var attemptedSequence = _sequence;
       try {
         var covered = Map<String, int>.from(_pending);
         while (true) {
@@ -296,6 +303,7 @@ final class DurableAutoFillRepairCoordinator {
           if (_epoch == initialEpoch) _pending.clear();
           return;
         }
+        attemptedSequence = _sequence;
         await _publishPrepared(
           currentSession,
           Set<String>.from(_knownVaultIds),
@@ -310,9 +318,21 @@ final class DurableAutoFillRepairCoordinator {
       } catch (error) {
         if (_epoch != initialEpoch) return;
         onFailure?.call(error);
+        // Keep the committed work pending, but do not rebuild forever for a
+        // permanent native failure. New commits/lifecycle attempts can retry.
+        if (_retriedSequence == attemptedSequence) return;
+        _retriedSequence = attemptedSequence;
+        final principalId = initialSession.principalId;
+        final identity = initialSession.identity;
         _retry ??= Timer(retryDelay, () {
           _retry = null;
-          if (!_disposed) unawaited(drainPending());
+          final current = _currentSession();
+          if (!_disposed &&
+              _epoch == initialEpoch &&
+              current?.principalId == principalId &&
+              identical(current?.identity, identity)) {
+            unawaited(drainPending());
+          }
         });
         return;
       }

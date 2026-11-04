@@ -510,6 +510,100 @@ void main() {
     });
   });
 
+  test(
+    'permanent durable failure retries once, preserving pending work for new events',
+    () {
+      fakeAsync((clock) {
+        unawaited(coordinator.dispose());
+        coordinator = DurableAutoFillRepairCoordinator(
+          memberIndexes: indexes,
+          autoFill: autoFill,
+          currentSession: () => session,
+          retryDelay: const Duration(hours: 1),
+        )..start();
+        var attempts = 0;
+        var failing = true;
+        when(
+          () => autoFill.synchronizePrepared(
+            privateKey: any(named: 'privateKey'),
+            vaultIds: any(named: 'vaultIds'),
+          ),
+        ).thenAnswer((_) async {
+          attempts++;
+          if (failing) throw StateError('native unavailable');
+        });
+        coordinator.replaceKnownVaults(const ['vault-a']);
+        updates.add('vault-a');
+        clock.flushMicrotasks();
+        clock.elapse(const Duration(hours: 5));
+        expect(attempts, 2);
+        updates.add('vault-a');
+        clock.flushMicrotasks();
+        clock.elapse(const Duration(hours: 5));
+        expect(attempts, 4);
+        failing = false;
+        coordinator.synchronizePreparedIfAllowed(
+          privateKey: session!.privateKey,
+          vaultIds: const ['vault-a'],
+        );
+        clock.flushMicrotasks();
+        clock.elapse(const Duration(hours: 5));
+        expect(attempts, 5);
+        coordinator.drainPending();
+        clock.flushMicrotasks();
+        expect(attempts, 5);
+      });
+    },
+  );
+
+  for (final change in ['lock', 'identity', 'principal', 'deny']) {
+    test('durable automatic retry stops after $change', () {
+      fakeAsync((clock) {
+        unawaited(coordinator.dispose());
+        coordinator = DurableAutoFillRepairCoordinator(
+          memberIndexes: indexes,
+          autoFill: autoFill,
+          currentSession: () => session,
+          retryDelay: const Duration(hours: 1),
+        )..start();
+        var attempts = 0;
+        when(
+          () => autoFill.synchronizePrepared(
+            privateKey: any(named: 'privateKey'),
+            vaultIds: any(named: 'vaultIds'),
+          ),
+        ).thenAnswer((_) async {
+          attempts++;
+          throw StateError('native unavailable');
+        });
+        coordinator.replaceKnownVaults(const ['vault-a']);
+        updates.add('vault-a');
+        clock.flushMicrotasks();
+        switch (change) {
+          case 'lock':
+            session = null;
+            coordinator.clearSession();
+          case 'identity':
+            session = AutoFillRepairSession(
+              principalId: 'principal-1',
+              identity: Object(),
+              privateKey: Uint8List(32),
+            );
+          case 'principal':
+            session = AutoFillRepairSession(
+              principalId: 'principal-2',
+              identity: sessionIdentity,
+              privateKey: Uint8List(32),
+            );
+          case 'deny':
+            coordinator.suspendRepairs();
+        }
+        clock.elapse(const Duration(hours: 5));
+        expect(attempts, 1);
+      });
+    });
+  }
+
   test('permanent foreground failure has only one automatic retry', () {
     fakeAsync((clock) {
       var attempts = 0;
