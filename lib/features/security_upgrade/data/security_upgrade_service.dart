@@ -1,18 +1,21 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:sodium/sodium_sumo.dart';
 
 import '../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../core/crypto/sodium_provider.dart';
+import '../../../core/permissions.dart';
+import '../../../core/utils/jwt_claims.dart';
 import '../../../core/storage/account_secret_store.dart';
 import '../../auth/data/services/account_key_material_service.dart';
-import '../../onboarding/domain/mnemonic.dart' as mnemonic;
 import '../../unlock/data/models/account_response.dart';
 import '../../unlock/data/services/identity_kdf_service.dart';
 import '../../vault/data/datasources/vault_remote_datasource.dart';
+import '../../vault/data/services/agent_message_key_migration_service.dart';
 import '../../vault/data/services/vault_rotation_crypto_service.dart';
 import 'security_upgrade_remote_datasource.dart';
 
@@ -28,7 +31,6 @@ final class UpgradedAccountKeys {
     required this.legacyPrivateKey,
     required this.legacyKeyVersion,
     this.accountSecret,
-    this.recoveryMnemonic,
   });
 
   final String accountId;
@@ -41,9 +43,6 @@ final class UpgradedAccountKeys {
 
   /// Present only right after the commit, for the Emergency Kit step.
   final Uint8List? accountSecret;
-
-  /// Present only right after the commit, for the recovery phrase step.
-  final List<String>? recoveryMnemonic;
 
   void wipeLegacy() =>
       legacyPrivateKey.fillRange(0, legacyPrivateKey.length, 0);
@@ -76,6 +75,8 @@ class SecurityUpgradeService {
     required this._vaults,
     required this._identityKdf,
     required this._accountSecrets,
+    required this._messageKeys,
+    required this._accessToken,
     Future<SodiumSumo> Function()? sodiumLoader,
   }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
@@ -83,6 +84,10 @@ class SecurityUpgradeService {
   final VaultRemoteDatasource _vaults;
   final IdentityKdfService _identityKdf;
   final AccountSecretStore _accountSecrets;
+  final AgentMessageKeyMigrationService _messageKeys;
+
+  /// Current session token; its claims scope the per-organization steps.
+  final Future<String?> Function() _accessToken;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
   AccountKeyMaterialService get _material => AccountKeyMaterialService(
@@ -99,6 +104,7 @@ class SecurityUpgradeService {
     required String password,
     required AccountResponse account,
     required Uint8List legacyPrivateKey,
+    required List<String> recoveryMnemonic,
   }) async {
     final kdf = account.kdf;
     final legacyKeyVersion = account.memberKeyVersion;
@@ -112,13 +118,12 @@ class SecurityUpgradeService {
       kdfSalt: currentSalt,
     );
     currentSalt.fillRange(0, currentSalt.length, 0);
-    final phrase = mnemonic.generateRecoveryMnemonic();
     AccountKeyMaterialV2? material;
     try {
       material = await _material.build(
         password: password,
         accountId: account.userId,
-        recoveryMnemonic: phrase,
+        recoveryMnemonic: recoveryMnemonic,
       );
       final legacyWrapped = await _material.wrapUnderMasterKey(
         material.masterKey,
@@ -158,7 +163,6 @@ class SecurityUpgradeService {
         legacyPrivateKey: Uint8List.fromList(legacyPrivateKey),
         legacyKeyVersion: legacyKeyVersion,
         accountSecret: Uint8List.fromList(material.accountSecret),
-        recoveryMnemonic: phrase,
       );
       return keys;
     } finally {
@@ -195,10 +199,9 @@ class SecurityUpgradeService {
     );
   }
 
-  /// Re-wraps every member Vault key still addressed to the old key as the
-  /// next member key generation, then deletes the legacy key record once the
-  /// backend reports no member envelope left.
-  Future<KeyMigrationReport> rewrapMemberEnvelopes(
+  /// Re-wraps every member Vault key of the current organization still
+  /// addressed to the old key.
+  Future<void> rewrapMemberEnvelopes(
     UpgradedAccountKeys keys, {
     void Function(RewrapProgress progress)? onProgress,
   }) async {
@@ -238,13 +241,75 @@ class SecurityUpgradeService {
       );
       onProgress?.call(RewrapProgress(done: index + 1, total: pending.length));
     }
+  }
+
+  /// Vault managers publish an active-suite Agent message key for every Vault
+  /// still on another suite; Vaults the member may not manage stay for their
+  /// managers. Returns how many Vaults were migrated.
+  Future<int> migrateAgentMessageKeys(
+    Uint8List memberPrivateKey, {
+    void Function(RewrapProgress progress)? onProgress,
+  }) async {
+    final token = await _accessToken();
+    if (token == null ||
+        JwtClaims.permissionsFrom(token) & Permissions.vaultManage == 0) {
+      return 0;
+    }
+    final pending = <String>[];
+    var offset = 0;
+    while (true) {
+      final page = await _vaults.listEncryptedVaults(offset: offset);
+      for (final summary in page.vaults) {
+        final vault = await _vaults.getEncryptedVault(summary.id);
+        if (AgentMessageKeyMigrationService.needsMigration(vault)) {
+          pending.add(summary.id);
+        }
+      }
+      offset += page.vaults.length;
+      if (page.vaults.isEmpty || offset >= page.total) break;
+    }
+    onProgress?.call(RewrapProgress(done: 0, total: pending.length));
+    var migrated = 0;
+    for (var index = 0; index < pending.length; index++) {
+      try {
+        if (await _messageKeys.migrate(
+          vaultId: pending[index],
+          memberPrivateKey: memberPrivateKey,
+        )) {
+          migrated++;
+        }
+      } on DioException catch (error) {
+        if (error.response?.statusCode != 403) rethrow;
+      }
+      onProgress?.call(RewrapProgress(done: index + 1, total: pending.length));
+    }
+    return migrated;
+  }
+
+  /// The legacy member key is account-wide: it is deleted only when no
+  /// envelope in any organization addresses it. Organizations listed in
+  /// [KeyMigrationReport.organizationIdsPendingRewrap] re-wrap on a later
+  /// unlock there.
+  Future<KeyMigrationReport> cleanUp(UpgradedAccountKeys keys) async {
     final report = await _remote.report();
-    // Other organizations re-wrap on their own unlock; the legacy key stays
-    // until no envelope in any organization addresses it.
     if (report.accountMemberEnvelopesPendingRewrap == 0) {
       await _remote.deleteLegacyMemberKey(keys.legacyKeyVersion);
     }
     return report;
+  }
+
+  /// Whether this unlock has upgrade work: envelopes of the session's
+  /// organization to re-wrap, or nothing left anywhere so the legacy key can
+  /// be deleted. Other organizations resume when the member unlocks there.
+  Future<bool> hasPendingWorkHere() async {
+    final token = await _accessToken();
+    final organizationId = token == null
+        ? null
+        : JwtClaims.organizationIdFrom(token);
+    final report = await _remote.report();
+    return report.accountMemberEnvelopesPendingRewrap == 0 ||
+        report.memberEnvelopesPendingRewrap > 0 ||
+        report.organizationIdsPendingRewrap.contains(organizationId);
   }
 
   Future<void> _rewrapOne({

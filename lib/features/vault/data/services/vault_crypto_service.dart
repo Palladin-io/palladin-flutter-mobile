@@ -207,6 +207,45 @@ class VaultCryptoService {
         );
   }
 
+  /// Seals a Vault private key (message key or manifest seed) under the VK
+  /// as a descriptor-based `vaultPrivateKeys` envelope.
+  Future<Map<String, Object>> sealVaultPrivateKey({
+    required String organizationId,
+    required String vaultId,
+    required EnvelopePurpose purpose,
+    required int resourceRevision,
+    required int keyVersion,
+    required int memberKeyGeneration,
+    required int vaultKeyVersion,
+    required Uint8List privateKey,
+    required Uint8List vaultKey,
+  }) async {
+    if (purpose != EnvelopePurpose.agentMessagePrivateByVk &&
+        purpose != EnvelopePurpose.manifestPrivateByVk) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final descriptor = EnvelopeDescriptor(
+      purpose: purpose,
+      scope: EnvelopeScope(
+        organizationId: EnvelopeId.parse(organizationId),
+        vaultId: EnvelopeId.parse(vaultId),
+      ),
+      resourceRevision: resourceRevision,
+      keyVersion: keyVersion,
+      memberKeyGeneration: memberKeyGeneration,
+      purposeData: WrappingPurposeData(
+        wrappingVaultKeyVersion: vaultKeyVersion,
+      ),
+    );
+    final payload = await XChaChaVaultEnvelopeSuite(
+      sodiumLoader: _sodiumLoader,
+    ).seal(descriptor: descriptor, rootKey: vaultKey, plaintext: privateKey);
+    return VaultOpaqueEnvelopeModel(
+      descriptor: _descriptorJson(descriptor),
+      encodedSuitePayload: payload.toBase64Url(),
+    ).toJson();
+  }
+
   /// Seals the next canonical MemberVaultMetadata revision using the exact
   /// protocol-v2 descriptor contract consumed by backend and web.
   Future<Map<String, dynamic>> sealMemberVaultMetadata({

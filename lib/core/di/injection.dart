@@ -140,6 +140,7 @@ import '../../features/vault/data/services/member_entry_list_service.dart';
 import '../../features/vault/data/services/member_index_preparation_service.dart';
 import '../../features/vault/data/services/member_vault_key_context_store.dart';
 import '../../features/vault/data/services/totp_service.dart';
+import '../../features/vault/data/services/agent_message_key_migration_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
@@ -381,6 +382,13 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultRemoteDatasource>(),
       identityKdf: getIt<IdentityKdfService>(),
       accountSecrets: getIt<AccountSecretStore>(),
+      messageKeys: AgentMessageKeyMigrationService(
+        rotations: getIt<VaultRotationRemoteDatasource>(),
+        vaults: getIt<VaultRemoteDatasource>(),
+        vaultCrypto: getIt<VaultCryptoService>(),
+        rotationCrypto: getIt<VaultRotationCryptoService>(),
+      ),
+      accessToken: () => getIt<SecureTokenStorage>().accessToken,
     ),
   );
   getIt.registerFactory<UnlockCubit>(

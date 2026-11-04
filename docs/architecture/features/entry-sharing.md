@@ -1075,8 +1075,8 @@ strings/keys, put them in route state, or send them to logs or analytics.
 ## Verification
 
 `test/features/vault/entry_share_crypto_test.dart` loads native libsodium and
-**fails**, rather than skips, if the library is unavailable. On macOS, provide
-`PALLADIN_LIBSODIUM_PATH` for the test-host dylib; Linux uses `libsodium.so`.
+**fails**, rather than skips, if the library is unavailable. The `sodium`
+package builds libsodium 1.0.22 for the test host in its native-asset hook.
 Tests consume the same independently generated public fixture as web, check exact
 AAD/decryption, and decrypt mobile-produced ciphertext with the fixture AAD.
 Negative cases cover scope/key/nonce/ciphertext substitution, invalid authenticated

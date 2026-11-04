@@ -36,7 +36,7 @@ class SecurityUpgradePage extends StatelessWidget {
                 service: getIt<SecurityUpgradeService>(),
                 start: start,
               ))
-          ..run(),
+          ..start(),
     child: const _SecurityUpgradeView(),
   );
 }

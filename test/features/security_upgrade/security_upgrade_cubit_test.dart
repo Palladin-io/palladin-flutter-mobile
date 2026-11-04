@@ -23,11 +23,11 @@ UpgradedAccountKeys _keys({bool fresh = true}) => UpgradedAccountKeys(
   legacyPrivateKey: Uint8List.fromList(List.filled(32, 3)),
   legacyKeyVersion: 1,
   accountSecret: fresh ? Uint8List.fromList(List.filled(32, 4)) : null,
-  recoveryMnemonic: fresh ? _words : null,
 );
 
 void main() {
   late _Service service;
+  late List<String> calls;
 
   setUpAll(() {
     registerFallbackValue(_keys());
@@ -37,16 +37,30 @@ void main() {
 
   setUp(() {
     service = _Service();
+    calls = [];
     when(
       () => service.rewrapMemberEnvelopes(
         any(),
         onProgress: any(named: 'onProgress'),
       ),
     ).thenAnswer((call) async {
+      calls.add('rewrap');
       final onProgress =
           call.namedArguments[#onProgress] as void Function(RewrapProgress)?;
       onProgress?.call(const RewrapProgress(done: 0, total: 2));
       onProgress?.call(const RewrapProgress(done: 2, total: 2));
+    });
+    when(
+      () => service.migrateAgentMessageKeys(
+        any(),
+        onProgress: any(named: 'onProgress'),
+      ),
+    ).thenAnswer((_) async {
+      calls.add('messageKeys');
+      return 1;
+    });
+    when(() => service.cleanUp(any())).thenAnswer((_) async {
+      calls.add('cleanUp');
       return const KeyMigrationReport(
         memberEnvelopesPendingRewrap: 0,
         agentEnvelopesOnNonCurrentSuite: 1,
@@ -60,39 +74,68 @@ void main() {
     legacyPrivateKey: Uint8List.fromList(List.filled(32, 3)),
   );
 
-  void stubCommit(Future<UpgradedAccountKeys> Function() answer) => when(
-    () => service.commit(
-      migrationId: any(named: 'migrationId'),
-      password: any(named: 'password'),
-      account: any(named: 'account'),
-      legacyPrivateKey: any(named: 'legacyPrivateKey'),
-    ),
-  ).thenAnswer((_) => answer());
+  void stubCommit(Future<UpgradedAccountKeys> Function() answer) =>
+      when(
+        () => service.commit(
+          migrationId: any(named: 'migrationId'),
+          password: any(named: 'password'),
+          account: any(named: 'account'),
+          legacyPrivateKey: any(named: 'legacyPrivateKey'),
+          recoveryMnemonic: any(named: 'recoveryMnemonic'),
+        ),
+      ).thenAnswer((_) {
+        calls.add('commit');
+        return answer();
+      });
+
+  SecurityUpgradeCubit freshCubit() => SecurityUpgradeCubit(
+    service: service,
+    start: freshStart(),
+    random: Random(1),
+    generatePhrase: () => _words,
+  );
+
+  Future<void> confirm(SecurityUpgradeCubit cubit) async {
+    cubit.acknowledgePhrase();
+    final positions = (cubit.state as SecurityUpgradeConfirmPhrase).positions;
+    await cubit.confirmPhrase([
+      for (final position in positions) _words[position - 1],
+    ]);
+  }
 
   test(
-    'fresh upgrade commits, re-wraps, then confirms the phrase and kit',
+    'the phrase is confirmed before the commit, the kit comes last',
     () async {
       stubCommit(() async => _keys());
-      final cubit = SecurityUpgradeCubit(
-        service: service,
-        start: freshStart(),
-        random: Random(1),
-      );
+      final cubit = freshCubit();
       addTearDown(cubit.close);
 
-      await cubit.run();
+      await cubit.start();
       expect(cubit.state, isA<SecurityUpgradeRecoveryPhrase>());
-
       cubit.acknowledgePhrase();
-      final confirm = cubit.state as SecurityUpgradeConfirmPhrase;
-      expect(confirm.positions, hasLength(3));
-
-      cubit.confirmPhrase(['wrong', 'wrong', 'wrong']);
+      await cubit.confirmPhrase(['wrong', 'wrong', 'wrong']);
       expect((cubit.state as SecurityUpgradeConfirmPhrase).mismatch, isTrue);
+      expect(
+        calls,
+        isEmpty,
+        reason: 'nothing is committed before confirmation',
+      );
 
-      cubit.confirmPhrase([
-        for (final position in confirm.positions) _words[position - 1],
+      final positions = (cubit.state as SecurityUpgradeConfirmPhrase).positions;
+      await cubit.confirmPhrase([
+        for (final position in positions) _words[position - 1],
       ]);
+
+      expect(calls, ['commit', 'rewrap', 'messageKeys', 'cleanUp']);
+      verify(
+        () => service.commit(
+          migrationId: any(named: 'migrationId'),
+          password: any(named: 'password'),
+          account: any(named: 'account'),
+          legacyPrivateKey: any(named: 'legacyPrivateKey'),
+          recoveryMnemonic: _words,
+        ),
+      ).called(1);
       expect(cubit.state, isA<SecurityUpgradeEmergencyKit>());
       expect(cubit.emergencyKitSecret, Uint8List.fromList(List.filled(32, 4)));
 
@@ -114,6 +157,7 @@ void main() {
           password: any(named: 'password'),
           account: any(named: 'account'),
           legacyPrivateKey: any(named: 'legacyPrivateKey'),
+          recoveryMnemonic: any(named: 'recoveryMnemonic'),
         ),
       ).thenAnswer((call) async {
         ids.add(call.namedArguments[#migrationId] as String);
@@ -124,75 +168,59 @@ void main() {
         }
         return _keys();
       });
-      final cubit = SecurityUpgradeCubit(service: service, start: freshStart());
+      final cubit = freshCubit();
       addTearDown(cubit.close);
 
-      await cubit.run();
+      await cubit.start();
+      await confirm(cubit);
       final stopped = cubit.state as SecurityUpgradeProgress;
       expect(stopped.error, SecurityUpgradeErrorKind.network);
       expect(stopped.accountKey, UpgradeStepStatus.failed);
 
       await cubit.retry();
-      expect(cubit.state, isA<SecurityUpgradeRecoveryPhrase>());
+      expect(cubit.state, isA<SecurityUpgradeEmergencyKit>());
       expect(ids.toSet(), hasLength(1));
     },
   );
 
-  test('a failed re-wrap resumes without committing again', () async {
+  test('a failed message-key step resumes without committing again', () async {
     stubCommit(() async => _keys());
-    var rewraps = 0;
+    var attempts = 0;
     when(
-      () => service.rewrapMemberEnvelopes(
+      () => service.migrateAgentMessageKeys(
         any(),
         onProgress: any(named: 'onProgress'),
       ),
     ).thenAnswer((_) async {
-      if (rewraps++ == 0) {
+      if (attempts++ == 0) {
         throw const SecurityUpgradeException(SecurityUpgradeErrorKind.network);
       }
-      return const KeyMigrationReport(
-        memberEnvelopesPendingRewrap: 0,
-        agentEnvelopesOnNonCurrentSuite: 0,
-      );
+      return 0;
     });
-    final cubit = SecurityUpgradeCubit(service: service, start: freshStart());
+    final cubit = freshCubit();
     addTearDown(cubit.close);
 
-    await cubit.run();
-    expect(
-      (cubit.state as SecurityUpgradeProgress).vaults,
-      UpgradeStepStatus.failed,
-    );
-    await cubit.retry();
+    await cubit.start();
+    await confirm(cubit);
+    final stopped = cubit.state as SecurityUpgradeProgress;
+    expect(stopped.agents, UpgradeStepStatus.failed);
+    verifyNever(() => service.cleanUp(any()));
 
-    expect(cubit.state, isA<SecurityUpgradeRecoveryPhrase>());
-    verify(
-      () => service.commit(
-        migrationId: any(named: 'migrationId'),
-        password: any(named: 'password'),
-        account: any(named: 'account'),
-        legacyPrivateKey: any(named: 'legacyPrivateKey'),
-      ),
-    ).called(1);
+    await cubit.retry();
+    expect(cubit.state, isA<SecurityUpgradeEmergencyKit>());
+    expect(calls.where((call) => call == 'commit'), hasLength(1));
   });
 
-  test('a resumed upgrade only re-wraps and finishes', () async {
+  test('a resumed upgrade re-wraps, migrates and finishes', () async {
     final cubit = SecurityUpgradeCubit(
       service: service,
       start: ResumedSecurityUpgrade(_keys(fresh: false)),
     );
     addTearDown(cubit.close);
 
-    await cubit.run();
+    await cubit.start();
 
     expect(cubit.state, isA<SecurityUpgradeDone>());
-    verifyNever(
-      () => service.commit(
-        migrationId: any(named: 'migrationId'),
-        password: any(named: 'password'),
-        account: any(named: 'account'),
-        legacyPrivateKey: any(named: 'legacyPrivateKey'),
-      ),
-    );
+    expect(calls, ['rewrap', 'messageKeys', 'cleanUp']);
   });
 }

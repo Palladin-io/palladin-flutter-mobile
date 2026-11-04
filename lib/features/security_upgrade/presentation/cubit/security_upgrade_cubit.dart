@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../onboarding/domain/mnemonic.dart' as mnemonic;
 import '../../data/security_upgrade_remote_datasource.dart';
 import '../../data/security_upgrade_service.dart';
 import '../../domain/security_upgrade_start.dart';
@@ -87,19 +88,27 @@ final class SecurityUpgradeDone extends SecurityUpgradeState {
   final Uint8List privateKey;
 }
 
-/// Runs the resumable upgrade: commit, member re-wrap, recovery phrase,
-/// Emergency Kit. Network errors stop at the current step and `retry`
-/// continues without repeating finished work.
+/// Runs the resumable upgrade. A fresh upgrade first shows the new recovery
+/// phrase and has it confirmed, then commits (the Secret Key is stored on the
+/// device before the request), re-wraps member envelopes, migrates Vault
+/// Agent message keys and shows the Emergency Kit. Network errors stop at the
+/// current step and `retry` continues without repeating finished work.
 class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
   SecurityUpgradeCubit({
     required this._service,
     required SecurityUpgradeStart start,
     Random? random,
+    List<String> Function()? generatePhrase,
   }) : _start = start,
        _random = random ?? Random.secure(),
        super(const SecurityUpgradeProgress()) {
     _migrationId = _uuid();
-    if (start case ResumedSecurityUpgrade(:final keys)) _keys = keys;
+    switch (start) {
+      case ResumedSecurityUpgrade(:final keys):
+        _keys = keys;
+      case FreshSecurityUpgrade():
+        _phrase = (generatePhrase ?? mnemonic.generateRecoveryMnemonic)();
+    }
   }
 
   final SecurityUpgradeService _service;
@@ -107,6 +116,8 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
   final Random _random;
   late final String _migrationId;
   UpgradedAccountKeys? _keys;
+  List<String>? _phrase;
+  bool _phraseConfirmed = false;
   List<int> _positions = const [];
 
   /// Secret Key for the Emergency Kit step; owned by this cubit.
@@ -116,6 +127,17 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
     final SecurityUpgradeProgress progress => progress,
     _ => const SecurityUpgradeProgress(),
   };
+
+  /// Entry point: a fresh upgrade starts at the recovery phrase, a resumed
+  /// one goes straight to the re-wrap.
+  Future<void> start() async {
+    final phrase = _phrase;
+    if (phrase != null && !_phraseConfirmed) {
+      emit(SecurityUpgradeRecoveryPhrase(phrase));
+      return;
+    }
+    await run();
+  }
 
   Future<void> run() async {
     if (isClosed) return;
@@ -131,18 +153,20 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
           password: fresh.password,
           account: fresh.account,
           legacyPrivateKey: fresh.legacyPrivateKey,
+          recoveryMnemonic: _phrase!,
         );
         fresh.dispose();
       }
       if (isClosed) return;
+      final keys = _keys!;
       emit(
         progress = progress.copyWith(
           accountKey: UpgradeStepStatus.done,
           vaults: UpgradeStepStatus.running,
         ),
       );
-      final report = await _service.rewrapMemberEnvelopes(
-        _keys!,
+      await _service.rewrapMemberEnvelopes(
+        keys,
         onProgress: (value) {
           if (isClosed) return;
           emit(
@@ -154,22 +178,35 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
         },
       );
       if (isClosed) return;
-      _keys!.wipeLegacy();
+      emit(
+        progress = progress.copyWith(
+          vaults: UpgradeStepStatus.done,
+          agents: UpgradeStepStatus.running,
+        ),
+      );
+      await _service.migrateAgentMessageKeys(keys.memberPrivateKey);
+      if (isClosed) return;
+      final report = await _service.cleanUp(keys);
+      if (isClosed) return;
+      keys.wipeLegacy();
       // Agent envelopes are re-wrapped after each agent rotates its own key;
       // they never block the member's upgrade.
       emit(
         progress = progress.copyWith(
-          vaults: UpgradeStepStatus.done,
           agents: report.agentEnvelopesOnNonCurrentSuite == 0
               ? UpgradeStepStatus.done
               : UpgradeStepStatus.waiting,
         ),
       );
-      final words = _keys!.recoveryMnemonic;
-      if (words == null) {
+      if (keys.accountSecret == null) {
         _finish();
       } else {
-        emit(SecurityUpgradeRecoveryPhrase(words));
+        emit(
+          SecurityUpgradeEmergencyKit(
+            email: keys.email,
+            accountId: keys.accountId,
+          ),
+        );
       }
     } catch (error) {
       AppLogger.w(
@@ -184,7 +221,12 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
         progress.copyWith(
           error: kind,
           accountKey: _keys == null ? UpgradeStepStatus.failed : null,
-          vaults: _keys == null ? null : UpgradeStepStatus.failed,
+          vaults: _keys != null && progress.vaults == UpgradeStepStatus.running
+              ? UpgradeStepStatus.failed
+              : null,
+          agents: progress.agents == UpgradeStepStatus.running
+              ? UpgradeStepStatus.failed
+              : null,
         ),
       );
     }
@@ -193,7 +235,7 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
   Future<void> retry() => run();
 
   void acknowledgePhrase() {
-    final words = _keys?.recoveryMnemonic;
+    final words = _phrase;
     if (words == null) return;
     final positions = <int>{};
     while (positions.length < 3) {
@@ -204,17 +246,15 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
   }
 
   void backToPhrase() {
-    final words = _keys?.recoveryMnemonic;
+    final words = _phrase;
     if (words != null) emit(SecurityUpgradeRecoveryPhrase(words));
   }
 
   /// [answers] are the words typed for [SecurityUpgradeConfirmPhrase.positions].
-  void confirmPhrase(List<String> answers) {
-    final keys = _keys;
-    final words = keys?.recoveryMnemonic;
-    if (keys == null || words == null || answers.length != _positions.length) {
-      return;
-    }
+  /// A confirmed phrase starts the commit.
+  Future<void> confirmPhrase(List<String> answers) async {
+    final words = _phrase;
+    if (words == null || answers.length != _positions.length) return;
     final matches = [
       for (var i = 0; i < _positions.length; i++)
         answers[i].trim().toLowerCase() == words[_positions[i] - 1],
@@ -223,9 +263,9 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
       emit(SecurityUpgradeConfirmPhrase(positions: _positions, mismatch: true));
       return;
     }
-    emit(
-      SecurityUpgradeEmergencyKit(email: keys.email, accountId: keys.accountId),
-    );
+    _phraseConfirmed = true;
+    emit(const SecurityUpgradeProgress());
+    await run();
   }
 
   void acknowledgeEmergencyKit() => _finish();

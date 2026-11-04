@@ -31,6 +31,25 @@ class VaultRotationRemoteDatasource {
         .toList(growable: false);
   }
 
+  /// Starts (or returns the open) agent-message-only `ProtocolMigration`
+  /// rotation; null when the Vault's message key is already current (409).
+  Future<VaultRotationModel?> startAgentMessageKeyMigration(
+    String vaultId,
+    CancelToken cancelToken,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/key-rotations/agent-message-key-migration',
+      data: const <String, Object?>{},
+      options: Options(
+        validateStatus: (status) =>
+            status == 200 || status == 201 || status == 409,
+      ),
+      cancelToken: cancelToken,
+    );
+    if (response.statusCode == 409) return null;
+    return VaultRotationModel.fromJson(_body(response));
+  }
+
   Future<VaultRotationClaimModel> claim(
     String vaultId,
     String rotationId,

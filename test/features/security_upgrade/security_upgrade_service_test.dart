@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
+import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/storage/account_secret_store.dart';
 import 'package:mobile_palladin/features/security_upgrade/data/security_upgrade_remote_datasource.dart';
 import 'package:mobile_palladin/features/security_upgrade/data/security_upgrade_service.dart';
@@ -11,6 +13,7 @@ import 'package:mobile_palladin/features/unlock/data/models/account_response.dar
 import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/encrypted_vault_summary_model.dart';
+import 'package:mobile_palladin/features/vault/data/services/agent_message_key_migration_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sodium/sodium_sumo.dart';
@@ -25,6 +28,8 @@ class _Vaults extends Mock implements VaultRemoteDatasource {}
 
 class _Secrets extends Mock implements AccountSecretStore {}
 
+class _MessageKeys extends Mock implements AgentMessageKeyMigrationService {}
+
 const _org = '11111111-1111-4111-8111-111111111111';
 const _vault = '22222222-2222-4222-8222-222222222222';
 const _member = '44444444-4444-4444-8444-444444444444';
@@ -34,6 +39,8 @@ void main() {
   late _Remote remote;
   late _Vaults vaults;
   late _Secrets secrets;
+  late _MessageKeys messageKeys;
+  late String? token;
   late SecurityUpgradeService service;
   final calls = <String>[];
 
@@ -49,6 +56,8 @@ void main() {
     remote = _Remote();
     vaults = _Vaults();
     secrets = _Secrets();
+    messageKeys = _MessageKeys();
+    token = _token(Permissions.vaultManage);
     when(() => secrets.write(any(), any())).thenAnswer((_) async {
       calls.add('store-secret');
     });
@@ -57,6 +66,8 @@ void main() {
       vaults: vaults,
       identityKdf: IdentityKdfService(sodiumLoader: () async => sodium),
       accountSecrets: secrets,
+      messageKeys: messageKeys,
+      accessToken: () async => token,
       sodiumLoader: () async => sodium,
     );
   });
@@ -71,6 +82,7 @@ void main() {
         return const SecurityUpgradeCommit(memberKeyVersion: 2);
       });
       final legacy = sodium.randombytes.buf(32);
+      final phrase = List.generate(24, (i) => 'abandon');
 
       final keys = await service.commit(
         migrationId: '0f0e0d0c-0b0a-4908-8706-050403020100',
@@ -88,6 +100,7 @@ void main() {
           ),
         ),
         legacyPrivateKey: legacy,
+        recoveryMnemonic: phrase,
       );
       addTearDown(keys.dispose);
 
@@ -109,9 +122,7 @@ void main() {
       ]) {
         expect(wire, isNot(contains(b64url(secret))));
       }
-      for (final word in keys.recoveryMnemonic!) {
-        expect(wire, isNot(contains('"$word"')));
-      }
+      expect(wire, isNot(contains(phrase.join(' '))));
       expect(keys.memberKeyVersion, 2);
     },
   );
@@ -187,6 +198,7 @@ void main() {
       );
 
       await service.rewrapMemberEnvelopes(keys);
+      await service.cleanUp(keys);
 
       expect(replaced!['expectedRecipientKeyVersion'], 1);
       final wrapped = Map<String, dynamic>.from(
@@ -232,27 +244,139 @@ void main() {
     );
 
     await service.rewrapMemberEnvelopes(keys);
+    await service.cleanUp(keys);
 
     verifyNever(() => remote.deleteLegacyMemberKey(any()));
   });
+
+  group('resume per organization', () {
+    void report({
+      int current = 0,
+      int account = 0,
+      List<String> organizations = const [],
+    }) => when(() => remote.report()).thenAnswer(
+      (_) async => KeyMigrationReport(
+        memberEnvelopesPendingRewrap: current,
+        accountMemberEnvelopesPendingRewrap: account,
+        organizationIdsPendingRewrap: organizations,
+        agentEnvelopesOnNonCurrentSuite: 0,
+      ),
+    );
+
+    test('an organization with pending envelopes resumes', () async {
+      report(current: 1, account: 3, organizations: [_org, 'other']);
+      expect(await service.hasPendingWorkHere(), isTrue);
+    });
+
+    test('an organization already re-wrapped skips the screen', () async {
+      report(account: 2, organizations: ['other']);
+      expect(await service.hasPendingWorkHere(), isFalse);
+    });
+
+    test('nothing pending anywhere resumes to delete the legacy key', () async {
+      report();
+      expect(await service.hasPendingWorkHere(), isTrue);
+    });
+  });
+
+  group('Vault Agent message keys', () {
+    Map<String, dynamic> vault(String id, String? suite) => {
+      'id': id,
+      'vaultAgentMessageKeySuiteId': ?suite,
+    };
+
+    setUp(() {
+      when(
+        () => vaults.listEncryptedVaults(offset: any(named: 'offset')),
+      ).thenAnswer(
+        (_) async => EncryptedVaultPage(
+          vaults: [
+            _summaryWithId('a'),
+            _summaryWithId('b'),
+            _summaryWithId('c'),
+          ],
+          total: 3,
+        ),
+      );
+      when(
+        () => vaults.getEncryptedVault('a'),
+      ).thenAnswer((_) async => vault('a', 'palladin-x25519-sealed-box-v1'));
+      when(
+        () => vaults.getEncryptedVault('b'),
+      ).thenAnswer((_) async => vault('b', 'palladin-xwing-v1'));
+      when(
+        () => vaults.getEncryptedVault('c'),
+      ).thenAnswer((_) async => vault('c', null));
+    });
+
+    test('a Vault manager migrates every non-active Vault and skips a '
+        'forbidden one', () async {
+      when(
+        () => messageKeys.migrate(
+          vaultId: 'a',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async => true);
+      when(
+        () => messageKeys.migrate(
+          vaultId: 'c',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenThrow(
+        DioException(
+          requestOptions: RequestOptions(),
+          response: Response(requestOptions: RequestOptions(), statusCode: 403),
+        ),
+      );
+
+      expect(await service.migrateAgentMessageKeys(Uint8List(32)), 1);
+      verifyNever(
+        () => messageKeys.migrate(
+          vaultId: 'b',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      );
+    });
+
+    test('a member without VaultManage migrates nothing', () async {
+      token = _token(Permissions.vaultCreate);
+      expect(await service.migrateAgentMessageKeys(Uint8List(32)), 0);
+      verifyZeroInteractions(messageKeys);
+      verifyNever(
+        () => vaults.listEncryptedVaults(offset: any(named: 'offset')),
+      );
+    });
+  });
 }
 
-EncryptedVaultSummaryModel _summary(Map<String, dynamic> memberVaultKey) =>
-    EncryptedVaultSummaryModel.fromJson({
-      'id': _vault,
-      'isDefault': false,
-      'protocolVersion': 2,
-      'memberSequence': '1',
-      'discoverySequence': '1',
-      'memberKeyGeneration': 5,
-      'memberVaultMetadata': <String, dynamic>{},
-      'memberVaultKey': memberVaultKey,
-      'currentKeyEpoch': <String, dynamic>{},
-      'discoveryKey': <String, dynamic>{},
-      'vaultPrivateKeys': [<String, dynamic>{}, <String, dynamic>{}],
-      'createdAt': '2026-11-04T00:00:00Z',
-      'updatedAt': '2026-11-04T00:00:00Z',
-      'memberCount': 1,
-      'entryCount': 0,
-      'activeGrantCount': 0,
-    });
+String _token(int permissions) {
+  String part(Map<String, Object> json) =>
+      base64Url.encode(utf8.encode(jsonEncode(json))).replaceAll('=', '');
+  return '${part({'alg': 'none'})}.'
+      '${part({'org_id': _org, 'permissions': '$permissions'})}.signature';
+}
+
+EncryptedVaultSummaryModel _summaryWithId(String id) =>
+    _summary(const <String, dynamic>{}, id: id);
+
+EncryptedVaultSummaryModel _summary(
+  Map<String, dynamic> memberVaultKey, {
+  String id = _vault,
+}) => EncryptedVaultSummaryModel.fromJson({
+  'id': id,
+  'isDefault': false,
+  'protocolVersion': 2,
+  'memberSequence': '1',
+  'discoverySequence': '1',
+  'memberKeyGeneration': 5,
+  'memberVaultMetadata': <String, dynamic>{},
+  'memberVaultKey': memberVaultKey,
+  'currentKeyEpoch': <String, dynamic>{},
+  'discoveryKey': <String, dynamic>{},
+  'vaultPrivateKeys': [<String, dynamic>{}, <String, dynamic>{}],
+  'createdAt': '2026-11-04T00:00:00Z',
+  'updatedAt': '2026-11-04T00:00:00Z',
+  'memberCount': 1,
+  'entryCount': 0,
+  'activeGrantCount': 0,
+});

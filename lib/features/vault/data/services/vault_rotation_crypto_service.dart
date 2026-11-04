@@ -506,6 +506,29 @@ class VaultRotationCryptoService {
           rootKey: vaultKey,
           payload: EncodedSuitePayload.fromBase64Url(encodedPayload),
         );
+    if (expectedPurpose == EnvelopePurpose.manifestPrivateByVk &&
+        opened.length == 64) {
+      // Clients store libsodium's 64-byte Ed25519 secret key (seed || public
+      // key); hand out the seed only after the embedded public key checks.
+      try {
+        final sodium = await _sodiumLoader();
+        final seed = Uint8List.fromList(opened.sublist(0, 32));
+        final normalized = _normalizeSigningKey(sodium, seed);
+        final matches = VaultProtocolBytes.constantTimeEquals(
+          normalized.publicKey,
+          Uint8List.sublistView(opened, 32),
+        );
+        normalized.publicKey.fillRange(0, 32, 0);
+        normalized.privateKey.fillRange(0, normalized.privateKey.length, 0);
+        if (!matches) {
+          seed.fillRange(0, seed.length, 0);
+          throw FormatException('$label does not match its public key');
+        }
+        return seed;
+      } finally {
+        opened.fillRange(0, opened.length, 0);
+      }
+    }
     if (opened.length != 32) {
       opened.fillRange(0, opened.length, 0);
       throw FormatException('$label must be 32 bytes');

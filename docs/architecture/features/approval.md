@@ -61,3 +61,17 @@ whole-Entry Get. Mobile stores no extra plaintext or key material. Script
 reference packages are a separate V1 contract: their byte projection derives a
 code and excludes the source. Renewable Script references require an explicit
 future package-producer migration, not a global helper version replacement.
+
+## Recipient key suites
+
+Every key sealed to an Agent (Grant DEK, FULL Vault key, Script package DEK,
+Discovery key) uses the suite of the Agent's published encryption key
+(`keySuiteId` on the Agent and Discovery rows, `agentKeySuiteId` on grants),
+never configuration or an envelope field. The suite is bound into the Grant
+AAD and signed into the Script package (`wrapperSuiteId`). A key still on the
+read-only `palladin-x25519-sealed-box-v1` suite fails with
+`KeyMigrationPendingException`, shown as `ApprovalErrorKind.keyMigrationPending`.
+
+Encrypted reasons open under the Vault Agent message key suite named by the
+encrypted Vault response (`vaultAgentMessageKeySuiteId` for the current key
+version, legacy for earlier versions); a reason claiming another suite fails.

@@ -20,6 +20,7 @@ final class KeyMigrationReport {
     required this.memberEnvelopesPendingRewrap,
     required this.agentEnvelopesOnNonCurrentSuite,
     this.accountMemberEnvelopesPendingRewrap = 0,
+    this.organizationIdsPendingRewrap = const [],
   });
 
   /// Pending in the current organization only.
@@ -28,6 +29,10 @@ final class KeyMigrationReport {
   /// Pending across every organization; the legacy key may be deleted only
   /// at zero.
   final int accountMemberEnvelopesPendingRewrap;
+
+  /// Organizations whose member envelopes still address the old key; each is
+  /// re-wrapped when the member next unlocks there.
+  final List<String> organizationIdsPendingRewrap;
   final int agentEnvelopesOnNonCurrentSuite;
 }
 
@@ -59,12 +64,18 @@ class SecurityUpgradeRemoteDatasource {
     final members = response.data?['memberEnvelopesPendingRewrap'];
     final account = response.data?['accountMemberEnvelopesPendingRewrap'];
     final agents = response.data?['agentEnvelopesOnNonCurrentSuite'];
-    if (members is! int || account is! int || agents is! int) {
+    final organizations = response.data?['organizationIdsPendingRewrap'];
+    if (members is! int ||
+        account is! int ||
+        agents is! int ||
+        organizations is! List ||
+        organizations.any((id) => id is! String)) {
       throw const SecurityUpgradeException(SecurityUpgradeErrorKind.server);
     }
     return KeyMigrationReport(
       memberEnvelopesPendingRewrap: members,
       accountMemberEnvelopesPendingRewrap: account,
+      organizationIdsPendingRewrap: List.unmodifiable(organizations),
       agentEnvelopesOnNonCurrentSuite: agents,
     );
   });

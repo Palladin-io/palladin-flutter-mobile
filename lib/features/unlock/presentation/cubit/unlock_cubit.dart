@@ -289,7 +289,11 @@ class UnlockCubit extends Cubit<UnlockState> {
     UnlockResult result,
   ) async {
     final service = securityUpgrade;
-    if (service == null || account.legacyMemberKey == null) return false;
+    if (service == null ||
+        account.legacyMemberKey == null ||
+        !await service.hasPendingWorkHere()) {
+      return false;
+    }
     final keys = await service.resumeKeys(
       account: account,
       masterKey: result.masterKey,
