@@ -142,8 +142,8 @@ Current implementation:
 - System AutoFill behavior is documented in `docs/architecture/features/autofill.md`.
 
 Security rules for all AutoFill work:
-1. Never persist MK, VK, private keys, decrypted vault payloads, plaintext passwords, or TOTP seeds in App Groups, shared preferences, files, logs, analytics, or extension caches. A dedicated native AutoFill cache may persist only authenticated ciphertext encrypted with a random key unrelated to MK/VK.
-2. AutoFill key sharing is limited to the explicit per-flavor App Group access group and requires biometric-set invalidation. Never reuse the app's normal keychain group or biometric-unlock key.
+1. Never persist plaintext MK, VK, private keys, decrypted vault payloads, plaintext passwords or TOTP seeds. Product-owner decision of 2026-11-04 permits an authenticated encrypted MK envelope opened only through a random device wrapping key protected by OS biometric authorization. Require explicit enrollment, biometric-set invalidation, device-only/non-synchronizing storage, independent account binding, durable revocation and verified crash-safe migration. This approved target does not certify the legacy recoverable-MK item or unfinished migration as release-ready.
+2. The approved shared-source target allows the app and Credential Provider to use that same protected unlock capability through a dedicated per-flavor Keychain access group. Never grant the extension the app's general Keychain group. Existing dedicated AutoFill cache keys remain unrelated to MK/VK until that cache is retired; do not add a second bulk credential export.
 3. Match credentials against normalized service identifiers/domains and fail closed on ambiguous or mismatched reported domains. The explicit absent-domain manual paths above retain every cache, lease and revocation check and require separate one-operation confirmation.
 4. A locked app/provider must return `userInteractionRequired`; never weaken authentication to make background AutoFill succeed.
 5. Keep native provider code thin. Reuse the mobile crypto contract and wipe temporary plaintext/key buffers in `finally`/`defer` paths.
