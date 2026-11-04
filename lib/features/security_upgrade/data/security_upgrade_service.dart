@@ -137,7 +137,11 @@ class SecurityUpgradeService {
         'baseMemberKeyVersion': legacyKeyVersion,
         'securityVersion': IdentityKdfProfileV2.securityVersion,
         'kdfProfileId': IdentityKdfProfileV2.id,
-        'currentAuthCredential': _b64(current.authCredential),
+        // Accounts without a password credential (OAuth) prove nothing here;
+        // the backend expects revision 0 and an empty credential.
+        'currentAuthCredential': kdf.credentialRevision == 0
+            ? ''
+            : _b64(current.authCredential),
         'newAuthCredential': _b64(material.authCredential),
         'kdfSalt': _b64(material.kdfSalt),
         'memberPublicKeySuiteId': material.memberKeySuite.wireValue,
@@ -239,7 +243,9 @@ class SecurityUpgradeService {
       onProgress?.call(RewrapProgress(done: index + 1, total: pending.length));
     }
     final report = await _remote.report();
-    if (report.memberEnvelopesPendingRewrap == 0) {
+    // Other organizations re-wrap on their own unlock; the legacy key stays
+    // until no envelope in any organization addresses it.
+    if (report.accountMemberEnvelopesPendingRewrap == 0) {
       await _remote.deleteLegacyMemberKey(keys.legacyKeyVersion);
     }
     return report;

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
@@ -188,8 +189,13 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
         grantPayload,
       );
+      // Grant envelopes are still sealed with the vault-v2 sealed box; an
+      // agent already on a new suite fails closed (key-migration-pending).
+      if (candidate.keySuiteId != WrapperSuite.x25519SealedBoxV1.wireValue) {
+        throw const FormatException('Agent key suite not supported yet');
+      }
       final recipientKey = VaultProtocolBytes.base64Decode(
-        candidate.x25519PublicKey,
+        candidate.publicKey,
         maximumBytes: 32,
       );
       if (recipientKey.length != 32) {

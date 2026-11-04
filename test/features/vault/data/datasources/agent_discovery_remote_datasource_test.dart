@@ -35,7 +35,8 @@ void main() {
                             ? 'agent-current'
                             : 'agent-stale',
                         'agentName': after == null ? 'Builder' : null,
-                        'x25519PublicKey': 'must-not-enter-ui-state',
+                        'keySuiteId': 'palladin-x25519-sealed-box-v1',
+                        'publicKey': 'must-not-enter-ui-state',
                         'ed25519PublicKey': 'must-not-enter-ui-state',
                         'recipientKeyVersion': after == null ? 4 : 7,
                         'status': after == null ? 'current' : 'pending',

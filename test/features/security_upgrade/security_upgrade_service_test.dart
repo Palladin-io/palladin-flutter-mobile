@@ -40,6 +40,7 @@ void main() {
     sodium = await loadTestSodium();
     registerFallbackValue(<String, Object?>{});
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(0);
   });
 
   setUp(() {
@@ -177,7 +178,7 @@ void main() {
           agentEnvelopesOnNonCurrentSuite: 0,
         ),
       );
-      when(() => remote.deleteLegacyMemberKey(1)).thenAnswer((_) async {});
+      when(() => remote.deleteLegacyMemberKey(1)).thenAnswer((_) async => true);
       final seed = sodium.randombytes.buf(32);
       final keys = UpgradedAccountKeys(
         accountId: _member,
@@ -212,6 +213,32 @@ void main() {
       verify(() => remote.deleteLegacyMemberKey(1)).called(1);
     },
   );
+
+  test('the legacy key stays while another organization is pending', () async {
+    when(
+      () => vaults.listEncryptedVaults(offset: any(named: 'offset')),
+    ).thenAnswer((_) async => const EncryptedVaultPage(vaults: [], total: 0));
+    when(() => remote.report()).thenAnswer(
+      (_) async => const KeyMigrationReport(
+        memberEnvelopesPendingRewrap: 0,
+        accountMemberEnvelopesPendingRewrap: 2,
+        agentEnvelopesOnNonCurrentSuite: 0,
+      ),
+    );
+    final keys = UpgradedAccountKeys(
+      accountId: _member,
+      email: '',
+      masterKey: Uint8List(32),
+      memberPrivateKey: sodium.randombytes.buf(32),
+      memberKeyVersion: 2,
+      legacyPrivateKey: Uint8List(32),
+      legacyKeyVersion: 1,
+    );
+
+    await service.rewrapMemberEnvelopes(keys);
+
+    verifyNever(() => remote.deleteLegacyMemberKey(any()));
+  });
 }
 
 EncryptedVaultSummaryModel _summary(Map<String, dynamic> memberVaultKey) =>

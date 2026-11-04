@@ -149,7 +149,7 @@ final class RotationMemberRecipient {
         memberId: _string(json, 'memberId'),
         recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
         recipientKeyFingerprint: _string(json, 'recipientKeyFingerprint'),
-        x25519PublicKey: _string(json, 'x25519PublicKey'),
+        x25519PublicKey: _legacyPublicKey(json),
       );
 
   final String memberId;
@@ -175,7 +175,7 @@ final class RotationFullGrantRecipient {
         agentAccessEpoch: _uint(json, 'agentAccessEpoch'),
         recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
         recipientKeyFingerprint: _string(json, 'recipientKeyFingerprint'),
-        x25519PublicKey: _string(json, 'x25519PublicKey'),
+        x25519PublicKey: _legacyPublicKey(json),
       );
 
   final String grantId;
@@ -214,7 +214,7 @@ final class RotationAgentRecipient {
   factory RotationAgentRecipient.fromJson(Map<String, dynamic> json) =>
       RotationAgentRecipient(
         agentId: _string(json, 'agentId'),
-        x25519PublicKey: _string(json, 'x25519PublicKey'),
+        x25519PublicKey: _legacyPublicKey(json),
         ed25519PublicKey: _string(json, 'ed25519PublicKey'),
         recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
         manifestRevision: json['manifestRevision'] as String?,
@@ -225,6 +225,16 @@ final class RotationAgentRecipient {
   final String ed25519PublicKey;
   final int recipientKeyVersion;
   final String? manifestRevision;
+}
+
+/// Rotation still seals with the vault-v2 sealed-box package, so it accepts
+/// only recipients whose published `keySuiteId` is that suite; an X-Wing
+/// recipient fails closed until the rotation contract gains a suite field.
+String _legacyPublicKey(Map<String, dynamic> json) {
+  if (json['keySuiteId'] != 'palladin-x25519-sealed-box-v1') {
+    throw const FormatException('Rotation recipient key suite not supported');
+  }
+  return _string(json, 'publicKey');
 }
 
 Map<String, dynamic> _map(Map<String, dynamic> json, String field) {

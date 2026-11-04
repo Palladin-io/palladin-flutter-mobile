@@ -19,9 +19,15 @@ final class KeyMigrationReport {
   const KeyMigrationReport({
     required this.memberEnvelopesPendingRewrap,
     required this.agentEnvelopesOnNonCurrentSuite,
+    this.accountMemberEnvelopesPendingRewrap = 0,
   });
 
+  /// Pending in the current organization only.
   final int memberEnvelopesPendingRewrap;
+
+  /// Pending across every organization; the legacy key may be deleted only
+  /// at zero.
+  final int accountMemberEnvelopesPendingRewrap;
   final int agentEnvelopesOnNonCurrentSuite;
 }
 
@@ -51,12 +57,14 @@ class SecurityUpgradeRemoteDatasource {
       '/api/account/key-migration',
     );
     final members = response.data?['memberEnvelopesPendingRewrap'];
+    final account = response.data?['accountMemberEnvelopesPendingRewrap'];
     final agents = response.data?['agentEnvelopesOnNonCurrentSuite'];
-    if (members is! int || agents is! int) {
+    if (members is! int || account is! int || agents is! int) {
       throw const SecurityUpgradeException(SecurityUpgradeErrorKind.server);
     }
     return KeyMigrationReport(
       memberEnvelopesPendingRewrap: members,
+      accountMemberEnvelopesPendingRewrap: account,
       agentEnvelopesOnNonCurrentSuite: agents,
     );
   });
@@ -72,12 +80,24 @@ class SecurityUpgradeRemoteDatasource {
     ),
   );
 
-  Future<void> deleteLegacyMemberKey(int legacyMemberKeyVersion) => _guard(
-    () => _dio.delete<void>(
-      '/api/account/legacy-member-key',
-      queryParameters: {'legacyMemberKeyVersion': legacyMemberKeyVersion},
-    ),
-  );
+  /// Accepted asynchronously (202). A 409 (`legacy-member-key-in-use`,
+  /// `member-key-directory-not-current`) keeps the record; the next unlock
+  /// resumes and retries.
+  Future<bool> deleteLegacyMemberKey(int legacyMemberKeyVersion) async {
+    try {
+      await _dio.delete<void>(
+        '/api/account/legacy-member-key',
+        queryParameters: {'legacyMemberKeyVersion': legacyMemberKeyVersion},
+      );
+      return true;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 409) return false;
+      throw SecurityUpgradeException(switch (error.response?.statusCode) {
+        null => SecurityUpgradeErrorKind.network,
+        _ => SecurityUpgradeErrorKind.server,
+      });
+    }
+  }
 
   Future<T> _guard<T>(Future<T> Function() call) async {
     try {
