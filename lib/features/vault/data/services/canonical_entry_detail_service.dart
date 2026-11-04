@@ -2879,7 +2879,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         throw const FormatException('Invalid Agent public key');
       }
       fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
+        VaultPublicKeyKind.agentEncryption,
         recipientKey,
       );
       final fingerprintWire = VaultProtocolBytes.base64UrlEncode(fingerprint);

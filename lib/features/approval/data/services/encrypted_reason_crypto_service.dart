@@ -164,7 +164,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
         scope['grantOrRequestId'] != parentScope['grantOrRequestId'] ||
         scope['agentId'] != parentScope['agentId'] ||
         scope['memberId'] != null ||
-        recipientKeyKind != VaultPublicKeyKind.vaultMessageX25519 ||
+        recipientKeyKind != VaultPublicKeyKind.vaultAgentMessage ||
         json['recipientKeyVersion'] != binding['recipientKeyVersion'] ||
         json['recipientFingerprint'] != binding['recipientKeyFingerprint']) {
       throw const FormatException('Invalid encrypted reason wrapper profile');

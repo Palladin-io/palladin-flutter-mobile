@@ -5,10 +5,13 @@ void main() {
   group('VaultPublicKeyKind.parseWire', () {
     test('accepts the backend JSON enum and native numeric representation', () {
       expect(
-        VaultPublicKeyKind.parseWire('memberX25519'),
-        VaultPublicKeyKind.memberX25519,
+        VaultPublicKeyKind.parseWire('memberEncryption'),
+        VaultPublicKeyKind.memberEncryption,
       );
-      expect(VaultPublicKeyKind.parseWire(5), VaultPublicKeyKind.memberX25519);
+      expect(
+        VaultPublicKeyKind.parseWire(5),
+        VaultPublicKeyKind.memberEncryption,
+      );
     });
 
     test(

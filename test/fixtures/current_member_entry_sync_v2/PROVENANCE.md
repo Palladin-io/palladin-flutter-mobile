@@ -9,3 +9,9 @@ These files are copied byte-for-byte from `palladin-protocol` commit
 
 The frozen source paths are under
 `contracts/vault-v2/fixtures/current-member-entry-sync-v2/`.
+
+CVT-690 local deviation: the two vector files replace the wire value
+`"memberX25519"` with the algorithm-neutral `"memberEncryption"` (the backend
+renames JSON enum values in lockstep, with no compatibility layer). No other
+byte changed. Re-vendor from `palladin-protocol` once its vault-v2 fixtures
+carry the neutral names, and remove this note.

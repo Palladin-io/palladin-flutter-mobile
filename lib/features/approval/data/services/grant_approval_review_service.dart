@@ -157,7 +157,7 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
       }
       final fingerprint = VaultProtocolBytes.base64UrlEncode(
         vaultPublicKeyFingerprint(
-          VaultPublicKeyKind.vaultMessageX25519,
+          VaultPublicKeyKind.vaultAgentMessage,
           openedMessagePublicKey,
         ),
       );

@@ -301,7 +301,7 @@ void main() {
       ]);
       parentHash = Uint8List.fromList(sha256.convert(parentInput).bytes);
       fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
+        VaultPublicKeyKind.agentEncryption,
         agent.publicKey,
       );
       final container =
@@ -328,10 +328,8 @@ void main() {
         recipientFingerprint: fingerprint,
         parentDescriptorHash: parentHash,
       );
-      packageKey =
-          await RecipientKeyWrapper(
-            sodiumLoader: () async => sodium,
-          ).open(
+      packageKey = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
+          .open(
             wrapped: VaultProtocolBytes.base64UrlDecode(
               container['encodedSealedPackageDek'] as String,
             ),

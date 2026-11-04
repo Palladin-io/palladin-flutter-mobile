@@ -255,7 +255,7 @@ final class LocalGrantReasonResolver extends GrantReasonResolver {
       publicKey = sodium.crypto.scalarmult.base(n: secret);
       return VaultProtocolBytes.base64UrlEncode(
         vaultPublicKeyFingerprint(
-          VaultPublicKeyKind.vaultMessageX25519,
+          VaultPublicKeyKind.vaultAgentMessage,
           publicKey,
         ),
       );

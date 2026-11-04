@@ -404,14 +404,14 @@ class VaultCryptoService {
         ],
         vaultAgentMessagePublicKey: VaultPublicKeyContractModel(
           schemeId: 'palladin-x25519-v1',
-          keyKind: VaultPublicKeyKind.agentMessageX25519,
+          keyKind: VaultPublicKeyKind.agentMessage,
           keyVersion: 1,
           encodedPublicKey: _b64(messageKeys.publicKey),
           fingerprint: _b64(messageFingerprint),
         ),
         vaultManifestSigningPublicKey: VaultPublicKeyContractModel(
           schemeId: 'palladin-ed25519-v1',
-          keyKind: VaultPublicKeyKind.manifestSigningEd25519,
+          keyKind: VaultPublicKeyKind.manifestSigning,
           keyVersion: 1,
           encodedPublicKey: _b64(signingKeys.publicKey),
           fingerprint: _b64(signingFingerprint),

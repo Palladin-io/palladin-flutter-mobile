@@ -100,7 +100,7 @@ class VaultRotationCryptoService {
           'keyVersion': agentMessageKeyVersion,
           'encodedPublicKey': VaultProtocolBytes.base64UrlEncode(messagePublic),
           'fingerprint': _fingerprint(
-            VaultPublicKeyKind.vaultMessageX25519,
+            VaultPublicKeyKind.vaultAgentMessage,
             messagePublic,
           ),
         },
@@ -113,7 +113,7 @@ class VaultRotationCryptoService {
             signing.publicKey,
           ),
           'fingerprint': _fingerprint(
-            VaultPublicKeyKind.vaultSigningEd25519,
+            VaultPublicKeyKind.vaultSigning,
             signing.publicKey,
           ),
         },
@@ -187,11 +187,11 @@ class VaultRotationCryptoService {
     final sodium = await _sodiumLoader();
     final signing = _normalizeSigningKey(sodium, vaultSigningPrivateKey);
     final signingFingerprint = vaultPublicKeyFingerprint(
-      VaultPublicKeyKind.vaultSigningEd25519,
+      VaultPublicKeyKind.vaultSigning,
       signing.publicKey,
     );
     try {
-      if (_fingerprint(VaultPublicKeyKind.agentX25519, publicKey) !=
+      if (_fingerprint(VaultPublicKeyKind.agentEncryption, publicKey) !=
           recipient.recipientKeyFingerprint) {
         throw const FormatException('Agent recipient fingerprint mismatch');
       }
@@ -318,7 +318,7 @@ class VaultRotationCryptoService {
     final parsedRecipientKeyKind = VaultPublicKeyKind.parseWire(
       recipientKeyKind,
     );
-    if (parsedRecipientKeyKind != VaultPublicKeyKind.memberX25519) {
+    if (parsedRecipientKeyKind != VaultPublicKeyKind.memberEncryption) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
     final fingerprint = VaultProtocolBytes.base64UrlDecode(
@@ -502,7 +502,7 @@ class VaultRotationCryptoService {
       maximumBytes: 32,
     );
     final expectedFingerprint = VaultProtocolBytes.base64UrlEncode(
-      vaultPublicKeyFingerprint(VaultPublicKeyKind.memberX25519, publicKey),
+      vaultPublicKeyFingerprint(VaultPublicKeyKind.memberEncryption, publicKey),
     );
     if (expectedFingerprint != recipient.recipientKeyFingerprint) {
       throw const FormatException('Member key directory fingerprint mismatch');
@@ -774,18 +774,18 @@ class VaultRotationCryptoService {
         'vaultId': vaultId,
         'agentId': agent.agentId,
         'agentX25519Fingerprint': _fingerprint(
-          VaultPublicKeyKind.agentX25519,
+          VaultPublicKeyKind.agentEncryption,
           agentX,
         ),
         'agentEd25519Fingerprint': _fingerprint(
-          VaultPublicKeyKind.agentEd25519,
+          VaultPublicKeyKind.agentSigning,
           agentEd,
         ),
         'vaultSigningPublicKey': VaultProtocolBytes.base64UrlEncode(
           signingPair.publicKey,
         ),
         'vaultSigningKeyFingerprint': _fingerprint(
-          VaultPublicKeyKind.vaultSigningEd25519,
+          VaultPublicKeyKind.vaultSigning,
           signingPair.publicKey,
         ),
         'manifestSigningKeyVersion': epoch.manifestSigningKeyVersion,
@@ -793,7 +793,7 @@ class VaultRotationCryptoService {
           messagePublic,
         ),
         'vaultAgentMessageKeyFingerprint': _fingerprint(
-          VaultPublicKeyKind.vaultMessageX25519,
+          VaultPublicKeyKind.vaultAgentMessage,
           messagePublic,
         ),
         'agentMessageKeyVersion': epoch.agentMessageKeyVersion,

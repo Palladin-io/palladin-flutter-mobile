@@ -337,7 +337,7 @@ void main() {
       final agent = crypto.crypto.box.keyPair();
       final agentPrivateKey = agent.secretKey.extractBytes();
       final fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
+        VaultPublicKeyKind.agentEncryption,
         agent.publicKey,
       );
       final commitment = computeFieldSetCommitment(fieldIds);
@@ -417,10 +417,8 @@ void main() {
         final wrappedJson = Map<String, dynamic>.from(
           envelope['wrappedGrantDek']! as Map,
         );
-        grantKey =
-            await RecipientKeyWrapper(
-              sodiumLoader: () async => crypto,
-            ).open(
+        grantKey = await RecipientKeyWrapper(sodiumLoader: () async => crypto)
+            .open(
               wrapped: VaultProtocolBytes.base64UrlDecode(
                 wrappedJson['encodedSealedKeyPackage'] as String,
               ),

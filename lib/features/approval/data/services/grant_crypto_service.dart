@@ -75,7 +75,7 @@ class GrantCryptoService {
         throw const FormatException('Invalid grant recipient or methods');
       }
       fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
+        VaultPublicKeyKind.agentEncryption,
         recipientKey,
       );
       final fingerprintWire = VaultProtocolBytes.base64UrlEncode(fingerprint);

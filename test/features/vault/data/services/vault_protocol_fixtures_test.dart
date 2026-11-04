@@ -49,11 +49,11 @@ VaultKdfPurpose _purpose(String value) => switch (value) {
 };
 
 VaultPublicKeyKind _keyKind(int value) => switch (value) {
-  1 => VaultPublicKeyKind.agentX25519,
-  2 => VaultPublicKeyKind.agentEd25519,
-  3 => VaultPublicKeyKind.vaultSigningEd25519,
-  4 => VaultPublicKeyKind.vaultMessageX25519,
-  5 => VaultPublicKeyKind.memberX25519,
+  1 => VaultPublicKeyKind.agentEncryption,
+  2 => VaultPublicKeyKind.agentSigning,
+  3 => VaultPublicKeyKind.vaultSigning,
+  4 => VaultPublicKeyKind.vaultAgentMessage,
+  5 => VaultPublicKeyKind.memberEncryption,
   _ => throw FormatException('unsupported fixture key kind: $value'),
 };
 

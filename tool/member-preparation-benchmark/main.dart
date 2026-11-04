@@ -54,7 +54,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
   final pair = sodium.crypto.box.keyPair();
   final privateKey = pair.secretKey.extractBytes();
   final fingerprint = vaultPublicKeyFingerprint(
-    VaultPublicKeyKind.memberX25519,
+    VaultPublicKeyKind.memberEncryption,
     pair.publicKey,
   );
   final crypto = EntryV2CryptoService();

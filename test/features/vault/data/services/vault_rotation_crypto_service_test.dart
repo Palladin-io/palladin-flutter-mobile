@@ -125,7 +125,7 @@ void main() {
           'resourceRevision': '1',
           'wrappedKeyVersion': 4,
           'memberKeyGeneration': 5,
-          'recipientKeyKind': 'memberX25519',
+          'recipientKeyKind': 'memberEncryption',
           'recipientKeyVersion': 2,
           'recipientFingerprint': VaultProtocolBytes.base64UrlEncode(
             Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
@@ -171,7 +171,7 @@ void main() {
             'resourceRevision': '1',
             'wrappedKeyVersion': 1,
             'memberKeyGeneration': 1,
-            'recipientKeyKind': 'memberX25519',
+            'recipientKeyKind': 'memberEncryption',
             'recipientKeyVersion': 1,
             'recipientFingerprint': null,
             'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
@@ -205,7 +205,7 @@ void main() {
           'resourceRevision': '1',
           'wrappedKeyVersion': 4,
           'memberKeyGeneration': 5,
-          'recipientKeyKind': 'memberX25519',
+          'recipientKeyKind': 'memberEncryption',
           'recipientKeyVersion': 2,
           'recipientFingerprint': VaultProtocolBytes.base64UrlEncode(
             Uint8List(32),
@@ -253,7 +253,7 @@ void main() {
       List<int>.generate(32, (index) => index + 1),
     );
     final fingerprint = vaultPublicKeyFingerprint(
-      VaultPublicKeyKind.memberX25519,
+      VaultPublicKeyKind.memberEncryption,
       publicKey,
     );
     final context = WrapperContext(
@@ -269,7 +269,7 @@ void main() {
       resourceRevision: 1,
       wrappedKeyVersion: 4,
       memberKeyGeneration: 5,
-      recipientKeyKind: VaultPublicKeyKind.memberX25519.id,
+      recipientKeyKind: VaultPublicKeyKind.memberEncryption.id,
       recipientKeyVersion: 2,
       recipientFingerprint: fingerprint,
     );
@@ -298,7 +298,7 @@ void main() {
           'resourceRevision': '1',
           'wrappedKeyVersion': 4,
           'memberKeyGeneration': 5,
-          'recipientKeyKind': 'memberX25519',
+          'recipientKeyKind': 'memberEncryption',
           'recipientKeyVersion': 2,
           'recipientFingerprint': VaultProtocolBytes.base64UrlEncode(
             fingerprint,
@@ -333,7 +333,7 @@ void main() {
     final keyPair = sodium.crypto.box.keyPair();
     final privateKey = keyPair.secretKey.extractBytes();
     final fingerprint = vaultPublicKeyFingerprint(
-      VaultPublicKeyKind.agentX25519,
+      VaultPublicKeyKind.agentEncryption,
       keyPair.publicKey,
     );
     final vaultKey = Uint8List.fromList(

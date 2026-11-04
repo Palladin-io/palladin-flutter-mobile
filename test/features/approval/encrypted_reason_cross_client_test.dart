@@ -145,7 +145,7 @@ void main() {
             'resourceRevision': '1',
             'wrappedKeyVersion': 1,
             'memberKeyGeneration': 4,
-            'recipientKeyKind': 'vaultMessageX25519',
+            'recipientKeyKind': 'vaultAgentMessage',
             'recipientKeyVersion': 4,
             'recipientFingerprint': _base64Url(fingerprint),
             'parentDescriptorHash': _base64Url(Uint8List(32)),
@@ -193,7 +193,7 @@ void main() {
     Uint8List? transcript;
     try {
       final fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.vaultMessageX25519,
+        VaultPublicKeyKind.vaultAgentMessage,
         recipient.publicKey,
       );
       final scope = EnvelopeScope(
@@ -221,7 +221,7 @@ void main() {
         resourceRevision: 1,
         wrappedKeyVersion: 1,
         memberKeyGeneration: generation,
-        recipientKeyKind: VaultPublicKeyKind.vaultMessageX25519.id,
+        recipientKeyKind: VaultPublicKeyKind.vaultAgentMessage.id,
         recipientKeyVersion: keyVersion,
         recipientFingerprint: fingerprint,
         parentDescriptorHash: WrapperContext.hashParent(descriptor),
@@ -277,7 +277,7 @@ void main() {
             'resourceRevision': '1',
             'wrappedKeyVersion': 1,
             'memberKeyGeneration': generation,
-            'recipientKeyKind': 'vaultMessageX25519',
+            'recipientKeyKind': 'vaultAgentMessage',
             'recipientKeyVersion': keyVersion,
             'recipientFingerprint': _base64Url(fingerprint),
             'parentDescriptorHash': _base64Url(wrapper.parentDescriptorHash!),

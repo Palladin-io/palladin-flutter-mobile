@@ -27,7 +27,7 @@ enum WrapperPurpose {
   static WrapperPurpose parseWire(Object? value) {
     const names = <String, WrapperPurpose>{
       'memberVaultKey': WrapperPurpose.memberVaultKey,
-      'agentDiscoveryVdk': WrapperPurpose.agentVdk,
+      'agentVaultDiscoveryKey': WrapperPurpose.agentVdk,
       'reasonDek': WrapperPurpose.reasonDek,
       'grantDek': WrapperPurpose.grantDek,
       'agentVaultKey': WrapperPurpose.agentVaultKey,

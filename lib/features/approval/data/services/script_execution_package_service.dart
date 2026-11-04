@@ -201,7 +201,7 @@ class ScriptExecutionPackageService {
               (left['entryId'] as String).compareTo(right['entryId'] as String),
         );
       fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
+        VaultPublicKeyKind.agentEncryption,
         agentPublicKey,
       );
       final sodium = await _sodiumLoader();
@@ -209,7 +209,7 @@ class ScriptExecutionPackageService {
       vaultSigningPublicKey = signing.publicKey;
       normalizedVaultSigningPrivateKey = signing.privateKey;
       vaultSigningFingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.vaultSigningEd25519,
+        VaultPublicKeyKind.vaultSigning,
         vaultSigningPublicKey,
       );
       final transport = <String, Object?>{
