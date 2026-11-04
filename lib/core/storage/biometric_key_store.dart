@@ -75,3 +75,21 @@ abstract interface class BiometricKeyStore {
 class BiometricKeyCleanupException implements Exception {
   const BiometricKeyCleanupException();
 }
+
+/// Migration is committed only after the recovered MK successfully opens the
+/// authenticated account's private-key envelope. Legacy reads alone do not bind
+/// that key to an account or activate an extension.
+abstract interface class VerifiedBiometricKeyMigration {
+  Future<void> commitVerifiedKey(
+    Uint8List masterKey, {
+    required int expectedGeneration,
+  });
+  Future<void> discardPendingMigration();
+}
+
+/// Native proof that an explicit biometric enrollment was canceled before any
+/// protected write. Unknown or post-write failures must retain source denial.
+class BiometricMutationCanceledWithoutChanges extends BiometricAuthException {
+  const BiometricMutationCanceledWithoutChanges()
+    : super(BiometricAuthFailureReason.canceled);
+}

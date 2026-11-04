@@ -21,6 +21,9 @@ class _MockCryptoService extends Mock implements UnlockCryptoService {}
 
 class _MockKeyStore extends Mock implements BiometricKeyStore {}
 
+class _MigratingKeyStore extends _MockKeyStore
+    implements VerifiedBiometricKeyMigration {}
+
 class _MockDefaultVaultProvisioner extends Mock
     implements DefaultVaultProvisioner {}
 
@@ -147,6 +150,184 @@ void main() {
         expect(mk, everyElement(0));
         expect(pk, everyElement(0));
         if (!closeCubit) await cubit.close();
+      },
+    );
+  }
+  for (final phase in ['read', 'account', 'decrypt']) {
+    test(
+      'biometric cleanup during $phase denies late success and wipes keys',
+      () async {
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        final recovered = Uint8List.fromList(List.filled(32, 41));
+        final resultMK = Uint8List.fromList(List.filled(32, 42));
+        final resultPK = Uint8List.fromList(List.filled(32, 43));
+        Future<void> pause(String stage) async {
+          if (stage == phase) {
+            entered.complete();
+            await release.future;
+          }
+        }
+
+        when(() => keyStore.unlockKey(any())).thenAnswer((_) async {
+          await pause('read');
+          return recovered;
+        });
+        when(() => datasource.getAccount()).thenAnswer((_) async {
+          await pause('account');
+          return accountResponse;
+        });
+        when(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          await pause('decrypt');
+          return UnlockResult(masterKey: resultMK, privateKey: resultPK);
+        });
+        final cubit = buildCubit();
+        final operation = cubit.unlockWithBiometrics(copy: copy);
+        await entered.future;
+        when(() => keyStore.generation).thenReturn(1);
+        release.complete();
+        await operation;
+        expect(cubit.state, isNot(isA<UnlockSuccess>()));
+        expect(recovered, everyElement(0));
+        if (phase == 'decrypt') {
+          expect(resultMK, everyElement(0));
+          expect(resultPK, everyElement(0));
+        }
+        await cubit.close();
+      },
+    );
+  }
+  for (final failure in ['none', 'unwrap', 'migration']) {
+    test(
+      'legacy biometric migration is committed only after verified unwrap: $failure',
+      () async {
+        final migrating = _MigratingKeyStore();
+        keyStore = migrating;
+        final events = <String>[];
+        final recovered = Uint8List.fromList(List.filled(32, 21));
+        final resultMK = Uint8List.fromList(List.filled(32, 22));
+        final resultPK = Uint8List.fromList(List.filled(32, 23));
+        when(() => migrating.generation).thenReturn(0);
+        when(
+          () => migrating.unlockKey(any()),
+        ).thenAnswer((_) async => recovered);
+        when(() => migrating.discardPendingMigration()).thenAnswer((_) async {
+          events.add('discard');
+        });
+        when(
+          () => migrating.commitVerifiedKey(
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('migrate');
+          if (failure == 'migration') {
+            throw const BiometricKeyCleanupException();
+          }
+        });
+        when(
+          () => datasource.getAccount(),
+        ).thenAnswer((_) async => accountResponse);
+        when(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('unwrap');
+          if (failure == 'unwrap') throw const WrongMasterPasswordException();
+          return UnlockResult(masterKey: resultMK, privateKey: resultPK);
+        });
+        final cubit = buildCubit();
+        await cubit.unlockWithBiometrics(copy: copy);
+        expect(
+          events,
+          failure == 'unwrap'
+              ? ['unwrap', 'discard']
+              : ['unwrap', 'migrate', 'discard'],
+        );
+        expect(
+          cubit.state,
+          failure == 'none' ? isA<UnlockSuccess>() : isA<UnlockFailed>(),
+        );
+        expect(recovered, everyElement(0));
+        if (failure == 'migration') {
+          expect(resultMK, everyElement(0));
+          expect(resultPK, everyElement(0));
+        }
+        await cubit.close();
+      },
+    );
+  }
+  for (final outcome in [
+    'success',
+    'wrong-password',
+    'stale-request',
+    'capture-invalid',
+  ]) {
+    test(
+      'password request authorization follows successful crypto only: $outcome',
+      () async {
+        final events = <String>[];
+        final mk = Uint8List.fromList(List.filled(32, 31));
+        final pk = Uint8List.fromList(List.filled(32, 32));
+        when(() => datasource.getAccount()).thenAnswer((_) async {
+          events.add('account');
+          return accountResponse;
+        });
+        when(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('crypto');
+          if (outcome == 'wrong-password') {
+            throw const WrongMasterPasswordException();
+          }
+          return UnlockResult(masterKey: mk, privateKey: pk);
+        });
+        final cubit = UnlockCubit(
+          datasource: datasource,
+          cryptoService: crypto,
+          keyStore: keyStore,
+          defaultVaultProvisioner: defaultVaultProvisioner,
+          captureRequestAuthorization: () {
+            events.add('capture');
+            if (outcome == 'capture-invalid') {
+              throw StateError('Request ended');
+            }
+            return () async {
+              events.add('authorize');
+              if (outcome == 'stale-request') throw StateError('Request ended');
+            };
+          },
+        );
+        await cubit.unlock('synthetic');
+        expect(
+          events,
+          outcome == 'capture-invalid'
+              ? ['capture']
+              : outcome == 'wrong-password'
+              ? ['capture', 'account', 'crypto']
+              : ['capture', 'account', 'crypto', 'authorize'],
+        );
+        expect(
+          cubit.state,
+          outcome == 'success' ? isA<UnlockSuccess>() : isA<UnlockFailed>(),
+        );
+        if (outcome == 'stale-request') {
+          expect(mk, everyElement(0));
+          expect(pk, everyElement(0));
+        }
+        await cubit.close();
       },
     );
   }
