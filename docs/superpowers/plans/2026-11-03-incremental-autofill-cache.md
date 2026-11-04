@@ -134,6 +134,17 @@ mounts from two synchronizations to one while explicit authoritative refresh
 remains active. Direct session replacement invalidates Vault-list and shared
 preparer state before reattaching search; held-old-load and old/new-principal
 regressions pass. All corrective changes have independent clean security review;
-complete combined validation is in progress. Next: exact-candidate CI and physical
-S22 lifecycle/AutoFill checks before merge and Android Internal Testing. Root owns device diagnostics, PR stack integration and release. No iOS
+PR157 exact0ba6d437 passed2238 tests (2 skipped), CI41859695310 and cloud review
+round1. Debug13 physical feedback still found transient0/0 on Home. The confirmed
+cause is unchanged repair denying the whole native cache and committing an empty
+catalog revision, so merge/release remain held.
+
+Follow-up `palladin-autofill-noop-refresh` adds synchronous producer content-proof
+admission and native validated same-base checks. Android153 tests and iOS native
+protected-file/SDK checks pass, with independent reviews clean; unchanged checks
+perform no catalog/fence/identity writes and preserve picker revision. Producer
+empty-renewal and changed→renewal negatives pass32 tests; publisher/cache85 pass,
+including held-check ordinary lock and strict unknown/token/owner paths. The real
+loopback coordinator chain and final integrated review/full checks are next.
+Root owns physical S22 validation, PR stack integration and release. No iOS
 publication; diagnostics remain isolated from production commits.

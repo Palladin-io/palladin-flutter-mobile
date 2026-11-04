@@ -145,6 +145,16 @@ void main() {
     entries = _Entries();
     bridge = _Bridge();
     when(() => authority.current()).thenAnswer((_) async => claims);
+    when(
+      () => authority.sessionRevision,
+    ).thenAnswer((_) => preparationStorage.revision);
+    when(
+      () => reader.canReuseAutoFillPublication(
+        readGeneration: any(named: 'readGeneration'),
+        contentRevision: any(named: 'contentRevision'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).thenReturn(false);
     preparationStorage = _PreparationStorage();
     final preparationProvider = _PreparationProvider(
       authority.current,
@@ -259,6 +269,178 @@ void main() {
     vaultIds: [context.vaultId],
     isCurrent: () => true,
     onProgress: (_) {},
+  );
+
+  void admitUnchangedCheck() {
+    when(
+      () => reader.canReuseAutoFillPublication(
+        readGeneration: any(named: 'readGeneration'),
+        contentRevision: any(named: 'contentRevision'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).thenReturn(true);
+  }
+
+  test(
+    'validated no-op accepts same native revision and reports checking',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      admitUnchangedCheck();
+      when(
+        () => bridge.applyCacheDelta(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          manifest: any(named: 'manifest'),
+          upserts: any(named: 'upserts'),
+          removals: any(named: 'removals'),
+          releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
+        ),
+      ).thenAnswer(
+        (call) async => call.namedArguments[#base] as AutoFillCacheBase,
+      );
+      final phases = <AutoFillPreparationPhase>[];
+      await publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (value) => phases.add(value.phase),
+      );
+      expect(phases, [
+        AutoFillPreparationPhase.checking,
+        AutoFillPreparationPhase.checking,
+        AutoFillPreparationPhase.ready,
+      ]);
+      expect(reveals, 160);
+    },
+  );
+
+  test('unknown commit is denied before metadata await', () async {
+    await publisher.beginSession(7);
+    await publish();
+    clearInteractions(bridge);
+    final held = Completer<MemberAutoFillMetadata>();
+    when(
+      () => reader.readAutoFillMetadata(
+        vaultIds: any(named: 'vaultIds'),
+        authority: any(named: 'authority'),
+      ),
+    ).thenAnswer((_) => held.future);
+    final operation = publish();
+    await Future<void>.delayed(Duration.zero);
+    verify(
+      () => bridge.denyEntries(
+        base: any(named: 'base'),
+        writerEpoch: any(named: 'writerEpoch'),
+        entries: any(named: 'entries'),
+      ),
+    ).called(1);
+    held.complete(metadata);
+    await operation;
+  });
+
+  test(
+    'ordinary lock cancels held unchanged check without denying the provider',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      clearInteractions(bridge);
+      admitUnchangedCheck();
+      final held = Completer<MemberAutoFillMetadata>();
+      when(
+        () => reader.readAutoFillMetadata(
+          vaultIds: any(named: 'vaultIds'),
+          authority: any(named: 'authority'),
+        ),
+      ).thenAnswer((_) => held.future);
+      final operation = publish();
+      final rejected = expectLater(operation, throwsStateError);
+      await Future<void>.delayed(Duration.zero);
+      await publisher.endSession();
+      held.complete(metadata);
+      await rejected;
+      verifyNever(
+        () => bridge.denyEntries(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          entries: any(named: 'entries'),
+        ),
+      );
+      verifyNever(
+        () => bridge.applyCacheDelta(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          manifest: any(named: 'manifest'),
+          upserts: any(named: 'upserts'),
+          removals: any(named: 'removals'),
+          releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
+        ),
+      );
+    },
+  );
+
+  test('token authority change cannot use the unchanged lane', () async {
+    await publisher.beginSession(7);
+    await publish();
+    admitUnchangedCheck();
+    preparationStorage.revision++;
+    clearInteractions(bridge);
+    await publish();
+    verify(
+      () => bridge.denyEntries(
+        base: any(named: 'base'),
+        writerEpoch: any(named: 'writerEpoch'),
+        entries: any(named: 'entries'),
+      ),
+    ).called(1);
+  });
+
+  test('pending mutation owner cannot use unchanged acknowledgement', () async {
+    await publisher.beginSession(7);
+    await publish();
+    admitUnchangedCheck();
+    await publisher.deny(null);
+    when(
+      () => bridge.applyCacheDelta(
+        base: any(named: 'base'),
+        writerEpoch: any(named: 'writerEpoch'),
+        manifest: any(named: 'manifest'),
+        upserts: any(named: 'upserts'),
+        removals: any(named: 'removals'),
+        releasingDenies: any(named: 'releasingDenies'),
+        validatePublication: any(named: 'validatePublication'),
+      ),
+    ).thenAnswer(
+      (call) async => call.namedArguments[#base] as AutoFillCacheBase,
+    );
+    await expectLater(publish(), throwsFormatException);
+  });
+
+  test(
+    'unchanged refresh does not deny previously published credentials',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      clearInteractions(bridge);
+      when(
+        () => reader.canReuseAutoFillPublication(
+          readGeneration: any(named: 'readGeneration'),
+          contentRevision: any(named: 'contentRevision'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenReturn(true);
+      await publish();
+      verifyNever(
+        () => bridge.denyEntries(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          entries: any(named: 'entries'),
+        ),
+      );
+      expect(reveals, 160);
+    },
   );
 
   test(

@@ -308,7 +308,7 @@ class AutoFillCacheService
     final generation = ++_generation;
     _report(
       generation,
-      const AutoFillPreparation(AutoFillPreparationPhase.preparing),
+      const AutoFillPreparation(AutoFillPreparationPhase.checking),
     );
     final activation = _sessionActivation;
     final preparedVaultIds = Set<String>.unmodifiable(vaultIds);

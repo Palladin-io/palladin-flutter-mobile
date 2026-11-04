@@ -38,6 +38,27 @@ class AutoFillIncrementalPublisher {
   Set<AutoFillEntryCoordinate> _present = {};
   final Set<String> _denies = {};
   String? _profileBinding;
+  int? _acknowledgedReadGeneration;
+  int? _acknowledgedContentRevision;
+  int? _acknowledgedSessionRevision;
+  Set<String> _acknowledgedVaultIds = {};
+
+  bool canCheckWithoutDenial(Iterable<String> vaultIds) {
+    final requested = vaultIds.toSet();
+    return _base != null &&
+        _writerEpoch != null &&
+        _denies.isEmpty &&
+        _acknowledgedReadGeneration != null &&
+        _acknowledgedContentRevision != null &&
+        _acknowledgedSessionRevision == _authority.sessionRevision &&
+        requested.length == _acknowledgedVaultIds.length &&
+        requested.containsAll(_acknowledgedVaultIds) &&
+        _metadata.canReuseAutoFillPublication(
+          readGeneration: _acknowledgedReadGeneration!,
+          contentRevision: _acknowledgedContentRevision!,
+          vaultIds: requested,
+        );
+  }
 
   Future<void> beginSession(int token) async {
     final ending = endSession();
@@ -72,6 +93,10 @@ class AutoFillIncrementalPublisher {
     _present = {};
     _denies.clear();
     _profileBinding = null;
+    _acknowledgedReadGeneration = null;
+    _acknowledgedContentRevision = null;
+    _acknowledgedSessionRevision = null;
+    _acknowledgedVaultIds = {};
   }
 
   /// Returns false only when no verified native base can be denied. The caller
@@ -104,14 +129,19 @@ class AutoFillIncrementalPublisher {
   }) async {
     final epoch = _epoch;
     _requireCurrent(epoch, isCurrent);
-    // Foreground repair must also detect native quarantine without relying on
-    // a Dart update event. This durable deny preserves ciphertext for deltas.
-    if (_base != null && _denies.isEmpty) await deny(null);
+    // Only a synchronous producer proof may preserve provider availability.
+    // Unknown/changed authority is denied before the first asynchronous read.
+    final checking = canCheckWithoutDenial(vaultIds);
+    if (!checking && _base != null && _denies.isEmpty) await deny(null);
     _requireCurrent(epoch, isCurrent);
     final preparationAuthority = await _authority.captureForPreparation();
     preparationAuthority.validateCurrent();
     final claims = preparationAuthority.claims;
     _requireCurrent(epoch, isCurrent);
+    if (checking && !canCheckWithoutDenial(vaultIds) && _denies.isEmpty) {
+      await deny(null);
+      _requireCurrent(epoch, isCurrent);
+    }
     final snapshot = await _metadata.readAutoFillMetadata(
       vaultIds: vaultIds,
       authority: claims,
@@ -156,6 +186,19 @@ class AutoFillIncrementalPublisher {
     final changed = candidates.keys
         .where((key) => full || _observed[key] != observed[key])
         .toList();
+    final noOpCandidate =
+        checking &&
+        !full &&
+        _denies.isEmpty &&
+        snapshot.contentRevision == _acknowledgedContentRevision &&
+        snapshot.readGeneration == _acknowledgedReadGeneration &&
+        changed.isEmpty &&
+        _observed.length == observed.length &&
+        _observed.keys.every(observed.containsKey);
+    if (!noOpCandidate && _base != null && _denies.isEmpty) {
+      await deny(null);
+      _requireCurrent(epoch, isCurrent);
+    }
     final present = full
         ? <AutoFillEntryCoordinate>{}
         : _present.intersection(candidates.keys.toSet());
@@ -190,7 +233,9 @@ class AutoFillIncrementalPublisher {
     var completed = 0;
     onProgress(
       AutoFillPreparation(
-        AutoFillPreparationPhase.preparing,
+        noOpCandidate
+            ? AutoFillPreparationPhase.checking
+            : AutoFillPreparationPhase.preparing,
         examined: 0,
         total: changed.length,
       ),
@@ -269,7 +314,9 @@ class AutoFillIncrementalPublisher {
         vaultIds: vaultIds,
         authority: claims,
       );
-      if (snapshot.readGeneration != currentSnapshot.readGeneration ||
+      if ((noOpCandidate &&
+              snapshot.contentRevision != currentSnapshot.contentRevision) ||
+          snapshot.readGeneration != currentSnapshot.readGeneration ||
           snapshot.vaults.length != currentSnapshot.vaults.length) {
         throw StateError('AutoFill metadata changed');
       }
@@ -294,6 +341,7 @@ class AutoFillIncrementalPublisher {
       final leaseSnapshot = MemberAutoFillMetadata(
         readGeneration: currentSnapshot.readGeneration,
         publicationRevision: currentSnapshot.publicationRevision,
+        contentRevision: currentSnapshot.contentRevision,
         vaults: {
           for (final vault in currentSnapshot.vaults.entries)
             vault.key: MemberAutoFillVaultMetadata(
@@ -322,7 +370,9 @@ class AutoFillIncrementalPublisher {
       final manifest = _manifest(claims, leaseSnapshot, candidates, present);
       onProgress(
         AutoFillPreparation(
-          AutoFillPreparationPhase.publishing,
+          noOpCandidate
+              ? AutoFillPreparationPhase.checking
+              : AutoFillPreparationPhase.publishing,
           examined: completed,
           total: changed.length,
         ),
@@ -357,8 +407,12 @@ class AutoFillIncrementalPublisher {
         );
       }
       validatePublication();
-      _requireBase(acknowledged);
+      _requireBase(acknowledged, allowUnchanged: noOpCandidate);
       _base = acknowledged;
+      _acknowledgedReadGeneration = currentSnapshot.readGeneration;
+      _acknowledgedContentRevision = currentSnapshot.contentRevision;
+      _acknowledgedSessionRevision = preparationAuthority.sessionRevision;
+      _acknowledgedVaultIds = Set.unmodifiable(currentSnapshot.vaults.keys);
       _observed = observed;
       _present = present;
       _profileBinding = profile;
@@ -391,9 +445,11 @@ class AutoFillIncrementalPublisher {
     return jsonEncode(left) == jsonEncode(right);
   }
 
-  void _requireBase(AutoFillCacheBase base) {
+  void _requireBase(AutoFillCacheBase base, {bool allowUnchanged = false}) {
     if (base.generation != _sessionToken ||
-        (_base != null && base.revision <= _base!.revision)) {
+        (_base != null &&
+            (base.revision < _base!.revision ||
+                (!allowUnchanged && base.revision == _base!.revision)))) {
       throw const FormatException('AutoFill acknowledgement base mismatch');
     }
   }

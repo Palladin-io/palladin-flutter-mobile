@@ -9,6 +9,8 @@ class MemberSyncSessionAuthorityProvider {
 
   final SecureTokenStorage _tokenStorage;
 
+  int get sessionRevision => _tokenStorage.authorityRevision;
+
   Future<MemberPreparationAuthority> captureForPreparation() async {
     final revision = _tokenStorage.authorityRevision;
     final claims = await current();
@@ -72,6 +74,8 @@ final class MemberPreparationAuthority {
   final MemberSyncSessionAuthorityProvider _owner;
   final MemberSyncSessionAuthority claims;
   final int _revision;
+
+  int get sessionRevision => _revision;
 
   void validateCurrent() {
     if (_owner._tokenStorage.authorityRevision != _revision) {

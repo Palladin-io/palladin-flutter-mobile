@@ -109,6 +109,24 @@ denial (or durable global-clear fallback). Even an empty scope performs exact-ba
 CAS, so a delayed publication acknowledgment cannot authorize mutation against a
 stale catalog. Picker handoff checks both generation and catalog revision.
 
+Unchanged repair has a separate admission fence. Member sync retains a monotonic
+content revision only for a proven empty, same-sequence delta with an identical
+key wrapper and non-time authority and valid, overlapping, non-narrowing leases.
+All changed or unknown transitions invalidate it before durable writes or runtime
+publication; a later renewal cannot erase that change. The publisher compares its
+acknowledged content/read/session revisions and complete Vault set synchronously,
+before any await. Unknown state and pending mutation owners retain pre-denial.
+
+An admitted check still calls native `applyCacheDelta`: both platforms validate
+the exact current base, complete authority, retained record integrity and leases.
+A truly unchanged result returns the same revision without writing catalog/fence
+files or iOS identities, keeping existing chooser handoffs valid. Narrower leases
+or real changes require a new commit; missing/corrupt/quarantined/expired state
+cannot report success. Ordinary lock cancels the writer check without denying the
+already valid provider cache. Logout, revocation and real mutation denials retain
+their existing behavior. Home shows checking until acknowledgement, never a 0/0
+credential count or an unsupported claim of universal provider availability.
+
 Immutable record/catalog files are persisted before the authenticated current
 pointer is committed. Missing, expired, quarantined or unverifiable state cannot
 accept a delta; authoritative full recovery first commits global clear. Scoped
