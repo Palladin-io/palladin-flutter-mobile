@@ -69,6 +69,22 @@ try test("enrollment status never requests biometric key") { store, keychain in
     try store.revoke()
     try expect(!store.isEnrolled(profileBinding: profile), "Revoked enrollment reported")
 }
+try test("legacy migration is allowed only before any new enrollment state") { store, keychain in
+    try expect(store.canMigrateLegacy(), "First migration unavailable")
+    try store.enroll(masterKey: mk, profileBinding: profile, validateOperation: {})
+    try expect(!store.canMigrateLegacy(), "Existing state allowed legacy downgrade")
+    try store.revoke()
+    try expect(!store.canMigrateLegacy(), "Revocation allowed legacy resurrection")
+    keychain.state = Data("broken".utf8)
+    try rejects { _ = try store.canMigrateLegacy() }
+}
+try test("migration cannot overwrite a tombstone or active enrollment") { store, _ in
+    try store.migrateLegacyKey(masterKey: mk, profileBinding: profile, validateOperation: {})
+    try rejects { try store.migrateLegacyKey(masterKey: nextMK, profileBinding: profile, validateOperation: {}) }
+    try store.revoke()
+    try rejects { try store.migrateLegacyKey(masterKey: mk, profileBinding: profile, validateOperation: {}) }
+    try expect(!store.isEnrolled(profileBinding: profile), "Migration revived revoked enrollment")
+}
 try test("account mismatch and bad profile input denied") { store, _ in
     try store.enroll(masterKey: mk, profileBinding: profile, validateOperation: {})
     try rejects { _ = try store.read(profileBinding: other, context: LAContext(), validateOperation: {}) }

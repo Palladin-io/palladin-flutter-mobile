@@ -39,16 +39,36 @@ final class SharedBiometricUnlock {
         self.keychain = keychain ?? SystemSharedBiometricKeychain(accessGroup: accessGroup)
     }
 
+    /// A tombstone is distinct from a never-migrated device. Falling back to
+    /// legacy storage after revocation would resurrect previously denied keys.
+    func canMigrateLegacy() throws -> Bool {
+        guard !accessGroup.isEmpty else { throw SharedBiometricUnlockError.invalid }
+        return try locked { try loadState() == nil }
+    }
+
     func isEnrolled(profileBinding: String) throws -> Bool {
         guard validProfile(profileBinding), !accessGroup.isEmpty else { throw SharedBiometricUnlockError.invalid }
         return try locked { try loadState()?.envelope?.profileBinding == profileBinding }
     }
 
     func enroll(masterKey: Data, profileBinding: String, validateOperation: () throws -> Void) throws {
+        try enrollKey(masterKey: masterKey, profileBinding: profileBinding, requireAbsentState: false, validateOperation: validateOperation)
+    }
+
+    func migrateLegacyKey(masterKey: Data, profileBinding: String, validateOperation: () throws -> Void) throws {
+        try enrollKey(masterKey: masterKey, profileBinding: profileBinding, requireAbsentState: true, validateOperation: validateOperation)
+    }
+
+    private func enrollKey(masterKey: Data, profileBinding: String, requireAbsentState: Bool, validateOperation: () throws -> Void) throws {
         guard masterKey.count == 32, validProfile(profileBinding), !accessGroup.isEmpty else {
             throw SharedBiometricUnlockError.invalid
         }
-        let previous = try locked { try validateOperation(); return try loadState() }
+        let previous = try locked {
+            try validateOperation()
+            let state = try loadState()
+            guard !requireAbsentState || state == nil else { throw SharedBiometricUnlockError.stale }
+            return state
+        }
         let epoch = UUID().uuidString.lowercased()
         let keyID = UUID().uuidString.lowercased()
         var key = Data(count: 32)
