@@ -47,6 +47,7 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
                     "bind" -> result.success(AutoFillRequestBroker.bind(string("id"), string("principalId"), string("organizationId"), string("sessionId")))
                     "authenticatePresence", "readBiometricMasterKey" -> authenticate(string("id"), string("bindingToken"),
                         call.method == "readBiometricMasterKey", args["promptTitle"] as? String, args["cancelLabel"] as? String, result)
+                    "authorizePasswordUnlock" -> result.success(AutoFillRequestBroker.authorizePasswordUnlock(string("id"), string("bindingToken")))
                     "confirmSelection" -> result.success(AutoFillRequestBroker.confirm(string("id"), string("bindingToken"), string("authorizationToken"), selection()))
                     "validate" -> result.success(AutoFillRequestBroker.validate(string("id"), string("bindingToken"), string("authorizationToken"), string("selectedHost")))
                     "complete" -> {

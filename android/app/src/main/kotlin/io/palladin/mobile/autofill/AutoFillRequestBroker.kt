@@ -106,6 +106,7 @@ internal object AutoFillRequestBroker {
     }
     fun beginAuthentication(id: String, binding: String) = state.beginAuthentication(id, binding)
     fun authenticated(attempt: AutoFillAuthenticationAttempt) = state.authenticated(attempt)
+    fun authorizePasswordUnlock(id: String, binding: String) = state.authorizePasswordUnlock(id, binding)
     fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection) = state.confirm(id, binding, authorization, selection)
     fun validate(id: String, binding: String, authorization: String, host: String): Boolean =
         state.validate(id, binding, authorization, host) && owner.get()?.originVerified(host) == true

@@ -95,4 +95,24 @@ class AutoFillRequestStateTest {
         state.cancel()
         assertFalse(state.validate(binding.id, binding.token, authorization, "example.test"))
     }
+    @Test fun `completed password unwrap authorizes only the captured current request`() {
+        val binding = bind()
+        val authorization = state.authorizePasswordUnlock(binding.id, binding.token)
+        assertTrue(fill(binding, authorization))
+        assertFalse(fill(binding, authorization))
+    }
+    @Test fun `late password completion rejects cancellation mutation and account replacement`() {
+        val canceled = bind()
+        state.cancel()
+        try { state.authorizePasswordUnlock(canceled.id, canceled.token); fail("Accepted canceled unlock") }
+        catch (_: AutoFillSourceException) {}
+        val changed = bind()
+        source.invalidate("session", epoch)
+        try { state.authorizePasswordUnlock(changed.id, changed.token); fail("Accepted invalidated unlock") }
+        catch (_: AutoFillSourceException) {}
+        source.begin("replacement-profile", "replacement-session")
+        try { state.authorizePasswordUnlock(changed.id, changed.token); fail("Accepted replaced account") }
+        catch (_: AutoFillSourceException) {}
+    }
+
 }

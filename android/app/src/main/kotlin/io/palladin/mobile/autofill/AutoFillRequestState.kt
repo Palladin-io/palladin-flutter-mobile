@@ -44,6 +44,11 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         token().also { authorization = it }
     }
 
+    // Called only by the request-captured successful password KDF/private-key unwrap path.
+    fun authorizePasswordUnlock(id: String, binding: String): String = synchronized(AutoFillMutationLock.monitor) {
+        authenticated(beginAuthentication(id, binding))
+    }
+
     fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection): String = synchronized(AutoFillMutationLock.monitor) {
         if (!validate(id, binding, authorization, selection.host)) rejected()
         require(selection.vaultId.isNotBlank() && selection.entryId.isNotBlank())
