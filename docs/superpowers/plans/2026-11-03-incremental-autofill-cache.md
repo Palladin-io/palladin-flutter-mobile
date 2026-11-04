@@ -125,8 +125,10 @@ SQLite/crypto benchmark reduced authority resolutions from162 to2 for160 Entries
 with unchanged160/1/0 reveals for full/update/delete and zero publication HTTP.
 This is call-count evidence, not a physical performance claim.
 
-Next unfinished step: resolve a separately identified startup publication
-supersession mechanism, integrate reviewed corrections, then run exact-candidate
-CI and physical S22 lifecycle/AutoFill checks before merge and Android Internal
-Testing. Root owns device diagnostics, PR stack integration and release. No iOS
+The startup supersession mechanism now has a deterministic RED→GREEN:
+36 coordinator tests confirm serialized native calls, independent acknowledgement
+of newer commits, session/deny cancellation and no resurrection of removed Vaults.
+The combined candidate includes the reviewed progress colors; complete validation
+and serialization review are in progress. Next: exact-candidate CI and physical
+S22 lifecycle/AutoFill checks before merge and Android Internal Testing. Root owns device diagnostics, PR stack integration and release. No iOS
 publication; diagnostics remain isolated from production commits.

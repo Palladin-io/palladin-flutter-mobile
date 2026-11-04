@@ -471,7 +471,14 @@ References: [Android provider activation](https://developer.android.com/identity
    updates. A later explicit foreground repair always rebuilds, including after
    native quarantine without a Dart commit. New commits (including refreshed
    leases), native denies and session changes also require a fresh publication;
-   the publication record contains no credential or key material.
+   the publication record contains no credential or key material. Different
+   pending coverage waits for the active call to settle before publishing; it
+   never cancels a long preparation merely by incrementing its generation.
+   After waiting, the request rechecks session/admission and the latest complete
+   Vault set. A new deny invalidates previously admitted waiters; a subsequently
+   authorized owner can wait and publish independently. Removed Vaults are never
+   restored from an older captured set, and a newer commit is acknowledged only
+   after its own publication finishes.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.
