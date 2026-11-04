@@ -7,6 +7,81 @@ import org.junit.Test
 import java.nio.file.Files
 
 class AutoFillIncrementalCacheTest {
+    @Test fun unchangedAndRenewedAuthorityKeepReadyCatalogAndPickerRevision() = fixture { cache, fence, key ->
+        val epoch = cache.beginWriterSession(7)
+        val base = cache.replace(payload(160), 7, epoch)
+        val pickerRevision = cache.readWithAuthenticatedKey(fence(), key()).first().catalogRevision
+        for (renewed in listOf(false, true)) {
+            val manifest = payload(160).getJSONObject("manifest")
+            if (renewed) manifest.getJSONArray("vaults").getJSONObject(0)
+                .put("issuedAt", "2026-08-29T08:01:00Z").put("notAfter", "2026-08-30T08:01:00Z")
+            val acknowledged = cache.applyDelta(delta(base, epoch, manifest))
+            assertEquals(base.getLong("revision"), acknowledged.getLong("revision"))
+            assertEquals(160, fence().availableRecords)
+            cache.requireCurrentRevision(7, pickerRevision)
+        }
+    }
+
+    @Test fun unchangedCheckDoesNotWriteAndLockKeepsPreviouslyPublishedProviderReadable() {
+        val directory = Files.createTempDirectory("autofill-v3-noop").toFile()
+        var fence = AutoFillFence(7, "active", NOW)
+        var openingKey = ByteArray(0)
+        var writes = 0
+        var commits = 0
+        var shouldLock = false
+        var epoch = 0L
+        lateinit var cache: AutoFillIncrementalCache
+        cache = AutoFillIncrementalCache(directory, { fence }, { fence = it; commits++ }, { _, key -> openingKey = key.copyOf(); key.copyOf() },
+            { NOW }, { file, bytes -> writes++; file.writeBytes(bytes) }, beforeCommit = { if (shouldLock) cache.endWriterSession(epoch) })
+        try {
+            epoch = cache.beginWriterSession(7)
+            val base = cache.replace(payload(160), 7, epoch)
+            writes = 0; commits = 0
+            cache.applyDelta(delta(base, epoch, payload(160).getJSONObject("manifest")))
+            assertEquals(0, writes); assertEquals(0, commits)
+            shouldLock = true
+            val failure = assertThrows(AutoFillIncrementalException::class.java) { cache.applyDelta(delta(base, epoch, payload(160).getJSONObject("manifest"))) }
+            assertEquals("AUTOFILL_WRITER_INVALIDATED", failure.code)
+            assertEquals(0, writes); assertEquals(0, commits)
+            assertEquals(base.getLong("revision"), fence.catalogRevision)
+            assertEquals(160, cache.readWithAuthenticatedKey(fence, openingKey).size)
+        } finally { openingKey.fill(0); directory.deleteRecursively() }
+    }
+
+    @Test fun shorterLeaseAndOutstandingOwnerCannotReturnUnchangedBase() = fixture { cache, _, _ ->
+        val epoch = cache.beginWriterSession(7)
+        val first = cache.replace(payload(1), 7, epoch)
+        val shorter = payload(1).getJSONObject("manifest")
+        shorter.getJSONArray("vaults").getJSONObject(0).put("issuedAt", "2026-08-29T07:59:00Z").put("notAfter", "2026-08-30T07:59:00Z")
+        val narrowed = cache.applyDelta(delta(first, epoch, shorter))
+        assertTrue(narrowed.getLong("revision") > first.getLong("revision"))
+        val denied = cache.deny(JSONObject().put("base", narrowed).put("writerEpoch", epoch).put("entries", JSONArray()))
+        val ownedBase = denied.getJSONObject("base")
+        val pending = cache.applyDelta(delta(ownedBase, epoch, shorter))
+        assertTrue(pending.getLong("revision") > ownedBase.getLong("revision"))
+        val released = cache.applyDelta(delta(pending, epoch, shorter).put("releasingDenies", JSONArray().put(denied.getString("denyToken"))))
+        assertTrue(released.getLong("revision") > pending.getLong("revision"))
+    }
+
+    @Test fun revokeOrQuarantineDuringUnchangedCheckRejectsWithoutReactivatingCache() {
+        val directory = Files.createTempDirectory("autofill-v3-noop-revoke").toFile()
+        var fence = AutoFillFence(7, "active", NOW)
+        var deniedState: String? = null
+        val cache = AutoFillIncrementalCache(directory, { fence }, { fence = it }, { _, key -> key.copyOf() },
+            { NOW }, { file, bytes -> file.writeBytes(bytes) }, beforeCommit = { deniedState?.let { fence = fence.copy(state = it) } })
+        try {
+            val epoch = cache.beginWriterSession(7)
+            val base = cache.replace(payload(1), 7, epoch)
+            for (state in listOf("revoked", "quarantined")) {
+                fence = fence.copy(state = "active")
+                deniedState = state
+                assertThrows(AutoFillIncrementalException::class.java) { cache.applyDelta(delta(base, epoch, payload(1).getJSONObject("manifest"))) }
+                assertEquals(state, fence.state)
+                assertEquals(base.getLong("revision"), fence.catalogRevision)
+            }
+        } finally { directory.deleteRecursively() }
+    }
+
     @Test fun globalDenialThenSingleUpdateRetains159CiphertextsWithoutOpeningThem() {
         val directory = Files.createTempDirectory("autofill-v3-test").toFile()
         var fence = AutoFillFence(7, "active", NOW)
@@ -258,7 +333,7 @@ class AutoFillIncrementalCacheTest {
             val epoch = cache.beginWriterSession(7)
             val base = cache.replace(payload(1), 7, epoch)
             fail = true
-            assertThrows(java.io.IOException::class.java) { cache.applyDelta(delta(base, epoch, payload(1).getJSONObject("manifest"))) }
+            assertThrows(java.io.IOException::class.java) { cache.applyDelta(delta(base, epoch, payload(1).getJSONObject("manifest")).put("upserts", payload(1).getJSONArray("records"))) }
             assertEquals(base.getLong("revision"), fence.catalogRevision)
             assertEquals(1, cache.readWithAuthenticatedKey(fence, openingKey).size)
         } finally { openingKey.fill(0); directory.deleteRecursively() }
@@ -285,7 +360,7 @@ class AutoFillIncrementalCacheTest {
     @Test fun staleBaseAndOldWriterCannotOverwriteNewerState() = fixture { cache, fence, _ ->
         val epoch = cache.beginWriterSession(7)
         val base = cache.replace(payload(1), 7, epoch)
-        val next = cache.applyDelta(delta(base, epoch, payload(1).getJSONObject("manifest")))
+        val next = cache.deny(JSONObject().put("base", base).put("writerEpoch", epoch).put("entries", JSONArray())).getJSONObject("base")
         val error = assertThrows(AutoFillIncrementalException::class.java) { cache.applyDelta(delta(base, epoch, payload(1).getJSONObject("manifest"))) }
         assertEquals("AUTOFILL_STALE_BASE", error.code)
         cache.endWriterSession(epoch)
