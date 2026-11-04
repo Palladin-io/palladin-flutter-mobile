@@ -3,11 +3,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_source_access_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Database database;
   late SqliteMemberSyncCache cache;
   late MemberSnapshotPage snapshot;
@@ -61,6 +65,54 @@ void main() {
   });
 
   tearDown(() => database.close());
+
+  test(
+    'old mutation cannot cross account replacement while database opens',
+    () async {
+      const channel = MethodChannel('test/member-cache-session');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      var epoch = 0;
+      messenger.setMockMethodCallHandler(channel, (_) async => ++epoch);
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final source = AutoFillSourceAccessService(channel: channel);
+      Future<void> begin(String principal) => source.begin(
+        authority: MemberSyncSessionAuthority(
+          principalId: principal,
+          organizationId: 'org',
+          organizationMembershipGeneration: '1',
+          offlinePolicy: '24h',
+          offlinePolicyVersion: 1,
+        ),
+        profileBinding: 'a' * 64,
+        accountUnlock: {'accountId': principal},
+      );
+      await begin('first');
+      final opening = Completer<Database>();
+      final guarded = SqliteMemberSyncCache(
+        databaseLoader: () => opening.future,
+        captureMutationSession: source.captureSessionGuard,
+        mutationGuard: source.withCiphertextMutation,
+      );
+      await database.insert('member_sync_profile_fence', {
+        'singleton': 1,
+        'generation': 9,
+      });
+      final clearing = guarded.clearAll();
+      final rejected = expectLater(clearing, throwsStateError);
+      await begin('second');
+      opening.complete(database);
+      await rejected;
+      expect(
+        (await database.query(
+          'member_sync_profile_fence',
+        )).single['generation'],
+        9,
+      );
+      await guarded.clearAll();
+      expect(await database.query('member_sync_profile_fence'), isEmpty);
+    },
+  );
 
   test('concurrent first readers share one database open', () async {
     final opened = Completer<Database>();
@@ -272,4 +324,48 @@ void main() {
     expect(stagedRows, isEmpty);
     expect(await cache.readHeads(firstVault).toList(), hasLength(1));
   });
+  test('native source denial completes before any canonical write', () async {
+    final admitted = Completer<void>();
+    final denied = Completer<void>();
+    cache = SqliteMemberSyncCache(
+      databaseLoader: () async => database,
+      mutationGuard: <T>(Future<T> Function() write) async {
+        admitted.complete();
+        await denied.future;
+        return write();
+      },
+    );
+    final pending = cache.appendSnapshot(
+      snapshot.accessContext.vaultId,
+      snapshot.items,
+    );
+    await admitted.future;
+    expect(await database.query('member_sync_heads'), isEmpty);
+    denied.complete();
+    await pending;
+    expect(await database.query('member_sync_heads'), hasLength(1));
+  });
+
+  test(
+    'failed native denial prevents canonical writes and reads do not deny',
+    () async {
+      var guards = 0;
+      cache = SqliteMemberSyncCache(
+        databaseLoader: () async => database,
+        mutationGuard: <T>(Future<T> Function() write) async {
+          guards++;
+          throw StateError('synthetic durable deny failure');
+        },
+      );
+      expect(await cache.vaultIds(), isEmpty);
+      expect(await cache.state(snapshot.accessContext.vaultId), isNull);
+      expect(guards, 0);
+      await expectLater(
+        cache.appendSnapshot(snapshot.accessContext.vaultId, snapshot.items),
+        throwsStateError,
+      );
+      expect(await database.query('member_sync_heads'), isEmpty);
+      expect(guards, 1);
+    },
+  );
 }
