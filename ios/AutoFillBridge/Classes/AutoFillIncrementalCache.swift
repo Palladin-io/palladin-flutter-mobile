@@ -200,6 +200,51 @@ final class AutoFillV3Engine {
         return result
     }
 
+    func preparePublication(previous: AutoFillV3Catalog, next: AutoFillV3Catalog,
+                            pointer: AutoFillV3Pointer, key: Data, allowUnchanged: Bool,
+                            now: Date) throws -> AutoFillV3Publication {
+        try validate(previous, now: now)
+        try validate(next, now: now)
+        if allowUnchanged, try canPreservePublication(previous: previous, next: next, now: now) {
+            for entry in previous.entries.values {
+                _ = try load(id: entry.bodyID, generation: previous.generation, digest: entry.digest)
+            }
+            return AutoFillV3Publication(pointer: pointer, identities: previous.identities,
+                                        previousIdentities: previous.identities, updatesIdentities: false)
+        }
+        let nextPointer = try persist(next, revision: pointer.base.revision + 1, key: key)
+        return AutoFillV3Publication(pointer: nextPointer, identities: next.identities,
+                                    previousIdentities: previous.identities)
+    }
+
+    func canPreservePublication(previous: AutoFillV3Catalog, next: AutoFillV3Catalog, now: Date) throws -> Bool {
+        try validate(previous, now: now)
+        try validate(next, now: now)
+        guard previous.denies.isEmpty, next.denies.isEmpty,
+              previous.generation == next.generation, previous.keyID == next.keyID,
+              try binding(previous.manifest) == binding(next.manifest),
+              try AutoFillV3JSON.encode(previous.entries.mapValues(\.object)) == AutoFillV3JSON.encode(next.entries.mapValues(\.object)),
+              let oldVaults = previous.manifest["vaults"] as? [[String: Any]],
+              let newVaults = next.manifest["vaults"] as? [[String: Any]] else { return false }
+        for old in oldVaults {
+            guard let current = newVaults.first(where: { $0["vaultId"] as? String == old["vaultId"] as? String }) else { return false }
+            let oldStart = try AutoFillV3JSON.instant(old["issuedAt"])
+            let oldEnd = try AutoFillV3JSON.instant(old["notAfter"])
+            let newStart = try AutoFillV3JSON.instant(current["issuedAt"])
+            let newEnd = try AutoFillV3JSON.instant(current["notAfter"])
+            guard newEnd >= oldEnd, max(oldStart, newStart) < min(oldEnd, newEnd) else { return false }
+        }
+        for (coordinate, entry) in previous.entries {
+            let current = try singleManifest(next.manifest, coordinate: coordinate)
+            let originalVault = (entry.originalManifest["vaults"] as! [[String: Any]])[0]
+            let currentVault = (current["vaults"] as! [[String: Any]])[0]
+            let originalStart = try AutoFillV3JSON.instant(originalVault["issuedAt"])
+            let currentStart = try AutoFillV3JSON.instant(currentVault["issuedAt"])
+            guard max(originalStart, currentStart) < min(entry.notAfter, try notAfter(current)) else { return false }
+        }
+        return true
+    }
+
     func deny(catalog: AutoFillV3Catalog, entries: [[String: Any]], now: Date) throws -> (catalog: AutoFillV3Catalog, token: String) {
         try validate(catalog, now: now)
         let coordinates = try entries.map(AutoFillV3JSON.coordinate)
@@ -370,6 +415,7 @@ struct AutoFillV3Publication {
     let identities: [[String: Any]]
     let previousIdentities: [[String: Any]]?
     var denyToken: String? = nil
+    var updatesIdentities = true
     var response: [String: Any] {
         if let denyToken { return ["base": pointer.base.object, "denyToken": denyToken] }
         return pointer.base.object

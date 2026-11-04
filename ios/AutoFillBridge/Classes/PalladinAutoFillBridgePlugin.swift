@@ -121,6 +121,10 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                     } else {
                         publication = try store.mutateV3(arguments: arguments, writer: self.incrementalWriter, deny: call.method == "denyEntries")
                     }
+                    if !publication.updatesIdentities {
+                        DispatchQueue.main.async { result(publication.response) }
+                        return
+                    }
                     AutoFillCacheStore.publishV3Identities(publication, store: store) { error in
                         DispatchQueue.main.async {
                             if let error {

@@ -932,6 +932,7 @@ final class AutoFillCacheStore {
             _ = try readOrInitializeGlobalWallTimeLocked(now: now, allowInitialization: false)
             let catalog = try engine.open(pointer, key: material.key, now: now)
             let next: AutoFillV3Catalog
+            var allowUnchanged = false
             var token: String?
             if deny {
                 guard let entries = arguments["entries"] as? [[String: Any]] else { throw AutoFillV3Error.invalid }
@@ -944,17 +945,30 @@ final class AutoFillCacheStore {
                       let tokens = arguments["releasingDenies"] as? [String] else { throw AutoFillV3Error.invalid }
                 next = try engine.delta(catalog: catalog, manifest: manifest, upserts: upserts,
                                         removals: removals, releasingDenies: tokens, key: material.key, now: now)
+                allowUnchanged = upserts.isEmpty && removals.isEmpty && tokens.isEmpty
             }
-            let nextPointer = try engine.persist(next, revision: base.revision + 1, key: material.key)
+            var publication = try engine.preparePublication(previous: catalog, next: next,
+                pointer: pointer, key: material.key, allowUnchanged: allowUnchanged, now: now)
+            publication.denyToken = token
+            let nextPointer = publication.pointer
             try writer.withCurrent(epoch: epoch, generation: base.generation) {
                 try requireActiveLocked(generation: base.generation, cacheId: pointer.cacheID)
                 try engine.validate(next, now: Date())
-                try commitV3Pointer(nextPointer, now: Date())
+                if publication.updatesIdentities {
+                    try commitV3Pointer(nextPointer, now: Date())
+                } else {
+                    guard try engine.canPreservePublication(previous: catalog, next: next, now: Date()) else {
+                        throw AutoFillV3Error.recoveryRequired
+                    }
+                    try validateProcessWallTimeLocked(now: Date(), systemUptime: ProcessInfo.processInfo.systemUptime)
+                    _ = try readOrInitializeGlobalWallTimeLocked(now: Date(), allowInitialization: false)
+                }
             }
-            try? engine.collectGarbage(retaining: next, pointer: nextPointer)
-            try? cleanupV3KeychainLocked(retaining: nextPointer)
-            return AutoFillV3Publication(pointer: nextPointer, identities: next.identities,
-                                        previousIdentities: catalog.identities, denyToken: token)
+            if publication.updatesIdentities {
+                try? engine.collectGarbage(retaining: next, pointer: nextPointer)
+                try? cleanupV3KeychainLocked(retaining: nextPointer)
+            }
+            return publication
         }
     }
 
