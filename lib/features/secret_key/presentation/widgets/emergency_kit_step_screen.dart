@@ -24,13 +24,16 @@ class EmergencyKitStepScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: false,
-    child: AuthBrandBackground(
-      child: SafeArea(
-        child: EmergencyKitStep(
-          email: email,
-          accountId: accountId,
-          accountSecret: accountSecret,
-          onContinue: onContinue,
+    child: Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AuthBrandBackground(
+        child: SafeArea(
+          child: EmergencyKitStep(
+            email: email,
+            accountId: accountId,
+            accountSecret: accountSecret,
+            onContinue: onContinue,
+          ),
         ),
       ),
     ),

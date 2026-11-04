@@ -37,9 +37,9 @@ void main() {
     salt: 'c2FsdC1pcy1zaXh0ZWVuISE=', // 16 bytes of arbitrary base64
     encryptedPrivateKey: 'ZW5jcnlwdGVk',
     kdf: IdentityKdfMetadata(
-      securityVersion: 1,
-      minimumSecurityVersion: 1,
-      profileId: IdentityKdfProfile.id,
+      securityVersion: 2,
+      minimumSecurityVersion: 2,
+      profileId: IdentityKdfProfileV2.id,
       kdfSalt: 'AAECAwQFBgcICQoLDA0ODw',
       credentialRevision: 1,
       privateKeyWrapRevision: 1,
@@ -92,6 +92,7 @@ void main() {
         accountId: any(named: 'accountId'),
         kdf: any(named: 'kdf'),
         encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+        accountSecret: any(named: 'accountSecret'),
       ),
     ).thenAnswer(
       (_) async => UnlockResult(masterKey: masterKey, privateKey: privateKey),
@@ -121,6 +122,7 @@ void main() {
             accountId: any(named: 'accountId'),
             kdf: any(named: 'kdf'),
             encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+            accountSecret: any(named: 'accountSecret'),
           ),
         ).thenAnswer((_) async {
           entered.complete();
@@ -181,6 +183,7 @@ void main() {
             accountId: any(named: 'accountId'),
             kdf: any(named: 'kdf'),
             encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+            accountSecret: any(named: 'accountSecret'),
           ),
         );
       },
@@ -253,6 +256,7 @@ void main() {
             accountId: any(named: 'accountId'),
             kdf: any(named: 'kdf'),
             encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+            accountSecret: any(named: 'accountSecret'),
           ),
         ).thenAnswer(
           (_) async => UnlockResult(
@@ -315,6 +319,7 @@ void main() {
             accountId: any(named: 'accountId'),
             kdf: any(named: 'kdf'),
             encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+            accountSecret: any(named: 'accountSecret'),
           ),
         ).thenThrow(const WrongMasterPasswordException());
         return buildCubit();

@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -12,6 +15,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/widgets/auth_brand_header.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../../secret_key/presentation/pages/secret_key_acquisition_page.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../domain/unlock_exceptions.dart';
 import '../cubit/unlock_cubit.dart';
@@ -261,7 +265,30 @@ class _UnlockViewState extends State<_UnlockView> {
     );
   }
 
-  void _handleStateChange(BuildContext context, UnlockState state) {
+  Future<void> _handleStateChange(
+    BuildContext context,
+    UnlockState state,
+  ) async {
+    if (state is UnlockSecretKeyRequired) {
+      final cubit = context.read<UnlockCubit>();
+      final secret = await context.push<Uint8List>(
+        AppRoutes.secretKeyAcquire,
+        extra: SecretKeyAcquisitionArgs(
+          accountId: state.accountId,
+          email: state.email,
+        ),
+      );
+      if (secret == null) {
+        cubit.cancelSecretKeyRequest();
+      } else {
+        await cubit.unlockWithSecretKey(secret);
+      }
+      return;
+    }
+    if (state is UnlockSecurityUpgradeRequired) {
+      context.go(AppRoutes.securityUpgrade, extra: state.start);
+      return;
+    }
     if (state is UnlockSuccess) {
       if (state.viaBiometrics) {
         AnalyticsService.instance.capture('unlock', 'biometric-used');
@@ -293,6 +320,9 @@ class _UnlockViewState extends State<_UnlockView> {
     if (error is BiometricKeyMissingException) return 'biometric_missing';
     if (error is BiometricAuthFailedException) return 'biometric_failed';
     if (error is UnlockServerException) return 'server_error';
+    if (error is SecurityUpgradeNeedsPasswordException) {
+      return 'upgrade_needs_password';
+    }
     return 'unknown';
   }
 
@@ -309,6 +339,9 @@ class _UnlockViewState extends State<_UnlockView> {
     }
     if (error is BiometricAuthFailedException) {
       return l10n.unlockBiometricFailed;
+    }
+    if (error is SecurityUpgradeNeedsPasswordException) {
+      return l10n.unlockSecurityUpgradeNeedsPassword;
     }
     if (error is UnlockServerException) {
       return switch (error.kind) {

@@ -50,6 +50,8 @@ import '../permissions.dart';
 import 'shell_tab_page.dart';
 import '../../features/secret_key/presentation/pages/device_transfer_approve_page.dart';
 import '../../features/secret_key/presentation/pages/secret_key_acquisition_page.dart';
+import '../../features/security_upgrade/domain/security_upgrade_start.dart';
+import '../../features/security_upgrade/presentation/pages/security_upgrade_page.dart';
 
 /// Centralized route paths and builders, so widgets navigate via
 /// `AppRoutes.agentDetail(id)` instead of scattering string literals
@@ -67,6 +69,7 @@ abstract final class AppRoutes {
   static const String settingsSecurity = '/settings/security';
   static const String settingsAddDevice = '/settings/add-device';
   static const String secretKeyAcquire = '/secret-key/acquire';
+  static const String securityUpgrade = '/security-upgrade';
   static const String settingsEmergencyKit = '/settings/emergency-kit';
   static const String generatedPasswords =
       '/settings/security/generated-passwords';
@@ -197,6 +200,8 @@ GoRouter createRouter(
       // A new device fetches its Secret Key before (login) or after (unlock)
       // a session exists; the page itself holds no account state.
       final isOnSecretKeyAcquire = location == AppRoutes.secretKeyAcquire;
+      // The upgrade runs before the vault opens and owns its in-memory keys.
+      final isOnSecurityUpgrade = location == AppRoutes.securityUpgrade;
 
       final isAuthenticated = authState is AuthAuthenticated;
 
@@ -240,6 +245,9 @@ GoRouter createRouter(
         if (isOnUnlockPage || isOnRecoveryPage || isOnSecretKeyAcquire) {
           return null;
         }
+        if (isOnSecurityUpgrade && state.extra is SecurityUpgradeStart) {
+          return null;
+        }
         return '/unlock';
       }
 
@@ -249,7 +257,8 @@ GoRouter createRouter(
           isOnVerifyEmailPage ||
           isOnOnboardingPage ||
           isOnUnlockPage ||
-          isOnRecoveryPage) {
+          isOnRecoveryPage ||
+          isOnSecurityUpgrade) {
         if (sharingAccount?.active == true) {
           return sharingAccount!.ready ? AppRoutes.entryShare : null;
         }
@@ -304,6 +313,11 @@ GoRouter createRouter(
         builder: (_, _) => accountFrame(const UnlockPage()),
       ),
       GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
+      GoRoute(
+        path: AppRoutes.securityUpgrade,
+        builder: (_, state) =>
+            SecurityUpgradePage(start: state.extra! as SecurityUpgradeStart),
+      ),
       GoRoute(
         path: AppRoutes.secretKeyAcquire,
         builder: (_, state) => SecretKeyAcquisitionPage(

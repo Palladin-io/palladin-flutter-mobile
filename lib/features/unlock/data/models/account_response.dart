@@ -19,6 +19,7 @@ class AccountResponse {
     this.memberKeyVersion,
     this.recoverySalt,
     this.encryptedPrivateKeyByRecovery,
+    this.legacyMemberKey,
   });
 
   /// Immutable RFC 4122 account identifier used by the Identity KDF.
@@ -47,6 +48,10 @@ class AccountResponse {
   /// Nullable for the same reason as [recoverySalt].
   final String? encryptedPrivateKeyByRecovery;
 
+  /// Old member key wrapped under the version-2 master key; present only
+  /// until every envelope addressed to it is re-wrapped (migration resume).
+  final LegacyMemberKeyRecord? legacyMemberKey;
+
   factory AccountResponse.fromJson(Map<String, dynamic> json) {
     return AccountResponse(
       userId: json['userId'] as String,
@@ -61,6 +66,24 @@ class AccountResponse {
       recoverySalt: json['recoverySalt'] as String?,
       encryptedPrivateKeyByRecovery:
           json['encryptedPrivateKeyByRecovery'] as String?,
+      legacyMemberKey: switch (json['legacyMemberKey']) {
+        final Map<String, dynamic> value => LegacyMemberKeyRecord(
+          encryptedPrivateKey: value['encryptedPrivateKey'] as String,
+          keyVersion: value['keyVersion'] as int,
+        ),
+        _ => null,
+      },
     );
   }
+}
+
+/// Wrapped pre-upgrade member key kept for resumable re-wrapping.
+class LegacyMemberKeyRecord {
+  const LegacyMemberKeyRecord({
+    required this.encryptedPrivateKey,
+    required this.keyVersion,
+  });
+
+  final String encryptedPrivateKey;
+  final int keyVersion;
 }

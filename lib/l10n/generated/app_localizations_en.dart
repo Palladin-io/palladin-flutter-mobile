@@ -5457,4 +5457,120 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get secretKeyEntryCantScan => 'Can\'t scan? Use Emergency Kit';
+
+  @override
+  String get securityUpgradeTitle => 'Updating your account security';
+
+  @override
+  String get securityUpgradeSubtitle =>
+      'We\'re moving your keys to stronger encryption. Keep the app open — it takes about a minute.';
+
+  @override
+  String get securityUpgradeStepAccountKey => 'Account key';
+
+  @override
+  String get securityUpgradeStepVaults => 'Vaults';
+
+  @override
+  String get securityUpgradeStepAgents => 'Agents';
+
+  @override
+  String get securityUpgradeStatusWaiting => 'Waiting';
+
+  @override
+  String get securityUpgradeStatusRunning => 'In progress';
+
+  @override
+  String get securityUpgradeStatusDone => 'Done';
+
+  @override
+  String get securityUpgradeStatusStopped => 'Stopped';
+
+  @override
+  String securityUpgradeCount(int done, int total) {
+    return '$done of $total';
+  }
+
+  @override
+  String securityUpgradeStoppedAt(int done, int total) {
+    return 'Stopped at $done of $total';
+  }
+
+  @override
+  String get securityUpgradeEntriesUnchanged =>
+      'Your entries stay as they are. Only the way your keys are shared changes.';
+
+  @override
+  String get securityUpgradeErrorTitle => 'Update paused';
+
+  @override
+  String get securityUpgradeNetworkError =>
+      'Connection lost. Your progress is saved, so nothing will be repeated.';
+
+  @override
+  String get securityUpgradeServerError =>
+      'Something went wrong. Your progress is saved, so try again.';
+
+  @override
+  String get securityUpgradeRetry => 'Retry';
+
+  @override
+  String get securityUpgradePhraseTitle => 'Save your new recovery phrase';
+
+  @override
+  String get securityUpgradePhraseSubtitle =>
+      'Your account key changed, so your old recovery phrase no longer works. Write down these 24 words.';
+
+  @override
+  String get securityUpgradePhraseWarningTitle => 'Keep it offline';
+
+  @override
+  String get securityUpgradePhraseWarning =>
+      'Store it apart from your Emergency Kit. Anyone holding it can take over your account.';
+
+  @override
+  String get securityUpgradePhraseWritten => 'I wrote it down';
+
+  @override
+  String get securityUpgradeConfirmTitle => 'Confirm your recovery phrase';
+
+  @override
+  String get securityUpgradeConfirmSubtitle =>
+      'Enter three words to make sure you saved it correctly.';
+
+  @override
+  String securityUpgradeConfirmWord(int position) {
+    return 'Word #$position';
+  }
+
+  @override
+  String get securityUpgradeConfirmAction => 'Confirm';
+
+  @override
+  String get securityUpgradeConfirmMismatch =>
+      'These words don\'t match. Check your phrase and try again.';
+
+  @override
+  String get securityUpgradeConfirmBack => 'Show the phrase again';
+
+  @override
+  String get securityUpgradeDoneTitle => 'Your account is up to date';
+
+  @override
+  String get securityUpgradeDoneSubtitle =>
+      'Your keys use stronger encryption and your account has a Secret Key.';
+
+  @override
+  String get securityUpgradeDoneDevicesTitle => 'Other devices';
+
+  @override
+  String get securityUpgradeDoneDevices =>
+      'Your other devices will ask for the Secret Key once. Approve them from this phone or use your Emergency Kit.';
+
+  @override
+  String get securityUpgradeDoneAction => 'Done';
+
+  @override
+  String get unlockSecurityUpgradeNeedsPassword =>
+      'Enter your master password to finish the account security update.';
 }

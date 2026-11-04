@@ -9631,6 +9631,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Can\'t scan? Use Emergency Kit'**
   String get secretKeyEntryCantScan;
+
+  /// No description provided for @securityUpgradeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating your account security'**
+  String get securityUpgradeTitle;
+
+  /// No description provided for @securityUpgradeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re moving your keys to stronger encryption. Keep the app open — it takes about a minute.'**
+  String get securityUpgradeSubtitle;
+
+  /// No description provided for @securityUpgradeStepAccountKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Account key'**
+  String get securityUpgradeStepAccountKey;
+
+  /// No description provided for @securityUpgradeStepVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Vaults'**
+  String get securityUpgradeStepVaults;
+
+  /// No description provided for @securityUpgradeStepAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get securityUpgradeStepAgents;
+
+  /// No description provided for @securityUpgradeStatusWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get securityUpgradeStatusWaiting;
+
+  /// No description provided for @securityUpgradeStatusRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get securityUpgradeStatusRunning;
+
+  /// No description provided for @securityUpgradeStatusDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get securityUpgradeStatusDone;
+
+  /// No description provided for @securityUpgradeStatusStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get securityUpgradeStatusStopped;
+
+  /// No description provided for @securityUpgradeCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total}'**
+  String securityUpgradeCount(int done, int total);
+
+  /// No description provided for @securityUpgradeStoppedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {done} of {total}'**
+  String securityUpgradeStoppedAt(int done, int total);
+
+  /// No description provided for @securityUpgradeEntriesUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Your entries stay as they are. Only the way your keys are shared changes.'**
+  String get securityUpgradeEntriesUnchanged;
+
+  /// No description provided for @securityUpgradeErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update paused'**
+  String get securityUpgradeErrorTitle;
+
+  /// No description provided for @securityUpgradeNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection lost. Your progress is saved, so nothing will be repeated.'**
+  String get securityUpgradeNetworkError;
+
+  /// No description provided for @securityUpgradeServerError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Your progress is saved, so try again.'**
+  String get securityUpgradeServerError;
+
+  /// No description provided for @securityUpgradeRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get securityUpgradeRetry;
+
+  /// No description provided for @securityUpgradePhraseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your new recovery phrase'**
+  String get securityUpgradePhraseTitle;
+
+  /// No description provided for @securityUpgradePhraseSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account key changed, so your old recovery phrase no longer works. Write down these 24 words.'**
+  String get securityUpgradePhraseSubtitle;
+
+  /// No description provided for @securityUpgradePhraseWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep it offline'**
+  String get securityUpgradePhraseWarningTitle;
+
+  /// No description provided for @securityUpgradePhraseWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Store it apart from your Emergency Kit. Anyone holding it can take over your account.'**
+  String get securityUpgradePhraseWarning;
+
+  /// No description provided for @securityUpgradePhraseWritten.
+  ///
+  /// In en, this message translates to:
+  /// **'I wrote it down'**
+  String get securityUpgradePhraseWritten;
+
+  /// No description provided for @securityUpgradeConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your recovery phrase'**
+  String get securityUpgradeConfirmTitle;
+
+  /// No description provided for @securityUpgradeConfirmSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter three words to make sure you saved it correctly.'**
+  String get securityUpgradeConfirmSubtitle;
+
+  /// No description provided for @securityUpgradeConfirmWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Word #{position}'**
+  String securityUpgradeConfirmWord(int position);
+
+  /// No description provided for @securityUpgradeConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get securityUpgradeConfirmAction;
+
+  /// No description provided for @securityUpgradeConfirmMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'These words don\'t match. Check your phrase and try again.'**
+  String get securityUpgradeConfirmMismatch;
+
+  /// No description provided for @securityUpgradeConfirmBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the phrase again'**
+  String get securityUpgradeConfirmBack;
+
+  /// No description provided for @securityUpgradeDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is up to date'**
+  String get securityUpgradeDoneTitle;
+
+  /// No description provided for @securityUpgradeDoneSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your keys use stronger encryption and your account has a Secret Key.'**
+  String get securityUpgradeDoneSubtitle;
+
+  /// No description provided for @securityUpgradeDoneDevicesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Other devices'**
+  String get securityUpgradeDoneDevicesTitle;
+
+  /// No description provided for @securityUpgradeDoneDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices will ask for the Secret Key once. Approve them from this phone or use your Emergency Kit.'**
+  String get securityUpgradeDoneDevices;
+
+  /// No description provided for @securityUpgradeDoneAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get securityUpgradeDoneAction;
+
+  /// No description provided for @unlockSecurityUpgradeNeedsPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your master password to finish the account security update.'**
+  String get unlockSecurityUpgradeNeedsPassword;
 }
 
 class _AppLocalizationsDelegate

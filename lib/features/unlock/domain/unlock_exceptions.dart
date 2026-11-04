@@ -67,3 +67,9 @@ class BiometricAuthFailedException implements Exception {
   @override
   String toString() => 'BiometricAuthFailedException';
 }
+
+/// A security-version-1 account must be upgraded with the master password;
+/// the biometric shortcut cannot run the upgrade.
+class SecurityUpgradeNeedsPasswordException implements Exception {
+  const SecurityUpgradeNeedsPasswordException();
+}

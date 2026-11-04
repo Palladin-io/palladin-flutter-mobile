@@ -5,7 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/storage/account_secret_store.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
+import '../../../security_upgrade/data/security_upgrade_service.dart';
+import '../../../security_upgrade/domain/security_upgrade_start.dart';
+import '../../data/models/account_response.dart';
 import '../../data/datasources/account_remote_datasource.dart';
 import '../../data/services/identity_kdf_service.dart';
 import '../../data/services/unlock_crypto_service.dart';
@@ -36,18 +40,64 @@ class UnlockCubit extends Cubit<UnlockState> {
     required this.cryptoService,
     required this.keyStore,
     required this.defaultVaultProvisioner,
+    this.accountSecrets,
+    this.securityUpgrade,
   }) : super(const UnlockInitial());
 
   final AccountRemoteDatasource datasource;
   final UnlockCryptoService cryptoService;
   final BiometricKeyStore keyStore;
   final DefaultVaultProvisioner defaultVaultProvisioner;
+  final AccountSecretStore? accountSecrets;
+  final SecurityUpgradeService? securityUpgrade;
+
+  /// Held in memory only while the page obtains this device's Secret Key.
+  String? _pendingPassword;
+  String? _pendingDefaultVaultName;
 
   /// Runs the master-password unlock pipeline.
   ///
   /// Biometric enrollment is a separate explicit action after unlock.
-  Future<void> unlock(String password, {String? defaultVaultName}) async {
+  /// Continues a password unlock with a Secret Key obtained from another
+  /// device or the Emergency Kit. Takes ownership of [accountSecret]; it is
+  /// stored only after it opens the account key.
+  Future<void> unlockWithSecretKey(Uint8List accountSecret) async {
+    final password = _pendingPassword;
+    if (password == null) {
+      accountSecret.fillRange(0, accountSecret.length, 0);
+      return;
+    }
+    try {
+      await unlock(
+        password,
+        defaultVaultName: _pendingDefaultVaultName,
+        accountSecret: accountSecret,
+      );
+    } finally {
+      accountSecret.fillRange(0, accountSecret.length, 0);
+    }
+  }
+
+  void cancelSecretKeyRequest() {
+    _pendingPassword = null;
+    _pendingDefaultVaultName = null;
+    if (!isClosed) emit(const UnlockInitial());
+  }
+
+  @override
+  Future<void> close() {
+    _pendingPassword = null;
+    return super.close();
+  }
+
+  Future<void> unlock(
+    String password, {
+    String? defaultVaultName,
+    Uint8List? accountSecret,
+  }) async {
     if (password.isEmpty || isClosed) return;
+    _pendingPassword = null;
+    _pendingDefaultVaultName = null;
     final generation = keyStore.generation;
     bool canceled() => isClosed || generation != keyStore.generation;
     AppLogger.d('Unlock', 'Password unlock requested');
@@ -63,14 +113,49 @@ class UnlockCubit extends Cubit<UnlockState> {
       if (kdf == null || encryptedPrivateKey == null) {
         throw UnsupportedIdentityKdfException('missing-account-key-material');
       }
-      result = await cryptoService.deriveAndDecrypt(
-        masterPassword: password,
-        accountId: account.userId,
-        kdf: kdf,
-        encryptedPrivateKeyBase64: encryptedPrivateKey,
-      );
+      try {
+        result = await cryptoService.deriveAndDecrypt(
+          masterPassword: password,
+          accountId: account.userId,
+          kdf: kdf,
+          encryptedPrivateKeyBase64: encryptedPrivateKey,
+          accountSecret: accountSecret,
+        );
+      } on AccountSecretRequiredException {
+        _pendingPassword = password;
+        _pendingDefaultVaultName = defaultVaultName;
+        if (!isClosed) {
+          emit(
+            UnlockSecretKeyRequired(
+              accountId: account.userId,
+              email: account.email,
+            ),
+          );
+        }
+        return;
+      }
 
       if (canceled()) return;
+      if (accountSecret != null &&
+          result.kdfVersion == IdentityKdfVersion.accountSecretV2) {
+        await accountSecrets?.write(account.userId, accountSecret);
+      }
+      if (result.kdfVersion == IdentityKdfVersion.passwordV1) {
+        emit(
+          UnlockSecurityUpgradeRequired(
+            FreshSecurityUpgrade(
+              password: password,
+              account: account,
+              legacyPrivateKey: Uint8List.fromList(result.privateKey),
+            ),
+          ),
+        );
+        return;
+      }
+      if (await _emitResumeIfPending(account, result)) {
+        keysHandedOff = true;
+        return;
+      }
       await keyStore.purgeLegacyRawKey();
       if (canceled()) return;
 
@@ -149,10 +234,20 @@ class UnlockCubit extends Cubit<UnlockState> {
       if (encryptedPrivateKey == null) {
         throw UnsupportedIdentityKdfException('missing-account-key-material');
       }
+      if (account.kdf?.securityVersion !=
+          IdentityKdfProfileV2.securityVersion) {
+        masterKey.fillRange(0, masterKey.length, 0);
+        emit(const UnlockFailed(SecurityUpgradeNeedsPasswordException()));
+        return;
+      }
       result = await cryptoService.decryptWithMasterKey(
         masterKey: masterKey,
         encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
+      if (await _emitResumeIfPending(account, result)) {
+        keysHandedOff = true;
+        return;
+      }
 
       await _provisionDefaultVault(
         privateKey: result.privateKey,
@@ -185,6 +280,30 @@ class UnlockCubit extends Cubit<UnlockState> {
         result.privateKey.fillRange(0, result.privateKey.length, 0);
       }
     }
+  }
+
+  /// A committed upgrade whose envelopes still address the old key resumes
+  /// on the upgrade screen; the keys move into the resume start.
+  Future<bool> _emitResumeIfPending(
+    AccountResponse account,
+    UnlockResult result,
+  ) async {
+    final service = securityUpgrade;
+    if (service == null || account.legacyMemberKey == null) return false;
+    final keys = await service.resumeKeys(
+      account: account,
+      masterKey: result.masterKey,
+      memberPrivateKey: result.privateKey,
+    );
+    if (keys == null) return false;
+    result.masterKey.fillRange(0, result.masterKey.length, 0);
+    result.privateKey.fillRange(0, result.privateKey.length, 0);
+    if (isClosed) {
+      keys.dispose();
+      return true;
+    }
+    emit(UnlockSecurityUpgradeRequired(ResumedSecurityUpgrade(keys)));
+    return true;
   }
 
   Future<void> _provisionDefaultVault({

@@ -5507,4 +5507,120 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get secretKeyEntryCantScan =>
       'Nie możesz zeskanować? Użyj Emergency Kit';
+
+  @override
+  String get securityUpgradeTitle => 'Aktualizujemy zabezpieczenia konta';
+
+  @override
+  String get securityUpgradeSubtitle =>
+      'Przenosimy Twoje klucze na silniejsze szyfrowanie. Nie zamykaj aplikacji — potrwa to około minuty.';
+
+  @override
+  String get securityUpgradeStepAccountKey => 'Klucz konta';
+
+  @override
+  String get securityUpgradeStepVaults => 'Sejfy';
+
+  @override
+  String get securityUpgradeStepAgents => 'Agenci';
+
+  @override
+  String get securityUpgradeStatusWaiting => 'Oczekuje';
+
+  @override
+  String get securityUpgradeStatusRunning => 'W toku';
+
+  @override
+  String get securityUpgradeStatusDone => 'Gotowe';
+
+  @override
+  String get securityUpgradeStatusStopped => 'Zatrzymano';
+
+  @override
+  String securityUpgradeCount(int done, int total) {
+    return '$done z $total';
+  }
+
+  @override
+  String securityUpgradeStoppedAt(int done, int total) {
+    return 'Zatrzymano na $done z $total';
+  }
+
+  @override
+  String get securityUpgradeEntriesUnchanged =>
+      'Twoje wpisy pozostają bez zmian. Zmienia się tylko sposób przekazywania kluczy.';
+
+  @override
+  String get securityUpgradeErrorTitle => 'Aktualizacja wstrzymana';
+
+  @override
+  String get securityUpgradeNetworkError =>
+      'Utracono połączenie. Postęp jest zapisany, więc nic nie zostanie powtórzone.';
+
+  @override
+  String get securityUpgradeServerError =>
+      'Coś poszło nie tak. Postęp jest zapisany, więc spróbuj ponownie.';
+
+  @override
+  String get securityUpgradeRetry => 'Spróbuj ponownie';
+
+  @override
+  String get securityUpgradePhraseTitle => 'Zapisz nową frazę odzyskiwania';
+
+  @override
+  String get securityUpgradePhraseSubtitle =>
+      'Klucz konta się zmienił, więc stara fraza odzyskiwania już nie działa. Zapisz te 24 słowa.';
+
+  @override
+  String get securityUpgradePhraseWarningTitle => 'Przechowuj ją offline';
+
+  @override
+  String get securityUpgradePhraseWarning =>
+      'Trzymaj ją oddzielnie od Emergency Kit. Każdy, kto ją ma, może przejąć Twoje konto.';
+
+  @override
+  String get securityUpgradePhraseWritten => 'Fraza jest zapisana';
+
+  @override
+  String get securityUpgradeConfirmTitle => 'Potwierdź frazę odzyskiwania';
+
+  @override
+  String get securityUpgradeConfirmSubtitle =>
+      'Wpisz trzy słowa, aby sprawdzić, czy fraza została poprawnie zapisana.';
+
+  @override
+  String securityUpgradeConfirmWord(int position) {
+    return 'Słowo nr $position';
+  }
+
+  @override
+  String get securityUpgradeConfirmAction => 'Potwierdź';
+
+  @override
+  String get securityUpgradeConfirmMismatch =>
+      'Słowa się nie zgadzają. Sprawdź frazę i spróbuj ponownie.';
+
+  @override
+  String get securityUpgradeConfirmBack => 'Pokaż frazę ponownie';
+
+  @override
+  String get securityUpgradeDoneTitle => 'Twoje konto jest aktualne';
+
+  @override
+  String get securityUpgradeDoneSubtitle =>
+      'Twoje klucze korzystają z silniejszego szyfrowania, a konto ma Secret Key.';
+
+  @override
+  String get securityUpgradeDoneDevicesTitle => 'Inne urządzenia';
+
+  @override
+  String get securityUpgradeDoneDevices =>
+      'Inne urządzenia raz poproszą o Secret Key. Zatwierdź je z tego telefonu albo użyj Emergency Kit.';
+
+  @override
+  String get securityUpgradeDoneAction => 'Gotowe';
+
+  @override
+  String get unlockSecurityUpgradeNeedsPassword =>
+      'Wpisz hasło główne, aby dokończyć aktualizację zabezpieczeń konta.';
 }

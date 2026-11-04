@@ -14,6 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/config/env_config.dart';
+import 'package:mobile_palladin/core/storage/account_secret_store.dart';
+import 'package:mobile_palladin/features/secret_key/data/services/emergency_kit_pdf_service.dart';
 import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
@@ -80,6 +82,10 @@ class _Repository extends Mock implements AuthRepository {}
 
 class _Tokens extends Mock implements SecureTokenStorage {}
 
+class _Secrets extends Mock implements AccountSecretStore {}
+
+class _KitPdf extends Mock implements EmergencyKitPdfService {}
+
 class _Login extends MockCubit<LoginState> implements LoginCubit {}
 
 class _Hibp extends Mock implements HibpService {}
@@ -135,6 +141,19 @@ void main() {
 
   setUpAll(() async {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(
+      const EmergencyKitLabels(
+        title: '',
+        intro: '',
+        account: '',
+        secretKey: '',
+        secretKeyQr: '',
+        masterPassword: '',
+        signInAddress: '',
+        generated: '',
+        footer: '',
+      ),
+    );
     registerFallbackValue(
       const BiometricPromptCopy(
         promptTitle: 'fixture',
@@ -364,6 +383,7 @@ void main() {
     final config = _Config();
     when(() => config.apiBaseUrl).thenReturn('http://127.0.0.1:${server.port}');
     when(() => config.certificatePins).thenReturn([]);
+    when(() => config.sharingWebOrigin).thenReturn('');
     final repository = _Repository();
     when(
       () => repository.isAuthenticated(),
@@ -429,6 +449,9 @@ void main() {
       token = call.namedArguments[#accessToken] as String;
     });
     keys = VaultSessionStore();
+    final secrets = _Secrets();
+    when(() => secrets.write(any(), any())).thenAnswer((_) async {});
+    when(() => secrets.read(any())).thenAnswer((_) async => null);
     privateKey = sodium.randombytes.buf(32);
     if (scenario.startsWith('unlock')) {
       final material = await tester.runAsync(
@@ -443,14 +466,18 @@ void main() {
       privateKey.fillRange(0, privateKey.length, 0);
       privateKey = material.privateKey;
       material.masterKey.fillRange(0, material.masterKey.length, 0);
+      final accountSecret = material.accountSecret;
+      when(
+        () => secrets.read(principal),
+      ).thenAnswer((_) async => Uint8List.fromList(accountSecret));
       unlockAccount = {
         'userId': principal,
         'memberKeyVersion': 1,
         'encryptedPrivateKey': base64Encode(material.encryptedPrivateKey),
         'kdf': {
-          'securityVersion': IdentityKdfProfile.securityVersion,
-          'minimumSecurityVersion': IdentityKdfProfile.securityVersion,
-          'profileId': IdentityKdfProfile.id,
+          'securityVersion': IdentityKdfProfileV2.securityVersion,
+          'minimumSecurityVersion': IdentityKdfProfileV2.securityVersion,
+          'profileId': IdentityKdfProfileV2.id,
           'kdfSalt': base64UrlEncode(material.kdfSalt).replaceAll('=', ''),
           'credentialRevision': 1,
           'privateKeyWrapRevision': 1,
@@ -462,6 +489,19 @@ void main() {
     await tester.pump();
     final authority = EntryShareRecipientAuthority(tokens, keys);
     getIt.registerSingleton<EnvConfig>(config);
+    final kitPdf = _KitPdf();
+    when(
+      () => kitPdf.build(
+        email: any(named: 'email'),
+        accountId: any(named: 'accountId'),
+        accountSecret: any(named: 'accountSecret'),
+        signInAddress: any(named: 'signInAddress'),
+        generatedDate: any(named: 'generatedDate'),
+        labels: any(named: 'labels'),
+      ),
+    ).thenAnswer((_) async => Uint8List(4));
+    when(() => kitPdf.share(any())).thenAnswer((_) async {});
+    getIt.registerSingleton<EmergencyKitPdfService>(kitPdf);
     getIt.registerSingleton<EntryShareRecipientAuthority>(authority);
     getIt.registerSingleton<EntryShareCryptoService>(
       EntryShareCryptoService(sodiumLoader: () async => sodium),
@@ -505,7 +545,13 @@ void main() {
     getIt.registerFactory<UnlockCubit>(
       () => unlock = UnlockCubit(
         datasource: AccountRemoteDatasource(accountHttp),
-        cryptoService: UnlockCryptoService(sodiumLoader: () async => sodium),
+        cryptoService: UnlockCryptoService(
+          sodiumLoader: () async => sodium,
+          identityKdfService: IdentityKdfService(
+            sodiumLoader: () async => sodium,
+            accountSecrets: secrets,
+          ),
+        ),
         keyStore: biometrics,
         defaultVaultProvisioner: provisioner,
       ),
@@ -517,6 +563,7 @@ void main() {
           sodiumLoader: () async => sodium,
         ),
         tokenStorage: tokens,
+        accountSecrets: secrets,
       ),
     );
     getIt.registerFactory<VerifyEmailCubit>(
@@ -999,6 +1046,10 @@ void main() {
             await enterField(tester, label, recoveryWords[index]);
           }
           await tap(tester, 'Verify & Complete Setup');
+          expect(registration.state.step, RegisterStep.emergencyKit);
+          await tap(tester, 'Save Emergency Kit (PDF)');
+          await tap(tester, 'I saved my Emergency Kit');
+          await tap(tester, 'Continue');
           expect(find.byType(VerifyEmailPage), findsOneWidget);
           expect(continuation.active, true);
           expect((opens, deliveries, confirmations), (1, 1, 1));

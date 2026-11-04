@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import '../storage/device_secure_storage.dart';
 import '../storage/account_secret_store.dart';
+import '../../features/security_upgrade/data/security_upgrade_remote_datasource.dart';
+import '../../features/security_upgrade/data/security_upgrade_service.dart';
 import '../crypto/identity/device_pairing.dart';
 import '../../features/secret_key/data/datasources/secret_key_transfer_remote_datasource.dart';
 import '../../features/secret_key/presentation/cubit/device_transfer_sender_cubit.dart';
@@ -369,8 +371,21 @@ void configureDependencies(EnvConfig config) {
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)
+  getIt.registerLazySingleton<SecurityUpgradeRemoteDatasource>(
+    () => SecurityUpgradeRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<SecurityUpgradeService>(
+    () => SecurityUpgradeService(
+      remote: getIt<SecurityUpgradeRemoteDatasource>(),
+      vaults: getIt<VaultRemoteDatasource>(),
+      identityKdf: getIt<IdentityKdfService>(),
+      accountSecrets: getIt<AccountSecretStore>(),
+    ),
+  );
   getIt.registerFactory<UnlockCubit>(
     () => UnlockCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
+      securityUpgrade: getIt<SecurityUpgradeService>(),
       datasource: getIt<AccountRemoteDatasource>(),
       cryptoService: getIt<UnlockCryptoService>(),
       keyStore: getIt<BiometricKeyStore>(),
