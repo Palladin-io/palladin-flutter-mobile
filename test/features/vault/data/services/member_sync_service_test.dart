@@ -383,6 +383,224 @@ void main() {
   );
 
   test(
+    'AutoFill empty lease renewal preserves content but advances publication',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<void> sync() async => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final before = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      final context = snapshot.accessContext.toJson();
+      context['issuedAt'] = snapshot.accessContext.issuedAt
+          .add(const Duration(minutes: 1))
+          .toIso8601String();
+      context['notAfter'] = snapshot.accessContext.notAfter
+          .add(const Duration(minutes: 1))
+          .toIso8601String();
+      remote.deltaResult = MemberDeltaSuccess(
+        MemberDeltaPage.fromJson({
+          'deltaUpperBound': snapshot.snapshotBaseSequence,
+          'appliedThroughSequence': snapshot.snapshotBaseSequence,
+          'accessContext': context,
+          'memberVaultKey': snapshot.memberVaultKey,
+          'items': <Object?>[],
+          'continuationCursor': null,
+        }),
+      );
+      await sync();
+      final after = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      expect(after.contentRevision, before.contentRevision);
+      expect(
+        after.publicationRevision,
+        greaterThan(before.publicationRevision),
+      );
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: before.readGeneration,
+          contentRevision: before.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isTrue,
+      );
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: before.readGeneration,
+          contentRevision: before.contentRevision,
+          vaultIds: [],
+        ),
+        isFalse,
+      );
+      service.lock();
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: before.readGeneration,
+          contentRevision: before.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'AutoFill changed commit then renewal never restores old content proof',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<void> sync() async => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final before = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      final next = (BigInt.parse(snapshot.snapshotBaseSequence) + BigInt.one)
+          .toString();
+      remote.deltaResult = MemberDeltaSuccess(
+        MemberDeltaPage.fromJson({
+          'deltaUpperBound': next,
+          'appliedThroughSequence': next,
+          'accessContext': snapshot.accessContext.toJson(),
+          'memberVaultKey': snapshot.memberVaultKey,
+          'items': <Object?>[],
+          'continuationCursor': null,
+        }),
+      );
+      cache.afterDeltaCommit = () {
+        expect(
+          service.canReuseAutoFillPublication(
+            readGeneration: before.readGeneration,
+            contentRevision: before.contentRevision,
+            vaultIds: [vaultId],
+          ),
+          isFalse,
+        );
+      };
+      await sync();
+      final changed = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      expect(changed.contentRevision, greaterThan(before.contentRevision));
+      await sync();
+      final renewed = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      expect(renewed.contentRevision, changed.contentRevision);
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: before.readGeneration,
+          contentRevision: before.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isFalse,
+      );
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: renewed.readGeneration,
+          contentRevision: renewed.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test('AutoFill rejected shorter lease invalidates content proof', () async {
+    final vaultId = snapshot.accessContext.vaultId;
+    Future<void> sync() async => service.synchronize(
+      vaultId: vaultId,
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: snapshot.memberVaultKey,
+    );
+    await sync();
+    final before = await service.readAutoFillMetadata(
+      vaultIds: [vaultId],
+      authority: authority,
+    );
+    final context = snapshot.accessContext.toJson();
+    context['notAfter'] = snapshot.accessContext.notAfter
+        .subtract(const Duration(minutes: 1))
+        .toIso8601String();
+    remote.deltaResult = MemberDeltaSuccess(
+      MemberDeltaPage.fromJson({
+        'deltaUpperBound': snapshot.snapshotBaseSequence,
+        'appliedThroughSequence': snapshot.snapshotBaseSequence,
+        'accessContext': context,
+        'memberVaultKey': snapshot.memberVaultKey,
+        'items': <Object?>[],
+        'continuationCursor': null,
+      }),
+    );
+    await expectLater(sync(), throwsFormatException);
+    expect(
+      service.canReuseAutoFillPublication(
+        readGeneration: before.readGeneration,
+        contentRevision: before.contentRevision,
+        vaultIds: [vaultId],
+      ),
+      isFalse,
+    );
+  });
+
+  for (final field in ['vaultKeyVersion', 'offlinePolicyVersion']) {
+    test('AutoFill rejected $field change cannot reuse old content', () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      Future<void> sync() async => service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await sync();
+      final before = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      final context = snapshot.accessContext.toJson();
+      context[field] = (context[field] as int) + 1;
+      remote.deltaResult = MemberDeltaSuccess(
+        MemberDeltaPage.fromJson({
+          'deltaUpperBound': snapshot.snapshotBaseSequence,
+          'appliedThroughSequence': snapshot.snapshotBaseSequence,
+          'accessContext': context,
+          'memberVaultKey': snapshot.memberVaultKey,
+          'items': <Object?>[],
+          'continuationCursor': null,
+        }),
+      );
+      await expectLater(sync(), throwsFormatException);
+      expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: before.readGeneration,
+          contentRevision: before.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isFalse,
+      );
+    });
+  }
+
+  test(
     'AutoFill publication rejects a newer state-only durable commit synchronously',
     () async {
       final vaultId = snapshot.accessContext.vaultId;
@@ -444,6 +662,14 @@ void main() {
       remote.deltaCompleter = Completer<MemberDeltaResult>();
       final pending = sync();
       expect(
+        service.canReuseAutoFillPublication(
+          readGeneration: metadata.readGeneration,
+          contentRevision: metadata.contentRevision,
+          vaultIds: [vaultId],
+        ),
+        isFalse,
+      );
+      expect(
         () => service.validateAutoFillPublication(metadata),
         throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
       );
@@ -475,6 +701,16 @@ void main() {
           await service.purgeAll();
         case 'expiry':
           now = snapshot.accessContext.notAfter;
+      }
+      if (invalidation != 'expiry') {
+        expect(
+          service.canReuseAutoFillPublication(
+            readGeneration: metadata.readGeneration,
+            contentRevision: metadata.contentRevision,
+            vaultIds: [vaultId],
+          ),
+          isFalse,
+        );
       }
       expect(
         () => service.validateAutoFillPublication(metadata),

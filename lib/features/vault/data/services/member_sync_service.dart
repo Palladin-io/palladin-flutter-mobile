@@ -67,14 +67,21 @@ final class MemberAutoFillMetadata {
   const MemberAutoFillMetadata({
     required this.readGeneration,
     required this.publicationRevision,
+    this.contentRevision = 0,
     required this.vaults,
   });
   final int readGeneration;
   final int publicationRevision;
+  final int contentRevision;
   final Map<String, MemberAutoFillVaultMetadata> vaults;
 }
 
 abstract interface class MemberAutoFillMetadataReader {
+  bool canReuseAutoFillPublication({
+    required int readGeneration,
+    required int contentRevision,
+    required Iterable<String> vaultIds,
+  });
   void validateAutoFillPublication(MemberAutoFillMetadata snapshot);
   Future<MemberAutoFillMetadata> readAutoFillMetadata({
     required Iterable<String> vaultIds,
@@ -222,6 +229,7 @@ final class MemberSyncService
   final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
   int _autoFillPublicationRevision = 0;
+  int _autoFillContentRevision = 0;
   int _sessionEpoch = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
@@ -263,11 +271,18 @@ final class MemberSyncService
       generation: generation,
     );
     late final Future<MemberSyncResult> operation;
-    operation = core.whenComplete(() {
-      if (identical(_running[vaultId], operation)) {
-        _running.remove(vaultId);
-      }
-    });
+    operation = core
+        .catchError((Object error, StackTrace stackTrace) {
+          // An unsuccessful synchronization provides no proof that publication
+          // authority remained unchanged, including a partially committed delta.
+          _autoFillContentRevision++;
+          Error.throwWithStackTrace(error, stackTrace);
+        })
+        .whenComplete(() {
+          if (identical(_running[vaultId], operation)) {
+            _running.remove(vaultId);
+          }
+        });
     _running[vaultId] = operation;
     return operation;
   }
@@ -383,6 +398,7 @@ final class MemberSyncService
       state = await _cache.state(vaultId);
     } on MemberSyncProfileQuarantinedException {
       _autoFillPublicationRevision++;
+      _autoFillContentRevision++;
       _profileQuarantined = true;
       return;
     }
@@ -517,6 +533,25 @@ final class MemberSyncService
         .toList(growable: false);
   }
 
+  // This proves unchanged source content only. Native publication must still
+  // validate its complete current authority, original leases and fence.
+  @override
+  bool canReuseAutoFillPublication({
+    required int readGeneration,
+    required int contentRevision,
+    required Iterable<String> vaultIds,
+  }) {
+    final ids = vaultIds.toSet();
+    return !_profileQuarantined &&
+        readGeneration == _lockGeneration &&
+        contentRevision == _autoFillContentRevision &&
+        _running.isEmpty &&
+        ids.length == _indexes.length &&
+        ids.every(
+          (id) => _indexes.containsKey(id) && !_revokedVaults.contains(id),
+        );
+  }
+
   @override
   void validateAutoFillPublication(MemberAutoFillMetadata snapshot) {
     if (_profileQuarantined ||
@@ -576,6 +611,7 @@ final class MemberSyncService
     final snapshot = MemberAutoFillMetadata(
       readGeneration: generation,
       publicationRevision: publicationRevision,
+      contentRevision: _autoFillContentRevision,
       vaults: Map.unmodifiable(result),
     );
     await revalidateAutoFillMetadata(snapshot, authority: authority);
@@ -635,6 +671,7 @@ final class MemberSyncService
   void lock() {
     _sessionEpoch++;
     _autoFillPublicationRevision++;
+    _autoFillContentRevision++;
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
@@ -651,7 +688,10 @@ final class MemberSyncService
     required bool invalidateActive,
   }) async {
     final stagedIndex = <String, MemberIndexEntry>{};
-    if (invalidateActive) _autoFillPublicationRevision++;
+    if (invalidateActive) {
+      _autoFillPublicationRevision++;
+      _autoFillContentRevision++;
+    }
     await _cache.beginSnapshot(vaultId, invalidateActive: invalidateActive);
     try {
       var page = await _remote.snapshot(vaultId: vaultId);
@@ -842,6 +882,8 @@ final class MemberSyncService
     }
     String? continuation;
     var applied = afterSequence;
+    var preservesContent = true;
+    var previousWrapper = cachedState.memberVaultKey;
     MemberOfflineAccessContext? previousAccessContext =
         cachedState.accessContext;
     do {
@@ -869,6 +911,17 @@ final class MemberSyncService
         previousAccessContext,
         page.accessContext,
       );
+      preservesContent =
+          preservesContent &&
+          page.items.isEmpty &&
+          page.appliedThroughSequence == applied &&
+          _canonicalJson(previousWrapper) ==
+              _canonicalJson(page.memberVaultKey) &&
+          _preservesAutoFillAuthority(
+            previousAccessContext!,
+            page.accessContext,
+          );
+      previousWrapper = page.memberVaultKey;
       previousAccessContext = page.accessContext;
       final heads = page.items.where((item) => !item.isTombstone).toList();
       _requireKeyContextCovers(heads, minimumGeneration);
@@ -894,6 +947,7 @@ final class MemberSyncService
             await _cache.state(vaultId),
           ),
         ),
+        preservesContent: preservesContent,
       );
       _requireCurrent(generation);
       final index = _indexes[vaultId]!;
@@ -919,7 +973,7 @@ final class MemberSyncService
     _revokedVaults.remove(vaultId);
     final state = await _cache.state(vaultId);
     if (state != null) _scheduleLeaseExpiry(vaultId, state.accessContext);
-    _publishIndexUpdate(vaultId);
+    _publishIndexUpdate(vaultId, preservesContent: preservesContent);
 
     return MemberSyncResult(
       sequence: applied,
@@ -942,6 +996,7 @@ final class MemberSyncService
       state = await _cache.state(vaultId);
     } on MemberSyncProfileQuarantinedException {
       _autoFillPublicationRevision++;
+      _autoFillContentRevision++;
       _profileQuarantined = true;
       return null;
     }
@@ -1061,6 +1116,7 @@ final class MemberSyncService
     _sessionEpoch++;
     final operationGeneration = ++_lockGeneration;
     _autoFillPublicationRevision++;
+    _autoFillContentRevision++;
     _profileQuarantined = true;
     _running.clear();
     _revokedVaults.addAll(_knownVaults);
@@ -1086,12 +1142,14 @@ final class MemberSyncService
   Future<T> _commitCache<T>(
     String vaultId,
     int generation,
-    Future<T> Function() operation,
-  ) => _serializeVault(vaultId, () {
+    Future<T> Function() operation, {
+    bool preservesContent = false,
+  }) => _serializeVault(vaultId, () {
     _requireCurrent(generation);
     // Invalidate before awaiting the durable write: its completion can expose
     // newer authority before the runtime index continuation resumes.
     _autoFillPublicationRevision++;
+    if (!preservesContent) _autoFillContentRevision++;
     return operation();
   });
 
@@ -1115,6 +1173,30 @@ final class MemberSyncService
         });
     _vaultCommitTails[vaultId] = tail;
     return completer.future;
+  }
+
+  bool _preservesAutoFillAuthority(
+    MemberOfflineAccessContext previous,
+    MemberOfflineAccessContext current,
+  ) {
+    final before = previous.toJson()
+      ..remove('issuedAt')
+      ..remove('notAfter');
+    final after = current.toJson()
+      ..remove('issuedAt')
+      ..remove('notAfter');
+    final now = _now().toUtc();
+    return _canonicalJson(before) == _canonicalJson(after) &&
+        previous.offlinePolicy != 'disabled' &&
+        now.isBefore(previous.notAfter) &&
+        now.isBefore(current.notAfter) &&
+        !now.add(const Duration(minutes: 5)).isBefore(previous.issuedAt) &&
+        !now.add(const Duration(minutes: 5)).isBefore(current.issuedAt) &&
+        previous.issuedAt.isBefore(previous.notAfter) &&
+        current.issuedAt.isBefore(current.notAfter) &&
+        current.issuedAt.isBefore(previous.notAfter) &&
+        previous.issuedAt.isBefore(current.notAfter) &&
+        !current.notAfter.isBefore(previous.notAfter);
   }
 
   void _validateDeltaPage(MemberDeltaPage page, String applied) {
@@ -1344,8 +1426,9 @@ final class MemberSyncService
     }
   }
 
-  void _publishIndexUpdate(String vaultId) {
+  void _publishIndexUpdate(String vaultId, {bool preservesContent = false}) {
     _autoFillPublicationRevision++;
+    if (!preservesContent) _autoFillContentRevision++;
     if (!_indexUpdates.isClosed) _indexUpdates.add(vaultId);
   }
 
