@@ -958,49 +958,57 @@ void main() {
     },
   );
 
-  test(
-    'metadata change before native acknowledgement never reports ready',
-    () async {
-      await publisher.beginSession(7);
-      await publish();
-      final entered = Completer<void>();
-      final reply = Completer<AutoFillCacheBase>();
-      var obsolete = false;
-      when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
-        if (obsolete) throw const LocalMemberEntryReadInvalidatedException();
-      });
-      when(
-        () => bridge.applyCacheDelta(
-          base: any(named: 'base'),
-          writerEpoch: any(named: 'writerEpoch'),
-          manifest: any(named: 'manifest'),
-          upserts: any(named: 'upserts'),
-          removals: any(named: 'removals'),
-          releasingDenies: any(named: 'releasingDenies'),
-          validatePublication: any(named: 'validatePublication'),
-        ),
-      ).thenAnswer((_) {
-        entered.complete();
-        return reply.future;
-      });
-      final phases = <String>[];
-      final operation = publisher.synchronize(
-        privateKey: Uint8List(32),
-        vaultIds: [context.vaultId],
-        isCurrent: () => true,
-        onProgress: (state) => phases.add(state.phase.name),
-      );
-      final result = expectLater(
-        operation,
-        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
-      );
-      await entered.future;
-      obsolete = true;
-      reply.complete(AutoFillCacheBase(generation: 7, revision: ++revision));
-      await result;
-      expect(phases, isNot(contains('ready')));
-    },
-  );
+  for (final unchanged in [false, true]) {
+    test(
+      'metadata change before acknowledgement never reports ready (unchanged=$unchanged)',
+      () async {
+        await publisher.beginSession(7);
+        await publish();
+        if (unchanged) admitUnchangedCheck();
+        final entered = Completer<void>();
+        final reply = Completer<AutoFillCacheBase>();
+        var obsolete = false;
+        when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
+          if (obsolete) throw const LocalMemberEntryReadInvalidatedException();
+        });
+        when(
+          () => bridge.applyCacheDelta(
+            base: any(named: 'base'),
+            writerEpoch: any(named: 'writerEpoch'),
+            manifest: any(named: 'manifest'),
+            upserts: any(named: 'upserts'),
+            removals: any(named: 'removals'),
+            releasingDenies: any(named: 'releasingDenies'),
+            validatePublication: any(named: 'validatePublication'),
+          ),
+        ).thenAnswer((_) {
+          entered.complete();
+          return reply.future;
+        });
+        final phases = <String>[];
+        final operation = publisher.synchronize(
+          privateKey: Uint8List(32),
+          vaultIds: [context.vaultId],
+          isCurrent: () => true,
+          onProgress: (state) => phases.add(state.phase.name),
+        );
+        final result = expectLater(
+          operation,
+          throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+        );
+        await entered.future;
+        obsolete = true;
+        reply.complete(
+          AutoFillCacheBase(
+            generation: 7,
+            revision: unchanged ? revision : ++revision,
+          ),
+        );
+        await result;
+        expect(phases, isNot(contains('ready')));
+      },
+    );
+  }
 
   for (final delta in [false, true]) {
     test(
