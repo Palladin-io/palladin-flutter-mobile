@@ -39,5 +39,21 @@ Observed on API35 ARM64: negative control failed waiting for SOURCE_OWNER_CANCEL
 default owner passed cold and warm channel/ownership checks. This is not evidence of
 successful biometric fill, Member ciphertext decryption, system AutofillManager delivery,
 or third-party browser/application compatibility. Those require the integrated source
-controller and real request authentication tests. The production service is not switched
-by this fixture.
+controller and real request authentication tests. The fixture never configures production accounts or releases.
+
+## System service admission regression
+
+Build/install the existing `tool/android-autofill-harness` form APK, then run:
+
+```sh
+python3 tool/android-autofill-source-harness/service.py \
+  --adb "$ANDROID_HOME/platform-tools/adb" --serial emulator-5580
+```
+
+The selected service is restored afterward. No native credential cache is provisioned.
+Before cutover, native login returned REJECTED. After cutover, full login and username-only
+return RESPONSE_OFFERED; OTP remains REJECTED. The separate cold/warm fixture also checks
+username-only request handoff. Search and HTTP WebView requests were suppressed by the
+framework in this run (no service diagnosis); they are not reported as runtime passes.
+Existing classifier and origin-policy unit regressions retain search, OTP, confirmation,
+hidden/disabled, cleartext/missing/mixed schemes and unverified origins coverage.

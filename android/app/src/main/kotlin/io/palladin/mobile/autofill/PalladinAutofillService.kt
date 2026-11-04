@@ -23,10 +23,9 @@ import io.palladin.mobile.MainActivity
 /**
  * System Autofill entry point.
  *
- * It detects a domain-addressable login form and exposes only a biometric
- * authentication action. Credential values stay encrypted until
- * [AutofillAuthenticationActivity] completes a Keystore-bound biometric
- * operation and returns domain-matched datasets.
+ * Exposes a request-owned authentication action. Matching and reveal use the
+ * app's canonical encrypted Member source; no bulk credential export is required.
+ * Generated-password and explicit-save state retain their separate lifecycles.
  */
 class PalladinAutofillService : AutofillService() {
     private var lastRequest = AutofillRequestDiagnosis()
@@ -86,7 +85,6 @@ class PalladinAutofillService : AutofillService() {
             CredentialFieldIds.schemesFrom(structure)) ?: return null
         val verifier = AutofillOriginVerifier(this)
         if (verifier.isBrowser(packageName) || verifier.status(packageName, host) != OriginStatus.UNVERIFIED ||
-            !AutoFillCacheStore(this).hasCache() ||
             verifier.credentialFillStatus(packageName, host) == OriginStatus.VERIFIED) return null
         CredentialAssociationIdentity.current(this, packageName, host)
     }.getOrNull()
@@ -132,7 +130,6 @@ class PalladinAutofillService : AutofillService() {
             },
             requestingPackagePresent = requestingPackage != null,
         )
-        val cacheStore = AutoFillCacheStore(this)
         val history = GeneratedPasswordHistory(this)
         val verifier = AutofillOriginVerifier(this)
         val origin = requestingPackage?.let { targetPackage ->
@@ -161,10 +158,7 @@ class PalladinAutofillService : AutofillService() {
             }
         if ((fields.passwordIds.isEmpty() && fields.usernameIds.isEmpty() && !generate) ||
             origin == null ||
-            (fields.requiresUsernameConfirmation && origin.mode == AutofillOriginMode.WEB) ||
-            (!generate && !cacheStore.hasCache().also {
-                lastRequest = lastRequest.copy(cache = availability(it))
-            })
+            (fields.requiresUsernameConfirmation && origin.mode == AutofillOriginMode.WEB)
         ) {
             lastRequest = lastRequest.copy(result = RequestResult.REJECTED)
             callback.onSuccess(saveRequestId?.let {
@@ -176,7 +170,9 @@ class PalladinAutofillService : AutofillService() {
         val datasetAuthentication = AutofillOriginPolicy.usesDatasetAuthentication(
             Build.VERSION.SDK_INT, verifier.isBrowser(requestingPackage), generate,
         )
-        val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
+        val authenticationActivity = if (generate) AutofillAuthenticationActivity::class.java
+            else SourceAutofillAuthenticationActivity::class.java
+        val launchIntent = Intent(this, authenticationActivity).apply {
             putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION, datasetAuthentication)
             putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, saveRequestId)
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)

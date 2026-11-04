@@ -27,12 +27,13 @@ class SourceFixtureActivity : Activity() {
                     .putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, "MANUAL_NATIVE")
                     .putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION, true)
                     .putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_USERNAME_IDS, arrayListOf(username.autofillId))
-                    .putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS, arrayListOf(password.autofillId))
+                    .putParcelableArrayListExtra(AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS, if (intent.getBooleanExtra("usernameOnly", false)) arrayListOf() else arrayListOf(password.autofillId))
                 startActivityForResult(request, 7)
             }
         })
         setContentView(layout)
     }
+    override fun onNewIntent(value: Intent) { super.onNewIntent(value); setIntent(value) }
     override fun onActivityResult(request: Int, result: Int, data: Intent?) {
         super.onActivityResult(request, result, data)
         if (request == 7) status.text = if (result == RESULT_CANCELED) "SOURCE_OWNER_CANCEL_PASS" else "SOURCE_OWNER_FAIL"

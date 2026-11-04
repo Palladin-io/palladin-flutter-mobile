@@ -35,7 +35,7 @@ class _SourceFixtureState extends State<SourceFixture> {
       final request = await channel.invokeMapMethod<String, dynamic>('pending');
       if (request == null) return;
       if (request['mode'] != 'MANUAL_NATIVE' ||
-          request['usernameOnly'] != false) {
+          request['usernameOnly'] is! bool) {
         throw StateError('Unexpected synthetic request');
       }
       // Allow the original owner to stop behind the real Flutter task.
@@ -70,7 +70,13 @@ class _SourceFixtureState extends State<SourceFixture> {
       if (valid != false) throw StateError('Unauthenticated request accepted');
       // Cancel the real owner through the real channel; no authentication bypass.
       await channel.invokeMethod<void>('cancel', {'id': request['id']});
-      if (mounted) setState(() => status = 'SOURCE_CHANNEL_CANCEL_PASS');
+      if (mounted) {
+        setState(
+          () => status = request['usernameOnly'] == true
+              ? 'SOURCE_CHANNEL_USERNAME_CANCEL_PASS'
+              : 'SOURCE_CHANNEL_CANCEL_PASS',
+        );
+      }
     } finally {
       running = false;
     }

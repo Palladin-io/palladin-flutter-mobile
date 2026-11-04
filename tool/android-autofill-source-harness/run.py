@@ -52,16 +52,17 @@ def main():
                 return match
             time.sleep(.5)
         raise AssertionError(f'Missing fixed fixture marker: {text}')
-    def launch(component):
-        adb('shell', 'am', 'start', '-n', f'{PACKAGE}/{component}')
-    for temperature in ('cold', 'warm'):
-        launch(FORM)
+    def launch(component, *extras):
+        adb('shell', 'am', 'start', '-n', f'{PACKAGE}/{component}', '-f', '0x24000000', *extras)
+    for temperature, username_only in (('cold', False), ('warm', False), ('warm-username', True)):
+        adb('shell', 'am', 'force-stop', 'io.palladin.autofill.harness.form')
+        launch(FORM, '--ez', 'usernameOnly', str(username_only).lower())
         button = await_text('Open native request')
         left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
         adb('shell', 'input', 'tap', str((left + right)//2), str((top + bottom)//2))
         await_text('SOURCE_OWNER_CANCEL_PASS')
         launch(MAIN)
-        await_text('SOURCE_CHANNEL_CANCEL_PASS')
+        await_text('SOURCE_CHANNEL_USERNAME_CANCEL_PASS' if username_only else 'SOURCE_CHANNEL_CANCEL_PASS')
         print(f'PASS {temperature}: actual Flutter pending/bind/auth rejection/cancel/original-owner')
     adb('shell', 'rm', '/sdcard/source-fixture-window.xml')
 
