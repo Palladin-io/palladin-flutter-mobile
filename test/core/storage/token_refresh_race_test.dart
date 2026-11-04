@@ -8,6 +8,51 @@ import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 class _Storage extends Mock implements FlutterSecureStorage {}
 
 void main() {
+  test(
+    'authority revision fences accepted refresh before writes and ignores cancelled queued refresh',
+    () async {
+      final native = _Storage();
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      var first = true;
+      when(
+        () => native.write(
+          key: any(named: 'key'),
+          value: any(named: 'value'),
+        ),
+      ).thenAnswer((_) async {
+        if (first) {
+          first = false;
+          entered.complete();
+          await release.future;
+        }
+      });
+      when(() => native.deleteAll()).thenAnswer((_) async {});
+      final storage = SecureTokenStorage(native);
+      final accepted = storage.updateTokens(
+        accessToken: 'synthetic',
+        refreshToken: 'synthetic',
+      );
+      await entered.future;
+      expect(storage.authorityRevision, 1);
+      final cancelled = storage.updateTokens(
+        accessToken: 'cancelled',
+        refreshToken: 'cancelled',
+      );
+      final cleared = storage.clearAll();
+      expect(storage.authorityRevision, 2);
+      release.complete();
+      await Future.wait([accepted, cancelled, cleared]);
+      expect(storage.authorityRevision, 2);
+      verifyNever(
+        () => native.write(
+          key: any(named: 'key'),
+          value: 'cancelled',
+        ),
+      );
+    },
+  );
+
   for (final loginAgain in [false, true]) {
     test(
       'held refresh cannot overwrite logout/new login ($loginAgain)',

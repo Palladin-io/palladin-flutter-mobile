@@ -133,10 +133,47 @@ func requiresRecovery(_ operation: () throws -> Void) {
 }
 requiresRecovery { _ = try engine.open(pointer, key: key, now: now.addingTimeInterval(3600)) }
 requiresRecovery { _ = try engine.open(AutoFillV3Pointer(base: pointer.base, keyID: pointer.keyID, catalogID: UUID().uuidString.lowercased(), digest: pointer.digest), key: key, now: now) }
+// Identical and renewed empty deltas preserve native catalog/picker revision.
+let filesBeforeNoOp = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+let bodyDecryptionsBeforeNoOp = engine.recordDecryptions
+let bodyEncryptionsBeforeNoOp = engine.recordEncryptions
+for candidate in [reopened, renewed] {
+    let publication = try engine.preparePublication(previous: reopened, next: candidate, pointer: pointer, key: key, allowUnchanged: true, now: now.addingTimeInterval(60))
+    expect(publication.pointer.cacheID == pointer.cacheID && !publication.updatesIdentities, "Empty authority-equivalent update must preserve catalog revision and identity projection")
+}
+expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted() == filesBeforeNoOp, "No-op creates no catalog or record file")
+expect(engine.recordDecryptions == bodyDecryptionsBeforeNoOp && engine.recordEncryptions == bodyEncryptionsBeforeNoOp, "No-op performs no credential-body crypto")
+let retainedLease = AutoFillCredentialLease(record: credential.0, notAfter: credential.1, generation: 1, cacheId: pointer.cacheID, maximumObservedWallTime: now)
+try AutoFillCredentialUseGuard.validate(retainedLease, serviceIdentifiers: [.init(identifier: "example.invalid", type: .domain)], now: now, currentCounter: 1, currentFence: .init(generation: 1, state: .active, cacheId: pointer.cacheID))
+let noOpWriter = AutoFillV3Writer()
+let noOpEpoch = try noOpWriter.begin(generation: 1)
+try noOpWriter.install(key: key, keyID: pointer.keyID, epoch: noOpEpoch, generation: 1)
+noOpWriter.end(epoch: noOpEpoch)
+rejects { _ = try noOpWriter.withCurrent(epoch: noOpEpoch, generation: 1) { fatalError("Locked no-op acknowledged") } }
+expect(try engine.records(reopened, key: key, now: now).count == 160, "Ordinary writer lock preserves authenticated provider availability")
+try AutoFillCredentialUseGuard.validate(retainedLease, serviceIdentifiers: [.init(identifier: "example.invalid", type: .domain)], now: now, currentCounter: 1, currentFence: .init(generation: 1, state: .active, cacheId: pointer.cacheID))
+let disjoint = try engine.delta(catalog: reopened, manifest: manifest(changed, issued: now.addingTimeInterval(3700)), upserts: [], removals: [], releasingDenies: [], key: key, now: now.addingTimeInterval(3590))
+let disjointPublication = try engine.preparePublication(previous: reopened, next: disjoint, pointer: pointer, key: key, allowUnchanged: true, now: now.addingTimeInterval(3590))
+expect(disjointPublication.pointer.cacheID != pointer.cacheID, "Non-overlapping lease windows cannot preserve publication")
+let ownedPublication = try engine.preparePublication(previous: firstDeny.catalog, next: firstDeny.catalog, pointer: pointer, key: key, allowUnchanged: true, now: now)
+expect(ownedPublication.pointer.cacheID != pointer.cacheID && ownedPublication.updatesIdentities, "Unreleased native owners prevent no-op")
+let forcedPublication = try engine.preparePublication(previous: reopened, next: reopened, pointer: pointer, key: key, allowUnchanged: false, now: now)
+expect(forcedPublication.pointer.cacheID != pointer.cacheID, "Nonempty operation cannot enter no-op path")
+let shorter = try engine.delta(catalog: reopened, manifest: manifest(changed, issued: now.addingTimeInterval(-60)), upserts: [], removals: [], releasingDenies: [], key: key, now: now)
+let shortPublication = try engine.preparePublication(previous: reopened, next: shorter, pointer: pointer, key: key, allowUnchanged: true, now: now)
+expect(shortPublication.pointer.cacheID != pointer.cacheID, "Shorter current authority must advance catalog")
+rejects { _ = try engine.preparePublication(previous: reopened, next: renewed, pointer: pointer, key: key, allowUnchanged: true, now: now.addingTimeInterval(3600)) }
+var emptyScopeChanged = empty
+var changedEmptyVaults = emptyScopeChanged.manifest["vaults"] as! [[String: Any]]
+changedEmptyVaults[0]["memberKeyGeneration"] = 2
+emptyScopeChanged.manifest["vaults"] = changedEmptyVaults
+let emptyScopePublication = try engine.preparePublication(previous: empty, next: emptyScopeChanged, pointer: emptyPointer, key: key, allowUnchanged: true, now: now)
+expect(emptyScopePublication.pointer.cacheID != emptyPointer.cacheID, "Empty Vault scope changes cannot be hidden by no-op")
 let damagedBody = reopened.entries["vault:entry-1"]!
 let damagedURL = directory.appendingPathComponent("palladin_autofill_v3_1_\(damagedBody.bodyID)")
 try Data([0]).write(to: damagedURL)
 requiresRecovery { _ = try engine.delta(catalog: reopened, manifest: manifest(changed), upserts: [], removals: [], releasingDenies: [], key: key, now: now) }
+requiresRecovery { _ = try engine.preparePublication(previous: reopened, next: reopened, pointer: pointer, key: key, allowUnchanged: true, now: now) }
 print("iOS incremental typed recovery tests passed")
 
 let identityAcknowledgement = AutoFillV3IdentityAcknowledgement()

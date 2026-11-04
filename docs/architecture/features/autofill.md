@@ -64,6 +64,17 @@
   `QUERY_ALL_PACKAGES`, infer domains from package names, or trust user-selected
   (rather than OS-verified) links.
 
+## Home search attachment
+
+Repeated Home mounts share completed search preparation within the current
+unlocked principal and lock epoch. Each mounted search cubit still queries the
+current index; no query results, index snapshot or key is cached by this gate.
+Failure permits retry. Authoritative unlock/resume/reconnect/mutation preparation
+remains separate and can refresh ciphertext even after Home preparation completes.
+Direct unlocked-session replacement first clears search state, the Vault list and
+shared Member index preparation, then prepares active search views with the new
+session. Old in-flight work cannot become the new session's completed preparation.
+
 ## Incremental native publication
 
 Android and iOS v3 catalogs retain immutable encrypted credential records. Dart
@@ -73,12 +84,65 @@ reveals none. Complete current metadata still validates membership, key version,
 policy, original record bindings and effective lease. Retained ciphertext never
 receives a longer lease merely because the catalog is refreshed.
 
+A lease-only renewal during initial preparation does not restart unchanged
+credential reveals. After revealing, the publisher rereads complete metadata and
+requires the same Vault/Entry set, sequence, Entry object identities and all
+non-time authority fields. It preserves the whole authenticated context with the
+earliest expiry across initial, reveal and final contexts, requiring a global
+lease intersection. Both preserved and fresh leases remain checked at submission
+and acknowledgement; no renewed lease extends a revealed credential's authority.
+
+Preparation captures one provider-owned authority snapshot and performs one fresh
+authority read before publication, instead of reading secure token storage for
+each Entry. The operation-local snapshot retains claims and an in-memory revision,
+never the token or a key. Accepted token refreshes, login and logout invalidate
+that revision before writes. Every asynchronous reveal boundary and the final
+bridge submission/acknowledgement validate it. Per-Entry ciphertext, lease,
+revision and revocation checks are unchanged; ordinary single-Entry reads still
+resolve fresh authority. The synthetic loopback benchmark asserts two authority
+resolutions for full, update and delete publication, with no additional HTTP.
+
 The app-only native writer holder is separate from provider authorization. Lock
 invalidates its epoch and wipes its key; provider reads still require the original
 platform biometric key-opening path. Mutation transport waits for durable scoped
 denial (or durable global-clear fallback). Even an empty scope performs exact-base
 CAS, so a delayed publication acknowledgment cannot authorize mutation against a
 stale catalog. Picker handoff checks both generation and catalog revision.
+
+Unchanged repair has a separate admission fence. Member sync retains a monotonic
+content revision only for a proven empty, same-sequence delta with an identical
+key wrapper and non-time authority and valid, overlapping, non-narrowing leases.
+All changed or unknown transitions invalidate it before durable writes or runtime
+publication; a later renewal cannot erase that change. The publisher compares its
+acknowledged content/read/session revisions and complete Vault set synchronously,
+before any await. Unknown state and pending mutation owners retain pre-denial.
+
+Publication waits for the currently relevant complete Vault synchronization set,
+not only the first Vault that emitted a durable update. Inbox presentation reads
+already-prepared Entry labels; its scoped Grant hydration does not start another
+Member synchronization. Unlock/resume/reconnect and invalidations remain the
+owners of authoritative index repair.
+
+Completed producer-proven renewals may advance the publication revision while
+preserving the content revision. Runtime index authority retains the validated
+current access context, installed only after the current-generation durable
+commit and removed on lock/quarantine/removal. The synchronous publication guard
+checks complete Vault coverage, unchanged content/session epochs, no running sync,
+and both original/current non-narrowing overlapping leases. Preparation-only Entry
+revalidation accepts that same proof while retaining exact head/wrapper bindings;
+ordinary Entry reads keep strict context equality. After native acknowledgement,
+publication waits for current source work and revalidates before recording readiness.
+A failed stale-session wait cannot purge the replacement session's cache.
+
+An admitted check still calls native `applyCacheDelta`: both platforms validate
+the exact current base, complete authority, retained record integrity and leases.
+A truly unchanged result returns the same revision without writing catalog/fence
+files or iOS identities, keeping existing chooser handoffs valid. Narrower leases
+or real changes require a new commit; missing/corrupt/quarantined/expired state
+cannot report success. Ordinary lock cancels the writer check without denying the
+already valid provider cache. Logout, revocation and real mutation denials retain
+their existing behavior. Home shows checking until acknowledgement, never a 0/0
+credential count or an unsupported claim of universal provider availability.
 
 Immutable record/catalog files are persisted before the authenticated current
 pointer is committed. Missing, expired, quarantined or unverifiable state cannot
@@ -261,8 +325,22 @@ stale failures/acknowledgements. Ordinary app lock hides prior readiness without
 claiming the independently protected native cache was erased; unlock activates a
 new native session and prepares again. This is a publication status, not a promise
 that every third-party form is supported or that an offline lease never expires.
-Home hides the ready/unknown card; Security retains the status. Copy is EN/PL and
-measured progress has a localized accessibility label.
+During `preparing`/`publishing` with a positive known total, Home dedicates its main content area
+to the shared brand hero and preparation status. The greeting header and shell
+navigation remain available. The view scrolls at large text sizes. Unknown/zero-work
+totals and `checking` never replace the normal Home content; `ready`, `failed` and
+`unknown` restore it, with failure retaining the existing Retry action. Normal
+Home keeps a stable status card before provider/biometric setup, including
+acknowledged and unknown states; Security retains the same status.
+Only positive known work totals produce a numeric fraction. Zero changed entries
+still require validation and acknowledgement, so they show indeterminate checking,
+never “0 of 0” or an inferred empty/ready result. `checking` describes validation
+without claiming provider availability. The acknowledged copy says passwords were
+updated, distinct from selecting Palladin in OS settings and provider authorization.
+Keep-open guidance accompanies active preparation only, not checking or zero-work
+refresh. Background work may pause; this message promises no background execution.
+Copy is EN/PL and measured progress has a localized accessibility label. Its
+brand-red fill and neutral muted track reuse the Home onboarding progress palette in both themes.
 
 ## Provider activation and status
 
@@ -452,7 +530,14 @@ References: [Android provider activation](https://developer.android.com/identity
    updates. A later explicit foreground repair always rebuilds, including after
    native quarantine without a Dart commit. New commits (including refreshed
    leases), native denies and session changes also require a fresh publication;
-   the publication record contains no credential or key material.
+   the publication record contains no credential or key material. Different
+   pending coverage waits for the active call to settle before publishing; it
+   never cancels a long preparation merely by incrementing its generation.
+   After waiting, the request rechecks session/admission and the latest complete
+   Vault set. A new deny invalidates previously admitted waiters; a subsequently
+   authorized owner can wait and publish independently. Removed Vaults are never
+   restored from an older captured set, and a newer commit is acknowledged only
+   after its own publication finishes.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.
@@ -602,6 +687,11 @@ Android API compilation checks the platform/AndroidX calls. Actual keyboard rend
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
 
 ## Foreground cache repair recovery
+
+A failed durable-update publication also receives at most one automatic retry
+for the unchanged pending sequence. Pending work and denies remain intact after
+the second failure; a new durable update or explicit foreground preparation can
+retry. Scheduled attempts stop on session/principal changes or active denies.
 
 A failed ownerless foreground native-cache publication receives at most one
 local automatic retry after the coordinator delay. The retry resolves the

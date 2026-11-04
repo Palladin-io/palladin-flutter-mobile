@@ -105,4 +105,60 @@ Files: `autofill_cache_service.dart`, `durable_autofill_repair_coordinator.dart`
 
 ## Checkpoint
 
-Design security review accepted; implementation is isolated in `palladin-autofill-incremental` (`feat/autofill-incremental-publication`). Android native commit `9f8539dc` is integrated as `d46cbdfc` (148 native tests and real Kotlin compile passed); iOS native `924f10df` is integrated as `ca622d9d` (real CryptoKit synthetic suite and SDK checks passed). Dart publisher/metadata/scoped mutation integration is implemented and under security review. Fixed stale-clear callbacks, pre-await owner capture, and empty-denial CAS; focused race suite passes. Full integrated Dart suite passed 2201 tests (2 skipped), analyzer/notices/secret scan passed. Both native suites also passed from the integrated checkout. Real SQLite/crypto/loopback benchmark passed: 160 initial reveals, one per update, zero per delete and zero publication HTTP requests. Integration exposed full-scope denial release needing authoritative retained-reference reconciliation; security-approved fixes are integrated for both platforms (Android 149 native tests; iOS CryptoKit/SDK tests). Unclassified publication failures globally deny only the current generation; the focused regression passed RED→GREEN. No release readiness or physical v3 parity claim. Cloud round 1 identified a recovery-gate bypass; fixed with RED→GREEN and ordered clear/reset/publication regression. Independent review also identified a final-authority-await metadata race; synchronous publication revision and real durable-commit regressions now close it, with clean re-review. Cloud round 2 identified bridge availability awaits after the publication fence; required bridge guard callback and post-ack validation now close it, with real MethodChannel RED→GREEN for full/delta and held-ack regression. Independent re-review is clean. Next: final allowed cloud round 3 and exact-head CI. A repeat native iOS run is currently blocked by host complete-file-protection EPERM; earlier identical native source passed, and protection is not weakened. Publication branch is a signed-off squash of the tested tree, preserving the reviewable PR153 dependency without rewriting remote history. Diagnostic instrumentation remains separate and excluded.
+Incremental Android/iOS implementation is in PR155, stacked on PR153/152.
+Cloud review completed clean in round3 on c1606519; the subsequent narrow
+SDK-setup-ANR harness fix has independent clean review. Current-head CI41847803108
+passed Flutter and the actual Android save/revoke/process-death flow, but the
+59-case AutoFill runtime lost ADB after many passing cases. Its previous complete
+run passed all59 cases; no blind retry or release readiness is claimed. Native
+Android149 tests and iOS protected-file/SDK tests passed; physical iOS parity and
+publication remain outside this approval.
+
+Physical S22 evidence then identified lease-only renewals aborting long initial
+publication (only issuedAt/notAfter mismatch), and repeated secure-token reads
+accounting for about90% of reveal time. Corrective worktrees are
+`palladin-autofill-physical-preparation` (bounded retries + earliest authenticated
+lease preservation) and `palladin-autofill-authority-snapshot` (operation-scoped
+revision-fenced authority). Both changes have independent clean security review.
+The latter full suite passed2224 tests,2 skipped; analyzer is clean. Real
+SQLite/crypto benchmark reduced authority resolutions from162 to2 for160 Entries,
+with unchanged160/1/0 reveals for full/update/delete and zero publication HTTP.
+This is call-count evidence, not a physical performance claim.
+
+The startup supersession mechanism now has a deterministic RED→GREEN:
+36 coordinator tests confirm serialized native calls, independent acknowledgement
+of newer commits, session/deny cancellation and no resurrection of removed Vaults.
+The combined candidate includes reviewed progress colors and Home attachment
+deduplication. Real Home→repository→preparer→durable-update tests reduce repeated
+mounts from two synchronizations to one while explicit authoritative refresh
+remains active. Direct session replacement invalidates Vault-list and shared
+preparer state before reattaching search; held-old-load and old/new-principal
+regressions pass. All corrective changes have independent clean security review;
+PR157 exact0ba6d437 passed2238 tests (2 skipped), CI41859695310 and cloud review
+round1. Debug13 physical feedback still found transient0/0 on Home. The confirmed
+cause is unchanged repair denying the whole native cache and committing an empty
+catalog revision, so merge/release remain held.
+
+Follow-up `palladin-autofill-noop-refresh` adds synchronous producer content-proof
+admission and native validated same-base checks. Android153 tests and iOS native
+protected-file/SDK checks pass, with independent reviews clean; unchanged checks
+perform no catalog/fence/identity writes and preserve picker revision. Producer
+empty-renewal and changed→renewal negatives pass32 tests; publisher/cache85 pass,
+including held-check ordinary lock and strict unknown/token/owner paths. The real
+loopback coordinator chain and final integrated review/full checks are next.
+Root owns physical S22 validation, PR stack integration and release. No iOS
+publication; diagnostics remain isolated from production commits.
+
+Debug14 physical acceptance failed despite clean CI/review: startup renewal
+interrupted full reveals, and periodic Inbox hydration synchronized two Vaults.
+The first durable update admitted repair while the second Vault was still running.
+Diagnostic15 traced this without credential values; no SignalR reconnect occurred.
+`palladin-autofill-sync-lifecycle` removes the Inbox hydration sync side effect,
+waits for the complete current Vault set, and accepts only completed producer-proven
+renewals across preparation/revalidation while retaining original lease bounds.
+Real SQLite/crypto regression spans renewal during AEAD reveal and after native
+commit before acknowledgement: one full write, no restart; staggered two-Vault
+renewal makes one unchanged check. Core focused71 tests pass; final review,
+full-suite integration and physical acceptance remain pending. Separate native
+biometric writer reauthorization is needed to eliminate full work after unlock;
+it is not implemented or implied by this loop correction. No merge/store release.

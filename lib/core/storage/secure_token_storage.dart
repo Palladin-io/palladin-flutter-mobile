@@ -8,6 +8,10 @@ class SecureTokenStorage {
   final FlutterSecureStorage _storage;
   Future<void> _tokenMutation = Future<void>.value();
   int _tokenGeneration = 0;
+  int _authorityRevision = 0;
+
+  /// In-memory fence for operation-scoped claims; never stores token material.
+  int get authorityRevision => _authorityRevision;
 
   Future<void> _mutateTokens(Future<void> Function() operation) {
     final next = _tokenMutation.then((_) => operation());
@@ -31,6 +35,7 @@ class SecureTokenStorage {
     required bool isOnboarded,
   }) {
     ++_tokenGeneration;
+    ++_authorityRevision;
     return _mutateTokens(() async {
       await Future.wait([
         _storage.write(key: _accessTokenKey, value: accessToken),
@@ -75,6 +80,7 @@ class SecureTokenStorage {
     final generation = _tokenGeneration;
     return _mutateTokens(() async {
       if (generation != _tokenGeneration) return;
+      ++_authorityRevision;
       await Future.wait([
         _storage.write(key: _accessTokenKey, value: accessToken),
         _storage.write(key: _refreshTokenKey, value: refreshToken),
@@ -125,6 +131,7 @@ class SecureTokenStorage {
   Future<void> clearAll() {
     // Invalidate queued refreshes before waiting for any native writes in flight.
     ++_tokenGeneration;
+    ++_authorityRevision;
     return _mutateTokens(_storage.deleteAll);
   }
 }

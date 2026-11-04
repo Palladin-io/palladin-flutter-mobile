@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
@@ -25,11 +27,80 @@ class _MockEntryCrypto extends Mock implements EntryV2CryptoService {}
 class _MockCanonicalAdapter extends Mock
     implements CanonicalEntryDetailService {}
 
+class _NativeStorage extends Mock implements FlutterSecureStorage {}
+
+class _PreparationProvider extends MemberSyncSessionAuthorityProvider {
+  _PreparationProvider(super.storage, this.claims);
+  final MemberSyncSessionAuthority claims;
+  @override
+  Future<MemberSyncSessionAuthority> current() async => claims;
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(Uint8List(32));
     registerFallbackValue(<String, dynamic>{});
   });
+
+  test(
+    'preparation authority owner and mid-read mutation fail before crypto',
+    () async {
+      final native = _NativeStorage();
+      when(() => native.deleteAll()).thenAnswer((_) async {});
+      final storage = SecureTokenStorage(native);
+      const claims = MemberSyncSessionAuthority(
+        principalId: 'member',
+        organizationId: 'org',
+        organizationMembershipGeneration: '1',
+        offlinePolicy: '24h',
+        offlinePolicyVersion: 1,
+      );
+      final provider = _PreparationProvider(storage, claims);
+      final reader = _MockReader();
+      final keys = _MockVaultKeys();
+      final service = LocalCurrentEntryService(
+        reader: reader,
+        authorityProvider: provider,
+        vaultKeys: keys,
+        entryCrypto: _MockEntryCrypto(),
+        canonicalAdapter: _MockCanonicalAdapter(),
+      );
+      final other = await _PreparationProvider(
+        storage,
+        claims,
+      ).captureForPreparation();
+      await expectLater(
+        service.revealPreparedWithAuthority(
+          vaultId: 'vault',
+          entryId: 'entry',
+          memberPrivateKey: Uint8List(32),
+          authority: other,
+        ),
+        throwsStateError,
+      );
+      verifyZeroInteractions(reader);
+      final scope = await provider.captureForPreparation();
+      final read = Completer<LocalMemberEntryMaterial?>();
+      when(
+        () => reader.readCurrent(
+          vaultId: 'vault',
+          entryId: 'entry',
+          authority: claims,
+        ),
+      ).thenAnswer((_) => read.future);
+      final pending = service.revealPreparedWithAuthority(
+        vaultId: 'vault',
+        entryId: 'entry',
+        memberPrivateKey: Uint8List(32),
+        authority: scope,
+      );
+      final rejected = expectLater(pending, throwsStateError);
+      await storage.clearAll();
+      read.complete(null);
+      await rejected;
+      verifyZeroInteractions(keys);
+    },
+  );
 
   test(
     'lock fence rejects a decryption that completes after local read',

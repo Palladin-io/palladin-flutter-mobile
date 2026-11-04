@@ -43,7 +43,8 @@ abstract interface class GrantsRepository {
   /// Fetches a single grant by id.
   Future<Grant> getGrant(String vaultId, String grantId);
 
-  /// Shares presentation reads only for the duration of one hydration.
+  /// Shares grant/reason reads for one Inbox hydration. Entry labels remain
+  /// owned by the caller's prepared MemberIndex; this scope never loads it.
   Future<T> withPresentationReads<T>(
     Future<T> Function(GrantReader read) operation,
   );

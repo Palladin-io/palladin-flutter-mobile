@@ -38,6 +38,7 @@ import '../cubit/search_state.dart';
 import '../cubit/search_session_controller.dart';
 import '../../../autofill/presentation/widgets/autofill_setup_card.dart';
 import '../../../autofill/presentation/widgets/autofill_preparation_card.dart';
+import '../../../autofill/presentation/widgets/autofill_home_body.dart';
 import '../widgets/onboarding_checklist.dart';
 import '../widgets/unknown_agent_card.dart';
 
@@ -128,7 +129,7 @@ class _DashboardViewState extends State<_DashboardView> {
     _searchSession.attachView(_clearSearchView);
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated && auth.privateKey != null) {
-      _searchCubit.prepare(auth.privateKey!);
+      _searchCubit.prepare(auth.privateKey!, principalId: auth.userId);
     }
   }
 
@@ -513,63 +514,67 @@ class _DashboardViewState extends State<_DashboardView> {
     return AppScreen(
       header: _GreetingHeader(name: name),
       floatingActionButton: const FabRegistrar(fab: null),
-      body: BlocProvider<SearchCubit>.value(
-        value: _searchCubit,
-        // Recents may arrive after mount; re-evaluate the dropdown so a
-        // focused empty field can open once the recent list is ready.
-        child: BlocListener<DashboardCubit, DashboardState>(
-          listener: (_, _) => _updateOverlayVisibility(),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    0,
-                    AppSpacing.screenH,
-                    AppSpacing.fieldGap,
-                  ),
-                  // The search field is the dropdown's anchor (target) and
-                  // hosts the OverlayPortal that floats over the content.
-                  child: CompositedTransformTarget(
-                    link: _searchLink,
-                    child: OverlayPortal(
-                      controller: _dropdownController,
-                      overlayChildBuilder: _buildDropdownOverlay,
-                      child: AppSearchField(
-                        controller: _searchController,
-                        focusNode: _searchFocusNode,
-                        hint: l10n.dashboardSearchHint,
-                        onChanged: (v) {
-                          _searchCubit.query(v);
-                          _updateOverlayVisibility();
-                        },
+      body: AutoFillHomeBody(
+        child: BlocProvider<SearchCubit>.value(
+          value: _searchCubit,
+          // Recents may arrive after mount; re-evaluate the dropdown so a
+          // focused empty field can open once the recent list is ready.
+          child: BlocListener<DashboardCubit, DashboardState>(
+            listener: (_, _) => _updateOverlayVisibility(),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      0,
+                      AppSpacing.screenH,
+                      AppSpacing.fieldGap,
+                    ),
+                    // The search field is the dropdown's anchor (target) and
+                    // hosts the OverlayPortal that floats over the content.
+                    child: CompositedTransformTarget(
+                      link: _searchLink,
+                      child: OverlayPortal(
+                        controller: _dropdownController,
+                        overlayChildBuilder: _buildDropdownOverlay,
+                        child: AppSearchField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          hint: l10n.dashboardSearchHint,
+                          onChanged: (v) {
+                            _searchCubit.query(v);
+                            _updateOverlayVisibility();
+                          },
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-                  child: Column(
-                    children: [
-                      BiometricSetupCard(hideWhenHandled: true),
-                      AutoFillSetupCard(hideWhenEnabled: true),
-                      AutoFillPreparationCard(hideWhenReady: true),
-                    ],
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.screenH,
+                    ),
+                    child: Column(
+                      children: [
+                        AutoFillPreparationCard(),
+                        AutoFillSetupCard(hideWhenEnabled: true),
+                        BiometricSetupCard(hideWhenHandled: true),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              // Dashboard content always renders underneath — the search
-              // dropdown floats above it, never swapping it out.
-              BlocBuilder<DashboardCubit, DashboardState>(
-                builder: (context, state) => SliverMainAxisGroup(
-                  slivers: _contentSlivers(context, state, hasAuditView),
+                // Dashboard content always renders underneath — the search
+                // dropdown floats above it, never swapping it out.
+                BlocBuilder<DashboardCubit, DashboardState>(
+                  builder: (context, state) => SliverMainAxisGroup(
+                    slivers: _contentSlivers(context, state, hasAuditView),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

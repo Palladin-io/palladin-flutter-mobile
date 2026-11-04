@@ -95,7 +95,7 @@ void main() {
       ).thenAnswer((_) async => const []);
 
       final cubit = buildCubit();
-      cubit.prepare(privateKey);
+      cubit.prepare(privateKey, principalId: 'synthetic');
       cubit.query('stripe');
       async.elapse(const Duration(milliseconds: 250));
       async.flushMicrotasks();

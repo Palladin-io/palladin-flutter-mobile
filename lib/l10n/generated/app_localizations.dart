@@ -8849,7 +8849,7 @@ abstract class AppLocalizations {
   /// No description provided for @autofillPreparationWaiting.
   ///
   /// In en, this message translates to:
-  /// **'Preparing saved passwords… You can keep using Palladin.'**
+  /// **'Preparing saved passwords…'**
   String get autofillPreparationWaiting;
 
   /// No description provided for @autofillPreparationProgress.
@@ -8861,13 +8861,13 @@ abstract class AppLocalizations {
   /// No description provided for @autofillPreparationPublishing.
   ///
   /// In en, this message translates to:
-  /// **'Saving passwords to the system provider…'**
+  /// **'Applying AutoFill updates…'**
   String get autofillPreparationPublishing;
 
   /// No description provided for @autofillPreparationReady.
   ///
   /// In en, this message translates to:
-  /// **'Passwords are prepared. Filling still requires system provider selection and authorization.'**
+  /// **'Passwords updated. AutoFill requires authorization and Palladin enabled in system settings.'**
   String get autofillPreparationReady;
 
   /// No description provided for @autofillPreparationEmpty.
@@ -8885,8 +8885,20 @@ abstract class AppLocalizations {
   /// No description provided for @autofillPreparationUnknown.
   ///
   /// In en, this message translates to:
-  /// **'Unlock Palladin to check and prepare saved passwords.'**
+  /// **'AutoFill status has not been confirmed yet.'**
   String get autofillPreparationUnknown;
+
+  /// No description provided for @autofillPreparationChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking AutoFill…'**
+  String get autofillPreparationChecking;
+
+  /// No description provided for @autofillPreparationKeepOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep Palladin open until preparation finishes. Work may pause in the background.'**
+  String get autofillPreparationKeepOpen;
 }
 
 class _AppLocalizationsDelegate

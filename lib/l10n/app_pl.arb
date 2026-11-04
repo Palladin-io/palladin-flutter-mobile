@@ -1569,12 +1569,14 @@
   "autoFillSaveHost": "Wybierz dokładny host",
   "autoFillSaveUnavailable": "Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj.",
   "autofillPreparationTitle": "Hasła do autouzupełniania",
-  "autofillPreparationWaiting": "Przygotowujemy zapisane hasła… Możesz dalej korzystać z Palladina.",
+  "autofillPreparationWaiting": "Przygotowujemy zapisane hasła…",
   "autofillPreparationProgress": "Przygotowywanie wpisów: {examined} z {total}",
-  "autofillPreparationPublishing": "Zapisywanie haseł w usłudze systemowej…",
-  "autofillPreparationReady": "Hasła są przygotowane. Uzupełnianie nadal wymaga wybrania usługi w systemie i autoryzacji.",
+  "autofillPreparationPublishing": "Zapisujemy zmiany autouzupełniania…",
+  "autofillPreparationReady": "Hasła zaktualizowane. Autouzupełnianie wymaga autoryzacji i włączonej usługi Palladin w ustawieniach systemowych.",
   "autofillPreparationEmpty": "Brak zapisanych haseł do przygotowania. Dodaj login z adresem strony do Vaultu, który zezwala na dostęp offline.",
   "autofillPreparationFailed": "Nie udało się przygotować haseł. Spróbuj ponownie, gdy Palladin jest odblokowany.",
-  "autofillPreparationUnknown": "Odblokuj Palladina, aby sprawdzić i przygotować zapisane hasła.",
-  "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}}
+  "autofillPreparationUnknown": "Stan autouzupełniania nie został jeszcze potwierdzony.",
+  "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}},
+  "autofillPreparationChecking": "Sprawdzamy autouzupełnianie…",
+  "autofillPreparationKeepOpen": "Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana."
 }

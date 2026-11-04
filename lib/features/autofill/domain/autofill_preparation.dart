@@ -1,6 +1,7 @@
 /// Value-free, in-memory view of the current native cache preparation.
 enum AutoFillPreparationPhase {
   unknown,
+  checking,
   preparing,
   publishing,
   ready,

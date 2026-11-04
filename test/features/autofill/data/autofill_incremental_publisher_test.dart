@@ -1,3 +1,6 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_preparation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -15,6 +18,20 @@ import 'package:mobile_palladin/features/vault/data/services/local_current_entry
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
+class _PreparationStorage extends SecureTokenStorage {
+  _PreparationStorage() : super(const FlutterSecureStorage());
+  int revision = 0;
+  @override
+  int get authorityRevision => revision;
+}
+
+class _PreparationProvider extends MemberSyncSessionAuthorityProvider {
+  _PreparationProvider(this.read, SecureTokenStorage storage) : super(storage);
+  final Future<MemberSyncSessionAuthority> Function() read;
+  @override
+  Future<MemberSyncSessionAuthority> current() => read();
+}
+
 class _Reader extends Mock implements MemberAutoFillMetadataReader {}
 
 class _Authority extends Mock implements MemberSyncSessionAuthorityProvider {}
@@ -30,6 +47,7 @@ void main() {
   late _Entries entries;
   late _Bridge bridge;
   late AutoFillIncrementalPublisher publisher;
+  late _PreparationStorage preparationStorage;
   late MemberOfflineAccessContext context;
   late MemberSyncSessionAuthority claims;
   late List<MemberIndexEntry> indexes;
@@ -50,17 +68,18 @@ void main() {
     state: MemberEntryState.active,
     autofillDomains: const ['example.invalid'],
   );
-  void snapshot() => metadata = MemberAutoFillMetadata(
-    readGeneration: 0,
-    publicationRevision: 0,
-    vaults: {
-      context.vaultId: MemberAutoFillVaultMetadata(
-        context: context,
-        sequence: '1',
-        entries: List.of(indexes),
-      ),
-    },
-  );
+  void snapshot({int publicationRevision = 0, String sequence = '1'}) =>
+      metadata = MemberAutoFillMetadata(
+        readGeneration: 0,
+        publicationRevision: publicationRevision,
+        vaults: {
+          context.vaultId: MemberAutoFillVaultMetadata(
+            context: context,
+            sequence: sequence,
+            entries: List.of(indexes),
+          ),
+        },
+      );
 
   setUpAll(() {
     registerFallbackValue(Uint8List(32));
@@ -94,7 +113,7 @@ void main() {
       AutoFillCachePayload(manifest: emptyManifest, records: []),
     );
   });
-  setUp(() {
+  setUp(() async {
     context = MemberSnapshotPage.fromJson(
       Map<String, dynamic>.from(
         (jsonDecode(
@@ -126,6 +145,25 @@ void main() {
     entries = _Entries();
     bridge = _Bridge();
     when(() => authority.current()).thenAnswer((_) async => claims);
+    when(
+      () => authority.sessionRevision,
+    ).thenAnswer((_) => preparationStorage.revision);
+    when(
+      () => reader.canReuseAutoFillPublication(
+        readGeneration: any(named: 'readGeneration'),
+        contentRevision: any(named: 'contentRevision'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).thenReturn(false);
+    preparationStorage = _PreparationStorage();
+    final preparationProvider = _PreparationProvider(
+      authority.current,
+      preparationStorage,
+    );
+    registerFallbackValue(await preparationProvider.captureForPreparation());
+    when(
+      () => authority.captureForPreparation(),
+    ).thenAnswer((_) => preparationProvider.captureForPreparation());
     when(
       () => reader.readAutoFillMetadata(
         vaultIds: any(named: 'vaultIds'),
@@ -191,7 +229,8 @@ void main() {
       return AutoFillCacheBase(generation: 7, revision: ++revision);
     });
     when(
-      () => entries.revealCurrentWithAuthority(
+      () => entries.revealPreparedWithAuthority(
+        authority: any(named: 'authority'),
         vaultId: any(named: 'vaultId'),
         entryId: any(named: 'entryId'),
         memberPrivateKey: any(named: 'memberPrivateKey'),
@@ -231,6 +270,465 @@ void main() {
     isCurrent: () => true,
     onProgress: (_) {},
   );
+
+  void admitUnchangedCheck() {
+    when(
+      () => reader.canReuseAutoFillPublication(
+        readGeneration: any(named: 'readGeneration'),
+        contentRevision: any(named: 'contentRevision'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).thenReturn(true);
+  }
+
+  test(
+    'validated no-op accepts same native revision and reports checking',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      admitUnchangedCheck();
+      when(
+        () => bridge.applyCacheDelta(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          manifest: any(named: 'manifest'),
+          upserts: any(named: 'upserts'),
+          removals: any(named: 'removals'),
+          releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
+        ),
+      ).thenAnswer(
+        (call) async => call.namedArguments[#base] as AutoFillCacheBase,
+      );
+      final phases = <AutoFillPreparationPhase>[];
+      await publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (value) => phases.add(value.phase),
+      );
+      expect(phases, [
+        AutoFillPreparationPhase.checking,
+        AutoFillPreparationPhase.checking,
+        AutoFillPreparationPhase.ready,
+      ]);
+      expect(reveals, 160);
+    },
+  );
+
+  test('unknown commit is denied before metadata await', () async {
+    await publisher.beginSession(7);
+    await publish();
+    clearInteractions(bridge);
+    final held = Completer<MemberAutoFillMetadata>();
+    when(
+      () => reader.readAutoFillMetadata(
+        vaultIds: any(named: 'vaultIds'),
+        authority: any(named: 'authority'),
+      ),
+    ).thenAnswer((_) => held.future);
+    final operation = publish();
+    await Future<void>.delayed(Duration.zero);
+    verify(
+      () => bridge.denyEntries(
+        base: any(named: 'base'),
+        writerEpoch: any(named: 'writerEpoch'),
+        entries: any(named: 'entries'),
+      ),
+    ).called(1);
+    held.complete(metadata);
+    await operation;
+  });
+
+  test(
+    'ordinary lock cancels held unchanged check without denying the provider',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      clearInteractions(bridge);
+      admitUnchangedCheck();
+      final held = Completer<MemberAutoFillMetadata>();
+      when(
+        () => reader.readAutoFillMetadata(
+          vaultIds: any(named: 'vaultIds'),
+          authority: any(named: 'authority'),
+        ),
+      ).thenAnswer((_) => held.future);
+      final operation = publish();
+      final rejected = expectLater(operation, throwsStateError);
+      await Future<void>.delayed(Duration.zero);
+      await publisher.endSession();
+      held.complete(metadata);
+      await rejected;
+      verifyNever(
+        () => bridge.denyEntries(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          entries: any(named: 'entries'),
+        ),
+      );
+      verifyNever(
+        () => bridge.applyCacheDelta(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          manifest: any(named: 'manifest'),
+          upserts: any(named: 'upserts'),
+          removals: any(named: 'removals'),
+          releasingDenies: any(named: 'releasingDenies'),
+          validatePublication: any(named: 'validatePublication'),
+        ),
+      );
+    },
+  );
+
+  test('token authority change cannot use the unchanged lane', () async {
+    await publisher.beginSession(7);
+    await publish();
+    admitUnchangedCheck();
+    preparationStorage.revision++;
+    clearInteractions(bridge);
+    await publish();
+    verify(
+      () => bridge.denyEntries(
+        base: any(named: 'base'),
+        writerEpoch: any(named: 'writerEpoch'),
+        entries: any(named: 'entries'),
+      ),
+    ).called(1);
+  });
+
+  test('pending mutation owner cannot use unchanged acknowledgement', () async {
+    await publisher.beginSession(7);
+    await publish();
+    admitUnchangedCheck();
+    await publisher.deny(null);
+    when(
+      () => bridge.applyCacheDelta(
+        base: any(named: 'base'),
+        writerEpoch: any(named: 'writerEpoch'),
+        manifest: any(named: 'manifest'),
+        upserts: any(named: 'upserts'),
+        removals: any(named: 'removals'),
+        releasingDenies: any(named: 'releasingDenies'),
+        validatePublication: any(named: 'validatePublication'),
+      ),
+    ).thenAnswer(
+      (call) async => call.namedArguments[#base] as AutoFillCacheBase,
+    );
+    await expectLater(publish(), throwsFormatException);
+  });
+
+  test(
+    'unchanged refresh does not deny previously published credentials',
+    () async {
+      await publisher.beginSession(7);
+      await publish();
+      clearInteractions(bridge);
+      when(
+        () => reader.canReuseAutoFillPublication(
+          readGeneration: any(named: 'readGeneration'),
+          contentRevision: any(named: 'contentRevision'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).thenReturn(true);
+      await publish();
+      verifyNever(
+        () => bridge.denyEntries(
+          base: any(named: 'base'),
+          writerEpoch: any(named: 'writerEpoch'),
+          entries: any(named: 'entries'),
+        ),
+      );
+      expect(reveals, 160);
+    },
+  );
+
+  test(
+    'initial publication survives a same-authority lease renewal without extending its lease',
+    () async {
+      final original = context;
+      await publisher.beginSession(7);
+      await publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (progress) {
+          if (progress.examined == 80 && context == original) {
+            context = MemberOfflineAccessContext.fromJson({
+              ...original.toJson(),
+              'issuedAt': original.issuedAt
+                  .add(const Duration(minutes: 2))
+                  .toIso8601String(),
+              'notAfter': original.notAfter
+                  .add(const Duration(minutes: 2))
+                  .toIso8601String(),
+            });
+            snapshot();
+          }
+        },
+      );
+      expect(reveals, 160);
+      expect(fullCalls, 1);
+      final payload =
+          verify(
+                () => bridge.replaceCacheV3(
+                  captureAny(),
+                  sessionToken: any(named: 'sessionToken'),
+                  writerEpoch: any(named: 'writerEpoch'),
+                  base: any(named: 'base'),
+                  releasingDenies: any(named: 'releasingDenies'),
+                  validatePublication: any(named: 'validatePublication'),
+                ),
+              ).captured.single
+              as AutoFillCachePayload;
+      expect(
+        payload.manifest.vaults[original.vaultId]!.notAfter,
+        original.notAfter,
+      );
+    },
+  );
+
+  for (final change in [
+    'entry',
+    'addition',
+    'removal',
+    'sequence',
+    'key',
+    'membership',
+  ]) {
+    test(
+      'lease refresh cannot conceal $change change before publication',
+      () async {
+        await publisher.beginSession(7);
+        await expectLater(
+          publisher.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (progress) {
+              if (progress.phase != AutoFillPreparationPhase.preparing ||
+                  progress.examined != 160) {
+                return;
+              }
+              switch (change) {
+                case 'entry':
+                  indexes[0] = index(0, revision: '2');
+                case 'addition':
+                  indexes.add(index(160));
+                case 'removal':
+                  indexes.removeLast();
+                case 'key':
+                  context = MemberOfflineAccessContext.fromJson({
+                    ...context.toJson(),
+                    'vaultKeyVersion': context.vaultKeyVersion + 1,
+                  });
+                case 'membership':
+                  context = MemberOfflineAccessContext.fromJson({
+                    ...context.toJson(),
+                    'organizationMembershipGeneration': '99',
+                  });
+              }
+              snapshot(
+                publicationRevision: 1,
+                sequence: change == 'sequence' ? '2' : '1',
+              );
+            },
+          ),
+          throwsA(isA<StateError>()),
+        );
+        expect(fullCalls, 0);
+      },
+    );
+  }
+
+  test(
+    'earlier overlapping lease is preserved as a whole authenticated context',
+    () async {
+      final original = context;
+      final earlier = MemberOfflineAccessContext.fromJson({
+        ...original.toJson(),
+        'issuedAt': original.issuedAt
+            .subtract(const Duration(minutes: 2))
+            .toIso8601String(),
+        'notAfter': original.notAfter
+            .subtract(const Duration(minutes: 2))
+            .toIso8601String(),
+      });
+      await publisher.beginSession(7);
+      await publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (p) {
+          if (p.examined == 80) {
+            context = earlier;
+            snapshot(publicationRevision: 1);
+          }
+        },
+      );
+      final payload =
+          verify(
+                () => bridge.replaceCacheV3(
+                  captureAny(),
+                  sessionToken: any(named: 'sessionToken'),
+                  writerEpoch: any(named: 'writerEpoch'),
+                  base: any(named: 'base'),
+                  releasingDenies: any(named: 'releasingDenies'),
+                  validatePublication: any(named: 'validatePublication'),
+                ),
+              ).captured.single
+              as AutoFillCachePayload;
+      expect(
+        payload.manifest.vaults[original.vaultId]!.issuedAt,
+        earlier.issuedAt,
+      );
+      expect(
+        payload.manifest.vaults[original.vaultId]!.notAfter,
+        earlier.notAfter,
+      );
+    },
+  );
+
+  for (final reverse in [false, true]) {
+    test(
+      'disjoint renewal chain is rejected regardless of order reverse=$reverse',
+      () async {
+        final original = context;
+        final offsets = [
+          const Duration(hours: 2),
+          -original.leaseDuration + const Duration(hours: 1),
+        ];
+        if (reverse) offsets.setAll(0, offsets.reversed.toList());
+        await publisher.beginSession(7);
+        await expectLater(
+          publisher.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (p) {
+              if (p.examined == 40 || p.examined == 80) {
+                final offset = offsets[p.examined == 40 ? 0 : 1];
+                context = MemberOfflineAccessContext.fromJson({
+                  ...original.toJson(),
+                  'issuedAt': original.issuedAt.add(offset).toIso8601String(),
+                  'notAfter': original.notAfter.add(offset).toIso8601String(),
+                });
+                snapshot(publicationRevision: p.examined);
+              }
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'boundary',
+              'Disjoint AutoFill authority leases',
+            ),
+          ),
+        );
+        expect(fullCalls, 0);
+      },
+    );
+  }
+
+  test(
+    'fresh lease cannot publish after the preserved lease expires',
+    () async {
+      final original = context;
+      var now = original.issuedAt;
+      when(() => reader.validateAutoFillPublication(any())).thenAnswer((call) {
+        final candidate =
+            call.positionalArguments.single as MemberAutoFillMetadata;
+        if (candidate.publicationRevision != metadata.publicationRevision ||
+            candidate.vaults.values.any(
+              (vault) => !now.isBefore(vault.context.notAfter),
+            )) {
+          throw StateError('expired publication authority');
+        }
+      });
+      await publisher.beginSession(7);
+      await expectLater(
+        publisher.synchronize(
+          privateKey: Uint8List(32),
+          vaultIds: [context.vaultId],
+          isCurrent: () => true,
+          onProgress: (p) {
+            if (p.phase == AutoFillPreparationPhase.preparing &&
+                p.examined == 80) {
+              context = MemberOfflineAccessContext.fromJson({
+                ...original.toJson(),
+                'issuedAt': original.issuedAt
+                    .add(const Duration(minutes: 2))
+                    .toIso8601String(),
+                'notAfter': original.notAfter
+                    .add(const Duration(minutes: 2))
+                    .toIso8601String(),
+              });
+              snapshot(publicationRevision: 1);
+            }
+            if (p.phase == AutoFillPreparationPhase.publishing) {
+              now = original.notAfter;
+            }
+          },
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(fullCalls, 0);
+    },
+  );
+
+  for (final phase in ['between-reveals', 'publishing', 'acknowledgement']) {
+    test(
+      'token authority change at $phase cannot acknowledge publication',
+      () async {
+        await publisher.beginSession(7);
+        final phases = <AutoFillPreparationPhase>[];
+        if (phase == 'acknowledgement') {
+          when(
+            () => bridge.replaceCacheV3(
+              any(),
+              sessionToken: any(named: 'sessionToken'),
+              writerEpoch: any(named: 'writerEpoch'),
+              base: any(named: 'base'),
+              releasingDenies: any(named: 'releasingDenies'),
+              validatePublication: any(named: 'validatePublication'),
+            ),
+          ).thenAnswer((_) async {
+            preparationStorage.revision++;
+            return const AutoFillCacheBase(generation: 7, revision: 1);
+          });
+        }
+        await expectLater(
+          publisher.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (p) {
+              phases.add(p.phase);
+              if ((phase == 'between-reveals' &&
+                      p.phase == AutoFillPreparationPhase.preparing &&
+                      p.examined == 1) ||
+                  (phase == 'publishing' &&
+                      p.phase == AutoFillPreparationPhase.publishing)) {
+                preparationStorage.revision++;
+              }
+            },
+          ),
+          throwsA(isA<StateError>()),
+        );
+        expect(phases, isNot(contains(AutoFillPreparationPhase.ready)));
+        expect(
+          await publisher.deny({
+            AutoFillEntryCoordinate(
+              vaultId: context.vaultId,
+              entryId: 'entry-0',
+            ),
+          }),
+          isFalse,
+        );
+        if (phase != 'acknowledgement') expect(fullCalls, 0);
+      },
+    );
+  }
 
   test('one changed Entry reveals one body and removal reveals none', () async {
     await publisher.beginSession(7);
@@ -460,49 +958,57 @@ void main() {
     },
   );
 
-  test(
-    'metadata change before native acknowledgement never reports ready',
-    () async {
-      await publisher.beginSession(7);
-      await publish();
-      final entered = Completer<void>();
-      final reply = Completer<AutoFillCacheBase>();
-      var obsolete = false;
-      when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
-        if (obsolete) throw const LocalMemberEntryReadInvalidatedException();
-      });
-      when(
-        () => bridge.applyCacheDelta(
-          base: any(named: 'base'),
-          writerEpoch: any(named: 'writerEpoch'),
-          manifest: any(named: 'manifest'),
-          upserts: any(named: 'upserts'),
-          removals: any(named: 'removals'),
-          releasingDenies: any(named: 'releasingDenies'),
-          validatePublication: any(named: 'validatePublication'),
-        ),
-      ).thenAnswer((_) {
-        entered.complete();
-        return reply.future;
-      });
-      final phases = <String>[];
-      final operation = publisher.synchronize(
-        privateKey: Uint8List(32),
-        vaultIds: [context.vaultId],
-        isCurrent: () => true,
-        onProgress: (state) => phases.add(state.phase.name),
-      );
-      final result = expectLater(
-        operation,
-        throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
-      );
-      await entered.future;
-      obsolete = true;
-      reply.complete(AutoFillCacheBase(generation: 7, revision: ++revision));
-      await result;
-      expect(phases, isNot(contains('ready')));
-    },
-  );
+  for (final unchanged in [false, true]) {
+    test(
+      'metadata change before acknowledgement never reports ready (unchanged=$unchanged)',
+      () async {
+        await publisher.beginSession(7);
+        await publish();
+        if (unchanged) admitUnchangedCheck();
+        final entered = Completer<void>();
+        final reply = Completer<AutoFillCacheBase>();
+        var obsolete = false;
+        when(() => reader.validateAutoFillPublication(any())).thenAnswer((_) {
+          if (obsolete) throw const LocalMemberEntryReadInvalidatedException();
+        });
+        when(
+          () => bridge.applyCacheDelta(
+            base: any(named: 'base'),
+            writerEpoch: any(named: 'writerEpoch'),
+            manifest: any(named: 'manifest'),
+            upserts: any(named: 'upserts'),
+            removals: any(named: 'removals'),
+            releasingDenies: any(named: 'releasingDenies'),
+            validatePublication: any(named: 'validatePublication'),
+          ),
+        ).thenAnswer((_) {
+          entered.complete();
+          return reply.future;
+        });
+        final phases = <String>[];
+        final operation = publisher.synchronize(
+          privateKey: Uint8List(32),
+          vaultIds: [context.vaultId],
+          isCurrent: () => true,
+          onProgress: (state) => phases.add(state.phase.name),
+        );
+        final result = expectLater(
+          operation,
+          throwsA(isA<LocalMemberEntryReadInvalidatedException>()),
+        );
+        await entered.future;
+        obsolete = true;
+        reply.complete(
+          AutoFillCacheBase(
+            generation: 7,
+            revision: unchanged ? revision : ++revision,
+          ),
+        );
+        await result;
+        expect(phases, isNot(contains('ready')));
+      },
+    );
+  }
 
   for (final delta in [false, true]) {
     test(

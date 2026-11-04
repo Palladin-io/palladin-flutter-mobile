@@ -1,4 +1,5 @@
 // Isolated debug workload: synthetic data, loopback HTTP, no account services.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -27,6 +28,8 @@ import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.d
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:mobile_palladin/features/autofill/data/autofill_incremental_publisher.dart';
+import 'package:mobile_palladin/features/autofill/data/durable_autofill_repair_coordinator.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_cache_bridge.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_incremental.dart';
@@ -61,9 +64,10 @@ Future<void> main() async {
 Future<List<Map<String, Object>>> runBenchmark({
   int repetitions = 5,
   bool incremental = false,
+  bool lifecycle = false,
 }) async {
   debugPrint(
-    'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false})}',
+    'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false, 'controlledLifecycleGates': lifecycle})}',
   );
   final sodium = await SodiumProvider.instance();
   final pair = sodium.crypto.box.keyPair();
@@ -72,7 +76,7 @@ Future<List<Map<String, Object>>> runBenchmark({
     VaultPublicKeyKind.memberX25519,
     pair.publicKey,
   );
-  final crypto = EntryV2CryptoService();
+  final crypto = _LifecycleEntryCrypto();
   final vaultKeys = VaultRotationCryptoService();
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
@@ -244,6 +248,8 @@ Future<List<Map<String, Object>>> runBenchmark({
       }
     }
     final requests = <String, int>{};
+    Completer<void>? heldDelta;
+    Completer<void>? deltaEntered;
     var activeRequests = 0;
     var peakRequests = 0;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -266,6 +272,10 @@ Future<List<Map<String, Object>>> runBenchmark({
           request.response.statusCode = 404;
           await request.response.close();
           return;
+        }
+        if (kind == 'delta' && id == _id(2) && heldDelta != null) {
+          deltaEntered?.complete();
+          await heldDelta.future;
         }
         body = {
           'accessContext': contexts[id],
@@ -370,9 +380,10 @@ Future<List<Map<String, Object>>> runBenchmark({
           results.add(result);
           debugPrint('MEMBER_BENCHMARK ${jsonEncode(result)}');
           if (incremental && repetition == repetitions && mode == modes.last) {
+            final preparationAuthority = _Authority();
             final reader = _CountingCurrentEntries(
               reader: sync,
-              authorityProvider: _Authority(),
+              authorityProvider: preparationAuthority,
               vaultKeys: vaultKeys,
               entryCrypto: crypto,
               canonicalAdapter: CanonicalEntryDetailService(
@@ -389,7 +400,7 @@ Future<List<Map<String, Object>>> runBenchmark({
             final publisher = AutoFillIncrementalPublisher(
               bridge: bridge,
               metadata: sync,
-              authority: _Authority(),
+              authority: preparationAuthority,
               entries: reader,
             );
             await publisher.beginSession(1);
@@ -404,6 +415,7 @@ Future<List<Map<String, Object>>> runBenchmark({
                 (a, b) => a + b,
               );
               reader.reveals = 0;
+              preparationAuthority.reads = 0;
               final timer = Stopwatch()..start();
               await publisher.synchronize(
                 privateKey: privateKey,
@@ -424,6 +436,7 @@ Future<List<Map<String, Object>>> runBenchmark({
               }
               final measurement = <String, Object>{
                 'mode': 'incremental-$phase',
+                'authorityReads': preparationAuthority.reads,
                 'elapsedMicros': timer.elapsedMicroseconds,
                 'reveals': reader.reveals,
                 'upserts': bridge.upserts,
@@ -435,7 +448,190 @@ Future<List<Map<String, Object>>> runBenchmark({
             }
 
             try {
+              if (lifecycle) {
+                final sink = _BenchmarkPublicationSink();
+                final racePublisher = AutoFillIncrementalPublisher(
+                  bridge: sink,
+                  metadata: sync,
+                  authority: preparationAuthority,
+                  entries: reader,
+                );
+                final identity = Object();
+                final errors = <Object>[];
+                final preparedRace = _BenchmarkPreparedPublisher(
+                  racePublisher,
+                  () => requests.values.fold<int>(0, (a, b) => a + b),
+                );
+                final repair = DurableAutoFillRepairCoordinator(
+                  memberIndexes: sync,
+                  autoFill: preparedRace,
+                  currentSession: () => AutoFillRepairSession(
+                    principalId: _principal,
+                    identity: identity,
+                    privateKey: privateKey,
+                  ),
+                  onFailure: errors.add,
+                );
+                var renewals = 0;
+                Future<void> renewDuringPublication() async {
+                  renewals++;
+                  final context = contexts[_id(1)]!;
+                  context['issuedAt'] = issued
+                      .add(Duration(seconds: renewals))
+                      .toIso8601String();
+                  context['notAfter'] = issued
+                      .add(Duration(hours: 24, seconds: renewals))
+                      .toIso8601String();
+                  await entries.load(
+                    vaultId: _id(1),
+                    memberPrivateKey: privateKey,
+                  );
+                }
+
+                final beforeHttp = requests.values.fold<int>(
+                  0,
+                  (a, b) => a + b,
+                );
+                reader.reveals = 0;
+                crypto.afterSecretOpen = renewDuringPublication;
+                sink.beforeAcknowledgement = renewDuringPublication;
+                await racePublisher.beginSession(1);
+                repair.start();
+                repair.replaceKnownVaults(wrappers.keys);
+                try {
+                  await repair.synchronizePreparedIfAllowed(
+                    privateKey: privateKey,
+                    vaultIds: wrappers.keys,
+                  );
+                  await repair.drainPending();
+                  final measurement = <String, Object>{
+                    'mode': 'incremental-lifecycle',
+                    'reveals': reader.reveals,
+                    'renewals': renewals,
+                    'syncHttpRequests':
+                        requests.values.fold<int>(0, (a, b) => a + b) -
+                        beforeHttp,
+                    'nativeWrites': sink.nativeWrites,
+                    'denies': sink.denies,
+                    'failures': errors.length,
+                  };
+                  if (renewals != 2 ||
+                      reader.reveals != 160 ||
+                      sink.nativeWrites != 1 ||
+                      sink.denies != 0 ||
+                      errors.isNotEmpty ||
+                      measurement['syncHttpRequests'] != 2) {
+                    throw StateError(
+                      'Lifecycle renewal invariant failed: ${jsonEncode(measurement)}',
+                    );
+                  }
+                  results.add(measurement);
+                  debugPrint('MEMBER_BENCHMARK ${jsonEncode(measurement)}');
+                } finally {
+                  crypto.afterSecretOpen = null;
+                  sink.beforeAcknowledgement = null;
+                  await repair.dispose();
+                  await racePublisher.endSession();
+                }
+              }
               await publish('full', 160, 160, 0);
+              int requestCount() =>
+                  requests.values.fold<int>(0, (a, b) => a + b);
+              final prepared = _BenchmarkPreparedPublisher(
+                publisher,
+                requestCount,
+              );
+              final identity = Object();
+              final failures = <Object>[];
+              final coordinator = DurableAutoFillRepairCoordinator(
+                memberIndexes: sync,
+                autoFill: prepared,
+                currentSession: () => AutoFillRepairSession(
+                  principalId: _principal,
+                  identity: identity,
+                  privateKey: privateKey,
+                ),
+                onFailure: failures.add,
+              );
+              coordinator.start();
+              coordinator.replaceKnownVaults(wrappers.keys);
+              try {
+                final beforeRequests = requestCount();
+                final beforeRevision = bridge.revision;
+                final beforeWrites = bridge.nativeWrites;
+                final beforeDenies = bridge.denies;
+                final beforeValidation = bridge.validationCalls;
+                reader.reveals = 0;
+                preparationAuthority.reads = 0;
+                final context = contexts[_id(1)]!;
+                context['issuedAt'] = issued
+                    .add(const Duration(seconds: 3))
+                    .toIso8601String();
+                context['notAfter'] = issued
+                    .add(const Duration(hours: 24, seconds: 3))
+                    .toIso8601String();
+                final renewalTimer = Stopwatch()..start();
+                Future<void>? secondRenewal;
+                if (lifecycle) {
+                  final secondContext = contexts[_id(2)]!;
+                  secondContext['issuedAt'] = context['issuedAt'];
+                  secondContext['notAfter'] = context['notAfter'];
+                  heldDelta = Completer<void>();
+                  deltaEntered = Completer<void>();
+                  secondRenewal = entries
+                      .load(vaultId: _id(2), memberPrivateKey: privateKey)
+                      .then((_) {});
+                  await deltaEntered.future;
+                }
+                await entries.load(
+                  vaultId: _id(1),
+                  memberPrivateKey: privateKey,
+                );
+                if (lifecycle) {
+                  await Future<void>.delayed(Duration.zero);
+                  if (prepared.calls != 0) {
+                    throw StateError(
+                      'Publication started before second known Vault completed',
+                    );
+                  }
+                  heldDelta!.complete();
+                  await secondRenewal;
+                  heldDelta = null;
+                  deltaEntered = null;
+                }
+                await coordinator.drainPending();
+                renewalTimer.stop();
+                final measurement = <String, Object>{
+                  'mode': 'incremental-renewal',
+                  'elapsedMicros': renewalTimer.elapsedMicroseconds,
+                  'syncHttpRequests': requestCount() - beforeRequests,
+                  'httpRequests': prepared.httpRequests,
+                  'reveals': reader.reveals,
+                  'denies': bridge.denies - beforeDenies,
+                  'nativeValidationCalls':
+                      bridge.validationCalls - beforeValidation,
+                  'nativeWrites': bridge.nativeWrites - beforeWrites,
+                  'sameBase': bridge.revision == beforeRevision,
+                };
+                if (failures.isNotEmpty ||
+                    prepared.calls != 1 ||
+                    measurement['syncHttpRequests'] != (lifecycle ? 2 : 1) ||
+                    prepared.httpRequests != 0 ||
+                    reader.reveals != 0 ||
+                    measurement['denies'] != 0 ||
+                    measurement['nativeValidationCalls'] != 1 ||
+                    measurement['nativeWrites'] != 0 ||
+                    measurement['sameBase'] != true) {
+                  throw StateError(
+                    'Real durable renewal must preserve acknowledged native publication: ${jsonEncode(measurement)}',
+                  );
+                }
+                results.add(measurement);
+                debugPrint('MEMBER_BENCHMARK ${jsonEncode(measurement)}');
+              } finally {
+                await coordinator.dispose();
+              }
+
               final coordinate = AutoFillEntryCoordinate(
                 vaultId: _id(1),
                 entryId: _id(1000),
@@ -497,15 +693,18 @@ Future<List<Map<String, Object>>> runBenchmark({
 // still validate each server context against these independent fixed claims.
 class _Authority extends MemberSyncSessionAuthorityProvider {
   _Authority() : super(SecureTokenStorage(const FlutterSecureStorage()));
+  int reads = 0;
   @override
-  Future<MemberSyncSessionAuthority> current() async =>
-      const MemberSyncSessionAuthority(
-        principalId: _principal,
-        organizationId: _organization,
-        organizationMembershipGeneration: '1',
-        offlinePolicy: '24h',
-        offlinePolicyVersion: 1,
-      );
+  Future<MemberSyncSessionAuthority> current() async {
+    reads++;
+    return const MemberSyncSessionAuthority(
+      principalId: _principal,
+      organizationId: _organization,
+      organizationMembershipGeneration: '1',
+      offlinePolicy: '24h',
+      offlinePolicyVersion: 1,
+    );
+  }
 }
 
 class _VaultList implements MemberVaultListLoader {
@@ -556,13 +755,15 @@ class _CountingCurrentEntries extends LocalCurrentEntryService {
   });
   int reveals = 0;
   @override
-  Future<LocalCurrentEntryReveal> revealCurrentWithAuthority({
+  Future<LocalCurrentEntryReveal> revealPreparedWithAuthority({
+    required MemberPreparationAuthority authority,
     required String vaultId,
     required String entryId,
     required Uint8List memberPrivateKey,
   }) {
     reveals++;
-    return super.revealCurrentWithAuthority(
+    return super.revealPreparedWithAuthority(
+      authority: authority,
       vaultId: vaultId,
       entryId: entryId,
       memberPrivateKey: memberPrivateKey,
@@ -572,12 +773,45 @@ class _CountingCurrentEntries extends LocalCurrentEntryService {
 
 // Desktop benchmark stops at native publication. It retains counts only, never
 // credential bodies; native ciphertext/CAS/biometric behavior has separate tests.
+class _BenchmarkPreparedPublisher implements AutoFillPreparedCacheSynchronizer {
+  _BenchmarkPreparedPublisher(this.publisher, this.requestCount);
+  final AutoFillIncrementalPublisher publisher;
+  final int Function() requestCount;
+  int calls = 0;
+  int httpRequests = 0;
+
+  @override
+  Future<void> synchronizePrepared({
+    required Uint8List privateKey,
+    required Iterable<String> vaultIds,
+  }) async {
+    calls++;
+    final before = requestCount();
+    await publisher.synchronize(
+      privateKey: privateKey,
+      vaultIds: vaultIds,
+      isCurrent: () => true,
+      onProgress: (_) {},
+    );
+    httpRequests += requestCount() - before;
+  }
+}
+
 class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
+  Future<void> Function()? beforeAcknowledgement;
   int revision = 0;
   int upserts = 0;
   int removals = 0;
-  AutoFillCacheBase next() =>
-      AutoFillCacheBase(generation: 1, revision: ++revision);
+  int nativeWrites = 0;
+  int denies = 0;
+  int validationCalls = 0;
+  AutoFillCacheManifest? _manifest;
+  final _owners = <String>{};
+  AutoFillCacheBase next() {
+    nativeWrites++;
+    return AutoFillCacheBase(generation: 1, revision: ++revision);
+  }
+
   @override
   Future<int> beginWriterSession({required int sessionToken}) async => 1;
   @override
@@ -594,7 +828,13 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     validatePublication();
     upserts = payload.records.length;
     removals = 0;
-    return next();
+    _manifest = payload.manifest;
+    _owners.removeAll(releasingDenies);
+    final committed = next();
+    final callback = beforeAcknowledgement;
+    beforeAcknowledgement = null;
+    if (callback != null) await callback();
+    return committed;
   }
 
   @override
@@ -602,7 +842,15 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     required AutoFillCacheBase base,
     required int writerEpoch,
     required List<AutoFillEntryCoordinate> entries,
-  }) async => AutoFillScopedDenial(base: next(), token: 'synthetic-$revision');
+  }) async {
+    if (base.revision != revision) throw StateError('Stale synthetic base');
+    denies++;
+    final nextBase = next();
+    final token = 'synthetic-$revision';
+    _owners.add(token);
+    return AutoFillScopedDenial(base: nextBase, token: token);
+  }
+
   @override
   Future<AutoFillCacheBase> applyCacheDelta({
     required AutoFillCacheBase base,
@@ -614,8 +862,74 @@ class _BenchmarkPublicationSink implements AutoFillIncrementalCacheBridge {
     required void Function() validatePublication,
   }) async {
     validatePublication();
+    validationCalls++;
+    if (base.revision != revision) throw StateError('Stale synthetic base');
     this.upserts = upserts.length;
     this.removals = removals.length;
+    if (upserts.isEmpty &&
+        removals.isEmpty &&
+        releasingDenies.isEmpty &&
+        _owners.isEmpty &&
+        _sameAuthority(manifest)) {
+      return base;
+    }
+    if (!_owners.containsAll(releasingDenies)) {
+      throw StateError('Unknown synthetic owner');
+    }
+    _owners.removeAll(releasingDenies);
+    _manifest = manifest;
     return next();
+  }
+
+  bool _sameAuthority(AutoFillCacheManifest candidate) {
+    final previous = _manifest;
+    if (previous == null) return false;
+    Map<String, Object> bindings(AutoFillCacheManifest manifest) {
+      final value = manifest.toPlatformMap();
+      value['vaults'] = (value['vaults'] as List)
+          .map(
+            (raw) => {
+              for (final field in (raw as Map).entries)
+                if (field.key != 'issuedAt' && field.key != 'notAfter')
+                  field.key: field.value,
+            },
+          )
+          .toList();
+      return value;
+    }
+
+    final now = DateTime.now().toUtc();
+    return jsonEncode(bindings(previous)) == jsonEncode(bindings(candidate)) &&
+        previous.vaults.entries.every((entry) {
+          final next = candidate.vaults[entry.key];
+          return next != null &&
+              now.isBefore(entry.value.notAfter) &&
+              now.isBefore(next.notAfter) &&
+              !next.notAfter.isBefore(entry.value.notAfter) &&
+              next.issuedAt.isBefore(entry.value.notAfter) &&
+              entry.value.issuedAt.isBefore(next.notAfter);
+        });
+  }
+}
+
+// Test-only timing seam after authentic AEAD opening, before production read
+// revalidation. No credential is inspected or retained by the callback.
+class _LifecycleEntryCrypto extends EntryV2CryptoService {
+  Future<void> Function()? afterSecretOpen;
+  @override
+  Future<Map<String, dynamic>> openMemberSecret({
+    required Map<String, dynamic> entryKey,
+    required Map<String, dynamic> memberSecret,
+    required Uint8List vaultKey,
+  }) async {
+    final result = await super.openMemberSecret(
+      entryKey: entryKey,
+      memberSecret: memberSecret,
+      vaultKey: vaultKey,
+    );
+    final callback = afterSecretOpen;
+    afterSecretOpen = null;
+    if (callback != null) await callback();
+    return result;
   }
 }

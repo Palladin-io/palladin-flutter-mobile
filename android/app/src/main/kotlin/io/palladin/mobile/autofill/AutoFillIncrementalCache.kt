@@ -131,8 +131,53 @@ internal class AutoFillIncrementalCache(
             require(owned.all { it in updated || it in removals })
             denies.remove(token)
         }
+        if (changed.isEmpty() && removals.isEmpty() && releases.isEmpty() && denies.length() == 0 &&
+            preservesAuthority(oldManifest, manifest, original)) {
+            beforeCommit()
+            return@withBase synchronized(AutoFillMutationLock.monitor) {
+                synchronized(writerLock) {
+                    checkEpoch(expectedEpoch, initial.generation)
+                    val current = active(initial.generation)
+                    if (current.catalogRevision != initial.catalogRevision || current.catalogDigest != initial.catalogDigest) stale()
+                    AutoFillCachePayloadValidator.validate(payload(oldManifest, JSONArray()), now(), incremental = true, partial = true)
+                    AutoFillCachePayloadValidator.validate(payload(manifest, JSONArray()), now(), incremental = true, partial = true)
+                    for ((id, reference) in original) {
+                        validateRetained(reference, currentProfile, expected.getValue(id), id)
+                    }
+                    JSONObject().put("generation", initial.generation).put("revision", initial.catalogRevision)
+                }
+            }
+        }
         catalog.put("manifest", copy(manifest)).put("records", JSONArray(updated.values.toList()))
         commit(initial, catalog, key, expectedEpoch, requireNotNull(initial.wrappedKey))
+    }
+
+    private fun preservesAuthority(old: JSONObject, current: JSONObject, records: Map<String, JSONObject>): Boolean {
+        fun vaults(manifest: JSONObject): Map<String, JSONObject> {
+            val values = manifest.getJSONArray("vaults")
+            return (0 until values.length()).associate { index ->
+                val vault = values.getJSONObject(index)
+                vault.getString("vaultId") to vault
+            }
+        }
+        fun starts(vault: JSONObject) = Instant.parse(vault.getString("issuedAt")).toEpochMilli()
+        val previous = vaults(old)
+        val next = vaults(current)
+        if (previous.keys != next.keys) return false
+        for ((id, before) in previous) {
+            val after = next.getValue(id)
+            if (canonical(without(before, setOf("issuedAt", "notAfter"))) !=
+                canonical(without(after, setOf("issuedAt", "notAfter"))) || expiry(after) < expiry(before) ||
+                maxOf(starts(before), starts(after)) >= minOf(expiry(before), expiry(after))) return false
+        }
+        for ((id, record) in records) {
+            val original = authorities(record.getJSONObject("authority")).getValue(id).first
+            val before = previous.getValue(original.getString("vaultId"))
+            val after = next.getValue(original.getString("vaultId"))
+            if (maxOf(starts(original), starts(before), starts(after)) >=
+                minOf(expiry(original), expiry(before), expiry(after))) return false
+        }
+        return true
     }
 
     fun readWithAuthenticatedKey(fence: AutoFillFence, key: ByteArray): MutableList<CachedCredential> {

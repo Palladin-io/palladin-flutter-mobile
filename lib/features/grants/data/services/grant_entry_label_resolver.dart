@@ -18,8 +18,6 @@ final class GrantEntryLabelResolver {
   GrantEntryLabelResolver({required MemberEntryListLoader entries})
     : _load = entries.load;
 
-  GrantEntryLabelResolver._withLoad(this._load);
-
   static const _maxConcurrentVaultLoads = 4;
 
   final Future<List<MemberIndexEntry>> Function({
@@ -27,30 +25,6 @@ final class GrantEntryLabelResolver {
     required Uint8List memberPrivateKey,
   })
   _load;
-
-  Future<T> withSharedReads<T>(
-    Future<T> Function(GrantEntryLabelResolver) operation,
-  ) async {
-    final pending = <String, Future<List<MemberIndexEntry>>>{};
-    var active = true;
-    try {
-      return await operation(
-        GrantEntryLabelResolver._withLoad(({
-          required vaultId,
-          required memberPrivateKey,
-        }) {
-          if (!active) throw StateError('Grant presentation read scope closed');
-          return pending[vaultId] ??= _load(
-            vaultId: vaultId,
-            memberPrivateKey: memberPrivateKey,
-          );
-        }),
-      );
-    } finally {
-      active = false;
-      pending.clear();
-    }
-  }
 
   static GrantEntryLabelTarget? targetFor(GrantModel grant) {
     final entryId = grant.entryId;

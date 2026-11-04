@@ -34,7 +34,7 @@ void main() {
   setUpAll(() => registerFallbackValue(Uint8List(0)));
 
   test(
-    'Inbox batches same-Vault grant projections without repeated sync',
+    'Inbox resolves prepared Entry labels without starting Member sync',
     () async {
       final remote = _Remote();
       final reasons = _Reasons();
@@ -146,8 +146,8 @@ void main() {
       );
       expect(
         entryLoads,
-        1,
-        reason: 'One page must synchronize each Vault once',
+        0,
+        reason: 'Presentation reads must not start a Member sync',
       );
     },
   );

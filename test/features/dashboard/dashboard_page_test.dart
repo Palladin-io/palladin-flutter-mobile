@@ -9,6 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:mobile_palladin/features/autofill/data/autofill_cache_service.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_preparation.dart';
+import 'package:mobile_palladin/core/widgets/brand_hero.dart';
+import 'package:mobile_palladin/core/widgets/app_search_field.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
@@ -38,6 +42,8 @@ import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 // ──────────────────────────────────────────────
 // Mocks / fakes
 // ──────────────────────────────────────────────
+
+class _MockAutoFillCacheService extends Mock implements AutoFillCacheService {}
 
 class _MockDashboardRepository extends Mock implements DashboardRepository {}
 
@@ -229,6 +235,7 @@ void main() {
     required int permissions,
     Uint8List? privateKey,
     DashboardCubit? dashboard,
+    AutoFillCacheService? autoFill,
   }) async {
     whenListen(
       authBloc,
@@ -260,8 +267,12 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider<AuthBloc>.value(
-          value: authBloc,
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthBloc>.value(value: authBloc),
+            if (autoFill != null)
+              RepositoryProvider<AutoFillCacheService>.value(value: autoFill),
+          ],
           child: AppShellScope(
             openSettingsDrawer: () {},
             setBottomNavHidden: (_) {},
@@ -334,6 +345,124 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Set up AutoFill').hitTestable(), findsOneWidget);
     expect(find.text('Open AutoFill settings').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('Home keeps AutoFill publication status before provider setup', (
+    tester,
+  ) async {
+    final autoFill = _MockAutoFillCacheService();
+    final preparation = ValueNotifier(
+      const AutoFillPreparation(AutoFillPreparationPhase.ready),
+    );
+    addTearDown(preparation.dispose);
+    when(() => autoFill.preparation).thenReturn(preparation);
+    const channel = MethodChannel('io.palladin.mobile/autofill');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (call) async => call.method == 'getProviderStatus' ? 'disabled' : null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await pumpDashboard(
+      tester,
+      state: const DashboardLoaded(),
+      permissions: 0,
+      autoFill: autoFill,
+    );
+    await tester.pumpAndSettle();
+    final updated = find.textContaining('Passwords updated.');
+    expect(updated.hitTestable(), findsOneWidget);
+    expect(
+      tester.getTopLeft(updated).dy,
+      lessThan(tester.getTopLeft(find.text('Set up AutoFill')).dy),
+    );
+    final initialY = tester.getTopLeft(find.text('AutoFill passwords')).dy;
+    preparation.value = const AutoFillPreparation(
+      AutoFillPreparationPhase.checking,
+    );
+    await tester.pump();
+    expect(find.text('Checking AutoFill…').hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(find.text('AutoFill passwords')).dy, initialY);
+    preparation.value = const AutoFillPreparation(
+      AutoFillPreparationPhase.unknown,
+    );
+    await tester.pump();
+    expect(
+      find.text('AutoFill status has not been confirmed yet.').hitTestable(),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('active AutoFill owns Home body until ready, failure or lock', (
+    tester,
+  ) async {
+    var searchMounts = 0;
+    await getIt.unregister<SearchCubit>();
+    getIt.registerFactory<SearchCubit>(() {
+      searchMounts++;
+      return SearchCubit(repository: dashboardRepository, analytics: analytics);
+    });
+    final autoFill = _MockAutoFillCacheService();
+    final preparation = ValueNotifier(
+      const AutoFillPreparation(
+        AutoFillPreparationPhase.preparing,
+        examined: 1,
+        total: 4,
+      ),
+    );
+    addTearDown(preparation.dispose);
+    when(() => autoFill.preparation).thenReturn(preparation);
+    when(autoFill.retryPreparation).thenAnswer((_) async {});
+    await pumpDashboard(
+      tester,
+      state: DashboardLoaded(recentEntries: [_recent()]),
+      permissions: 0,
+      autoFill: autoFill,
+    );
+    await tester.pump();
+    expect(find.byType(AppSearchField), findsNothing);
+    expect(find.byType(BrandHero), findsOneWidget);
+    expect(find.byTooltip('Inbox'), findsOneWidget);
+    preparation.value = const AutoFillPreparation(
+      AutoFillPreparationPhase.publishing,
+      examined: 4,
+      total: 4,
+    );
+    await tester.pump();
+    expect(find.byType(AppSearchField), findsNothing);
+    for (final phase in [
+      AutoFillPreparationPhase.ready,
+      AutoFillPreparationPhase.checking,
+      AutoFillPreparationPhase.failed,
+      AutoFillPreparationPhase.unknown,
+    ]) {
+      preparation.value = AutoFillPreparation(phase);
+      await tester.pump();
+      expect(find.byType(AppSearchField), findsOneWidget);
+      expect(find.byType(BrandHero), findsNothing);
+      expect(find.byTooltip('Inbox'), findsOneWidget);
+      if (phase == AutoFillPreparationPhase.failed) {
+        await tester.tap(find.text('Retry'));
+        verify(autoFill.retryPreparation).called(1);
+      }
+    }
+    for (final phase in [
+      AutoFillPreparationPhase.preparing,
+      AutoFillPreparationPhase.publishing,
+    ]) {
+      for (final total in <int?>[null, 0]) {
+        preparation.value = AutoFillPreparation(phase, total: total);
+        await tester.pump();
+        expect(find.byType(AppSearchField), findsOneWidget);
+        expect(find.byType(BrandHero), findsNothing);
+      }
+    }
+    expect(lastDashboardCubit?.loadCount, 1);
+    expect(searchMounts, 1);
   });
 
   group('Recently added / modified gating', () {

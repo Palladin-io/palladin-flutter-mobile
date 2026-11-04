@@ -534,6 +534,16 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       ],
       child: MultiBlocListener(
         listeners: [
+          BlocListener<AuthBloc, AuthState>(
+            listenWhen: SearchSessionController.replacesUnlockedSession,
+            listener: (_, state) => _searchSession.replaceUnlockedSession(
+              state as AuthAuthenticated,
+              invalidatePreparation: () {
+                _vaultList.lock();
+                _memberIndexPreparation.lock();
+              },
+            ),
+          ),
           // Auth-driven push token lifecycle: register on login, remove
           // on logout. Runs only on state class transitions so a key
           // unlock (which re-emits AuthAuthenticated) doesn't re-register.
