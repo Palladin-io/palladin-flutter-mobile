@@ -46,6 +46,9 @@ dependencies:
   # Crypto — libsodium FFI (Argon2id, X25519, crypto_secretbox)
   sodium_libs: ^3.4.1+2
 
+  # SHA3/SHAKE for the X-Wing (ML-KEM-768) implementation in core/crypto/kem.
+  pointycastle: ^3.9.1
+
   # BIP-39 mnemonic for recovery key
   bip39: ^1.0.6
 
