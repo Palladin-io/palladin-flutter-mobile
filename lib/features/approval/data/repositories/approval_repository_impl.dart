@@ -31,7 +31,7 @@ import '../datasources/approval_remote_datasource.dart';
 /// Orchestrates the GRANULAR approval pipeline:
 ///   1. fetch the entry's encrypted blob (`GET .../entries/{id}`),
 ///   2. fetch the vault's sealed VK (`GET /api/vaults/{id}`),
-///   3. produce the envelope on-device ([GrantCryptoService]),
+///   3. produce the envelope on-device ([EntryV2CryptoService]),
 ///   4. submit it (`PUT .../approve`).
 ///
 /// Reuses the vault feature's entry + vault datasources rather than
