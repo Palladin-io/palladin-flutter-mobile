@@ -17,7 +17,7 @@ abstract interface class AutoFillCacheInvalidator {
   Future<void> clear();
 }
 
-/// Rebuilds the native derivative strictly from already committed local data.
+/// Authorizes provider access strictly from already committed local metadata.
 abstract interface class AutoFillPreparedCacheSynchronizer {
   Future<void> synchronizePrepared({
     required Uint8List privateKey,

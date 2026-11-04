@@ -27,7 +27,7 @@ void main() {
       );
 
       await expectLater(
-        bridge.beginCacheSession(),
+        bridge.revokeCacheAccess(),
         throwsA(isA<MissingPluginException>()),
       );
 
@@ -45,7 +45,7 @@ void main() {
     );
 
     await expectLater(
-      bridge.beginCacheSession(),
+      bridge.revokeCacheAccess(),
       throwsA(isA<PlatformException>()),
     );
   });
@@ -59,7 +59,7 @@ void main() {
       );
 
       await expectLater(
-        bridge.beginCacheSession(),
+        bridge.revokeCacheAccess(),
         throwsA(
           isA<PlatformException>().having(
             (error) => error.code,
@@ -78,7 +78,7 @@ void main() {
     );
 
     await expectLater(
-      bridge.beginCacheSession(),
+      bridge.revokeCacheAccess(),
       throwsA(
         isA<PlatformException>().having(
           (error) => error.code,

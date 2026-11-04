@@ -3,7 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Wraps [FlutterSecureStorage] to provide typed access to auth tokens
 /// and user metadata persisted between app sessions.
 class SecureTokenStorage {
-  SecureTokenStorage(this._storage);
+  SecureTokenStorage(this._storage, {this.beforeAccessTokenWrite});
+
+  final Future<void> Function(String? previous, String next)?
+  beforeAccessTokenWrite;
 
   final FlutterSecureStorage _storage;
   Future<void> _tokenMutation = Future<void>.value();
@@ -34,9 +37,12 @@ class SecureTokenStorage {
     required String userId,
     required bool isOnboarded,
   }) {
-    ++_tokenGeneration;
+    final generation = ++_tokenGeneration;
     ++_authorityRevision;
     return _mutateTokens(() async {
+      if (generation != _tokenGeneration) return;
+      await _beforeTokenWrite(accessToken);
+      if (generation != _tokenGeneration) return;
       await Future.wait([
         _storage.write(key: _accessTokenKey, value: accessToken),
         _storage.write(key: _refreshTokenKey, value: refreshToken),
@@ -44,6 +50,13 @@ class SecureTokenStorage {
         _storage.write(key: _isOnboardedKey, value: isOnboarded.toString()),
       ]);
     });
+  }
+
+  Future<void> _beforeTokenWrite(String next) async {
+    final guard = beforeAccessTokenWrite;
+    if (guard == null) return;
+    final previous = await _storage.read(key: _accessTokenKey);
+    await guard(previous, next);
   }
 
   /// Returns the current access token, or `null` if none is stored.
@@ -81,6 +94,8 @@ class SecureTokenStorage {
     return _mutateTokens(() async {
       if (generation != _tokenGeneration) return;
       ++_authorityRevision;
+      await _beforeTokenWrite(accessToken);
+      if (generation != _tokenGeneration) return;
       await Future.wait([
         _storage.write(key: _accessTokenKey, value: accessToken),
         _storage.write(key: _refreshTokenKey, value: refreshToken),

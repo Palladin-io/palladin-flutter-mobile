@@ -12,7 +12,6 @@ import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../autofill/presentation/widgets/autofill_setup_card.dart';
-import '../../../autofill/presentation/widgets/autofill_preparation_card.dart';
 
 class SecurityPage extends StatelessWidget {
   const SecurityPage({super.key});
@@ -49,7 +48,6 @@ class SecurityPage extends StatelessWidget {
         children: [
           const BiometricSetupCard(),
           const AutoFillSetupCard(),
-          const AutoFillPreparationCard(),
           _SecurityAction(
             icon: Icons.key_outlined,
             title: l10n.generatedPasswordTitle,

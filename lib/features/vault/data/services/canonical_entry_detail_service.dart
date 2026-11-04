@@ -7,7 +7,7 @@ import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../approval/data/services/script_execution_package_service.dart';
 
 import '../../../autofill/data/autofill_mutation_notifier.dart';
-import '../../../autofill/domain/autofill_incremental.dart';
+import '../../../autofill/domain/autofill_entry_coordinate.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'

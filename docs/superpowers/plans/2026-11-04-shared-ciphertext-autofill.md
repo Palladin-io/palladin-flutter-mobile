@@ -10,6 +10,15 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-04-shared-ciphertext-autofill.md`
 
+## Current checkpoint — 2026-11-04
+
+- Accepted: one canonical encrypted Member database, index-only matching and one selected secret reveal; optional password/biometric unlock. Narrow shared iOS wrapping key + encrypted MK envelope is explicitly approved. No broad Runner Keychain group and no old bulk-cache fallback.
+- Integration: `palladin-autofill-shared-ciphertext`, branch `feat/autofill-shared-ciphertext`; native adoption through Android `228287c1` and iOS `7236706a`. Source/app/DI retirement changes are being integrated locally; no replacement PR or release yet.
+- Evidence: Android real Flutter cold/warm request harness and protected-source process-death tests passed; iOS OS-launched synthetic extension completed password KDF, canonical SQLite matching and selected username/password handoff. Device Release/AOT build passed; physical iPhone memory/biometric acceptance remains unverified and iOS publication is prohibited.
+- Current regressions: actual SQLite WAL migration/restart and denial tests pass; held-open old-account write is rejected before native write admission. Picker/controller/Host 22 tests pass, including native source-change, cancellation and expiry clearing the old list. Loopback benchmark keeps 17 HTTP requests, lists 160 candidates with zero body opens, then opens one selected body with no additional HTTP.
+- Local integration review is clean, including source transition, pre-open SQLite session fencing, initial-picker sync, and accepted-token authority changes. Same-claims refresh preserves the source; changed/unknown claims durably deny before token publication and rebootstrap. Android actual OS save/revoke/process-death smoke and six same-checkout iOS native runners passed.
+- Next: run root's full Flutter/analyze/notices/budget gates on the frozen integration commit, build the production-API Debug and complete S22 acceptance. Latest user gate requires the physical test BEFORE any cloud Codex Review; cloud review/merge/store publication remain on hold. No merge/store readiness claim from isolated test totals.
+
 ## Global constraints
 
 - No new plaintext MK/VK/private-key persistence, no crypto copying or silent auth bypass.

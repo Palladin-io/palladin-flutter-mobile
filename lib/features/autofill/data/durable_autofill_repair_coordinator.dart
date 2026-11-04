@@ -26,12 +26,12 @@ final class AutoFillRepairDeny {
   AutoFillRepairDeny._();
 }
 
-/// Coalesces committed Member sync updates into local-only native rebuilds.
+/// Coalesces committed Member sync updates into local source authorization.
 ///
 /// This coordinator deliberately has no Member sync/preparation dependency:
 /// a durable update may only wait for its already-running publication tail and
-/// rebuild from installed indexes. It therefore cannot create HTTP or
-/// per-Entry requests while repairing the native derivative.
+/// authorize installed indexes. It therefore cannot create HTTP or
+/// per-Entry requests while checking provider access.
 final class DurableAutoFillRepairCoordinator {
   DurableAutoFillRepairCoordinator({
     required DurableMemberIndexUpdates memberIndexes,

@@ -2,25 +2,19 @@
 
 ## Current state
 
-- Flutter prepares a dedicated native cache after vault unlock, committed
-  policy-2 snapshot/delta repair, and vault or entry mutations. Initial/recovery
-  publication reads complete local credentials; v3 updates read complete current
-  metadata and reveal only changed eligible entries. Both paths use the local
-  `MemberIndex + MemberSecret + EntryKey` generation;
-  it never calls a legacy Entry list/detail/reveal projection or one endpoint
-  per credential. Vault v2 credentials are eligible only when the current
-  MemberIndex explicitly authorizes one or more exact AutoFill domains and its
-  revision/key version matches the revealed member ciphertext.
-- iOS embeds a signed `ASCredentialProviderExtension`, publishes credential
-  identities to `ASCredentialIdentityStore`, and releases credentials only
-  after Keychain biometric authorization.
-  Its `NSExtensionPointIdentifier` is Apple's registered
-  `com.apple.authentication-services-credential-provider-ui` value; a shortened
-  value can compile and sign but is rejected during App Store validation.
-  The parsed plist contract is covered by `tool/tests/test_ios_extension_registration.py`.
-  [Apple extension-point identifiers](https://developer.apple.com/documentation/bundleresources/information-property-list/nsextension/nsextensionpointidentifier)
-- Android registers `PalladinAutofillService` and releases domain-matched
-  datasets only after a Keystore-bound `BiometricPrompt` operation.
+- The app and native providers read the canonical encrypted Member database.
+  There is no dedicated plaintext credential export or bulk password-rebuild step.
+  MemberIndex supplies eligible metadata; only a selected MemberSecret is opened.
+  AutoFill eligibility requires explicit exact domains, current Entry/key versions,
+  independently authenticated Vault context and a finite valid lease.
+- Android registers `PalladinAutofillService`; iOS embeds an
+  `ASCredentialProviderExtension`. Each OS request must authenticate through
+  password unlock or optional protected biometric unlock. An unlocked app alone
+  does not authorize an arbitrary provider request.
+- iOS uses `com.apple.authentication-services-credential-provider-ui` and the
+  `ProvidesPasswords` capability. Identity-store entries are suggestions, never
+  credential authority. See `tool/tests/test_ios_extension_registration.py` and
+  [Apple extension registration](https://developer.apple.com/documentation/bundleresources/information-property-list/nsextension/nsextensionpointidentifier).
 - On registration forms, Android offers a 20-character password only for
   explicit `newPassword`/`new-password` hints without a current-password hint.
   iOS 26.2+ implements `ASGeneratePasswordsRequest`; earlier iOS versions use
@@ -30,21 +24,21 @@
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
   identity. For a native form with no reported domain, the service instead
-  obtains that package's exact OS-verified App Link hosts. After biometric
+  obtains that package's exact OS-verified App Link hosts. After request
   authentication, a chooser displays each matching Entry and exact domain;
   even one match requires a deliberate choice before one dataset is released.
   The selected domain must belong to the Entry, the original request's verified
-  host set, and the current OS authority at handoff, under the cache-generation
-  lock. Cancellation/backgrounding clears the chooser's in-memory records.
+  host set, and the current OS authority at handoff, under the source
+  handoff lock. Cancellation/backgrounding clears the chooser's in-memory records.
   This path does not generate passwords or save application associations.
 - If an otherwise eligible non-browser native request has no reported domain and
   the OS provides no verified hosts, `MANUAL_NATIVE` is distinct from both `WEB`
-  and `VERIFIED_NATIVE`. After biometric authentication the user may search by
-  Entry label, username or domain. Selecting a result opens a separate warning
-  identifying the unverified request package and selected domain; **Fill once**
+  and `VERIFIED_NATIVE`. After request authentication the user chooses a current Entry by
+  label and exact host. Selecting a result opens a separate unverified-destination
+  warning showing the selected Entry and host; **Fill once**
   is required to release it. Confirmation binds the Entry/domain to that request
   and is consumed once. It never converts the selected record's host into origin
-  authority. Browser exclusion and cache-generation/lease checks run again at
+  authority. Browser exclusion and source-epoch/lease checks run again at
   handoff. No association or search query is persisted; cancellation, background
   and destruction clear in-memory selection. Password generation is unavailable.
 - A malformed or ambiguous reported domain never falls back to native hosts.
@@ -75,112 +69,41 @@ Direct unlocked-session replacement first clears search state, the Vault list an
 shared Member index preparation, then prepares active search views with the new
 session. Old in-flight work cannot become the new session's completed preparation.
 
-## Incremental native publication
+## Shared source synchronization
 
-Android and iOS v3 catalogs retain immutable encrypted credential records. Dart
-retains only acknowledged coordinates and authority/revision fingerprints, with
-no credential-body cache. A single changed Entry reveals one body; deletion
-reveals none. Complete current metadata still validates membership, key version,
-policy, original record bindings and effective lease. Retained ciphertext never
-receives a longer lease merely because the catalog is refreshed.
+The previous v2/v3 credential catalogs are retired for credential fill. Their
+migration/cleanup and separate save/history primitives must not be mistaken for
+the active credential source. The canonical Member snapshot/delta protocol owns
+ciphertext synchronization; changing one Entry does not export all passwords.
 
-A lease-only renewal during initial preparation does not restart unchanged
-credential reveals. After revealing, the publisher rereads complete metadata and
-requires the same Vault/Entry set, sequence, Entry object identities and all
-non-time authority fields. It preserves the whole authenticated context with the
-earliest expiry across initial, reveal and final contexts, requiring a global
-lease intersection. Both preserved and fresh leases remain checked at submission
-and acknowledgement; no renewed lease extends a revealed credential's authority.
+`AutoFillSourceAccessService` coordinates durable source denial, current profile
+and claims, pending mutation owners and source epochs. `AutoFillSourcePreparationService`
+activates reconciled metadata without opening credential bodies. Local writes and
+remote invalidations deny before changing the source; only authoritative completed
+repair can release its own owners. Overlapping or uncertain work stays denied.
 
-Preparation captures one provider-owned authority snapshot and performs one fresh
-authority read before publication, instead of reading secure token storage for
-each Entry. The operation-local snapshot retains claims and an in-memory revision,
-never the token or a key. Accepted token refreshes, login and logout invalidate
-that revision before writes. Every asynchronous reveal boundary and the final
-bridge submission/acknowledgement validate it. Per-Entry ciphertext, lease,
-revision and revocation checks are unchanged; ordinary single-Entry reads still
-resolve fresh authority. The synthetic loopback benchmark asserts two authority
-resolutions for full, update and delete publication, with no additional HTTP.
+Provider authentication and source epochs are separate. A routine ciphertext update
+invalidates a selected plaintext result, but does not erase the original request's
+one-operation authentication. Final handoff checks the captured selected epoch,
+request identity and original destination again. Lock, revoke, logout and account
+replacement cancel authorization. Async completion from an old account cannot
+modify or activate the replacement source.
 
-The app-only native writer holder is separate from provider authorization. Lock
-invalidates its epoch and wipes its key; provider reads still require the original
-platform biometric key-opening path. Mutation transport waits for durable scoped
-denial (or durable global-clear fallback). Even an empty scope performs exact-base
-CAS, so a delayed publication acknowledgment cannot authorize mutation against a
-stale catalog. Picker handoff checks both generation and catalog revision.
-
-Unchanged repair has a separate admission fence. Member sync retains a monotonic
-content revision only for a proven empty, same-sequence delta with an identical
-key wrapper and non-time authority and valid, overlapping, non-narrowing leases.
-All changed or unknown transitions invalidate it before durable writes or runtime
-publication; a later renewal cannot erase that change. The publisher compares its
-acknowledged content/read/session revisions and complete Vault set synchronously,
-before any await. Unknown state and pending mutation owners retain pre-denial.
-
-Publication waits for the currently relevant complete Vault synchronization set,
-not only the first Vault that emitted a durable update. Inbox presentation reads
-already-prepared Entry labels; its scoped Grant hydration does not start another
-Member synchronization. Unlock/resume/reconnect and invalidations remain the
-owners of authoritative index repair.
-
-Completed producer-proven renewals may advance the publication revision while
-preserving the content revision. Runtime index authority retains the validated
-current access context, installed only after the current-generation durable
-commit and removed on lock/quarantine/removal. The synchronous publication guard
-checks complete Vault coverage, unchanged content/session epochs, no running sync,
-and both original/current non-narrowing overlapping leases. Preparation-only Entry
-revalidation accepts that same proof while retaining exact head/wrapper bindings;
-ordinary Entry reads keep strict context equality. After native acknowledgement,
-publication waits for current source work and revalidates before recording readiness.
-A failed stale-session wait cannot purge the replacement session's cache.
-
-An admitted check still calls native `applyCacheDelta`: both platforms validate
-the exact current base, complete authority, retained record integrity and leases.
-A truly unchanged result returns the same revision without writing catalog/fence
-files or iOS identities, keeping existing chooser handoffs valid. Narrower leases
-or real changes require a new commit; missing/corrupt/quarantined/expired state
-cannot report success. Ordinary lock cancels the writer check without denying the
-already valid provider cache. Logout, revocation and real mutation denials retain
-their existing behavior. Home shows checking until acknowledgement, never a 0/0
-credential count or an unsupported claim of universal provider availability.
-
-Immutable record/catalog files are persisted before the authenticated current
-pointer is committed. Missing, expired, quarantined or unverifiable state cannot
-accept a delta; authoritative full recovery first commits global clear. Scoped
-owner tokens are released only through reconciled current publication. Overlapping
-mutations keep independent deny ownership, including across asynchronous preparation.
-A synchronous metadata publication revision is checked after final awaited claims
-and again inside the bridge after availability awaits, immediately before channel
-submission, rejecting an already obsolete snapshot. Metadata changes while
-awaiting native acknowledgement trigger current-session global denial before
-readiness is acknowledged. The acknowledgement repeats the guard before recording
-the new base or clearing owned tokens. Recovery-required errors reach the global-clear gate
-before any full replacement is attempted.
-
-iOS uses incremental credential-identity operations only with supported OS state
-and an acknowledged preceding revision; otherwise it publishes the complete identity
-projection from the encrypted catalog. Identity metadata is not credential authority.
-Cross-process file locking and revision checks protect publication and final handoff;
-stale identity callbacks cannot acknowledge or erase a newer generation.
-
-Synthetic benchmark `tool/member-preparation-benchmark/main.dart` exercises real
-SQLite, loopback sync transport and production credential crypto. Native crypto/CAS
-fault tests are separate from this benchmark's count-only bridge sink. Desktop
-measurement does not substitute for physical Android/iOS biometric and process-kill QA.
-The frozen bridge contract and design are in
-`docs/superpowers/specs/2026-11-03-autofill-v3-wire.md` and the adjacent incremental
-cache design; no iOS publication is authorized by implementation alone.
+The loopback benchmark `tool/member-preparation-benchmark/main.dart` uses real
+SQLite, transport and crypto: 160 metadata candidates open zero secret bodies;
+one selected credential opens one body with no extra HTTP. This measures the
+source path, not OS/IME or physical biometric latency.
 
 ## Android native authentication handoff
 
 On Android 12/API 31+, native requests offer one locked Dataset with null values,
 the existing branded unlock presentation and the existing immutable explicit
-PendingIntent. After biometrics and the native picker/required confirmation,
+PendingIntent. After authentication and the request picker/required confirmation,
 Palladin returns only the selected Dataset. The system fills the original target
 IDs directly; there is no second credential choice in the keyboard. The returned
 Intent sets `EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET=true`, so Android retains
 the locked initial dataset instead of caching an unauthenticated credential choice.
-Clearing and filling again requires biometrics and a new selection. Every final
+Clearing and filling again requires fresh request authentication and a new selection. Every final
 origin, generation, lease, revocation and one-operation confirmation check remains
 under the existing mutation lock through `setResult`.
 
@@ -220,14 +143,13 @@ part of this implementation.
 A manually requested native form with one focused unknown text target and no
 recognized credential, registration or excluded credential targets can enter a
 separate username-only path. WEB/browser requests are excluded. The manual flag
-is not proof of human intent: app code can request Autofill. After biometrics,
+is not proof of human intent: app code can request Autofill. After authentication,
 the provider therefore requires its own username-only confirmation even for an
 OS-verified native app. That one-shot choice binds the original username ID,
 Entry, exact domain and requesting package. Final origin, generation, lease and
 revocation checks remain mandatory. Passwords are stripped before retaining
-chooser records and never included in this path's dataset or Intent. Opening the
-existing aggregate encrypted cache necessarily creates temporary password strings;
-this change does not introduce selective decryption or a new cache format.
+chooser records and never included in this path's dataset or Intent. The shared source lists metadata and opens only the explicitly selected credential;
+the username-only result never includes a password.
 
 Regression provenance: Allegro is user-confirmed working and is not patched.
 Binance remains blocked on a physical trace; no guessed fixture is provided.
@@ -278,7 +200,7 @@ or OS field routing; those require device QA.
 ## iOS manual credential selection
 
 When iOS calls the credential-list extension with **no service identifiers**,
-Palladin first authenticates and reads the cache, then offers a searchable list
+Palladin first authenticates and reads current Member metadata, then offers a searchable list
 of credentials. Search examines the in-memory label, username and saved domains;
 it never searches passwords or persists the query. Each row shows its domains.
 The list warns that the destination is unverified. Selecting a row opens a
@@ -309,38 +231,13 @@ confirmation is open.
 
 ## Preparation feedback
 
-Home and Security show native-cache preparation separately from OS provider
-selection. The shared, memory-only `AutoFillCacheService.preparation` contains
-only a phase and counts; it never contains Entry IDs, labels, credentials or keys.
-The initial index download is indeterminate. Once the eligible local snapshot is
-known, progress counts examined entries (including skipped credentials), not HTTP
-requests or presumed native success. Publishing remains a separate indeterminate
-phase. Ready requires the current generation's native replacement acknowledgement;
-zero records is an explicit empty state after acknowledged native clear.
-
-A failed preparation offers Retry through the app's current unlocked session and
-the existing durable-repair coordinator, preserving all mutation/invalidation
-denies. Repeated taps share one retry. Source and native-generation fences reject
-stale failures/acknowledgements. Ordinary app lock hides prior readiness without
-claiming the independently protected native cache was erased; unlock activates a
-new native session and prepares again. This is a publication status, not a promise
-that every third-party form is supported or that an offline lease never expires.
-During `preparing`/`publishing` with a positive known total, Home dedicates its main content area
-to the shared brand hero and preparation status. The greeting header and shell
-navigation remain available. The view scrolls at large text sizes. Unknown/zero-work
-totals and `checking` never replace the normal Home content; `ready`, `failed` and
-`unknown` restore it, with failure retaining the existing Retry action. Normal
-Home keeps a stable status card before provider/biometric setup, including
-acknowledged and unknown states; Security retains the same status.
-Only positive known work totals produce a numeric fraction. Zero changed entries
-still require validation and acknowledgement, so they show indeterminate checking,
-never “0 of 0” or an inferred empty/ready result. `checking` describes validation
-without claiming provider availability. The acknowledged copy says passwords were
-updated, distinct from selecting Palladin in OS settings and provider authorization.
-Keep-open guidance accompanies active preparation only, not checking or zero-work
-refresh. Background work may pause; this message promises no background execution.
-Copy is EN/PL and measured progress has a localized accessibility label. Its
-brand-red fill and neutral muted track reuse the Home onboarding progress palette in both themes.
+Home no longer shows a bulk password preparation component or recurring 0/0
+progress. Normal dashboard content and optional provider/biometric setup remain.
+The request UI owns loading, authentication, selection and recoverable errors.
+Selecting Palladin in OS settings enables routing; it is separate from having a
+current encrypted Member source and authorization for the requested credential.
+Backgrounding cancels sensitive request UI; it does not delete the canonical
+ciphertext or require a fresh full password export on the next unlock.
 
 ## Provider activation and status
 
@@ -397,7 +294,7 @@ state are persisted by this flow.
   it does not require installing the desktop browser extension. Other browsers
   still depend on their OS integration and the existing exact-service checks.
 - The flow never opens settings automatically, changes the OS default silently,
-  or touches credential encryption, cache activation, or provider authentication.
+  or touches credential encryption, source activation, or provider authentication.
 
 References: [Android provider activation](https://developer.android.com/identity/autofill/autofill-services#request-permission),
 [Apple settings helper](https://developer.apple.com/documentation/authenticationservices/assettingshelper),
@@ -406,71 +303,32 @@ References: [Android provider activation](https://developer.android.com/identity
 
 ## Security contract
 
-1. MK, VK, the user's private key, decrypted vault payloads, plaintext
-   passwords, and TOTP seeds never enter App Groups, SharedPreferences, logs,
-   analytics, or an unprotected file.
-2. Native providers never query the backend directly and never receive the
-   user's vault keys.
-3. The provider cache stores platform ciphertext encrypted with a dedicated
-   random AutoFill key. This key is not derived from MK/VK and is protected by
-   Keychain/Keystore with biometric-set invalidation.
-4. Cache v2 carries a separately authenticated manifest for the profile,
-   organization membership, complete per-Vault access context and finite
-   lease, plus each Entry revision/key high-water. Every record is compared
-   with that authority; self-consistent substituted records are rejected.
-   Cache v1 has no lease or independent authority and is purged, never migrated.
-   A same-authority lease may renew between local Entry reads. Publication
-   accepts leases with one common validity window (latest start before earliest
-   expiry across all entries) only when every non-temporal Vault/profile binding
-   remains equal and every lease has its exact policy duration. It retains the
-   complete authenticated context with the earliest expiry; it never synthesizes
-   or extends a lease. Native publication and final handoff still reject expiry.
-   S22 diagnostic metadata confirmed the build-11 failure at this boundary:
-   only `issuedAt` and `notAfter` differed between entries; no values were logged.
-5. Missing, corrupt, stale, expired or clock-rolled-back cache state fails
-   closed. Automatic matching rejects ambiguous, mismatched or unverified
-   destinations. The explicit absent-domain manual paths on Android and iOS
-   authorize only the user-confirmed operation. The durable generation fence includes an
-   authenticated maximum observed wall time; rollback over five minutes
-   quarantines the generation. A process-lifetime monotonic clock anchor also
-   rejects a frozen or slowly advancing wall clock once it trails elapsed time
-   by more than five minutes. Android revalidates the requesting package, exact
-   domain, generation and lease after biometric authentication and again under
-   the revocation lock through the provider response handoff.
-6. Logout and account deletion durably revoke access before physical cache,
-   key and identity cleanup. A biometric-set change invalidates the platform
-   key. Vault lock requires fresh provider authentication before a credential
-   can be returned.
-7. Plaintext exists only after successful provider or app authentication and
-   only long enough to build the OS response, populate an in-memory form, or
-   perform an explicit history reveal/copy. Temporary byte buffers are wiped
-   where platform APIs expose mutable storage. The in-app copy uses the shared
-   timed `SecureClipboard` policy.
-8. Domain policy is exact-host only. Stored domain normalization may project
-   HTTP(S) URLs to their ASCII host; incoming web requests independently require
-   HTTPS. Userinfo, explicit ports, wildcards, Unicode/confusable
-   hosts, malformed labels, parent-domain inference, and `www` equivalence are
-   rejected. There is no eTLD, subdomain, or suffix matching.
-9. Cache records are bounded to 2,000 records and 16 domains per record; native
-   readers reject cache files over 16 MiB. The authenticated platform
-   ciphertext contains the manifest and only the record id/bindings, display
-   label, username, password, and authorized exact hosts.
-10. Generated-password history is separate from the disposable Vault cache.
-    Android stores AES-GCM ciphertext in `noBackupFilesDir`; a per-use
-    biometric Keystore RSA key unwraps its random history key, and an
-    independently authenticated marker binds the active principal.
-    iOS stores AES-GCM ciphertext in the flavor-specific App Group with a
-    `biometryCurrentSet` Keychain key and active-principal marker. Neither
-    provider receives MK, VK, a user private key, or backend access. Every
-    history read and mutation checks the active principal against the caller's
-    authenticated app account where applicable. On iOS, biometric waiting does
-    not hold the revocation lock; the activation token is checked again before
-    a history operation commits. Android likewise binds each biometric unwrap
-    operation to the activation token and rechecks it under the mutation lock
-    before releasing plaintext. The history holds at most 100
-    records per account and fails closed at capacity; it never evicts a password
-    silently. History remains encrypted across app restart and Vault cache
-    rotations. Biometric-set invalidation makes old history inaccessible.
+1. The server never receives plaintext credentials or keys. Plaintext keys remain
+   in process memory. The explicit approved exception is a local encrypted MK
+   envelope protected by platform biometric key access; see [unlock](unlock.md).
+2. Providers do not fetch Vault data from the backend. They open the same canonical
+   ciphertext using independently authenticated profile, claims, KDF configuration,
+   Vault bindings, revisions and original finite leases. Metadata alone never
+   authorizes secret release.
+3. Password or biometric authentication is bound to the original OS request. Native
+   final handoff checks exact destination, original field IDs, current source epoch,
+   expiry and revocation. Routine source updates cannot extend authentication TTL.
+4. Missing, corrupt, expired, quarantined, mismatched or rolled-back authority fails
+   closed. Explicit absent-domain manual selection remains a separately confirmed
+   one-operation path, never a persistent package/domain association.
+5. Ordinary Vault lock clears live app keys and request state but retains encrypted
+   source data. Logout/account loss durably denies the source before cleanup.
+   Async old-session work cannot reopen a replacement account.
+6. Selected plaintext exists only during the request callback/OS handoff. Mutable
+   key buffers are wiped where APIs permit. No credentials, keys or search terms
+   enter logs, analytics, Intent extras or intermediate persistent bridge storage.
+7. Destination policy is exact-host only. Incoming URL requests require HTTPS;
+   stored host normalization is not transport authority. No eTLD, sibling-domain,
+   suffix or `www` equivalence authorizes fill. Native packages require independently
+   verified association or the distinct explicit manual flow described below.
+8. Generated-password history and explicit save have independent scoped authority,
+   encryption and retention. They are not removed by retirement of the bulk fill
+   catalog. Their platform protection and consent contracts remain separate.
 
 ## Generated-password lifecycle
 
@@ -498,74 +356,36 @@ References: [Android provider activation](https://developer.android.com/identity
    form. No OS save callback writes a Vault Entry automatically; Vault save
    remains an explicit user action through the existing encrypted Entry flow.
 
-## Cache lifecycle
+## Encrypted source lifecycle
 
-1. Unlock synchronizes eligible credentials from server ciphertext using the
-   in-memory private key already held by `AuthBloc`. The cache builder reads the
-   local MemberIndex first, ignores corrupt/archived/deleted entries, and
-   rejects stale revealed revisions. Legacy entries without an explicit
-   `autofillDomains` MemberIndex policy remain unavailable until re-projected.
-   AutoFill and Dashboard search use the same `MemberIndexPreparationService`
-   single-flight operation, so simultaneous unlock listeners cannot start a
-   second Vault-list request or a second snapshot chain. Native activation
-   has its own session epoch: a foreground/reconnect rebuild queued while
-   activation is pending cannot discard the new token. A replacement session
-   or revocation still invalidates older activation callbacks. AutoFill awaits that
-   complete operation before reading the runtime index, preventing an empty-cache
-   race while the first sync is still starting. Offline restart reopens the
-   complete persisted policy-2 generation without a network call; an expired
-   or disabled offline policy leaves the native candidate set empty.
-2. Canonical create, update, restore, delete/archive, and permanent purge, plus
-   multi-step import, await successful native cache clearing before sending the
-   first remote mutation. Cache clearing awaits native session activation; a
-   failed activation or missing token fails closed instead of acknowledging a
-   no-op. A failed clear aborts the remote transition. Rebuild
-   occurs only after a definitive HTTP result; a final transport failure is
-   ambiguous, so the cache remains empty until the next authoritative
-   synchronization. Overlapping cache-sensitive mutations form one
-   process-local invalidation batch: rebuild waits for every result, and one
-   ambiguous result suppresses the whole batch rebuild. Vault create and vault
-   delete also rebuild the cache after their definitive mutation. A failed
-   rebuild therefore leaves no stale password available to AutoFill.
-   SignalR/reconnect invalidation first awaits a durable native deny, then
-   repairs the combined Member generation, and only after its current index is
-   committed rebuilds the cache locally. A failed deny or rebuild is not marked
-   applied; the coalesced invalidation remains queued for retry. Every other
-   durable Member sync commit (including an ordinary Entry-list refresh)
-   coalesces into the same local-only candidate rebuild after the current index
-   publication tail, without starting another sync or per-Entry request.
-   Concurrent foreground and durable consumers share an in-flight publication
-   only for the same session, commit sequence and complete Vault set. The
-   coordinator detaches it on completion and skips already-consumed durable
-   updates. A later explicit foreground repair always rebuilds, including after
-   native quarantine without a Dart commit. New commits (including refreshed
-   leases), native denies and session changes also require a fresh publication;
-   the publication record contains no credential or key material. Different
-   pending coverage waits for the active call to settle before publishing; it
-   never cancels a long preparation merely by incrementing its generation.
-   After waiting, the request rechecks session/admission and the latest complete
-   Vault set. A new deny invalidates previously admitted waiters; a subsequently
-   authorized owner can wait and publish independently. Removed Vaults are never
-   restored from an older captured set, and a newer commit is acknowledged only
-   after its own publication finishes.
-3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
-   a fresh OS biometric challenge. The Flutter private key is never copied into
-   the native provider.
-4. Logout and forced session loss invoke the native revocation path before
-   authentication cleanup. Its commit point is an atomically persisted,
-   authenticated generation fence; once acknowledged, provider access is denied
-   even if later ciphertext/key/identity deletion fails or an OS callback never
-   returns. Generation-scoped artifacts and compare-delete cleanup prevent a
-   delayed old operation from changing a newer session. After a confirmed fence,
-   auth tokens and local key material are cleared in `finally`-style cleanup and
-   physical provider cleanup is best effort. If neither revocation nor fallback
-   clear can prove a durable deny, interactive logout fails closed without
-   claiming success; forced session loss keeps a coalesced bounded retry running
-   until a deny is confirmed.
-5. A biometric-set change invalidates the platform key. Any failed native read
-   durably quarantines the unusable generation before best-effort artifact and
-   iOS identity cleanup; the next unlocked synchronization creates a fresh
-   dedicated key and cache.
+1. Unlock/reconnect synchronize canonical encrypted Member data through the shared
+   preparation operation. Metadata activation follows committed current data;
+   it does not reveal each password. A request reads candidates and opens only
+   its selected Entry under the original lease and current source ticket.
+2. A genuine connection failure can use the protected local account projection and
+   canonical offline generation. HTTP authorization errors, schema failures, disabled
+   offline policy or expired leases cannot take that fallback. Pending remote
+   invalidation is not completed by stale offline data.
+3. Local mutations and remote invalidations acquire durable deny ownership before
+   source changes. Definitive authoritative repair completes only covered owners.
+   Unknown transport results and overlapping mutations remain denied until repaired.
+   Database opening/migration captures session identity before asynchronous work.
+4. Ordinary lock preserves ciphertext and the source account session. It cancels
+   requests and clears app plaintext. A later request authenticates independently;
+   no full export is needed. Cold ACTIVE-source adoption requires exact profile,
+   claims and encrypted account/KDF equality; quarantined/revoked/legacy state is
+   not promoted by that optimization.
+5. Account replacement/final auth loss synchronously fences callbacks and admits
+   durable native denial. New bootstrap waits behind that barrier. A failed denial
+   blocks bootstrap. AuthLoading and ordinary Vault locks are not account changes.
+   Accepted token replacement compares canonical principal/organization/membership/
+   offline-policy claims before secure-storage writes. Changed or unknown claims
+   require durable source transition first; expiry-only refresh preserves the
+   source. New bootstrap reads the new authority after token serialization ends.
+   A concurrent logout/login cancels an obsolete pending token write.
+6. During biometric enrollment/migration, OS resume skips redundant foreground
+   source repair. Real invalidation/revoke still proceeds. A counter covers the
+   entire asynchronous biometric mutation and is released on success or failure.
 
 ## Android form recognition
 
@@ -583,13 +403,13 @@ Missing, unknown or cleartext schemes fail closed;
 verified App Links establish host authority, not transport security. Any reported
 scheme without a host is an incomplete web context and cannot become native
 manual selection. The accepted scheme travels in the explicit immutable
-provider authentication intent and is checked again after biometric authentication
+provider authentication intent and is checked again after request authentication
 and under the existing release lock. Web filling on API 26–27 is unavailable
 because those APIs do not expose the scheme. Native forms with neither web host
 nor scheme retain their verified-host/manual selection policy.
 
 Login requests may contain a username, a password, or both. Username-first steps
-still require the same origin, cache and biometric checks; their response contains
+still require the same origin, source and request-authentication checks; their response contains
 only the recognized username targets. A later password step is a fresh request.
 Neither the service nor either authenticated response path requires a password
 field on the username step.
@@ -649,7 +469,7 @@ Unlock and generated-password actions use a branded RemoteViews row with a
 the extension hierarchy: username first (14sp bold), optional Entry label (12sp,
 omitted when redundant with username/host), exact selected host (11sp). They use
 a decorative 24dp Palladin brand logo, without website-specific icons or Vault
-names because the cache has none. Credential rows have
+names in the system presentation. Credential rows have
 65dp minimum height, 12dp vertical/14dp horizontal padding, an 11dp corner radius
 and a subtle border; each line ellipsizes independently. Explicit paired day/night
 colors avoid host-dependent system text styles. Native AutoFill owns the popup
@@ -670,11 +490,11 @@ a localized title/accessibility description, and the first IME presentation spec
 (including its size/style). The IME controls appearance and may ignore inline
 suggestions; the branded RemoteViews fallback remains available. A missing request,
 zero suggestion capacity or unsupported template retains the dropdown. Selecting
-the chip invokes the same biometric authentication activity; long-press attribution
-opens Palladin through a fixed value-free PendingIntent. Origin/cache gates run
+the chip invokes the same request authentication activity; long-press attribution
+opens Palladin through a fixed value-free PendingIntent. Origin/source gates run
 before any presentation is constructed. No credential value enters this chip.
 
-After biometric authentication and the existing origin/session checks, both web
+After request authentication and the existing origin/session checks, both web
 and native credential datasets retain optional inline presentation. The original
 IME's specs and capacity are copied as value-free metadata into Palladin's explicit,
 immutable authentication PendingIntent. No IME token/package/extras are copied.
@@ -696,24 +516,13 @@ Reference: [Android inline autofill guide](https://developer.android.com/identit
 Android API compilation checks the platform/AndroidX calls. Actual keyboard rendering, selection and fallback on
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
 
-## Foreground cache repair recovery
+## Foreground source repair recovery
 
-A failed durable-update publication also receives at most one automatic retry
-for the unchanged pending sequence. Pending work and denies remain intact after
-the second failure; a new durable update or explicit foreground preparation can
-retry. Scheduled attempts stop on session/principal changes or active denies.
-
-A failed ownerless foreground native-cache publication receives at most one
-local automatic retry after the coordinator delay. The retry resolves the
-current unlocked session and current complete Vault set when it runs; its timer
-retains no private key. Lock/session replacement, a changed principal, disposal
-or an intervening mutation/invalidation deny suppress it. A successful foreground
-repair cancels the queued retry. Caller-owned denies retain their own repair path;
-this fallback never releases them. A second failure waits for a real lifecycle or
-durable-update event rather than polling indefinitely. Cache clearing, lease,
-generation and revocation checks remain unchanged, and repair performs no HTTP.
-This closes a recovery gap after a transient publication failure; it does not
-establish the cause of any particular third-party application's missing prompt.
+Durable Member updates coalesce metadata-source activation for the current unlocked
+session. Retry timers retain no keys, stop on session change and cannot release
+another mutation's deny ownership. Failed activation remains unavailable until a
+valid repair; it never falls back to a retired credential catalog. Source activation
+is not evidence that every third-party form emits an OS AutoFill request.
 
 ## Android last-request diagnosis
 
@@ -879,9 +688,9 @@ include statements are ignored without fetching; unrelated bounded JSON metadata
 is permitted but cannot supply authority.
 
 A maximum of 32 positive proofs lives only in process memory, for 60 seconds of
-monotonic time. Its key is exact host/package/current signer set. Before biometric
+monotonic time. Its key is exact host/package/current signer set. Before authentication
 entry and final credential handoff the app reads the current installed identity,
-checks the proof lifetime and OS policy again, and retains existing cache generation,
+checks the proof lifetime and OS policy again, and retains current source epoch,
 lease, lock/revoke and exact credential-domain checks. An expired proof cancels the
 operation rather than performing UI-thread networking or silently extending authority.
 Private/special-use destinations, including NAT64/transition prefixes, are rejected;
@@ -906,7 +715,7 @@ App-embedded WebViews on API31+ use the same locked, null-valued dataset
 presentation and ephemeral selected-Dataset handoff as native app fields. A
 same-WebView emulator comparison showed response-level authentication produced
 no initial inline row while dataset-level authentication rendered the unlock
-chip. This is separate from the missing DAL origin authority. After biometrics,
+chip. This is separate from the missing DAL origin authority. After authentication,
 the existing picker shows only records matching the original exact reported WEB
 host; it never substitutes OS native domains or a manual unknown-origin choice.
 The original immutable Intent binds the expected authentication result shape.

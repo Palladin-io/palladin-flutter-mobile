@@ -36,7 +36,11 @@ class MemberSyncSessionAuthorityProvider {
   Future<MemberSyncSessionAuthority> current() async {
     final readClaims = _readClaims;
     if (readClaims != null) return readClaims();
-    final token = await _tokenStorage!.accessToken;
+    return fromAccessToken(await _tokenStorage!.accessToken);
+  }
+
+  /// Parses only authenticated first-party token input, never page or cache data.
+  static MemberSyncSessionAuthority fromAccessToken(String? token) {
     final payload = token == null
         ? const <String, dynamic>{}
         : JwtClaims.decodePayload(token);

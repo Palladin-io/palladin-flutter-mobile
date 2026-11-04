@@ -1,5 +1,3 @@
-const maximumAutoFillRecords = 2000;
-
 String? normalizeAutoFillDomain(String? raw) {
   if (raw == null) return null;
   final value = raw.trim();

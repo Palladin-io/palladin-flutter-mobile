@@ -3,9 +3,9 @@ import 'features/privacy/data/consent_remote_datasource.dart';
 import 'features/privacy/presentation/consent_cubit.dart';
 import 'features/privacy/presentation/privacy_runtime.dart';
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'features/shell/presentation/cubit/library_view_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
@@ -29,7 +29,14 @@ import 'features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/autofill/data/autofill_save_controller.dart';
 import 'features/autofill/presentation/autofill_save_page.dart';
-import 'features/autofill/data/autofill_cache_service.dart';
+import 'features/autofill/data/autofill_source_access_service.dart';
+import 'features/autofill/data/autofill_source_preparation_service.dart';
+import 'features/autofill/data/autofill_source_mutation_repair.dart';
+import 'features/autofill/data/autofill_request_session.dart';
+import 'features/autofill/data/autofill_request_controller.dart';
+import 'features/autofill/presentation/autofill_request_host.dart';
+import 'features/autofill/data/autofill_source_invalidator.dart';
+import 'features/autofill/data/autofill_auth_lifecycle.dart';
 import 'features/autofill/data/generated_password_history_bridge.dart';
 import 'features/autofill/data/autofill_mutation_notifier.dart';
 import 'features/autofill/data/durable_autofill_repair_coordinator.dart';
@@ -115,7 +122,19 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final DeepLinkService _deepLink = getIt<DeepLinkService>();
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
-  final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
+  final AutoFillSourceAccessService _autoFillSource =
+      getIt<AutoFillSourceAccessService>();
+  final AutoFillSourceInvalidator _autoFillInvalidator =
+      getIt<AutoFillSourceInvalidator>();
+  AutoFillAuthLifecycle? _autoFillAuthLifecycle;
+  final bool _supportsAutoFill =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+  late final AutoFillSourceMutationRepair _mutationSourceRepair =
+      AutoFillSourceMutationRepair(_autoFillSource);
+  late final AutoFillSourceMutationRepair _invalidationSourceRepair =
+      AutoFillSourceMutationRepair(_autoFillSource);
   final GeneratedPasswordHistoryBridge _generatedPasswordHistory =
       GeneratedPasswordHistoryBridge();
   final AutoFillSaveController _autoFillSave = AutoFillSaveController();
@@ -141,8 +160,6 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final Map<String, BigInt> _appliedVaultInvalidationRanks = {};
   final Map<String, VaultSyncInvalidation> _pendingVaultInvalidations = {};
   late final DurableAutoFillRepairCoordinator _durableAutoFillRepair;
-  final Set<AutoFillRepairDeny> _mutationAutoFillDenies = {};
-  AutoFillRepairDeny? _vaultInvalidationAutoFillDeny;
   Object _autoFillUnlockSessionIdentity = Object();
   bool _vaultInvalidationRepairRunning = false;
   late final NotificationForegroundRepair _inboxRepair;
@@ -219,10 +236,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     _signalR.onReconnected = _repairCurrentEntries;
     _autoFillMutationNotifier = getIt<AutoFillMutationNotifier>();
     _autoFillMutationNotifier.attachHandler(_onAutoFillMutation);
-    _autoFillCache.onRetryPreparation = _retryAutoFillPreparation;
     _durableAutoFillRepair = DurableAutoFillRepairCoordinator(
       memberIndexes: _memberSync,
-      autoFill: _autoFillCache,
+      autoFill: getIt<AutoFillSourcePreparationService>(),
       currentSession: () {
         final state = _authBloc.state;
         if (state is! AuthAuthenticated ||
@@ -238,9 +254,30 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       },
       onFailure: (error) => AppLogger.w(
         'AutoFill',
-        'Committed-index cache repair failed: ${error.runtimeType}',
+        'Committed-index source activation failed: ${error.runtimeType}',
       ),
-    )..start();
+    );
+    if (_supportsAutoFill) _durableAutoFillRepair.start();
+    if (_supportsAutoFill) {
+      _autoFillAuthLifecycle = AutoFillAuthLifecycle(
+        initialState: _authBloc.state,
+        states: _authBloc.stream,
+        source: _autoFillSource,
+        onTransition: () {
+          _autoFillUnlockSessionIdentity = Object();
+          _mutationSourceRepair.clearSession();
+          _invalidationSourceRepair.clearSession();
+          _autoFillMutationNotifier.resetSession();
+          _durableAutoFillRepair.clearSession();
+          _pendingVaultInvalidations.clear();
+          _appliedVaultInvalidationRanks.clear();
+        },
+        onFailure: (error) => AppLogger.w(
+          'AutoFill',
+          'Source session transition denied: ${error.runtimeType}',
+        ),
+      );
+    }
     // Handle a cold start triggered by a notification tap. Guard on `mounted`
     // — if the app is torn down before the future resolves, the cubit may
     // already be closed (Bad state: Cubit is already closed).
@@ -263,8 +300,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _autoFillCache.onRetryPreparation = null;
-    _autoFillCache.suspendPreparation();
+    unawaited(_autoFillAuthLifecycle?.dispose());
+    if (_supportsAutoFill) {
+      unawaited(_autoFillSource.endSession().catchError((Object _) {}));
+    }
     unawaited(_autoFillSaveAuth?.cancel());
     _autoFillSave.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -322,16 +361,27 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       if (_authBloc.state is AuthAuthenticated) _signalR.connect();
       if (_authBloc.state case final AuthAuthenticated authenticated
           when !authenticated.isVaultLocked &&
-              authenticated.privateKey != null) {
-        unawaited(
-          _prepareLocalSearch(authenticated.privateKey!, ensureFresh: true),
-        );
-        unawaited(
-          _resumeVaultRotations(
-            memberId: authenticated.userId,
-            privateKey: authenticated.privateKey!,
-          ),
-        );
+              authenticated.privateKey != null &&
+              (!_supportsAutoFill ||
+                  !getIt<AutoFillRequestController>().isAuthenticating)) {
+        void repair() {
+          unawaited(
+            _prepareLocalSearch(authenticated.privateKey!, ensureFresh: true),
+          );
+          unawaited(
+            _resumeVaultRotations(
+              memberId: authenticated.userId,
+              privateKey: authenticated.privateKey!,
+            ),
+          );
+        }
+
+        final lifecycle = _autoFillAuthLifecycle;
+        if (lifecycle == null) {
+          repair();
+        } else {
+          lifecycle.runForegroundRepair(repair);
+        }
       }
       _refreshLiveData();
     }
@@ -383,9 +433,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   void _onVaultSyncInvalidation(VaultSyncInvalidation invalidation) {
     final state = _authBloc.state;
-    if (state is! AuthAuthenticated ||
-        state.isVaultLocked ||
-        state.privateKey == null) {
+    if (state is! AuthAuthenticated) return;
+    if (state.isVaultLocked || state.privateKey == null) {
+      if (_supportsAutoFill) unawaited(_denyLockedSourceInvalidation());
       return;
     }
     final rank = _invalidationRank(invalidation);
@@ -401,6 +451,14 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _denyLockedSourceInvalidation() async {
+    try {
+      await _invalidationSourceRepair.invalidateCommitted();
+    } catch (_) {
+      // Failure retains the source owner's deny; never reactivate old data.
+    }
+  }
+
   Future<void> _drainVaultSyncInvalidations() async {
     if (_vaultInvalidationRepairRunning) return;
     _vaultInvalidationRepairRunning = true;
@@ -413,6 +471,18 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           _pendingVaultInvalidations.clear();
           return;
         }
+        final identity = _autoFillUnlockSessionIdentity;
+        final validateSource = _autoFillSource.captureSessionGuard();
+        bool isCurrent() {
+          try {
+            validateSource();
+            _validateUnlockedKey(state.privateKey!, identity);
+            return true;
+          } on StateError {
+            return false;
+          }
+        }
+
         final batch = Map<String, VaultSyncInvalidation>.from(
           _pendingVaultInvalidations,
         );
@@ -421,24 +491,17 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           // Commit a durable native deny before any network repair. A remote
           // delete, revoke, policy change or rekey must stop old credentials
           // immediately, not after a potentially slow snapshot/delta fetch.
-          final deny = _vaultInvalidationAutoFillDeny ??= _durableAutoFillRepair
-              .suspendRepairs();
-          await _autoFillCache.invalidateEntries(null);
+          if (_supportsAutoFill) {
+            await _invalidationSourceRepair.invalidateCommitted();
+          }
+          if (!isCurrent()) return;
           for (final invalidation in batch.values) {
+            if (!isCurrent()) return;
             if (invalidation.removed) {
               await _memberSync.purgeVault(invalidation.vaultId);
             }
           }
-          final preparedVaults = await _memberIndexPreparation.prepare(
-            state.privateKey!,
-            ensureFresh: true,
-          );
-          await _durableAutoFillRepair.synchronizePreparedIfAllowed(
-            privateKey: state.privateKey!,
-            vaultIds: preparedVaults.map((vault) => vault.id),
-            releasingDenies: {deny},
-          );
-          _vaultInvalidationAutoFillDeny = null;
+          await _prepareSource(state.privateKey!, ensureFresh: true);
           final currentState = _authBloc.state;
           if (currentState is! AuthAuthenticated ||
               currentState.isVaultLocked ||
@@ -454,8 +517,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             }
           }
         } catch (error) {
+          if (!isCurrent()) return;
           _memberIndexPreparation.lock();
           for (final invalidation in batch.values) {
+            if (!isCurrent()) return;
             try {
               await _memberSync.purgeVault(invalidation.vaultId);
             } on Object {
@@ -463,6 +528,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               // delete, so a storage failure still blocks local reads.
             }
           }
+          if (!isCurrent()) return;
           AppLogger.w(
             'VaultSync',
             'Invalidation repair failed closed: ${error.runtimeType}',
@@ -511,7 +577,6 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        RepositoryProvider<AutoFillCacheService>.value(value: _autoFillCache),
         BlocProvider.value(value: _authBloc),
         BlocProvider.value(value: _consents),
         BlocProvider.value(value: _pushNavigationCubit),
@@ -556,7 +621,12 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 current is AuthAuthenticated &&
                 !current.isVaultLocked &&
                 current.privateKey != null &&
-                (previous is! AuthAuthenticated || previous.isVaultLocked),
+                (previous is! AuthAuthenticated ||
+                    previous.isVaultLocked ||
+                    SearchSessionController.replacesUnlockedSession(
+                      previous,
+                      current,
+                    )),
             listener: (_, state) {
               final authenticated = state as AuthAuthenticated;
               _autoFillUnlockSessionIdentity = Object();
@@ -581,13 +651,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 !previous.isVaultLocked &&
                 (current is! AuthAuthenticated || current.isVaultLocked),
             listener: (_, _) {
-              _autoFillCache.suspendPreparation();
               _memberIndexPreparation.lock();
               _autoFillUnlockSessionIdentity = Object();
               _appliedVaultInvalidationRanks.clear();
               _pendingVaultInvalidations.clear();
-              _mutationAutoFillDenies.clear();
-              _vaultInvalidationAutoFillDeny = null;
               _durableAutoFillRepair.clearSession();
               _vaultList.lock();
               _dashboard.lock();
@@ -630,8 +697,12 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               builder: (context, child) {
                 return PrivacyRuntime(
                   router: _router,
-                  child: Stack(
-                    children: [?child, if (_obscured) const PrivacyCover()],
+                  child: AutoFillRequestHost(
+                    navigatorKey: _navigatorKey,
+                    prepare: _prepareAutoFillRequest,
+                    child: Stack(
+                      children: [?child, if (_obscured) const PrivacyCover()],
+                    ),
                   ),
                 );
               },
@@ -650,70 +721,97 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _retryAutoFillPreparation() async {
+  void _validateUnlockedKey(Uint8List privateKey, Object identity) {
     final state = _authBloc.state;
     if (!mounted ||
+        !identical(identity, _autoFillUnlockSessionIdentity) ||
         state is! AuthAuthenticated ||
         state.isVaultLocked ||
+        !identical(state.privateKey, privateKey)) {
+      throw StateError('Unlocked session changed');
+    }
+  }
+
+  Future<List<String>> _prepareSource(
+    Uint8List privateKey, {
+    bool ensureFresh = false,
+  }) async {
+    final identity = _autoFillUnlockSessionIdentity;
+    _validateUnlockedKey(privateKey, identity);
+    if (_supportsAutoFill) await _autoFillSource.ensureSession();
+    _validateUnlockedKey(privateKey, identity);
+    List<String> vaultIds;
+    try {
+      final prepared = !_supportsAutoFill
+          ? await _memberIndexPreparation.prepare(
+              privateKey,
+              ensureFresh: ensureFresh,
+            )
+          : await _mutationSourceRepair.prepare(
+              () => _invalidationSourceRepair.prepare(
+                () => _memberIndexPreparation.prepare(
+                  privateKey,
+                  ensureFresh:
+                      ensureFresh ||
+                      _mutationSourceRepair.needsReconciliation ||
+                      _invalidationSourceRepair.needsReconciliation,
+                ),
+                validateCurrent: () =>
+                    _validateUnlockedKey(privateKey, identity),
+              ),
+              validateCurrent: () => _validateUnlockedKey(privateKey, identity),
+            );
+      vaultIds = prepared.map((vault) => vault.id).toList();
+    } on VaultException catch (error) {
+      if (error.kind != VaultErrorKind.networkError) rethrow;
+      _validateUnlockedKey(privateKey, identity);
+      final authority = await _memberSyncAuthority.current();
+      _validateUnlockedKey(privateKey, identity);
+      // Offline recovery never completes an outstanding mutation owner.
+      vaultIds = await _memberSync.unlockAllCached(
+        memberPrivateKey: privateKey,
+        authority: authority,
+      );
+    }
+    _validateUnlockedKey(privateKey, identity);
+    final published =
+        !_supportsAutoFill ||
+        await _durableAutoFillRepair.synchronizePreparedIfAllowed(
+          privateKey: privateKey,
+          vaultIds: vaultIds,
+        );
+    _validateUnlockedKey(privateKey, identity);
+    if (!published) throw StateError('Source activation unavailable');
+    return vaultIds;
+  }
+
+  Future<AutoFillRequestSession> _prepareAutoFillRequest() async {
+    final state = _authBloc.state;
+    if (state is! AuthAuthenticated ||
+        state.isVaultLocked ||
         state.privateKey == null) {
-      return;
+      throw StateError('AutoFill requires an unlocked session');
     }
     final identity = _autoFillUnlockSessionIdentity;
-    await _autoFillCache.ensurePreparationSession();
-    if (!mounted || !identical(identity, _autoFillUnlockSessionIdentity)) {
-      return;
-    }
-    final current = _authBloc.state;
-    if (current is! AuthAuthenticated ||
-        current.isVaultLocked ||
-        !identical(current.privateKey, state.privateKey)) {
-      return;
-    }
-    await _prepareLocalSearch(state.privateKey!, ensureFresh: true);
+    final key = state.privateKey!;
+    final vaultIds = await _prepareSource(key);
+    _validateUnlockedKey(key, identity);
+    return AutoFillRequestSession(
+      privateKey: key,
+      vaultIds: vaultIds,
+      validateCurrent: () => _validateUnlockedKey(key, identity),
+    );
   }
 
   Future<void> _prepareLocalSearch(
     Uint8List privateKey, {
     bool ensureFresh = false,
   }) async {
-    final preparation = _autoFillCache.beginSourcePreparation();
     try {
-      final preparedVaults = await _memberIndexPreparation.prepare(
-        privateKey,
-        ensureFresh: ensureFresh,
-      );
-      final published = await _durableAutoFillRepair
-          .synchronizePreparedIfAllowed(
-            privateKey: privateKey,
-            vaultIds: preparedVaults.map((vault) => vault.id),
-          );
-      if (!published) _autoFillCache.sourcePreparationFailed(preparation);
-    } on VaultException catch (error) {
-      if (error.kind != VaultErrorKind.networkError) {
-        _autoFillCache.sourcePreparationFailed(preparation);
-        return;
-      }
-      try {
-        final authority = await _memberSyncAuthority.current();
-        final cachedVaultIds = await _memberSync.unlockAllCached(
-          memberPrivateKey: privateKey,
-          authority: authority,
-        );
-        final published = await _durableAutoFillRepair
-            .synchronizePreparedIfAllowed(
-              privateKey: privateKey,
-              vaultIds: cachedVaultIds,
-            );
-        if (!published) _autoFillCache.sourcePreparationFailed(preparation);
-      } catch (_) {
-        _autoFillCache.sourcePreparationFailed(preparation);
-        // Cached generations are optional and fail closed per Vault. Never log
-        // errors retaining decrypted projection or transport context.
-      }
+      await _prepareSource(privateKey, ensureFresh: ensureFresh);
     } catch (_) {
-      _autoFillCache.sourcePreparationFailed(preparation);
-      // Local search is best effort. Never log transport errors because they
-      // may retain the raw query or decrypted projection context.
+      // Search is best effort. Native access remains denied on failed repair;
+      // errors may retain decrypted projections or transport context.
     }
   }
 
@@ -734,68 +832,34 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       _pushService.registerForCurrentUser();
       // Open the in-app real-time channel for instant updates.
       _signalR.connect();
-    } else if (state is AuthUnauthenticated) {
+    } else if (state is AuthUnauthenticated || state is AuthError) {
       _memberDirectory.clear();
       _pushService.unregister();
       _signalR.disconnect();
       getIt<NotificationCenterCubit>().reset();
-      unawaited(_clearAutoFillAfterSessionLoss());
+      if (_supportsAutoFill) unawaited(_clearAutoFillAfterSessionLoss());
     }
   }
 
   Future<void> _onAutoFillMutation(AutoFillMutationAction action) async {
+    if (!_supportsAutoFill) return;
     switch (action) {
       case AutoFillMutationAction.invalidate:
-        final deny = _durableAutoFillRepair.suspendRepairs();
-        _mutationAutoFillDenies.add(deny);
-        try {
-          await _autoFillCache.invalidateEntries(
-            _autoFillMutationNotifier.currentMutationScope,
-          );
-        } catch (error) {
-          AppLogger.w(
-            'AutoFill',
-            'Mutation cache invalidation failed: ${error.runtimeType}',
-          );
-          rethrow;
-        }
+        await _mutationSourceRepair.invalidate();
       case AutoFillMutationAction.rebuild:
+        await _mutationSourceRepair.markCommitted();
         final state = _authBloc.state;
         if (state is! AuthAuthenticated ||
             state.isVaultLocked ||
             state.privateKey == null) {
           return;
         }
-        // A mutation invalidates the previous cache before rebuilding. If the
-        // rebuild fails, leaving AutoFill empty is safer than serving stale data.
-        final completedDenies = Set<AutoFillRepairDeny>.from(
-          _mutationAutoFillDenies,
-        );
-        if (completedDenies.isEmpty) {
-          final deny = _durableAutoFillRepair.suspendRepairs();
-          _mutationAutoFillDenies.add(deny);
-          completedDenies.add(deny);
-          await _autoFillCache.invalidateEntries(
-            _autoFillMutationNotifier.currentMutationScope,
-          );
-        }
-        final preparedVaults = await _memberIndexPreparation.prepare(
-          state.privateKey!,
-          ensureFresh: true,
-        );
-        await _durableAutoFillRepair.synchronizePreparedIfAllowed(
-          privateKey: state.privateKey!,
-          vaultIds: preparedVaults.map((vault) => vault.id),
-          releasingDenies: completedDenies,
-        );
-        _mutationAutoFillDenies.removeAll(completedDenies);
+        await _prepareSource(state.privateKey!, ensureFresh: true);
     }
   }
 
   Future<void> _startAutoFillSession({required Uint8List privateKey}) async {
-    await _autoFillCache.beginSession();
-    // Install the complete all-Vault authority before the first native write.
-    // A later commit for Vault A must never accidentally drop offline Vault B.
+    // Ordinary Vault unlock reuses the account's protected source session.
     await _prepareLocalSearch(privateKey);
   }
 
@@ -854,33 +918,18 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             'Generated-password session revocation failed: ${error.runtimeType}',
           );
         }
-        try {
-          await _autoFillCache.revokeAccess().timeout(
-            _sessionLossAutoFillOperationTimeout,
-          );
-          denyConfirmed = historyRevoked;
-        } catch (error) {
-          AppLogger.w(
-            'AutoFill',
-            'Session-loss access revocation failed '
-                '(attempt $attempt/$_sessionLossAutoFillAttempts): '
-                '${error.runtimeType}',
-          );
-        }
-        // A new login/unlock owns a newer native generation. Never let this
-        // old session-loss continuation clear or revoke that fresh session.
         if (_authBloc.state is AuthAuthenticated) return;
         try {
-          await _autoFillCache.clear().timeout(
+          // The lifecycle barrier owns source denial. This only removes the
+          // retired derivative, which no current path writes or authorizes.
+          await _autoFillInvalidator.retireLegacy().timeout(
             _sessionLossAutoFillOperationTimeout,
           );
           denyConfirmed = historyRevoked;
         } catch (error) {
           AppLogger.w(
             'AutoFill',
-            'Session-loss cache invalidation failed '
-                '(attempt $attempt/$_sessionLossAutoFillAttempts): '
-                '${error.runtimeType}',
+            'Legacy retirement failed (attempt $attempt): ${error.runtimeType}',
           );
         }
         if (_authBloc.state is AuthAuthenticated) return;
@@ -892,7 +941,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       if (!denyConfirmed && mounted && _authBloc.state is! AuthAuthenticated) {
         _sessionLossAutoFillRetry ??= Timer(const Duration(seconds: 30), () {
           _sessionLossAutoFillRetry = null;
-          unawaited(_clearAutoFillAfterSessionLoss());
+          if (_supportsAutoFill) unawaited(_clearAutoFillAfterSessionLoss());
         });
       }
     }
