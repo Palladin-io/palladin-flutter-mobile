@@ -21,6 +21,7 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
 
     init {
         AutoFillRequestBroker.initialize(activity)
+        AutoFillRequestBroker.onSourceChanged = { id -> channel.invokeMethod("sourceChanged", id) }
         AutoFillRequestBroker.onPending = { channel.invokeMethod("pendingChanged", null) }
         AutoFillRequestBroker.onInvalidated = { id -> cancelPrompt(); channel.invokeMethod("invalidated", id) }
         channel.setMethodCallHandler { call, result ->
@@ -33,14 +34,16 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
                     require(value is Int || value is Long)
                     return (value as Number).toLong().also { require(it > 0) }
                 }
+                fun profile() = AutoFillSourceProfile(string("principalId"), string("organizationId"), string("organizationMembershipGeneration"),
+                    string("offlinePolicy"), Math.toIntExact(number("offlinePolicyVersion")), string("profileBinding"))
                 fun selection() = AutoFillSelection(string("vaultId"), string("entryId"), string("selectedHost"))
                 when (call.method) {
                     "pending" -> result.success(AutoFillRequestBroker.pending())
                     "sourceSnapshot" -> result.success(AutoFillRequestBroker.sourceSnapshot())
                     "revokeSource" -> result.success(AutoFillRequestBroker.revokeSnapshot(number("sourceEpoch"), string("profileDigest")))
-                    "beginSourceSession" -> result.success(AutoFillRequestBroker.beginSession(AutoFillSourceProfile(
-                        string("principalId"), string("organizationId"), string("organizationMembershipGeneration"),
-                        string("offlinePolicy"), Math.toIntExact(number("offlinePolicyVersion")), string("profileBinding")), string("sessionId")))
+                    "sourceConfiguration" -> result.success(AutoFillRequestBroker.sourceConfiguration(profile()))
+                    "beginSourceSession" -> result.success(AutoFillRequestBroker.beginSession(profile(), string("sessionId"),
+                        args["accountUnlock"], args["forceQuarantine"] as? Boolean ?: true))
                     "activateSource" -> result.success(AutoFillRequestBroker.activate(string("sessionId"), number("sourceEpoch")))
                     "invalidateSource" -> result.success(AutoFillRequestBroker.invalidate(string("sessionId"), number("sourceEpoch"), string("profileBinding")))
                     "revokeSourceSession" -> result.success(AutoFillRequestBroker.revokeSession(string("sessionId"), number("sourceEpoch"), string("profileBinding")))
@@ -134,6 +137,7 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
     fun close() {
         background()
         channel.setMethodCallHandler(null)
+        AutoFillRequestBroker.onSourceChanged = null
         AutoFillRequestBroker.onPending = null
         AutoFillRequestBroker.onInvalidated = null
         worker.shutdownNow()

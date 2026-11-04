@@ -3,6 +3,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 const channel = MethodChannel('io.palladin.mobile/autofill-request');
+final expectedProfile = <String, Object>{
+  'principalId': 'synthetic-member',
+  'organizationId': 'synthetic-org',
+  'organizationMembershipGeneration': 'synthetic-generation',
+  'offlinePolicy': 'allowed',
+  'offlinePolicyVersion': 1,
+  'profileBinding': List.filled(64, 'a').join(),
+};
+const accountUnlock = <String, Object>{
+  'accountId': 'synthetic-member',
+  'encryptedPrivateKey': 'synthetic-ciphertext',
+  'kdf': <String, Object>{
+    'securityVersion': 2,
+    'minimumSecurityVersion': 1,
+    'profileId': 'synthetic-kdf',
+    'kdfSalt': 'synthetic-salt',
+    'credentialRevision': 4,
+    'privateKeyWrapRevision': 3,
+  },
+};
 void main() {
   if (!kDebugMode) throw StateError('Debug fixture only');
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,12 +38,16 @@ class SourceFixture extends StatefulWidget {
 class _SourceFixtureState extends State<SourceFixture> {
   bool running = false;
   int? sourceEpoch;
+  String? sourceChangedId;
   String status = 'SOURCE_ENGINE_READY';
   @override
   void initState() {
     super.initState();
     channel.setMethodCallHandler((call) async {
       if (call.method == 'pendingChanged') await poll();
+      if (call.method == 'sourceChanged') {
+        sourceChangedId = call.arguments as String;
+      }
     });
     poll();
   }
@@ -40,17 +64,11 @@ class _SourceFixtureState extends State<SourceFixture> {
       }
       // Allow the original owner to stop behind the real Flutter task.
       await Future<void>.delayed(const Duration(seconds: 1));
-      if (sourceEpoch == null) {
-        sourceEpoch = await channel.invokeMethod<int>('beginSourceSession', {
-          'principalId': 'synthetic-member',
-          'organizationId': 'synthetic-org',
-          'organizationMembershipGeneration': 'synthetic-generation',
-          'offlinePolicy': 'allowed',
-          'offlinePolicyVersion': 1,
-          'profileBinding': List.filled(64, 'a').join(),
-          'sessionId': 'synthetic-request-session',
-        });
-      }
+      sourceEpoch ??= await channel.invokeMethod<int>('beginSourceSession', {
+        ...expectedProfile,
+        'accountUnlock': accountUnlock,
+        'sessionId': 'synthetic-request-session',
+      });
       final binding = await channel.invokeMethod<String>('bind', {
         'id': request['id'],
         'principalId': 'synthetic-member',
@@ -59,6 +77,20 @@ class _SourceFixtureState extends State<SourceFixture> {
       });
       if (binding == null || binding.isEmpty) {
         throw StateError('Binding failed');
+      }
+      sourceChangedId = null;
+      sourceEpoch = await channel.invokeMethod<int>('invalidateSource', {
+        'sessionId': 'synthetic-request-session',
+        'sourceEpoch': sourceEpoch,
+        'profileBinding': expectedProfile['profileBinding'],
+      });
+      await Future<void>.delayed(Duration.zero);
+      final retained = await channel.invokeMapMethod<String, dynamic>(
+        'pending',
+      );
+      if (sourceChangedId != request['id'] ||
+          retained?['id'] != request['id']) {
+        throw StateError('Routine source change did not retain its request');
       }
       final valid = await channel.invokeMethod<bool>('validate', {
         'id': request['id'],
@@ -100,6 +132,54 @@ class _SourceFixtureState extends State<SourceFixture> {
     }
   }
 
+  Future<void> verifyProtectedBootstrap() async {
+    try {
+      final cached = await channel.invokeMapMethod<String, dynamic>(
+        'sourceConfiguration',
+        expectedProfile,
+      );
+      final wrong = await channel.invokeMapMethod<String, dynamic>(
+        'sourceConfiguration',
+        {...expectedProfile, 'organizationId': 'different-org'},
+      );
+      if (cached?['accountUnlock'] is! Map ||
+          (cached!['accountUnlock'] as Map)['encryptedPrivateKey'] !=
+              'synthetic-ciphertext' ||
+          wrong != null) {
+        throw StateError('Protected configuration mismatch');
+      }
+      await channel.invokeMethod<int>('beginSourceSession', {
+        ...expectedProfile,
+        'sessionId': 'synthetic-adopted',
+        'accountUnlock': cached['accountUnlock'],
+        'forceQuarantine': false,
+      });
+      if (await channel.invokeMapMethod<String, dynamic>(
+            'sourceConfiguration',
+            expectedProfile,
+          ) ==
+          null) {
+        throw StateError('Exact active configuration not adopted');
+      }
+      await channel.invokeMethod<int>('beginSourceSession', {
+        ...expectedProfile,
+        'sessionId': 'synthetic-quarantined',
+        'accountUnlock': cached['accountUnlock'],
+        'forceQuarantine': true,
+      });
+      if (await channel.invokeMapMethod<String, dynamic>(
+            'sourceConfiguration',
+            expectedProfile,
+          ) !=
+          null) {
+        throw StateError('Forced quarantine allowed configuration');
+      }
+      if (mounted) setState(() => status = 'SOURCE_BOOTSTRAP_PASS');
+    } catch (_) {
+      if (mounted) setState(() => status = 'SOURCE_BOOTSTRAP_FAIL');
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: Center(
@@ -107,6 +187,10 @@ class _SourceFixtureState extends State<SourceFixture> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(status),
+          TextButton(
+            onPressed: verifyProtectedBootstrap,
+            child: const Text('Verify protected bootstrap'),
+          ),
           TextButton(
             onPressed: verifyHardRepair,
             child: const Text('Verify hard revoke repair'),

@@ -75,3 +75,18 @@ The actual channel fixture additionally checks live authorization revocation fol
 authoritative activation of the returned epoch by the same app session. Cold snapshot
 revocation still destroys that session; live request revocation must cancel request/auth
 without making source repair permanently fail with SOURCE_STALE_SESSION.
+
+## Protected offline bootstrap
+
+The fixture seeds only synthetic encrypted account text and public KDF metadata. After
+live repair it kills the entire provider process, then verifies `sourceConfiguration`
+against independently supplied full expected claims. Wrong organization is refused.
+Exact ACTIVE configuration can be adopted only with explicit `forceQuarantine=false`;
+forced quarantine makes the getter unavailable. The native fence authenticates this
+configuration and its canonical account digest. Legacy records without the projection
+do not authorize fallback. No account token, MK, decrypted private key or Entry body is
+stored by this control record. Actual Entry lease/crypto checks remain mandatory later.
+
+Each source request also exercises routine invalidation and requires `sourceChanged` to
+carry its original request ID while `pending` retains that request. This is UI coherence
+evidence only; selected-read epoch validation remains the native handoff boundary.

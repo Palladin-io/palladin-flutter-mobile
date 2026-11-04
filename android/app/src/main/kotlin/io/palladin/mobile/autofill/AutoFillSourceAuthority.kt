@@ -1,6 +1,7 @@
 package io.palladin.mobile.autofill
 
-internal data class AutoFillSourceFence(val epoch: Long, val profile: String, val active: Boolean)
+internal data class AutoFillSourceFence(val epoch: Long, val profile: String, val active: Boolean,
+    val accountUnlockDigest: String? = null, val configuration: AutoFillSourceConfiguration? = null)
 internal class AutoFillSourceException(val code: String) : IllegalStateException(code)
 
 /** Durable source control metadata; no credential, Entry or key material. */
@@ -11,13 +12,19 @@ internal class AutoFillSourceAuthority(
     private var session: String? = null
     private var admitted = false
 
-    fun begin(profile: String, session: String): Long = synchronized(AutoFillMutationLock.monitor) {
+    fun begin(profile: String, session: String, configuration: AutoFillSourceConfiguration? = null, forceQuarantine: Boolean = true): Long = synchronized(AutoFillMutationLock.monitor) {
         require(profile.isNotBlank() && session.isNotBlank())
         this.session = null
         admitted = false
-        val epoch = Math.addExact(read()?.epoch ?: 0, 1)
-        write(AutoFillSourceFence(epoch, profile, false))
+        require(configuration == null || configuration.profile.digest() == profile)
+        val prior = read()
+        val epoch = Math.addExact(prior?.epoch ?: 0, 1)
+        val adopt = !forceQuarantine && prior?.active == true && prior.profile == profile &&
+            configuration != null && prior.configuration != null &&
+            prior.accountUnlockDigest == configuration.accountUnlockDigest && prior.configuration == configuration
+        write(AutoFillSourceFence(epoch, profile, adopt, configuration?.accountUnlockDigest, configuration))
         this.session = session
+        admitted = adopt
         epoch
     }
 
@@ -57,6 +64,13 @@ internal class AutoFillSourceAuthority(
         val value = read() ?: throw AutoFillSourceException("SOURCE_UNAVAILABLE")
         if (!matches(profile, session, value.epoch)) throw AutoFillSourceException("SOURCE_STALE_SESSION")
         value.epoch
+    }
+
+    fun configuration(expected: AutoFillSourceProfile): AutoFillSourceConfiguration? = synchronized(AutoFillMutationLock.monitor) {
+        val current = read() ?: return@synchronized null
+        val projection = current.configuration ?: return@synchronized null
+        projection.takeIf { current.active && current.profile == expected.digest() && it.profile == expected &&
+            current.accountUnlockDigest == it.accountUnlockDigest }
     }
 
     fun snapshot(): AutoFillSourceFence? = synchronized(AutoFillMutationLock.monitor) { read() }

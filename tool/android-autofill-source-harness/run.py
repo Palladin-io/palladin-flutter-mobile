@@ -49,7 +49,7 @@ def main():
     def await_text(text):
         for _ in range(15):
             tree = list(nodes())
-            if any(value in ('LEGACY_CACHE_TOUCHED', 'SOURCE_OWNER_FAIL', 'SOURCE_HARD_REPAIR_FAIL')
+            if any(value in ('LEGACY_CACHE_TOUCHED', 'SOURCE_OWNER_FAIL', 'SOURCE_HARD_REPAIR_FAIL', 'SOURCE_BOOTSTRAP_FAIL')
                    for node in tree for value in (node.get('text'), node.get('content-desc'))):
                 raise AssertionError('Native owner violated expected fixture boundary')
             match = next((node for node in tree if text in (node.get('text'), node.get('content-desc'))), None)
@@ -76,6 +76,13 @@ def main():
         adb('shell', 'input', 'tap', str((left + right)//2), str((top + bottom)//2))
         await_text('SOURCE_HARD_REPAIR_PASS')
         print('PASS live hard revoke: same owning session repairs exact epoch', flush=True)
+        adb('shell', 'am', 'force-stop', PACKAGE)
+        launch(MAIN)
+        button = await_text('Verify protected bootstrap')
+        left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
+        adb('shell', 'input', 'tap', str((left + right)//2), str((top + bottom)//2))
+        await_text('SOURCE_BOOTSTRAP_PASS')
+        print('PASS process death: protected config, exact adoption, forced quarantine', flush=True)
     launch(FORM, '--ez', 'legacy', 'true')
     button = await_text('Open native request')
     left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))

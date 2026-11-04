@@ -22,6 +22,7 @@ internal object AutoFillRequestBroker {
     private val expiry = Runnable { cancel(null) }
     var onPending: (() -> Unit)? = null
     var onInvalidated: ((String) -> Unit)? = null
+    var onSourceChanged: ((String) -> Unit)? = null
 
     fun initialize(context: Context) = synchronized(AutoFillMutationLock.monitor) {
         if (store != null) return@synchronized
@@ -34,18 +35,19 @@ internal object AutoFillRequestBroker {
 
     private var sourceSession: String? = null
     private var currentProfile: AutoFillSourceProfile? = null
-    fun beginSession(profile: AutoFillSourceProfile, session: String): Long {
+    fun beginSession(profile: AutoFillSourceProfile, session: String, accountUnlock: Any? = null, forceQuarantine: Boolean = true): Long {
         synchronized(AutoFillMutationLock.monitor) {
             val restoring = currentProfile == null || (sourceSession == null && currentProfile == profile)
             if (boundSession != null || !restoring) cancel(null) else state.sourceSessionChanged()
             currentProfile = null
-            val epoch = source.begin(profile.digest(), session)
+            val epoch = source.begin(profile.digest(), session, AutoFillSourceConfiguration.create(profile, accountUnlock), forceQuarantine)
             currentProfile = profile
             sourceSession = session
             if (owner.get() != null && metadata != null) onPending?.invoke()
             return epoch
         }
     }
+    fun sourceConfiguration(expected: AutoFillSourceProfile): Map<String, Any>? = source.configuration(expected)?.wire()
     fun sourceSnapshot(): Map<String, Any>? = source.snapshot()?.let {
         mapOf("sourceEpoch" to it.epoch, "profileDigest" to it.profile)
     }
@@ -65,6 +67,7 @@ internal object AutoFillRequestBroker {
         requireProfileBinding(profileBinding)
         val result = source.invalidate(session, epoch)
         state.sourceChanged()
+        (metadata?.get("id") as? String)?.let { onSourceChanged?.invoke(it) }
         result
     }
     fun revokeSession(session: String, epoch: Long, profileBinding: String): Long = synchronized(AutoFillMutationLock.monitor) {

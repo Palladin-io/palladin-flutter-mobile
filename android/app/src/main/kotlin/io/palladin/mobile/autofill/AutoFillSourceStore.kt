@@ -23,8 +23,13 @@ internal data class AutoFillSourceProfile(
 }
 
 internal object AutoFillSourceFenceCodec {
-    private fun body(fence: AutoFillSourceFence) = JSONObject().put("version", 1)
-        .put("epoch", fence.epoch).put("profile", fence.profile).put("active", fence.active).toString().toByteArray(Charsets.UTF_8)
+    private fun body(fence: AutoFillSourceFence, version: Int = 2) = JSONObject().put("version", version)
+        .put("epoch", fence.epoch).put("profile", fence.profile).put("active", fence.active).apply {
+            if (version == 2) {
+                put("accountUnlockDigest", fence.accountUnlockDigest ?: JSONObject.NULL)
+                put("configuration", fence.configuration?.wire()?.let { JSONObject(it) } ?: JSONObject.NULL)
+            }
+        }.toString().toByteArray(Charsets.UTF_8)
     fun encode(fence: AutoFillSourceFence, sign: (ByteArray) -> ByteArray): ByteArray {
         require(fence.epoch > 0 && fence.profile.isNotBlank())
         val payload = body(fence)
@@ -34,13 +39,20 @@ internal object AutoFillSourceFenceCodec {
     }
     fun decode(bytes: ByteArray, sign: (ByteArray) -> ByteArray): AutoFillSourceFence {
         val value = JSONObject(String(bytes, Charsets.UTF_8))
-        require(value.keys().asSequence().toSet() == setOf("version", "epoch", "profile", "active", "mac"))
-        require(value.getInt("version") == 1 && value.get("active") is Boolean)
+        val version = value.getInt("version")
+        require(version in 1..2 && value.get("active") is Boolean)
+        val fields = setOf("version", "epoch", "profile", "active", "mac") +
+            if (version == 2) setOf("accountUnlockDigest", "configuration") else emptySet()
+        require(value.keys().asSequence().toSet() == fields)
         val epoch = value.get("epoch")
         require(epoch is Int || epoch is Long)
-        val fence = AutoFillSourceFence((epoch as Number).toLong(), value.getString("profile"), value.getBoolean("active"))
+        val digest = if (version == 2 && !value.isNull("accountUnlockDigest")) value.getString("accountUnlockDigest") else null
+        if (digest != null) require(Base64.getDecoder().decode(digest).size == 32)
+        val config = if (version == 2 && !value.isNull("configuration")) AutoFillSourceConfiguration.decode(value.getJSONObject("configuration")) else null
+        val fence = AutoFillSourceFence((epoch as Number).toLong(), value.getString("profile"), value.getBoolean("active"), digest, config)
         require(fence.epoch > 0 && fence.profile.isNotBlank())
-        val payload = body(fence)
+        if (config != null) require(config.profile.digest() == fence.profile && config.accountUnlockDigest == digest)
+        val payload = body(fence, version)
         val expected = sign(payload)
         val actual = Base64.getDecoder().decode(value.getString("mac"))
         try { require(MessageDigest.isEqual(expected, actual)); return fence }
@@ -55,7 +67,7 @@ internal class AutoFillSourceStore(context: Context) {
     private fun read(): AutoFillSourceFence? {
         try {
             if (!file.exists()) return null
-            require(file.isFile && file.length() in 1..4096)
+            require(file.isFile && file.length() in 1..65536)
             val bytes = file.readBytes()
             return try { AutoFillSourceFenceCodec.decode(bytes, integrity::sourceControlMac) }
             finally { bytes.fill(0) }
@@ -63,7 +75,7 @@ internal class AutoFillSourceStore(context: Context) {
     }
     private fun write(value: AutoFillSourceFence) {
         val bytes = AutoFillSourceFenceCodec.encode(value, integrity::sourceControlMac)
-        try { AutoFillAtomicFileWriter.write(file, bytes) }
+        try { require(bytes.size <= 65536); AutoFillAtomicFileWriter.write(file, bytes) }
         catch (_: Exception) { throw AutoFillSourceException("SOURCE_UNAVAILABLE") }
         finally { bytes.fill(0) }
     }
