@@ -39,8 +39,12 @@ final class SearchSessionController {
       (previous.userId != current.userId ||
           !identical(previous.privateKey, current.privateKey));
 
-  void replaceUnlockedSession(AuthAuthenticated current) {
+  void replaceUnlockedSession(
+    AuthAuthenticated current, {
+    required void Function() invalidatePreparation,
+  }) {
     lock();
+    invalidatePreparation();
     final key = current.privateKey;
     if (current.isVaultLocked || key == null || key.isEmpty) return;
     _principalId = current.userId;

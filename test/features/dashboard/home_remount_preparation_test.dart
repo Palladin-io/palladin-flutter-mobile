@@ -13,9 +13,16 @@ import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cubit.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_entry_list_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_index_preparation_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_list_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
+
+class _ListCrypto extends Mock implements VaultListCryptoService {}
+
+class _VaultRepository extends Mock implements VaultRepository {}
 
 class _Vaults extends Mock implements VaultListCubit {}
 
@@ -34,6 +41,141 @@ class _AutoFill extends Mock implements AutoFillPreparedCacheSynchronizer {}
 
 void main() {
   setUpAll(() => registerFallbackValue(Uint8List(0)));
+  test(
+    'new principal reloads the real Vault list before new search preparation',
+    () async {
+      final crypto = _ListCrypto();
+      final vaults = VaultListCubit(
+        repository: _VaultRepository(),
+        listService: crypto,
+      );
+      final loader = _Loader();
+      final index = _Index();
+      final views = SearchSessionController();
+      final oldKey = Uint8List(32);
+      final newKey = Uint8List(32)..[0] = 1;
+      VaultEntity vault(String id) => VaultEntity(
+        id: id,
+        name: id,
+        grantMode: GrantMode.granular,
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+        entryCount: 0,
+        activeGrantCount: 0,
+        memberCount: 1,
+      );
+      when(() => crypto.load(oldKey)).thenAnswer(
+        (_) async => DecryptedVaultList(vaults: [vault('old')], corruptIds: []),
+      );
+      when(() => crypto.load(newKey)).thenAnswer(
+        (_) async => DecryptedVaultList(vaults: [vault('new')], corruptIds: []),
+      );
+      final loaded = <String>[];
+      when(
+        () => loader.load(
+          vaultId: any(named: 'vaultId'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((call) async {
+        loaded.add(call.namedArguments[#vaultId] as String);
+        return [];
+      });
+      final preparer = MemberIndexPreparationService(
+        vaults: vaults,
+        entries: loader,
+      );
+      final local = LocalSearchRepositoryImpl(
+        vaults: vaults,
+        memberIndex: index,
+        entryLoader: loader,
+        preparation: preparer,
+      );
+      final cubit = SearchCubit(
+        repository: _Remote(),
+        localRepository: local,
+        analytics: _Analytics(),
+        sessionController: views,
+      )..prepare(oldKey, principalId: 'old');
+      await Future<void>.delayed(Duration.zero);
+      views.replaceUnlockedSession(
+        AuthAuthenticated(
+          userId: 'new',
+          isOnboarded: true,
+          isVaultLocked: false,
+          privateKey: newKey,
+        ),
+        invalidatePreparation: () {
+          vaults.lock();
+          preparer.lock();
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(loaded, ['old', 'new']);
+      expect((vaults.state as VaultListLoaded).vaults.single.id, 'new');
+      verify(() => crypto.load(any())).called(2);
+      await cubit.close();
+      await vaults.close();
+    },
+  );
+
+  test(
+    'session replacement cannot adopt the old real index preparation',
+    () async {
+      final vaults = _Vaults();
+      final loader = _Loader();
+      final index = _Index();
+      final views = SearchSessionController();
+      final oldKey = Uint8List(32);
+      final newKey = Uint8List(32)..[0] = 1;
+      final oldLoad = Completer<List<VaultEntity>>();
+      final newLoad = Completer<List<VaultEntity>>();
+      var starts = 0;
+      when(
+        () => vaults.loadForMemberIndex(any(), ensureFresh: false),
+      ).thenAnswer((_) {
+        starts++;
+        return starts == 1 ? oldLoad.future : newLoad.future;
+      });
+      final preparer = MemberIndexPreparationService(
+        vaults: vaults,
+        entries: loader,
+      );
+      final local = LocalSearchRepositoryImpl(
+        vaults: vaults,
+        memberIndex: index,
+        entryLoader: loader,
+        preparation: preparer,
+      );
+      final cubit = SearchCubit(
+        repository: _Remote(),
+        localRepository: local,
+        analytics: _Analytics(),
+        sessionController: views,
+      )..prepare(oldKey, principalId: 'old');
+      views.replaceUnlockedSession(
+        AuthAuthenticated(
+          userId: 'new',
+          isOnboarded: true,
+          isVaultLocked: false,
+          privateKey: newKey,
+        ),
+        invalidatePreparation: preparer.lock,
+      );
+      final startsBeforeOldFinished = starts;
+      oldLoad.complete([]);
+      await Future<void>.delayed(Duration.zero);
+      newLoad.complete([]);
+      await Future<void>.delayed(Duration.zero);
+      await cubit.close();
+      expect(
+        startsBeforeOldFinished,
+        2,
+        reason: 'new session must not join old-key preparation',
+      );
+      verify(() => loader.lock()).called(1);
+    },
+  );
+
   test(
     'direct unlocked replacement clears active views and prepares only the new session',
     () async {
@@ -74,7 +216,7 @@ void main() {
         SearchSessionController.replacesUnlockedSession(before, after),
         isTrue,
       );
-      views.replaceUnlockedSession(after);
+      views.replaceUnlockedSession(after, invalidatePreparation: () {});
       expect(cleared, greaterThanOrEqualTo(1));
       old.completeError(StateError('old preparation failed'));
       await Future<void>.delayed(Duration.zero);
@@ -94,7 +236,7 @@ void main() {
         SearchSessionController.replacesUnlockedSession(after, other),
         isTrue,
       );
-      views.replaceUnlockedSession(other);
+      views.replaceUnlockedSession(other, invalidatePreparation: () {});
       await Future<void>.delayed(Duration.zero);
       verify(() => local.prepare(newKey)).called(1);
       await cubit.close();

@@ -538,6 +538,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             listenWhen: SearchSessionController.replacesUnlockedSession,
             listener: (_, state) => _searchSession.replaceUnlockedSession(
               state as AuthAuthenticated,
+              invalidatePreparation: () {
+                _vaultList.lock();
+                _memberIndexPreparation.lock();
+              },
             ),
           ),
           // Auth-driven push token lifecycle: register on login, remove
