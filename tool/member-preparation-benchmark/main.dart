@@ -6,10 +6,9 @@ import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:mobile_palladin/core/crypto/asymmetric_keys.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/member_sync_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
@@ -59,7 +58,9 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
     pair.publicKey,
   );
   final crypto = EntryV2CryptoService();
-  final vaultKeys = VaultRotationCryptoService();
+  final vaultKeys = VaultRotationCryptoService(
+    memberKeySuite: WrapperSuite.x25519SealedBoxV1,
+  );
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
   final heads = <String, List<Map<String, Object?>>>{};
@@ -106,10 +107,15 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
         recipientFingerprint: fingerprint,
       );
       try {
-        final sealed = await X25519SealedBoxKeyWrapper().seal(
+        final sealed = await RecipientKeyWrapper().seal(
           key: vaultKey,
           context: wrapperContext,
-          recipient: X25519PublicKey(pair.publicKey),
+          recipient: RecipientPublicKey(
+            suite: wrapperContext.suiteId,
+            keyKind: RecipientKeyKind.memberEncryption,
+            keyVersion: wrapperContext.recipientKeyVersion,
+            publicKey: pair.publicKey,
+          ),
         );
         wrappers[vaultId] = {
           'wrappedVaultKey': {

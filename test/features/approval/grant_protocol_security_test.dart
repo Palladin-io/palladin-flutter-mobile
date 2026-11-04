@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/grant_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
@@ -418,7 +418,7 @@ void main() {
           envelope['wrappedGrantDek']! as Map,
         );
         grantKey =
-            await X25519SealedBoxKeyWrapper(
+            await RecipientKeyWrapper(
               sodiumLoader: () async => crypto,
             ).open(
               wrapped: VaultProtocolBytes.base64UrlDecode(

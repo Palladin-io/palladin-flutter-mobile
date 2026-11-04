@@ -4,10 +4,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_palladin/core/crypto/asymmetric_keys.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
@@ -21,6 +20,7 @@ void main() {
   test('opens the canonical Agent-message private-key contract', () async {
     final suite = _RecordingSuite(Uint8List(32));
     final service = VaultRotationCryptoService(
+      memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       cryptoSuites: CryptoSuiteRegistry(suites: [suite]),
     );
     final opened = await service.openCanonicalAgentMessagePrivateKey(
@@ -109,6 +109,7 @@ void main() {
 
   test('accepts only the canonical nested Member Vault key contract', () async {
     final service = VaultRotationCryptoService(
+      memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       sodiumLoader: () async => throw StateError('sodium-reached'),
     );
     final envelope = <String, dynamic>{
@@ -153,6 +154,7 @@ void main() {
     'rejects incomplete Member Vault key descriptors without null crashes',
     () async {
       final service = VaultRotationCryptoService(
+        memberKeySuite: WrapperSuite.x25519SealedBoxV1,
         sodiumLoader: () async =>
             throw StateError('sodium must not be reached'),
       );
@@ -187,6 +189,7 @@ void main() {
 
   test('rejects Member Vault key outside the fetched Vault epoch', () async {
     final service = VaultRotationCryptoService(
+      memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       sodiumLoader: () async => throw StateError('sodium must not be reached'),
     );
     final envelope = <String, dynamic>{
@@ -236,6 +239,7 @@ void main() {
       return;
     }
     final service = VaultRotationCryptoService(
+      memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       sodiumLoader: () async => sodium,
       envelopes: VaultProtocolEnvelopeService(sodiumLoader: () async => sodium),
       signatures: VaultProtocolSignatureService(
@@ -253,6 +257,7 @@ void main() {
       publicKey,
     );
     final context = WrapperContext(
+      suiteId: WrapperSuite.x25519SealedBoxV1,
       purpose: WrapperPurpose.memberVaultKey,
       scope: EnvelopeScope(
         organizationId: EnvelopeId.parse(
@@ -268,11 +273,16 @@ void main() {
       recipientKeyVersion: 2,
       recipientFingerprint: fingerprint,
     );
-    final sealed =
-        await X25519SealedBoxKeyWrapper(sodiumLoader: () async => sodium).seal(
+    final sealed = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
+        .seal(
           key: expectedKey,
           context: context,
-          recipient: X25519PublicKey(publicKey),
+          recipient: RecipientPublicKey(
+            suite: context.suiteId,
+            keyKind: RecipientKeyKind.memberEncryption,
+            keyVersion: context.recipientKeyVersion,
+            publicKey: publicKey,
+          ),
         );
     final envelope = <String, dynamic>{
       'wrappedVaultKey': {
@@ -332,6 +342,7 @@ void main() {
     final signingPair = sodium.crypto.sign.keyPair();
     final signingPrivateKey = signingPair.secretKey.extractBytes();
     final service = VaultRotationCryptoService(
+      memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       sodiumLoader: () async => sodium,
     );
     final contract = await service.sealAgentVaultKey(
@@ -376,8 +387,8 @@ void main() {
       ),
       isTrue,
     );
-    final opened =
-        await X25519SealedBoxKeyWrapper(sodiumLoader: () async => sodium).open(
+    final opened = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
+        .open(
           wrapped: VaultProtocolBytes.base64UrlDecode(
             wrapped['encodedSealedKeyPackage']! as String,
           ),
@@ -418,6 +429,7 @@ void main() {
       sodiumLoader: () async => sodium,
     );
     final service = VaultRotationCryptoService(
+      memberKeySuite: WrapperSuite.x25519SealedBoxV1,
       sodiumLoader: () async => sodium,
       envelopes: envelopeService,
       signatures: VaultProtocolSignatureService(

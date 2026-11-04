@@ -4,9 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_palladin/core/crypto/asymmetric_keys.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/encrypted_reason_crypto_service.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
@@ -227,13 +226,16 @@ void main() {
         recipientFingerprint: fingerprint,
         parentDescriptorHash: WrapperContext.hashParent(descriptor),
       );
-      final sealed =
-          await X25519SealedBoxKeyWrapper(
-            sodiumLoader: () async => sodium,
-          ).seal(
+      final sealed = await RecipientKeyWrapper(sodiumLoader: () async => sodium)
+          .seal(
             key: reasonKey,
             context: wrapper,
-            recipient: X25519PublicKey(recipient.publicKey),
+            recipient: RecipientPublicKey(
+              suite: wrapper.suiteId,
+              keyKind: RecipientKeyKind.vaultAgentMessage,
+              keyVersion: keyVersion,
+              publicKey: recipient.publicKey,
+            ),
           );
       final unsigned = EncryptedReason(
         descriptor: {

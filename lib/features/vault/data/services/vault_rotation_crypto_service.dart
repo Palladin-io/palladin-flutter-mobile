@@ -7,7 +7,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../models/vault_rotation_models.dart';
 import 'vault_protocol/vault_protocol_aad.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
@@ -51,7 +51,9 @@ class VaultRotationCryptoService {
     VaultProtocolEnvelopeService? envelopes,
     VaultProtocolSignatureService? signatures,
     CryptoSuiteRegistry? cryptoSuites,
-  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
+    WrapperSuite memberKeySuite = WrapperSuite.memberKeySuite,
+  }) : _memberKeySuite = memberKeySuite,
+       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
        _envelopes = envelopes ?? VaultProtocolEnvelopeService(),
        _signatures =
            signatures ??
@@ -68,6 +70,9 @@ class VaultRotationCryptoService {
              ],
            );
 
+  /// Suite of the unlocked member key; the security-upgrade flow passes the
+  /// legacy suite only to open envelopes addressed to the old key.
+  final WrapperSuite _memberKeySuite;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
   Future<Map<String, Map<String, Object>>> createPublicTrustAnchors({
@@ -273,8 +278,7 @@ class VaultRotationCryptoService {
     final scopeJson = descriptor['scope'];
     if (purpose != WrapperPurpose.memberVaultKey ||
         scopeJson is! Map ||
-        descriptor['wrapperSuiteId'] !=
-            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue) {
+        descriptor['wrapperSuiteId'] != _memberKeySuite.wireValue) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
     final scope = Map<String, dynamic>.from(scopeJson);
@@ -328,6 +332,7 @@ class VaultRotationCryptoService {
     try {
       final context = WrapperContext(
         protocolVersion: protocolVersion,
+        suiteId: _memberKeySuite,
         purpose: purpose,
         scope: EnvelopeScope(
           organizationId: EnvelopeId.parse(organizationId),
@@ -341,7 +346,7 @@ class VaultRotationCryptoService {
         recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
       );
-      return await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).open(
+      return await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).open(
         wrapped: sealedPackage,
         context: context,
         recipientSecretKey: memberPrivateKey,

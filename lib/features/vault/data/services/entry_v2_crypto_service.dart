@@ -4,11 +4,10 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
-import '../../../../core/crypto/asymmetric_keys.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../models/entry_v2_contracts.dart';
 import 'vault_protocol/vault_protocol_signature_service.dart';
@@ -198,11 +197,16 @@ class EntryV2CryptoService {
         recipientFingerprint: fingerprint,
         parentDescriptorHash: parentHash,
       );
-      final sealed =
-          await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).seal(
+      final sealed = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader)
+          .seal(
             key: dek,
             context: wrapper,
-            recipient: X25519PublicKey(agentPublicKey),
+            recipient: RecipientPublicKey(
+              suite: wrapper.suiteId,
+              keyKind: RecipientKeyKind.agentEncryption,
+              keyVersion: recipientKeyVersion,
+              publicKey: agentPublicKey,
+            ),
           );
       return {
         ...envelope,

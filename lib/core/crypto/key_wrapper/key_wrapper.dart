@@ -730,3 +730,23 @@ Uint8List _u16(int value) =>
 
 Uint8List _u32(int value) =>
     (ByteData(4)..setUint32(0, value)).buffer.asUint8List();
+
+/// Public key of the member's own key pair under [suite], derived locally so
+/// no envelope or response can choose it.
+Uint8List memberPublicKeyFromPrivate(
+  SodiumSumo sodium,
+  Uint8List privateKey, {
+  WrapperSuite suite = WrapperSuite.memberKeySuite,
+}) {
+  switch (suite) {
+    case WrapperSuite.xwingV1:
+      return XWing(sodium).publicKeyFromSeed(privateKey);
+    case WrapperSuite.x25519SealedBoxV1:
+      final secret = SecureKey.fromList(sodium, privateKey);
+      try {
+        return sodium.crypto.scalarmult.base(n: secret);
+      } finally {
+        secret.dispose();
+      }
+  }
+}

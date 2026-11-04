@@ -4,10 +4,9 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_palladin/core/crypto/asymmetric_keys.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 void main() {
@@ -218,10 +217,15 @@ void main() {
         parentDescriptorHash: valid.parentDescriptorHash,
       );
       await expectLater(
-        X25519SealedBoxKeyWrapper().seal(
+        RecipientKeyWrapper().seal(
           key: Uint8List(32),
           context: invalid,
-          recipient: X25519PublicKey(publicKey),
+          recipient: RecipientPublicKey(
+            suite: invalid.suiteId,
+            keyKind: RecipientKeyKind.tryParse(invalid.recipientKeyKind)!,
+            keyVersion: invalid.recipientKeyVersion,
+            publicKey: publicKey,
+          ),
         ),
         throwsA(isA<EnvelopeException>()),
       );
@@ -263,9 +267,7 @@ void main() {
                 ).readAsStringSync(),
               )
               as Map<String, dynamic>;
-      final wrapper = X25519SealedBoxKeyWrapper(
-        sodiumLoader: () async => sodium,
-      );
+      final wrapper = RecipientKeyWrapper(sodiumLoader: () async => sodium);
       final opened = await wrapper.open(
         wrapped: _fromHex(wrapperFixture['sealedPackageHex'] as String),
         context: _fixtureWrapperContext(),

@@ -1,5 +1,5 @@
 import '../../../../../core/crypto/envelope/envelope_contract.dart';
-import '../../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../domain/entities/entry_share_copy.dart';
 import '../../../domain/entities/entry_share_list.dart';
 
@@ -54,8 +54,7 @@ final class EntryShareCopyVaultAuthority {
               as Map;
       _scope(wrapper['scope'] as Map, selectedVaultId, owner, member: true);
       if (wrapper['protocolVersion'] != 2 ||
-          wrapper['wrapperSuiteId'] !=
-              RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue ||
+          wrapper['wrapperSuiteId'] != WrapperSuite.memberKeySuite.wireValue ||
           WrapperPurpose.parseWire(wrapper['purpose']) !=
               WrapperPurpose.memberVaultKey ||
           wrapper['wrappedKeyVersion'] != vkVersion ||

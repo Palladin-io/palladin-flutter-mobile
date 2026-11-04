@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
+
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/jwt_claims.dart';
@@ -10,7 +12,6 @@ import '../../../unlock/data/datasources/account_remote_datasource.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../datasources/vault_remote_datasource.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
-import 'vault_protocol/vault_protocol_fingerprint.dart';
 import 'vault_crypto_service.dart';
 
 final class _PendingVaultCreation {
@@ -193,14 +194,13 @@ class VaultCreationService implements VaultCreator {
     Uint8List? publicKey;
     try {
       final sodium = await _sodiumLoader();
-      final secret = SecureKey.fromList(sodium, memberPrivateKey);
-      try {
-        publicKey = sodium.crypto.scalarmult.base(n: secret);
-      } finally {
-        secret.dispose();
-      }
+      publicKey = memberPublicKeyFromPrivate(sodium, memberPrivateKey);
       final fingerprint = VaultProtocolBytes.base64UrlEncode(
-        vaultPublicKeyFingerprint(VaultPublicKeyKind.memberX25519, publicKey),
+        recipientFingerprint(
+          WrapperSuite.memberKeySuite,
+          RecipientKeyKind.memberEncryption.id,
+          publicKey,
+        ),
       );
       return fingerprint == pending.memberPublicKeyFingerprint;
     } finally {

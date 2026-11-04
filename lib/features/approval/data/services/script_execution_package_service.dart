@@ -4,10 +4,9 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
-import '../../../../core/crypto/asymmetric_keys.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -299,12 +298,16 @@ class ScriptExecutionPackageService {
         recipientFingerprint: fingerprint,
         parentDescriptorHash: parentHash,
       );
-      sealedDek = await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader)
-          .seal(
-            key: packageDek,
-            context: wrapper,
-            recipient: X25519PublicKey(agentPublicKey),
-          );
+      sealedDek = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).seal(
+        key: packageDek,
+        context: wrapper,
+        recipient: RecipientPublicKey(
+          suite: wrapper.suiteId,
+          keyKind: RecipientKeyKind.agentEncryption,
+          keyVersion: recipientAgentKeyVersion,
+          publicKey: agentPublicKey,
+        ),
+      );
       containerBytes = canonicalVaultJson({
         'schema': 'palladin.script-execution-package-ciphertext.v1',
         'contractVersion': contractVersion,

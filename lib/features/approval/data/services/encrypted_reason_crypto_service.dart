@@ -5,7 +5,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import '../../domain/entities/encrypted_reason.dart';
@@ -39,7 +39,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
     final wrappedJson = reason.wrappedReasonDek;
     final wrapped = VaultProtocolBytes.base64UrlDecode(
       wrappedJson['encodedSealedKeyPackage'] as String,
-      maximumBytes: X25519SealedBoxKeyWrapper.encodedBytes,
+      maximumBytes: RecipientKeyWrapper.legacyEncodedBytes,
     );
     final wrapper = _wrapper(reason, descriptor);
     final signature = VaultProtocolBytes.base64UrlDecode(
@@ -59,7 +59,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
       )) {
         throw const FormatException('Encrypted reason signature mismatch');
       }
-      return await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).open(
+      return await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).open(
         wrapped: wrapped,
         context: wrapper,
         recipientSecretKey: recipientPrivateKey,
@@ -79,10 +79,10 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
     ).bytes;
     final wrapped = VaultProtocolBytes.base64UrlDecode(
       reason.wrappedReasonDek['encodedSealedKeyPackage'] as String,
-      maximumBytes: X25519SealedBoxKeyWrapper.encodedBytes,
+      maximumBytes: RecipientKeyWrapper.legacyEncodedBytes,
     );
     final suite = VaultProtocolBytes.utf8Encode(
-      RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue,
+      WrapperSuite.x25519SealedBoxV1.wireValue,
     );
     try {
       return VaultProtocolBytes.concat([
@@ -118,8 +118,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
     final binding = reason.binding;
     if (json['cryptoSuiteId'] !=
             CryptoSuiteId.palladinVaultXChaChaV1.wireValue ||
-        binding['wrapperSuiteId'] !=
-            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue ||
+        binding['wrapperSuiteId'] != WrapperSuite.x25519SealedBoxV1.wireValue ||
         scope['memberId'] != null) {
       throw const FormatException('Invalid encrypted reason descriptor');
     }
@@ -157,8 +156,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
     final recipientKeyKind = VaultPublicKeyKind.parseWire(
       json['recipientKeyKind'],
     );
-    if (json['wrapperSuiteId'] !=
-            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue ||
+    if (json['wrapperSuiteId'] != WrapperSuite.x25519SealedBoxV1.wireValue ||
         WrapperPurpose.parseWire(json['purpose']) != WrapperPurpose.reasonDek ||
         scope['organizationId'] != parentScope['organizationId'] ||
         scope['vaultId'] != parentScope['vaultId'] ||

@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/script_execution_package_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
@@ -329,7 +329,7 @@ void main() {
         parentDescriptorHash: parentHash,
       );
       packageKey =
-          await X25519SealedBoxKeyWrapper(
+          await RecipientKeyWrapper(
             sodiumLoader: () async => sodium,
           ).open(
             wrapped: VaultProtocolBytes.base64UrlDecode(

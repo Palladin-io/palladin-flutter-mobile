@@ -4,17 +4,13 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
-import 'asymmetric_keys.dart';
 import 'envelope/envelope_contract.dart';
+import 'kem/xwing.dart';
+import 'key_wrapper/key_wrapper.dart';
 import 'sodium_provider.dart';
 
-/// Registered X25519 recipient-wrapper profile.
-enum RecipientWrapperSuiteId {
-  x25519SealedBoxV1('palladin-x25519-sealed-box-v1');
-
-  const RecipientWrapperSuiteId(this.wireValue);
-  final String wireValue;
-}
+export 'key_wrapper/key_wrapper.dart'
+    show RecipientKeyKind, RecipientPublicKey, WrapperSuite;
 
 /// Wrapper contexts are closed and have purpose-specific scope requirements.
 enum WrapperPurpose {
@@ -54,7 +50,7 @@ enum WrapperPurpose {
 final class WrapperContext {
   WrapperContext({
     this.protocolVersion = 2,
-    this.suiteId = RecipientWrapperSuiteId.x25519SealedBoxV1,
+    this.suiteId = WrapperSuite.x25519SealedBoxV1,
     required this.purpose,
     required this.scope,
     required this.resourceRevision,
@@ -72,7 +68,7 @@ final class WrapperContext {
   }
 
   final int protocolVersion;
-  final RecipientWrapperSuiteId suiteId;
+  final WrapperSuite suiteId;
   final WrapperPurpose purpose;
   final EnvelopeScope scope;
   final int resourceRevision;
@@ -166,14 +162,55 @@ final class WrapperContext {
 
   static Uint8List hashParent(EnvelopeDescriptor descriptor) =>
       Uint8List.fromList(sha256.convert(descriptor.encodeAad()).bytes);
+
+  /// The same context as a `key-wrapper/v1` descriptor.
+  KeyWrapperDescriptor toDescriptor() => KeyWrapperDescriptor(
+    protocolVersion: protocolVersion,
+    wrapperSuiteId: suiteId.wireValue,
+    purpose: purpose.id,
+    scope: {
+      'organizationId': _uuid(scope.organizationId),
+      'vaultId': _uuid(scope.vaultId),
+      if (scope.entryId case final id?) 'entryId': _uuid(id),
+      if (scope.grantOrRequestId case final id?) 'grantOrRequestId': _uuid(id),
+      if (scope.agentId case final id?) 'agentId': _uuid(id),
+      if (scope.memberId case final id?) 'memberId': _uuid(id),
+    },
+    resourceRevision: resourceRevision.toString(),
+    wrappedKeyVersion: wrappedKeyVersion,
+    memberKeyGeneration: memberKeyGeneration,
+    recipientKeyKind: recipientKeyKind,
+    recipientKeyVersion: recipientKeyVersion,
+    recipientFingerprint: _b64(recipientFingerprint),
+    parentDescriptorHash: switch (parentDescriptorHash) {
+      final hash? => _b64(hash),
+      null => null,
+    },
+  );
 }
 
-/// Exact 120-byte `crypto_box_seal` wrapper for one 32-byte content key.
-final class X25519SealedBoxKeyWrapper {
-  X25519SealedBoxKeyWrapper({Future<SodiumSumo> Function()? sodiumLoader})
+String _uuid(EnvelopeId id) {
+  final hex = id.bytes
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+      .join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+}
+
+String _b64(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
+
+/// Seals or opens one 32-byte key for the recipient named by a
+/// [WrapperContext]; the context's suite selects the algorithm.
+///
+/// X-Wing goes through the registry-checked [KeyWrapper]. The legacy sealed
+/// box remains only for recipients whose authenticated key directory still
+/// names it (agent keys before their rotation, opens during migration).
+final class RecipientKeyWrapper {
+  RecipientKeyWrapper({Future<SodiumSumo> Function()? sodiumLoader})
     : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
-  static const int encodedBytes = 120;
+  static const int legacyEncodedBytes = 120;
+  static const int maximumEncodedBytes = 1168;
   static const int _keyBytes = 32;
   static const int _plaintextBytes = 72;
   final Future<SodiumSumo> Function() _sodiumLoader;
@@ -181,12 +218,25 @@ final class X25519SealedBoxKeyWrapper {
   Future<Uint8List> seal({
     required Uint8List key,
     required WrapperContext context,
-    required X25519PublicKey recipient,
+    required RecipientPublicKey recipient,
   }) async {
     if (key.length != _keyBytes) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
-    _verifyRecipient(recipient.bytes, context);
+    if (recipient.suite != context.suiteId) {
+      throw const EnvelopeException(EnvelopeErrorKind.authenticationFailed);
+    }
+    if (context.suiteId == WrapperSuite.xwingV1) {
+      final encoded = await _keyWrapper(
+        () => KeyWrapper(sodiumLoader: _sodiumLoader).seal(
+          descriptor: context.toDescriptor(),
+          key: key,
+          recipient: recipient,
+        ),
+      );
+      return Uint8List.fromList(base64Url.decode(base64Url.normalize(encoded)));
+    }
+    _verifyRecipient(recipient.publicKey, context);
     final contextHash = _contextHash(context);
     final plaintext = Uint8List(_plaintextBytes)
       ..setRange(0, 8, ascii.encode('PLDNX2K1'))
@@ -196,9 +246,9 @@ final class X25519SealedBoxKeyWrapper {
       final sodium = await _sodiumLoader();
       final sealed = sodium.crypto.box.seal(
         message: plaintext,
-        publicKey: recipient.bytes,
+        publicKey: recipient.publicKey,
       );
-      if (sealed.length != encodedBytes) {
+      if (sealed.length != legacyEncodedBytes) {
         throw const EnvelopeException(EnvelopeErrorKind.invalidPayload);
       }
       return sealed;
@@ -207,15 +257,38 @@ final class X25519SealedBoxKeyWrapper {
     }
   }
 
+  /// Opens with the recipient's private key; its public key is derived
+  /// locally, so the envelope never chooses the recipient.
   Future<Uint8List> open({
     required Uint8List wrapped,
     required WrapperContext context,
     required Uint8List recipientSecretKey,
   }) async {
-    if (wrapped.length != encodedBytes || recipientSecretKey.length != 32) {
+    if (wrapped.length != context.suiteId.packageBytes ||
+        recipientSecretKey.length != 32) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidPayload);
     }
     final sodium = await _sodiumLoader();
+    if (context.suiteId == WrapperSuite.xwingV1) {
+      final recipient = RecipientPublicKey(
+        suite: WrapperSuite.xwingV1,
+        keyKind:
+            RecipientKeyKind.tryParse(context.recipientKeyKind) ??
+            (throw const EnvelopeException(
+              EnvelopeErrorKind.invalidDescriptor,
+            )),
+        keyVersion: context.recipientKeyVersion,
+        publicKey: XWing(sodium).publicKeyFromSeed(recipientSecretKey),
+      );
+      return _keyWrapper(
+        () => KeyWrapper(sodiumLoader: () async => sodium).open(
+          descriptor: context.toDescriptor(),
+          encodedPackage: _b64(wrapped),
+          recipient: recipient,
+          recipientPrivateKey: recipientSecretKey,
+        ),
+      );
+    }
     final secret = SecureKey.fromList(sodium, recipientSecretKey);
     Uint8List? plaintext;
     try {
@@ -243,6 +316,24 @@ final class X25519SealedBoxKeyWrapper {
     } finally {
       plaintext?.fillRange(0, plaintext.length, 0);
       secret.dispose();
+    }
+  }
+
+  static Future<T> _keyWrapper<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on KeyWrapperException catch (error) {
+      throw EnvelopeException(switch (error.error) {
+        KeyWrapperError.malformedDescriptor ||
+        KeyWrapperError.unsupportedPurpose =>
+          EnvelopeErrorKind.invalidDescriptor,
+        KeyWrapperError.unsupportedSuite ||
+        KeyWrapperError.suiteNotAllowedForPurpose ||
+        KeyWrapperError.suiteNotWritable => EnvelopeErrorKind.unsupportedSuite,
+        KeyWrapperError.malformedPackage => EnvelopeErrorKind.invalidPayload,
+        KeyWrapperError.recipientMismatch ||
+        KeyWrapperError.openFailed => EnvelopeErrorKind.authenticationFailed,
+      });
     }
   }
 }
@@ -292,10 +383,15 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
   );
   Uint8List? sealed;
   try {
-    sealed = await X25519SealedBoxKeyWrapper(sodiumLoader: sodiumLoader).seal(
+    sealed = await RecipientKeyWrapper(sodiumLoader: sodiumLoader).seal(
       key: vaultKey,
       context: context,
-      recipient: X25519PublicKey(agentPublicKey),
+      recipient: RecipientPublicKey(
+        suite: context.suiteId,
+        keyKind: RecipientKeyKind.agentEncryption,
+        keyVersion: recipientKeyVersion,
+        publicKey: agentPublicKey,
+      ),
     );
     final unsigned = <String, Object?>{
       'vaultSigningKeyFingerprint': base64UrlEncode(
@@ -353,12 +449,17 @@ Uint8List _contextHash(WrapperContext context) => Uint8List.fromList(
 );
 
 void _verifyRecipient(List<int> publicKey, WrapperContext context) {
-  final actual = sha256.convert([
-    ...ascii.encode('PLDNV2FP'),
-    ..._u16(context.protocolVersion),
-    ..._u16(context.recipientKeyKind),
-    ...publicKey,
-  ]).bytes;
+  final List<int> actual;
+  try {
+    actual = recipientFingerprint(
+      context.suiteId,
+      context.recipientKeyKind,
+      publicKey,
+      context.protocolVersion,
+    );
+  } on KeyWrapperException {
+    throw const EnvelopeException(EnvelopeErrorKind.authenticationFailed);
+  }
   if (!_constantTimeEqual(actual, context.recipientFingerprint)) {
     throw const EnvelopeException(EnvelopeErrorKind.authenticationFailed);
   }
