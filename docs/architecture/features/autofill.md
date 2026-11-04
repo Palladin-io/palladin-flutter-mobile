@@ -280,7 +280,8 @@ claiming the independently protected native cache was erased; unlock activates a
 new native session and prepares again. This is a publication status, not a promise
 that every third-party form is supported or that an offline lease never expires.
 Home hides the ready/unknown card; Security retains the status. Copy is EN/PL and
-measured progress has a localized accessibility label.
+measured progress has a localized accessibility label. Its brand-red fill and
+neutral muted track reuse the Home onboarding progress palette in both themes.
 
 ## Provider activation and status
 
