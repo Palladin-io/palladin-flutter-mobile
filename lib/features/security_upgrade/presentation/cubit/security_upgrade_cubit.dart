@@ -161,7 +161,7 @@ class SecurityUpgradeCubit extends Cubit<SecurityUpgradeState> {
       emit(
         progress = progress.copyWith(
           vaults: UpgradeStepStatus.done,
-          agents: report.legacyAgentEnvelopes == 0
+          agents: report.agentEnvelopesOnNonCurrentSuite == 0
               ? UpgradeStepStatus.done
               : UpgradeStepStatus.waiting,
         ),

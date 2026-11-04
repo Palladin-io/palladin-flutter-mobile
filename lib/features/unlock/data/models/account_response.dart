@@ -69,7 +69,7 @@ class AccountResponse {
       legacyMemberKey: switch (json['legacyMemberKey']) {
         final Map<String, dynamic> value => LegacyMemberKeyRecord(
           encryptedPrivateKey: value['encryptedPrivateKey'] as String,
-          keyVersion: value['keyVersion'] as int,
+          keyVersion: value['memberKeyVersion'] as int,
         ),
         _ => null,
       },

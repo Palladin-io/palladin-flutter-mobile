@@ -31,7 +31,8 @@ final class PairingQr {
 
   final PairingQrRole role;
 
-  /// 16-byte transfer id, encoded as unpadded base64url on the wire.
+  /// Transfer id as the backend's RFC 4122 UUID; the QR carries its 16
+  /// network-order bytes as unpadded base64url.
   final String transferId;
 
   /// `SHA-256(recipientPublicKey)` (recipient shows) or the server challenge
@@ -42,10 +43,11 @@ final class PairingQr {
   static const _senderPrefix = 'palladin-pair:v2:s:';
 
   static String recipientShows(String transferId, Uint8List recipientKey) =>
-      '$_recipientPrefix$transferId.${_b64(sha256.convert(recipientKey).bytes)}';
+      '$_recipientPrefix${_b64(_uuidBytes(transferId))}.'
+      '${_b64(sha256.convert(recipientKey).bytes)}';
 
   static String senderShows(String transferId, Uint8List challenge) =>
-      '$_senderPrefix$transferId.${_b64(challenge)}';
+      '$_senderPrefix${_b64(_uuidBytes(transferId))}.${_b64(challenge)}';
 
   static PairingQr parse(String raw) {
     final (role, rest) = raw.startsWith(_recipientPrefix)
@@ -57,10 +59,9 @@ final class PairingQr {
     if (parts.length != 2) {
       throw const DevicePairingException(DevicePairingError.malformedQr);
     }
-    _decode(parts[0], 16, DevicePairingError.malformedQr);
     return PairingQr._(
       role,
-      parts[0],
+      _uuidString(_decode(parts[0], 16, DevicePairingError.malformedQr)),
       _decode(parts[1], 32, DevicePairingError.malformedQr),
     );
   }
@@ -87,7 +88,7 @@ final class PairingOffer {
   }) {
     if (recipientPublicKey.length != XWing.publicKeyBytes ||
         challenge.length != 32 ||
-        scanned.transferId != transferId) {
+        scanned.transferId != transferId.toLowerCase()) {
       throw const DevicePairingException(DevicePairingError.malformedEnvelope);
     }
     final digest = Uint8List.fromList(sha256.convert(recipientPublicKey).bytes);
@@ -105,7 +106,7 @@ final class PairingOffer {
     }
     return PairingOffer._(
       accountId,
-      _decode(transferId, 16, DevicePairingError.malformedQr),
+      _uuidBytes(transferId),
       Uint8List.fromList(challenge),
       digest,
     );
@@ -119,7 +120,7 @@ final class PairingOffer {
     required Uint8List recipientPublicKey,
   }) => PairingOffer._(
     accountId,
-    _decode(transferId, 16, DevicePairingError.malformedQr),
+    _uuidBytes(transferId),
     Uint8List.fromList(challenge),
     Uint8List.fromList(sha256.convert(recipientPublicKey).bytes),
   );
@@ -386,6 +387,12 @@ Uint8List _uuidBytes(String value) {
     for (var i = 0; i < hex.length; i += 2)
       int.parse(hex.substring(i, i + 2), radix: 16),
   ]);
+}
+
+String _uuidString(Uint8List bytes) {
+  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
 }
 
 Uint8List _u16(int value) =>

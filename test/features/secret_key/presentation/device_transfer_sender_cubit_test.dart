@@ -15,7 +15,7 @@ class _MockDatasource extends Mock
 class _MockStore extends Mock implements AccountSecretStore {}
 
 const _accountId = '00112233-4455-6677-8899-aabbccddeeff';
-final _transferId = encodeTransferBytes(List.filled(16, 0x21));
+const _transferId = '21212121-2121-2121-2121-212121212121';
 final _challenge = Uint8List(32)..fillRange(0, 32, 0x22);
 
 void main() {

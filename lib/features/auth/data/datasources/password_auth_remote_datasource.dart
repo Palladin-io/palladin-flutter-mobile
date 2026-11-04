@@ -33,7 +33,7 @@ class PasswordAuthRemoteDatasource {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/login/salt',
-        data: {'email': email, 'profileId': profileId},
+        data: {'email': email},
       );
       return LoginKdfBootstrap.fromJson(_requireBody(response));
     } on DioException catch (e) {

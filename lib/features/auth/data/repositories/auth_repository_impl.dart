@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../../core/storage/account_secret_store.dart';
 import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -28,6 +29,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.autoFillCacheInvalidator,
     required String googleServerClientId,
     this.currentEntryCacheInvalidator,
+    this.accountSecrets,
     GeneratedPasswordHistoryBridge? generatedPasswordHistory,
     GoogleSignIn? googleSignIn,
     this.operationTimeout = const Duration(seconds: 4),
@@ -47,6 +49,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthRemoteDatasource remoteDatasource;
   final SecureTokenStorage tokenStorage;
+
+  /// This device's Secret Key copies; sign-out deletes the account's copy
+  /// (`identity-kdf/v3` `deleteOn: sign-out`).
+  final AccountSecretStore? accountSecrets;
   final BiometricKeyStore biometricKeyStore;
   final AutoFillCacheInvalidator autoFillCacheInvalidator;
   final GeneratedPasswordHistoryBridge _generatedPasswordHistory;
@@ -147,6 +153,8 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> logout() async {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
+    final secrets = accountSecrets;
+    final userId = secrets == null ? null : await tokenStorage.userId;
 
     // The generated-password session is independent of the disposable Vault
     // cache. Its deny must be acknowledged before logout can clear auth state.
@@ -199,6 +207,9 @@ class AuthRepositoryImpl implements AuthRepository {
     // availability can never keep a valid local session alive.
     BiometricKeyCleanupException? biometricCleanupError;
     try {
+      if (secrets != null && userId != null && userId.isNotEmpty) {
+        await secrets.delete(userId);
+      }
       await tokenStorage.clearAll();
     } finally {
       try {

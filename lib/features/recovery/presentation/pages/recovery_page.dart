@@ -6,6 +6,8 @@ import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../secret_key/presentation/widgets/emergency_kit_step_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
@@ -36,6 +38,10 @@ enum _RecoveryStep {
 
   /// Step 2 — user picks a new master password.
   newPassword,
+
+  /// Version-2 accounts: the new Secret Key's Emergency Kit, before the
+  /// new phrase.
+  emergencyKit,
 
   /// Step 3 — user is shown the freshly generated recovery mnemonic
   /// and must confirm they saved it before leaving the flow.
@@ -97,6 +103,8 @@ class _RecoveryViewState extends State<_RecoveryView> {
 
   /// Step-3 gate: user must tick the checkbox before "Finish" enables.
   bool _newKeySaved = false;
+  String? _kitAccountId;
+  String? _kitEmail;
 
   /// Freshly generated mnemonic captured from [RecoveryCompleted] so we
   /// can render step 3 without depending on cubit state (which may
@@ -145,6 +153,17 @@ class _RecoveryViewState extends State<_RecoveryView> {
 
   @override
   Widget build(BuildContext context) {
+    final secret = context.read<RecoveryCubit>().newAccountSecret;
+    if (_step == _RecoveryStep.emergencyKit &&
+        secret != null &&
+        _kitAccountId != null) {
+      return EmergencyKitStepScreen(
+        email: _kitEmail ?? '',
+        accountId: _kitAccountId!,
+        accountSecret: secret,
+        onContinue: () => setState(() => _step = _RecoveryStep.saveNewKey),
+      );
+    }
     return BlocBuilder<PasswordSecurityCubit, PasswordSecurityState>(
       bloc: _passwordSecurity,
       builder: (context, securityState) {
@@ -201,6 +220,7 @@ class _RecoveryViewState extends State<_RecoveryView> {
           onBack: _goBackToEnterKey,
           onSubmit: _submitNewPassword,
         );
+      case _RecoveryStep.emergencyKit:
       case _RecoveryStep.saveNewKey:
         return _SaveNewKeyStep(
           mnemonic: _newMnemonic,
@@ -269,7 +289,11 @@ class _RecoveryViewState extends State<_RecoveryView> {
       });
     } else if (state is RecoveryCompleted) {
       setState(() {
-        _step = _RecoveryStep.saveNewKey;
+        _kitAccountId = state.accountId;
+        _kitEmail = state.email;
+        _step = state.accountId == null
+            ? _RecoveryStep.saveNewKey
+            : _RecoveryStep.emergencyKit;
         _newMnemonic = List<String>.from(state.newRecoveryMnemonic);
         _newKeySaved = false;
       });

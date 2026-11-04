@@ -33,7 +33,16 @@ final class RecoveryKeyValidated extends RecoveryState {
 /// new salts and wrapped private keys. The UI shows the freshly
 /// generated 24-word mnemonic so the user can back it up.
 final class RecoveryCompleted extends RecoveryState {
-  const RecoveryCompleted({required this.newRecoveryMnemonic});
+  const RecoveryCompleted({
+    required this.newRecoveryMnemonic,
+    this.accountId,
+    this.email,
+  });
+
+  /// Set for a version-2 account; the new Secret Key is read from the cubit
+  /// for the Emergency Kit step.
+  final String? accountId;
+  final String? email;
 
   /// Space-separated 24-word mnemonic returned from the crypto service.
   /// Not the list variant — the UI needs to render per-word AND show

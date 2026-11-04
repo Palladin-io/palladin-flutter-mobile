@@ -5,6 +5,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
+import '../../../../core/crypto/identity/device_pairing.dart';
 import '../../../onboarding/domain/crypto_params.dart';
 import '../../../onboarding/domain/mnemonic.dart' as mnemonic;
 import '../../../unlock/data/services/identity_kdf_service.dart';
@@ -21,10 +22,15 @@ class RecoveryResult {
   const RecoveryResult({
     required this.request,
     required this.newRecoveryMnemonic,
+    this.newAccountSecret,
   });
 
   final RecoverAccountRequest request;
   final List<String> newRecoveryMnemonic;
+
+  /// New Secret Key of a version-2 account; the caller stores it after the
+  /// server accepts the recovery and wipes it afterwards.
+  final Uint8List? newAccountSecret;
 }
 
 /// Zero-knowledge crypto pipeline for the account-recovery flow.
@@ -154,6 +160,25 @@ class RecoveryCryptoService {
     }
   }
 
+  Future<Uint8List> _openRecoveryChallengeV2(
+    SodiumSumo sodium, {
+    required String sealedChallenge,
+    required String sessionUserId,
+    required Uint8List memberSeed,
+  }) async {
+    try {
+      return await RecoveryChallengeV2Crypto(
+        sodiumLoader: () async => sodium,
+      ).open(
+        encodedPackage: sealedChallenge,
+        userId: sessionUserId,
+        memberSeed: memberSeed,
+      );
+    } catch (_) {
+      throw const RecoveryChallengeException();
+    }
+  }
+
   static bool _constantTimeEqual(Uint8List left, List<int> right) {
     if (left.length != right.length) return false;
     var difference = 0;
@@ -183,9 +208,12 @@ class RecoveryCryptoService {
     required String sealedChallenge,
     required int baseCredentialRevision,
     required int basePrivateKeyWrapRevision,
+    IdentityKdfVersion accountVersion = IdentityKdfVersion.passwordV1,
   }) async {
     final sodium = await _sodiumLoader();
     final recoverySalt = base64.decode(recoverySaltBase64);
+    final v2 = accountVersion == IdentityKdfVersion.accountSecretV2;
+    Uint8List? newAccountSecret;
 
     final recoveryKey = _deriveKey(sodium, recoveryMnemonic, recoverySalt);
     Uint8List? privateKey;
@@ -199,20 +227,39 @@ class RecoveryCryptoService {
         recoveryKey,
         encryptedPrivateKeyByRecoveryBase64,
       );
-      recoveryProof = _openRecoveryChallenge(
-        sodium,
-        sealedChallenge: sealedChallenge,
-        sessionUserId: sessionUserId,
-        privateKey: privateKey,
-      );
+      recoveryProof = v2
+          ? await _openRecoveryChallengeV2(
+              sodium,
+              sealedChallenge: sealedChallenge,
+              sessionUserId: sessionUserId,
+              memberSeed: privateKey,
+            )
+          : _openRecoveryChallenge(
+              sodium,
+              sealedChallenge: sealedChallenge,
+              sessionUserId: sessionUserId,
+              privateKey: privateKey,
+            );
 
       // Step 2: re-wrap under a fresh MK derived from the new password.
       final newSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
-      outputs = await _identityKdfService.derive(
-        password: newPassword,
-        accountId: accountId,
-        kdfSalt: newSalt,
-      );
+      if (v2) {
+        newAccountSecret = sodium.randombytes.buf(
+          IdentityKdfProfileV2.accountSecretBytes,
+        );
+        outputs = await _identityKdfService.deriveV2(
+          password: newPassword,
+          accountId: accountId,
+          kdfSalt: newSalt,
+          accountSecret: newAccountSecret,
+        );
+      } else {
+        outputs = await _identityKdfService.derive(
+          password: newPassword,
+          accountId: accountId,
+          kdfSalt: newSalt,
+        );
+      }
       final newMasterKey = SecureKey.fromList(sodium, outputs.masterKey);
       late final Uint8List newEncryptedPrivateKey;
       try {
@@ -258,8 +305,10 @@ class RecoveryCryptoService {
           newRecoverySalt: newRecoverySalt,
           newEncryptedPrivateKeyByRecovery: newEncryptedPrivateKeyByRecovery,
           recoveryProof: recoveryProof,
+          kdfVersion: accountVersion,
         ),
         newRecoveryMnemonic: newMnemonic,
+        newAccountSecret: newAccountSecret,
       );
     } finally {
       // Zeroize the plaintext private key bytes in memory — the wrapped
@@ -268,7 +317,10 @@ class RecoveryCryptoService {
         privateKey.fillRange(0, privateKey.length, 0);
       }
       // On success the proof is owned by the request and wiped after upload.
-      if (!completed) recoveryProof?.fillRange(0, recoveryProof.length, 0);
+      if (!completed) {
+        recoveryProof?.fillRange(0, recoveryProof.length, 0);
+        newAccountSecret?.fillRange(0, newAccountSecret.length, 0);
+      }
       outputs?.dispose();
       recoveryKey.dispose();
     }

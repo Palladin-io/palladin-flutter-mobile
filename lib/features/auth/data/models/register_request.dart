@@ -69,7 +69,7 @@ class RegisterRequest {
       'kdfSalt': _encodeBytes(kdfSalt),
       'recoverySalt': _encodeBytes(recoverySalt),
       'publicKey': _encodeBytes(publicKey),
-      'memberPublicKeySuite': WrapperSuite.memberKeySuite.wireValue,
+      'publicKeySuiteId': WrapperSuite.memberKeySuite.wireValue,
       'encryptedPrivateKey': _encodeBytes(encryptedPrivateKey),
       'encryptedPrivateKeyByRecovery': _encodeBytes(
         encryptedPrivateKeyByRecovery,

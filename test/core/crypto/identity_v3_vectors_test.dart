@@ -162,7 +162,12 @@ void main() {
   group('device pairing v2', () {
     final vector = v3['devicePairing'] as Map<String, dynamic>;
     final accountId = vector['accountId'] as String;
-    final transferId = vector['transferIdBase64url'] as String;
+    final transferBytes = b64urlBytes(vector['transferIdBase64url'] as String);
+    final transferHex = toHex(transferBytes);
+    final transferId =
+        '${transferHex.substring(0, 8)}-${transferHex.substring(8, 12)}-'
+        '${transferHex.substring(12, 16)}-${transferHex.substring(16, 20)}-'
+        '${transferHex.substring(20)}';
     final challenge = b64urlBytes(vector['challengeBase64url'] as String);
     final seed = hexBytes(vector['recipientSeedHex'] as String);
     final envelope = vector['envelope'] as Map<String, dynamic>;

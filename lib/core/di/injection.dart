@@ -229,6 +229,7 @@ void configureDependencies(EnvConfig config) {
       biometricKeyStore: getIt<BiometricKeyStore>(),
       autoFillCacheInvalidator: getIt<AutoFillCacheInvalidator>(),
       currentEntryCacheInvalidator: getIt<MemberSyncService>(),
+      accountSecrets: getIt<AccountSecretStore>(),
       googleServerClientId: config.googleServerClientId,
     ),
   );
@@ -409,6 +410,7 @@ void configureDependencies(EnvConfig config) {
   // any failed-recovery state is discarded when the user leaves)
   getIt.registerFactory<RecoveryCubit>(
     () => RecoveryCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
       datasource: getIt<RecoveryRemoteDatasource>(),
       cryptoService: getIt<RecoveryCryptoService>(),
       sessionUserId: () => getIt<SecureTokenStorage>().userId,

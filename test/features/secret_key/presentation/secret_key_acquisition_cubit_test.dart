@@ -15,7 +15,7 @@ class _MockDatasource extends Mock
     implements SecretKeyTransferRemoteDatasource {}
 
 const _accountId = '00112233-4455-6677-8899-aabbccddeeff';
-final _transferId = encodeTransferBytes(List.filled(16, 0x21));
+const _transferId = '21212121-2121-2121-2121-212121212121';
 final _challenge = Uint8List(32)..fillRange(0, 32, 0x22);
 final _secret = Uint8List.fromList(List.generate(32, (i) => i + 1));
 
@@ -101,7 +101,7 @@ void main() {
       await sub.cancel();
 
       final shown = states.whereType<SecretKeyAcquisitionShowingCode>().single;
-      expect(shown.qrPayload, startsWith('palladin-pair:v2:r:$_transferId.'));
+      expect(shown.qrPayload, startsWith('palladin-pair:v2:r:ISEhISEhISEhISEhISEhIQ.'));
       expect((cubit.state as SecretKeyAcquisitionAcquired).secret, _secret);
       expect(polls, 3);
       await cubit.close();

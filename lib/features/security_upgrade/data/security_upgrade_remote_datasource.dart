@@ -17,16 +17,12 @@ final class SecurityUpgradeCommit {
 /// `GET api/account/key-migration`.
 final class KeyMigrationReport {
   const KeyMigrationReport({
-    required this.memberKeyVersion,
-    required this.legacyMemberEnvelopes,
-    required this.legacyAgentEnvelopes,
+    required this.memberEnvelopesPendingRewrap,
+    required this.agentEnvelopesOnNonCurrentSuite,
   });
 
-  final int memberKeyVersion;
-  final int legacyMemberEnvelopes;
-  final int legacyAgentEnvelopes;
-
-  bool get complete => legacyMemberEnvelopes == 0 && legacyAgentEnvelopes == 0;
+  final int memberEnvelopesPendingRewrap;
+  final int agentEnvelopesOnNonCurrentSuite;
 }
 
 /// Identity and Vault endpoints of the in-place security upgrade. Only
@@ -54,17 +50,14 @@ class SecurityUpgradeRemoteDatasource {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/account/key-migration',
     );
-    final body = response.data;
-    final version = body?['memberKeyVersion'];
-    final members = body?['legacyMemberEnvelopes'];
-    final agents = body?['legacyAgentEnvelopes'];
-    if (version is! int || members is! int || agents is! int) {
+    final members = response.data?['memberEnvelopesPendingRewrap'];
+    final agents = response.data?['agentEnvelopesOnNonCurrentSuite'];
+    if (members is! int || agents is! int) {
       throw const SecurityUpgradeException(SecurityUpgradeErrorKind.server);
     }
     return KeyMigrationReport(
-      memberKeyVersion: version,
-      legacyMemberEnvelopes: members,
-      legacyAgentEnvelopes: agents,
+      memberEnvelopesPendingRewrap: members,
+      agentEnvelopesOnNonCurrentSuite: agents,
     );
   });
 
@@ -79,8 +72,12 @@ class SecurityUpgradeRemoteDatasource {
     ),
   );
 
-  Future<void> deleteLegacyMemberKey() =>
-      _guard(() => _dio.delete<void>('/api/account/legacy-member-key'));
+  Future<void> deleteLegacyMemberKey(int legacyMemberKeyVersion) => _guard(
+    () => _dio.delete<void>(
+      '/api/account/legacy-member-key',
+      queryParameters: {'legacyMemberKeyVersion': legacyMemberKeyVersion},
+    ),
+  );
 
   Future<T> _guard<T>(Future<T> Function() call) async {
     try {

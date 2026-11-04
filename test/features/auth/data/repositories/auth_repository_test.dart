@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_palladin/core/storage/account_secret_store.dart';
 import 'package:mobile_palladin/core/storage/biometric_storage_key_store.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
@@ -21,6 +22,8 @@ import 'package:mobile_palladin/features/autofill/data/generated_password_histor
 class MockAuthRemoteDatasource extends Mock implements AuthRemoteDatasource {}
 
 class MockSecureTokenStorage extends Mock implements SecureTokenStorage {}
+
+class MockAccountSecretStore extends Mock implements AccountSecretStore {}
 
 class MockGoogleSignIn extends Mock implements GoogleSignIn {}
 
@@ -252,6 +255,37 @@ void main() {
       verify(() => mockAutoFillCacheInvalidator.revokeAccess()).called(1);
       verify(() => mockAutoFillCacheInvalidator.clear()).called(1);
       verify(() => mockGeneratedHistory.revokeAllSessions()).called(1);
+    });
+
+    test('sign-out deletes this account\'s Secret Key before tokens', () async {
+      final secrets = MockAccountSecretStore();
+      final order = <String>[];
+      when(() => secrets.delete('user-1')).thenAnswer((_) async {
+        order.add('secret');
+      });
+      when(() => mockStorage.userId).thenAnswer((_) async => 'user-1');
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+      when(() => mockStorage.clearAll()).thenAnswer((_) async {
+        order.add('tokens');
+      });
+      final withSecrets = AuthRepositoryImpl(
+        remoteDatasource: mockDatasource,
+        tokenStorage: mockStorage,
+        biometricKeyStore: BiometricStorageKeyStore(
+          markerStorage: mockSecureStorage,
+        ),
+        autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
+        generatedPasswordHistory: mockGeneratedHistory,
+        currentEntryCacheInvalidator: mockCurrentEntryCacheInvalidator,
+        accountSecrets: secrets,
+        googleServerClientId: 'test-server-client-id',
+        googleSignIn: mockGoogleSignIn,
+      );
+
+      await withSecrets.logout();
+
+      expect(order, ['secret', 'tokens']);
     });
 
     test('clears storage even if backend logout fails', () async {

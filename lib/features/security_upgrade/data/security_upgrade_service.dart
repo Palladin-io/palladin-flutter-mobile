@@ -131,28 +131,23 @@ class SecurityUpgradeService {
       await _accountSecrets.write(account.userId, material.accountSecret);
       final committed = await _remote.upgrade({
         'migrationId': migrationId,
-        'accountId': account.userId,
         'sourceSecurityVersion': IdentityKdfProfile.securityVersion,
         'baseCredentialRevision': kdf.credentialRevision,
         'basePrivateKeyWrapRevision': kdf.privateKeyWrapRevision,
         'baseMemberKeyVersion': legacyKeyVersion,
-        'currentAuthCredential': _b64(current.authCredential),
         'securityVersion': IdentityKdfProfileV2.securityVersion,
-        'minimumSecurityVersion': IdentityKdfProfileV2.securityVersion,
         'kdfProfileId': IdentityKdfProfileV2.id,
+        'currentAuthCredential': _b64(current.authCredential),
+        'newAuthCredential': _b64(material.authCredential),
         'kdfSalt': _b64(material.kdfSalt),
-        'authCredential': _b64(material.authCredential),
+        'memberPublicKeySuiteId': material.memberKeySuite.wireValue,
         'memberPublicKey': _b64(material.memberPublicKey),
-        'memberPublicKeySuite': material.memberKeySuite.wireValue,
         'encryptedPrivateKey': _b64(material.encryptedPrivateKey),
         'recoverySalt': _b64(material.recoverySalt),
         'encryptedPrivateKeyByRecovery': _b64(
           material.encryptedPrivateKeyByRecovery,
         ),
-        'legacyMemberKey': {
-          'keyVersion': legacyKeyVersion,
-          'encryptedPrivateKey': _b64(legacyWrapped),
-        },
+        'legacyEncryptedPrivateKey': _b64(legacyWrapped),
       });
       final keys = UpgradedAccountKeys(
         accountId: account.userId,
@@ -244,8 +239,8 @@ class SecurityUpgradeService {
       onProgress?.call(RewrapProgress(done: index + 1, total: pending.length));
     }
     final report = await _remote.report();
-    if (report.legacyMemberEnvelopes == 0) {
-      await _remote.deleteLegacyMemberKey();
+    if (report.memberEnvelopesPendingRewrap == 0) {
+      await _remote.deleteLegacyMemberKey(keys.legacyKeyVersion);
     }
     return report;
   }
@@ -278,9 +273,9 @@ class SecurityUpgradeService {
           vaultId: EnvelopeId.parse(vaultId),
           memberId: EnvelopeId.parse(scope['memberId'] as String),
         ),
-        resourceRevision: resourceRevision + 1,
+        resourceRevision: resourceRevision,
         wrappedKeyVersion: wrappedKeyVersion,
-        memberKeyGeneration: generation + 1,
+        memberKeyGeneration: generation,
         recipientKeyKind: RecipientKeyKind.memberEncryption.id,
         recipientKeyVersion: keys.memberKeyVersion,
         recipientFingerprint: recipientFingerprint(
@@ -302,22 +297,25 @@ class SecurityUpgradeService {
           );
       final wire = context.toDescriptor();
       await _remote.replaceMemberEnvelope(vaultId, {
-        'baseResourceRevision': resourceRevision.toString(),
-        'baseMemberKeyGeneration': generation,
+        'expectedRecipientKeyVersion': descriptor['recipientKeyVersion'],
         'wrappedVaultKey': {
-          'descriptor': {
-            ...wire.toJson(),
-            'scope': {
-              'organizationId': scope['organizationId'],
-              'vaultId': vaultId,
-              'entryId': null,
-              'grantOrRequestId': null,
-              'agentId': null,
-              'memberId': scope['memberId'],
+          'wrappedVaultKey': {
+            'descriptor': {
+              ...wire.toJson(),
+              'scope': {
+                'organizationId': scope['organizationId'],
+                'vaultId': vaultId,
+                'entryId': null,
+                'grantOrRequestId': null,
+                'agentId': null,
+                'memberId': scope['memberId'],
+              },
+              'purpose': 'memberVaultKey',
+              'recipientKeyKind': 'memberEncryption',
+              'parentDescriptorHash': null,
             },
-            'parentDescriptorHash': null,
+            'encodedSealedKeyPackage': _b64(sealed),
           },
-          'encodedSealedKeyPackage': _b64(sealed),
         },
       });
     } finally {
