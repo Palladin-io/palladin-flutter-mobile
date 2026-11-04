@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 
 class _NativeStorage extends Mock implements FlutterSecureStorage {}
 
@@ -19,6 +20,65 @@ String _token(Map<String, Object?> payload) {
 }
 
 void main() {
+  const protectedClaims = MemberSyncSessionAuthority(
+    principalId: 'member',
+    organizationId: 'org',
+    organizationMembershipGeneration: '7',
+    offlinePolicy: '24h',
+    offlinePolicyVersion: 2,
+  );
+  test(
+    'protected independent authority is fenced by its native source revision',
+    () async {
+      var revision = 3;
+      var reads = 0;
+      final provider = MemberSyncSessionAuthorityProvider.independent(
+        readClaims: () async {
+          reads++;
+          return protectedClaims;
+        },
+        sessionRevision: () => revision,
+      );
+      final snapshot = await provider.captureForPreparation();
+      expect(snapshot.claims.organizationMembershipGeneration, '7');
+      expect(snapshot.claims.offlinePolicyVersion, 2);
+      snapshot.requireProvider(provider);
+      for (var i = 0; i < 5; i++) {
+        snapshot.validateCurrent();
+      }
+      expect(reads, 1);
+      revision++;
+      expect(snapshot.validateCurrent, throwsStateError);
+      final replacement = await provider.captureForPreparation();
+      replacement.validateCurrent();
+      expect(
+        () => replacement.requireProvider(
+          MemberSyncSessionAuthorityProvider.independent(
+            readClaims: () async => protectedClaims,
+            sessionRevision: () => revision,
+          ),
+        ),
+        throwsStateError,
+      );
+    },
+  );
+  test(
+    'native source invalidation during protected claims read rejects capture',
+    () async {
+      var revision = 1;
+      final pending = Completer<MemberSyncSessionAuthority>();
+      final provider = MemberSyncSessionAuthorityProvider.independent(
+        readClaims: () => pending.future,
+        sessionRevision: () => revision,
+      );
+      final capture = provider.captureForPreparation();
+      final rejected = expectLater(capture, throwsStateError);
+      revision++;
+      pending.complete(protectedClaims);
+      await rejected;
+    },
+  );
+
   test(
     'preparation snapshot reads once and rejects refresh save clear and other owner',
     () async {

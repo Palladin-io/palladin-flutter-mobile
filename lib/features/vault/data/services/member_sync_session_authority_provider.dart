@@ -5,14 +5,28 @@ import 'member_sync_service.dart';
 /// Resolves the independent current-session authority used for local cache
 /// bindings from the verified access token issued by the backend.
 class MemberSyncSessionAuthorityProvider {
-  const MemberSyncSessionAuthorityProvider(this._tokenStorage);
+  const MemberSyncSessionAuthorityProvider(this._tokenStorage)
+    : _readClaims = null,
+      _readRevision = null;
 
-  final SecureTokenStorage _tokenStorage;
+  /// Native credential providers supply protected session claims independently
+  /// of the shared ciphertext database. The revision fences every async read.
+  const MemberSyncSessionAuthorityProvider.independent({
+    required Future<MemberSyncSessionAuthority> Function() readClaims,
+    required int Function() sessionRevision,
+  }) : _tokenStorage = null,
+       _readClaims = readClaims,
+       _readRevision = sessionRevision;
 
-  int get sessionRevision => _tokenStorage.authorityRevision;
+  final SecureTokenStorage? _tokenStorage;
+  final Future<MemberSyncSessionAuthority> Function()? _readClaims;
+  final int Function()? _readRevision;
+
+  int get sessionRevision =>
+      _readRevision?.call() ?? _tokenStorage!.authorityRevision;
 
   Future<MemberPreparationAuthority> captureForPreparation() async {
-    final revision = _tokenStorage.authorityRevision;
+    final revision = sessionRevision;
     final claims = await current();
     final snapshot = MemberPreparationAuthority._(this, claims, revision);
     snapshot.validateCurrent();
@@ -20,7 +34,9 @@ class MemberSyncSessionAuthorityProvider {
   }
 
   Future<MemberSyncSessionAuthority> current() async {
-    final token = await _tokenStorage.accessToken;
+    final readClaims = _readClaims;
+    if (readClaims != null) return readClaims();
+    final token = await _tokenStorage!.accessToken;
     final payload = token == null
         ? const <String, dynamic>{}
         : JwtClaims.decodePayload(token);
@@ -78,7 +94,7 @@ final class MemberPreparationAuthority {
   int get sessionRevision => _revision;
 
   void validateCurrent() {
-    if (_owner._tokenStorage.authorityRevision != _revision) {
+    if (_owner.sessionRevision != _revision) {
       throw StateError('Member preparation authority changed');
     }
   }
