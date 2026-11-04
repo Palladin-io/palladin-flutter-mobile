@@ -16,10 +16,12 @@ final class AutoFillSetupLoaded extends AutoFillSetupState {
     this.status, {
     this.chromeStatus = ChromeAutoFillStatus.unavailable,
     this.chromeSettingsFailed = false,
+    this.settingsFailed = false,
   });
   final AutoFillProviderStatus status;
   final ChromeAutoFillStatus chromeStatus;
   final bool chromeSettingsFailed;
+  final bool settingsFailed;
 }
 
 final class AutoFillSetupError extends AutoFillSetupState {
@@ -77,7 +79,18 @@ class AutoFillSetupCubit extends Cubit<AutoFillSetupState> {
       // Opening settings is not consent; only an OS status check can confirm it.
       await refresh();
     } catch (_) {
-      if (!isClosed) emit(const AutoFillSetupError());
+      if (!isClosed) {
+        final current = state;
+        emit(
+          current is AutoFillSetupLoaded
+              ? AutoFillSetupLoaded(
+                  current.status,
+                  chromeStatus: current.chromeStatus,
+                  settingsFailed: true,
+                )
+              : const AutoFillSetupError(),
+        );
+      }
     } finally {
       _opening = false;
     }

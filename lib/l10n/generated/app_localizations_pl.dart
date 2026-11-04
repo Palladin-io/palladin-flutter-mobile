@@ -5007,6 +5007,18 @@ class AppLocalizationsPl extends AppLocalizations {
   String get autofillCheckAgain => 'Sprawdź ponownie';
 
   @override
+  String get autofillSettingsError =>
+      'Nie udało się otworzyć ustawień systemowych. Otwórz je ręcznie lub ponownie użyj przycisku.';
+
+  @override
+  String get autofillManualIosCurrent =>
+      'W Ustawieniach wyszukaj Autowypełnianie i hasła (Opcje haseł w starszym iOS). Włącz autowypełnianie haseł i kluczy, a następnie Palladin. Umożliwi to też autowypełnianie haseł w Safari i obsługiwanych aplikacjach.';
+
+  @override
+  String get autofillManualAndroid =>
+      'W ustawieniach systemowych znajdź preferowaną usługę haseł lub autouzupełniania i wybierz Palladin. Nazwy zależą od urządzenia.';
+
+  @override
   String get autofillStatusError =>
       'Nie udało się sprawdzić autouzupełniania. Spróbuj ponownie.';
 

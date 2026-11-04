@@ -69,6 +69,8 @@ class _AutoFillSetupCardState extends State<AutoFillSetupCard>
             manual: manual,
             error: error,
             chromeSetup: chromeSetup,
+            settingsFailed:
+                state is AutoFillSetupLoaded && state.settingsFailed,
             chromeSettingsFailed:
                 state is AutoFillSetupLoaded && state.chromeSettingsFailed,
           );
@@ -82,6 +84,7 @@ class _AutoFillSetupCardState extends State<AutoFillSetupCard>
     required bool error,
     required bool chromeSetup,
     required bool chromeSettingsFailed,
+    required bool settingsFailed,
   }) {
     final l10n = AppLocalizations.of(context)!;
     return SetupCard(
@@ -92,6 +95,11 @@ class _AutoFillSetupCardState extends State<AutoFillSetupCard>
           : l10n.autofillSetupTitle,
       borderColor: enabled && !chromeSetup ? null : AppColors.vaultPeach,
       descriptions: [
+        if (settingsFailed) l10n.autofillSettingsError,
+        if (settingsFailed)
+          defaultTargetPlatform == TargetPlatform.iOS
+              ? l10n.autofillManualIosCurrent
+              : l10n.autofillManualAndroid,
         chromeSettingsFailed
             ? l10n.autofillChromeSettingsError
             : chromeSetup

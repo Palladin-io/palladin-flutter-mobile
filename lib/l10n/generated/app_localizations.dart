@@ -8768,6 +8768,24 @@ abstract class AppLocalizations {
   /// **'Check again'**
   String get autofillCheckAgain;
 
+  /// No description provided for @autofillSettingsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open system settings. Open them manually or try the button again.'**
+  String get autofillSettingsError;
+
+  /// No description provided for @autofillManualIosCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'In Settings, search for AutoFill & Passwords (Password Options on older iOS). Turn on AutoFill Passwords and Passkeys, then enable Palladin. This also enables Password AutoFill in Safari and supported apps.'**
+  String get autofillManualIosCurrent;
+
+  /// No description provided for @autofillManualAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'In system Settings, find the preferred service for passwords or AutoFill and select Palladin. Names vary by device.'**
+  String get autofillManualAndroid;
+
   /// No description provided for @autofillStatusError.
   ///
   /// In en, this message translates to:

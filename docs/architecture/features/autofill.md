@@ -358,7 +358,10 @@ Settings → Security exposes the same card and retains enabled
 status. Both refresh on mount and app resume, including returning from system
 settings. Opening settings or cancelling the picker never marks setup complete.
 Status is selection only, not a promise that a credential cache or biometric
-hardware is ready. OS status errors remain visible with retry; no secrets or selection
+hardware is ready. A failed settings launch preserves the last OS-reported
+selection and offers platform-specific manual instructions plus another explicit
+launch attempt; it never marks setup complete. Setup has no dependency on cache
+preparation, and EN/PL Android/iOS tests run with only the settings bridge. OS status errors remain visible with retry; no secrets or selection
 state are persisted by this flow.
 
 - Android 8+: `AutofillManager.hasEnabledAutofillServices()` checks this app's
@@ -386,6 +389,13 @@ state are persisted by this flow.
   a Check again action replace the unavailable public settings shortcut.
   iOS permits multiple enabled providers; the UI intentionally says enabled,
   not that Palladin has become an exclusive default.
+- Browser scope is separate from provider selection: current Android web-origin
+  verification explicitly supports the authenticated system Chrome package.
+  Selecting Palladin does not imply every Android browser is supported. Chrome's
+  third-party-mode check is a setup hint, never origin authority. iOS Password
+  AutoFill uses the credential provider in Safari and other participating apps;
+  it does not require installing the desktop browser extension. Other browsers
+  still depend on their OS integration and the existing exact-service checks.
 - The flow never opens settings automatically, changes the OS default silently,
   or touches credential encryption, cache activation, or provider authentication.
 

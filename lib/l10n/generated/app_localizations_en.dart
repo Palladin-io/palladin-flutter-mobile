@@ -4959,6 +4959,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autofillCheckAgain => 'Check again';
 
   @override
+  String get autofillSettingsError =>
+      'Could not open system settings. Open them manually or try the button again.';
+
+  @override
+  String get autofillManualIosCurrent =>
+      'In Settings, search for AutoFill & Passwords (Password Options on older iOS). Turn on AutoFill Passwords and Passkeys, then enable Palladin. This also enables Password AutoFill in Safari and supported apps.';
+
+  @override
+  String get autofillManualAndroid =>
+      'In system Settings, find the preferred service for passwords or AutoFill and select Palladin. Names vary by device.';
+
+  @override
   String get autofillStatusError => 'Could not check AutoFill. Try again.';
 
   @override
