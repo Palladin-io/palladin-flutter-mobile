@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mobile_palladin/features/autofill/data/autofill_cache_service.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_preparation.dart';
+import 'package:mobile_palladin/core/widgets/brand_hero.dart';
+import 'package:mobile_palladin/core/widgets/app_search_field.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
@@ -393,6 +395,74 @@ void main() {
       find.text('AutoFill status has not been confirmed yet.').hitTestable(),
       findsOneWidget,
     );
+  });
+
+  testWidgets('active AutoFill owns Home body until ready, failure or lock', (
+    tester,
+  ) async {
+    var searchMounts = 0;
+    await getIt.unregister<SearchCubit>();
+    getIt.registerFactory<SearchCubit>(() {
+      searchMounts++;
+      return SearchCubit(repository: dashboardRepository, analytics: analytics);
+    });
+    final autoFill = _MockAutoFillCacheService();
+    final preparation = ValueNotifier(
+      const AutoFillPreparation(
+        AutoFillPreparationPhase.preparing,
+        examined: 1,
+        total: 4,
+      ),
+    );
+    addTearDown(preparation.dispose);
+    when(() => autoFill.preparation).thenReturn(preparation);
+    when(autoFill.retryPreparation).thenAnswer((_) async {});
+    await pumpDashboard(
+      tester,
+      state: DashboardLoaded(recentEntries: [_recent()]),
+      permissions: 0,
+      autoFill: autoFill,
+    );
+    await tester.pump();
+    expect(find.byType(AppSearchField), findsNothing);
+    expect(find.byType(BrandHero), findsOneWidget);
+    expect(find.byTooltip('Inbox'), findsOneWidget);
+    preparation.value = const AutoFillPreparation(
+      AutoFillPreparationPhase.publishing,
+      examined: 4,
+      total: 4,
+    );
+    await tester.pump();
+    expect(find.byType(AppSearchField), findsNothing);
+    for (final phase in [
+      AutoFillPreparationPhase.ready,
+      AutoFillPreparationPhase.checking,
+      AutoFillPreparationPhase.failed,
+      AutoFillPreparationPhase.unknown,
+    ]) {
+      preparation.value = AutoFillPreparation(phase);
+      await tester.pump();
+      expect(find.byType(AppSearchField), findsOneWidget);
+      expect(find.byType(BrandHero), findsNothing);
+      expect(find.byTooltip('Inbox'), findsOneWidget);
+      if (phase == AutoFillPreparationPhase.failed) {
+        await tester.tap(find.text('Retry'));
+        verify(autoFill.retryPreparation).called(1);
+      }
+    }
+    for (final phase in [
+      AutoFillPreparationPhase.preparing,
+      AutoFillPreparationPhase.publishing,
+    ]) {
+      for (final total in <int?>[null, 0]) {
+        preparation.value = AutoFillPreparation(phase, total: total);
+        await tester.pump();
+        expect(find.byType(AppSearchField), findsOneWidget);
+        expect(find.byType(BrandHero), findsNothing);
+      }
+    }
+    expect(lastDashboardCubit?.loadCount, 1);
+    expect(searchMounts, 1);
   });
 
   group('Recently added / modified gating', () {

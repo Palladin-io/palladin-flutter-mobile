@@ -325,8 +325,13 @@ stale failures/acknowledgements. Ordinary app lock hides prior readiness without
 claiming the independently protected native cache was erased; unlock activates a
 new native session and prepares again. This is a publication status, not a promise
 that every third-party form is supported or that an offline lease never expires.
-Home keeps a stable preparation card before the provider/biometric setup cards,
-including acknowledged and unknown states; Security retains the same status.
+During `preparing`/`publishing` with a positive known total, Home dedicates its main content area
+to the shared brand hero and preparation status. The greeting header and shell
+navigation remain available. The view scrolls at large text sizes. Unknown/zero-work
+totals and `checking` never replace the normal Home content; `ready`, `failed` and
+`unknown` restore it, with failure retaining the existing Retry action. Normal
+Home keeps a stable status card before provider/biometric setup, including
+acknowledged and unknown states; Security retains the same status.
 Only positive known work totals produce a numeric fraction. Zero changed entries
 still require validation and acknowledgement, so they show indeterminate checking,
 never “0 of 0” or an inferred empty/ready result. `checking` describes validation
