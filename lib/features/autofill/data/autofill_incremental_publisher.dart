@@ -157,6 +157,33 @@ class AutoFillIncrementalPublisher {
     final present = full
         ? <AutoFillEntryCoordinate>{}
         : _present.intersection(candidates.keys.toSet());
+    final leaseContexts = {
+      for (final vault in snapshot.vaults.entries)
+        vault.key: vault.value.context,
+    };
+    final latestIssuedAt = {
+      for (final vault in snapshot.vaults.entries)
+        vault.key: vault.value.context.issuedAt,
+    };
+    void includeLease(String vaultId, MemberOfflineAccessContext context) {
+      final previous = leaseContexts[vaultId]!;
+      if (!_sameAuthority(previous, context) ||
+          context.notAfter != context.issuedAt.add(context.leaseDuration)) {
+        throw const FormatException('AutoFill authority changed');
+      }
+      final latest = latestIssuedAt[vaultId]!.isAfter(context.issuedAt)
+          ? latestIssuedAt[vaultId]!
+          : context.issuedAt;
+      final earliest = previous.notAfter.isBefore(context.notAfter)
+          ? previous
+          : context;
+      if (!latest.isBefore(earliest.notAfter)) {
+        throw const FormatException('Disjoint AutoFill authority leases');
+      }
+      latestIssuedAt[vaultId] = latest;
+      leaseContexts[vaultId] = earliest;
+    }
+
     final records = <AutoFillRecord>[];
     var completed = 0;
     onProgress(
@@ -184,12 +211,13 @@ class AutoFillIncrementalPublisher {
               entry['state'] != 'active' ||
               entry['currentRevision'] != index.revision ||
               entry['currentKeyVersion'] != index.currentKeyVersion ||
-              jsonEncode(revealed.accessContext.toJson()) !=
-                  jsonEncode(
-                    snapshot.vaults[coordinate.vaultId]!.context.toJson(),
-                  )) {
+              !_sameAuthority(
+                revealed.accessContext,
+                snapshot.vaults[coordinate.vaultId]!.context,
+              )) {
             throw const FormatException('AutoFill revealed authority changed');
           }
+          includeLease(coordinate.vaultId, revealed.accessContext);
           final payload = CredentialPayload.fromJson(revealed.snapshot.payload);
           final domains =
               index.autofillDomains
@@ -230,7 +258,50 @@ class AutoFillIncrementalPublisher {
       if (present.length > maximumAutoFillRecords) {
         throw StateError('AutoFill cache exceeds device budget');
       }
-      await _metadata.revalidateAutoFillMetadata(snapshot, authority: claims);
+      // A lease-only sync may finish during a large initial preparation. Re-read
+      // complete authority, but preserve every revealed record's original lease.
+      final currentSnapshot = await _metadata.readAutoFillMetadata(
+        vaultIds: vaultIds,
+        authority: claims,
+      );
+      if (snapshot.readGeneration != currentSnapshot.readGeneration ||
+          snapshot.vaults.length != currentSnapshot.vaults.length) {
+        throw StateError('AutoFill metadata changed');
+      }
+      for (final vault in snapshot.vaults.entries) {
+        final current = currentSnapshot.vaults[vault.key];
+        if (current == null ||
+            current.sequence != vault.value.sequence ||
+            current.entries.length != vault.value.entries.length ||
+            !_sameAuthority(vault.value.context, current.context)) {
+          throw StateError('AutoFill metadata changed');
+        }
+        final entriesById = {
+          for (final entry in current.entries) entry.entryId: entry,
+        };
+        if (vault.value.entries.any(
+          (entry) => !identical(entriesById[entry.entryId], entry),
+        )) {
+          throw StateError('AutoFill Entry metadata changed');
+        }
+        includeLease(vault.key, current.context);
+      }
+      final leaseSnapshot = MemberAutoFillMetadata(
+        readGeneration: currentSnapshot.readGeneration,
+        publicationRevision: currentSnapshot.publicationRevision,
+        vaults: {
+          for (final vault in currentSnapshot.vaults.entries)
+            vault.key: MemberAutoFillVaultMetadata(
+              context: leaseContexts[vault.key]!,
+              sequence: vault.value.sequence,
+              entries: vault.value.entries,
+            ),
+        },
+      );
+      await _metadata.revalidateAutoFillMetadata(
+        currentSnapshot,
+        authority: claims,
+      );
       final currentClaims = await _authority.current();
       if (jsonEncode([
             currentClaims.principalId,
@@ -243,7 +314,7 @@ class AutoFillIncrementalPublisher {
         throw StateError('AutoFill session authority changed');
       }
       _requireCurrent(epoch, isCurrent);
-      final manifest = _manifest(claims, snapshot, candidates, present);
+      final manifest = _manifest(claims, leaseSnapshot, candidates, present);
       onProgress(
         AutoFillPreparation(
           AutoFillPreparationPhase.publishing,
@@ -252,7 +323,8 @@ class AutoFillIncrementalPublisher {
         ),
       );
       void validatePublication() {
-        _metadata.validateAutoFillPublication(snapshot);
+        _metadata.validateAutoFillPublication(currentSnapshot);
+        _metadata.validateAutoFillPublication(leaseSnapshot);
         _requireCurrent(epoch, isCurrent);
       }
 
@@ -298,6 +370,19 @@ class AutoFillIncrementalPublisher {
     } finally {
       records.clear();
     }
+  }
+
+  bool _sameAuthority(
+    MemberOfflineAccessContext a,
+    MemberOfflineAccessContext b,
+  ) {
+    final left = a.toJson()
+      ..remove('issuedAt')
+      ..remove('notAfter');
+    final right = b.toJson()
+      ..remove('issuedAt')
+      ..remove('notAfter');
+    return jsonEncode(left) == jsonEncode(right);
   }
 
   void _requireBase(AutoFillCacheBase base) {

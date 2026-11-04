@@ -73,6 +73,14 @@ reveals none. Complete current metadata still validates membership, key version,
 policy, original record bindings and effective lease. Retained ciphertext never
 receives a longer lease merely because the catalog is refreshed.
 
+A lease-only renewal during initial preparation does not restart unchanged
+credential reveals. After revealing, the publisher rereads complete metadata and
+requires the same Vault/Entry set, sequence, Entry object identities and all
+non-time authority fields. It preserves the whole authenticated context with the
+earliest expiry across initial, reveal and final contexts, requiring a global
+lease intersection. Both preserved and fresh leases remain checked at submission
+and acknowledgement; no renewed lease extends a revealed credential's authority.
+
 The app-only native writer holder is separate from provider authorization. Lock
 invalidates its epoch and wipes its key; provider reads still require the original
 platform biometric key-opening path. Mutation transport waits for durable scoped
@@ -602,6 +610,11 @@ Android API compilation checks the platform/AndroidX calls. Actual keyboard rend
 Samsung Keyboard/Gboard remain physical-device QA, not proven by these tests.
 
 ## Foreground cache repair recovery
+
+A failed durable-update publication also receives at most one automatic retry
+for the unchanged pending sequence. Pending work and denies remain intact after
+the second failure; a new durable update or explicit foreground preparation can
+retry. Scheduled attempts stop on session/principal changes or active denies.
 
 A failed ownerless foreground native-cache publication receives at most one
 local automatic retry after the coordinator delay. The retry resolves the

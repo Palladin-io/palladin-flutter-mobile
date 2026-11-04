@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/features/autofill/domain/autofill_preparation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -50,17 +51,18 @@ void main() {
     state: MemberEntryState.active,
     autofillDomains: const ['example.invalid'],
   );
-  void snapshot() => metadata = MemberAutoFillMetadata(
-    readGeneration: 0,
-    publicationRevision: 0,
-    vaults: {
-      context.vaultId: MemberAutoFillVaultMetadata(
-        context: context,
-        sequence: '1',
-        entries: List.of(indexes),
-      ),
-    },
-  );
+  void snapshot({int publicationRevision = 0, String sequence = '1'}) =>
+      metadata = MemberAutoFillMetadata(
+        readGeneration: 0,
+        publicationRevision: publicationRevision,
+        vaults: {
+          context.vaultId: MemberAutoFillVaultMetadata(
+            context: context,
+            sequence: sequence,
+            entries: List.of(indexes),
+          ),
+        },
+      );
 
   setUpAll(() {
     registerFallbackValue(Uint8List(32));
@@ -230,6 +232,239 @@ void main() {
     vaultIds: [context.vaultId],
     isCurrent: () => true,
     onProgress: (_) {},
+  );
+
+  test(
+    'initial publication survives a same-authority lease renewal without extending its lease',
+    () async {
+      final original = context;
+      await publisher.beginSession(7);
+      await publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (progress) {
+          if (progress.examined == 80 && context == original) {
+            context = MemberOfflineAccessContext.fromJson({
+              ...original.toJson(),
+              'issuedAt': original.issuedAt
+                  .add(const Duration(minutes: 2))
+                  .toIso8601String(),
+              'notAfter': original.notAfter
+                  .add(const Duration(minutes: 2))
+                  .toIso8601String(),
+            });
+            snapshot();
+          }
+        },
+      );
+      expect(reveals, 160);
+      expect(fullCalls, 1);
+      final payload =
+          verify(
+                () => bridge.replaceCacheV3(
+                  captureAny(),
+                  sessionToken: any(named: 'sessionToken'),
+                  writerEpoch: any(named: 'writerEpoch'),
+                  base: any(named: 'base'),
+                  releasingDenies: any(named: 'releasingDenies'),
+                  validatePublication: any(named: 'validatePublication'),
+                ),
+              ).captured.single
+              as AutoFillCachePayload;
+      expect(
+        payload.manifest.vaults[original.vaultId]!.notAfter,
+        original.notAfter,
+      );
+    },
+  );
+
+  for (final change in [
+    'entry',
+    'addition',
+    'removal',
+    'sequence',
+    'key',
+    'membership',
+  ]) {
+    test(
+      'lease refresh cannot conceal $change change before publication',
+      () async {
+        await publisher.beginSession(7);
+        await expectLater(
+          publisher.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (progress) {
+              if (progress.phase != AutoFillPreparationPhase.preparing ||
+                  progress.examined != 160) {
+                return;
+              }
+              switch (change) {
+                case 'entry':
+                  indexes[0] = index(0, revision: '2');
+                case 'addition':
+                  indexes.add(index(160));
+                case 'removal':
+                  indexes.removeLast();
+                case 'key':
+                  context = MemberOfflineAccessContext.fromJson({
+                    ...context.toJson(),
+                    'vaultKeyVersion': context.vaultKeyVersion + 1,
+                  });
+                case 'membership':
+                  context = MemberOfflineAccessContext.fromJson({
+                    ...context.toJson(),
+                    'organizationMembershipGeneration': '99',
+                  });
+              }
+              snapshot(
+                publicationRevision: 1,
+                sequence: change == 'sequence' ? '2' : '1',
+              );
+            },
+          ),
+          throwsA(isA<StateError>()),
+        );
+        expect(fullCalls, 0);
+      },
+    );
+  }
+
+  test(
+    'earlier overlapping lease is preserved as a whole authenticated context',
+    () async {
+      final original = context;
+      final earlier = MemberOfflineAccessContext.fromJson({
+        ...original.toJson(),
+        'issuedAt': original.issuedAt
+            .subtract(const Duration(minutes: 2))
+            .toIso8601String(),
+        'notAfter': original.notAfter
+            .subtract(const Duration(minutes: 2))
+            .toIso8601String(),
+      });
+      await publisher.beginSession(7);
+      await publisher.synchronize(
+        privateKey: Uint8List(32),
+        vaultIds: [context.vaultId],
+        isCurrent: () => true,
+        onProgress: (p) {
+          if (p.examined == 80) {
+            context = earlier;
+            snapshot(publicationRevision: 1);
+          }
+        },
+      );
+      final payload =
+          verify(
+                () => bridge.replaceCacheV3(
+                  captureAny(),
+                  sessionToken: any(named: 'sessionToken'),
+                  writerEpoch: any(named: 'writerEpoch'),
+                  base: any(named: 'base'),
+                  releasingDenies: any(named: 'releasingDenies'),
+                  validatePublication: any(named: 'validatePublication'),
+                ),
+              ).captured.single
+              as AutoFillCachePayload;
+      expect(
+        payload.manifest.vaults[original.vaultId]!.issuedAt,
+        earlier.issuedAt,
+      );
+      expect(
+        payload.manifest.vaults[original.vaultId]!.notAfter,
+        earlier.notAfter,
+      );
+    },
+  );
+
+  for (final reverse in [false, true]) {
+    test(
+      'disjoint renewal chain is rejected regardless of order reverse=$reverse',
+      () async {
+        final original = context;
+        final offsets = [
+          const Duration(hours: 2),
+          -original.leaseDuration + const Duration(hours: 1),
+        ];
+        if (reverse) offsets.setAll(0, offsets.reversed.toList());
+        await publisher.beginSession(7);
+        await expectLater(
+          publisher.synchronize(
+            privateKey: Uint8List(32),
+            vaultIds: [context.vaultId],
+            isCurrent: () => true,
+            onProgress: (p) {
+              if (p.examined == 40 || p.examined == 80) {
+                final offset = offsets[p.examined == 40 ? 0 : 1];
+                context = MemberOfflineAccessContext.fromJson({
+                  ...original.toJson(),
+                  'issuedAt': original.issuedAt.add(offset).toIso8601String(),
+                  'notAfter': original.notAfter.add(offset).toIso8601String(),
+                });
+                snapshot(publicationRevision: p.examined);
+              }
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'boundary',
+              'Disjoint AutoFill authority leases',
+            ),
+          ),
+        );
+        expect(fullCalls, 0);
+      },
+    );
+  }
+
+  test(
+    'fresh lease cannot publish after the preserved lease expires',
+    () async {
+      final original = context;
+      var now = original.issuedAt;
+      when(() => reader.validateAutoFillPublication(any())).thenAnswer((call) {
+        final candidate =
+            call.positionalArguments.single as MemberAutoFillMetadata;
+        if (candidate.publicationRevision != metadata.publicationRevision ||
+            candidate.vaults.values.any(
+              (vault) => !now.isBefore(vault.context.notAfter),
+            )) {
+          throw StateError('expired publication authority');
+        }
+      });
+      await publisher.beginSession(7);
+      await expectLater(
+        publisher.synchronize(
+          privateKey: Uint8List(32),
+          vaultIds: [context.vaultId],
+          isCurrent: () => true,
+          onProgress: (p) {
+            if (p.phase == AutoFillPreparationPhase.preparing &&
+                p.examined == 80) {
+              context = MemberOfflineAccessContext.fromJson({
+                ...original.toJson(),
+                'issuedAt': original.issuedAt
+                    .add(const Duration(minutes: 2))
+                    .toIso8601String(),
+                'notAfter': original.notAfter
+                    .add(const Duration(minutes: 2))
+                    .toIso8601String(),
+              });
+              snapshot(publicationRevision: 1);
+            }
+            if (p.phase == AutoFillPreparationPhase.publishing) {
+              now = original.notAfter;
+            }
+          },
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(fullCalls, 0);
+    },
   );
 
   test('one changed Entry reveals one body and removal reveals none', () async {
