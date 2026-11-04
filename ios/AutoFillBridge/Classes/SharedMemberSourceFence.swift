@@ -101,13 +101,17 @@ final class SharedMemberSourceFence {
     }
 
     func beginSession(sessionID: String, profileBinding: String, claims: SharedMemberSourceClaims,
-                      accountUnlock: [String: Any]) throws -> SharedMemberSourceSnapshot {
+                      accountUnlock: [String: Any], forceQuarantine: Bool = true) throws -> SharedMemberSourceSnapshot {
         try validateIdentity(sessionID: sessionID, profileBinding: profileBinding)
         let account = try canonicalAccount(accountUnlock, claims: claims)
         return try locked {
-            let epoch = try nextEpoch(readLocked()?.epoch ?? 0)
+            let previous = try readLocked()
+            let epoch = try nextEpoch(previous?.epoch ?? 0)
+            let mayAdopt = !forceQuarantine && previous?.state == .active
+                && previous?.profileBinding == profileBinding && previous?.claims == claims
+                && previous?.accountUnlock == account
             let value = SharedMemberSourceSnapshot(version: 1, sessionID: sessionID, epoch: epoch,
-                profileBinding: profileBinding, claims: claims, accountUnlock: account, state: .quarantined)
+                profileBinding: profileBinding, claims: claims, accountUnlock: account, state: mayAdopt ? .active : .quarantined)
             try persist(value)
             registeredSessions = [sessionID]
             return value
@@ -146,6 +150,7 @@ final class SharedMemberSourceFence {
         try locked {
             try requireAppSession(expected.sessionID)
             let current = try requireCurrent(expected)
+            if current.state == .active { return }
             guard current.state == .quarantined else { throw SharedMemberSourceError.stale }
             try persist(current.replacing(state: .active))
         }

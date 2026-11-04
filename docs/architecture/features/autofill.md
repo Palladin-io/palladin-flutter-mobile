@@ -921,3 +921,13 @@ channel remains registered to the **same plugin and source-fence instance** for
 existing save/history and retirement callers. The executable simulator test
 `tool/test_ios_member_registration.sh` exercises registration and encoded calls
 through both channels; it requires `FLUTTER_ROOT` and a booted iOS simulator.
+
+An independently authenticated iOS bootstrap may send `forceQuarantine: false`
+to preserve an already ACTIVE source only when its profile binding, complete
+claims and canonical encrypted account configuration are unchanged. Omitted flags
+default to quarantine; malformed flags fail. Every begin still rotates the
+session/epoch, so an existing provider request cannot adopt the new authority.
+Quarantined/revoked sources and changed bindings remain quarantined. Activation
+of an already ACTIVE exact registered app ticket is an idempotent acknowledgement;
+it does not rewrite authority or extend any original Vault lease. Mutation and
+security-repair owners must request quarantine before changing the shared DB.

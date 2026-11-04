@@ -179,3 +179,94 @@ expect(FileManager.default.fileExists(atPath:migrationDirectory.appendingPathCom
 let afterMigration = try fence.current()
 expect(afterMigration.state == .quarantined,"migration must not activate source")
 print("PASS active-only configuration and captured quarantined migration ticket")
+
+// Opt-in adoption is an authenticated bootstrap operation, never a repair of a
+// quarantined source. Epoch rotation still rejects an old extension request.
+durable = nil
+let adoptInitial = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+_ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":adoptInitial])
+let priorActive = try fence.current()
+var adoption = beginArguments
+adoption["sessionId"] = "adopting-owner"
+adoption["forceQuarantine"] = false
+let adoptEpoch = try bridge.handle("beginSourceSession",arguments:adoption) as! Int
+let adoptedActive = try fence.current()
+expect(adoptedActive.state == .active,"explicit identical bootstrap must preserve ACTIVE source")
+expect(adoptEpoch > priorActive.epoch,"adoption must rotate source epoch")
+rejects { try fence.withCurrentSource(priorActive,requireActive:true) {} }
+try fence.withCurrentSource(adoptedActive,requireActive:true) {}
+let beforeIdempotentActivation = durable
+_ = try bridge.handle("activateSource",arguments:["sessionId":"adopting-owner","sourceEpoch":adoptEpoch])
+expect(durable == beforeIdempotentActivation,"already active exact activation must not rewrite authority")
+rejects { _ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":adoptInitial]) }
+
+// Omitting the opt-in must retain the existing quarantine behavior.
+_ = try bridge.handle("beginSourceSession",arguments:beginArguments)
+let adoptionState1 = try fence.current().state
+expect(adoptionState1 == .quarantined,"omitted forceQuarantine must default true")
+_ = try bridge.handle("beginSourceSession",arguments:adoption)
+let adoptionState2 = try fence.current().state
+expect(adoptionState2 == .quarantined,"identical denied source cannot be adopted")
+let beforeChange = try fence.current()
+try fence.activate(beforeChange)
+var differentAccount = unlock; differentAccount["encryptedPrivateKey"] = "different-synthetic-ciphertext"
+var changedAdoption = adoption; changedAdoption["accountUnlock"] = differentAccount
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState3 = try fence.current().state
+expect(adoptionState3 == .quarantined,"changed encrypted account material must quarantine")
+try fence.activate(try fence.current())
+changedAdoption["organizationMembershipGeneration"] = "2"
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState4 = try fence.current().state
+expect(adoptionState4 == .quarantined,"changed independent claims must quarantine")
+try fence.activate(try fence.current())
+changedAdoption["profileBinding"] = String(repeating:"e",count:64)
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState5 = try fence.current().state
+expect(adoptionState5 == .quarantined,"changed account/environment binding must quarantine")
+try fence.activate(try fence.current())
+changedAdoption["forceQuarantine"] = true
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState6 = try fence.current().state
+expect(adoptionState6 == .quarantined,"explicit quarantine must always win")
+print("PASS opt-in exact ACTIVE adoption, conservative default and idempotent activation")
+
+for (field, replacement) in [("principalId", "another-member" as Any),
+                            ("organizationId", "another-org" as Any),
+                            ("organizationMembershipGeneration", "3" as Any),
+                            ("offlinePolicy", "1h" as Any),
+                            ("offlinePolicyVersion", 2 as Any)] {
+    let originalEpoch = try bridge.handle("beginSourceSession",arguments:beginArguments) as! Int
+    _ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":originalEpoch])
+    var changed = adoption; changed[field] = replacement
+    if field == "principalId" {
+        var account = unlock; account["accountId"] = replacement; changed["accountUnlock"] = account
+    }
+    _ = try bridge.handle("beginSourceSession",arguments:changed)
+    let state = try fence.current().state
+    expect(state == .quarantined,"every independent claim change must quarantine")
+}
+for invalidFlag: Any in [0, 1, "false", NSNull()] {
+    var invalid = adoption; invalid["forceQuarantine"] = invalidFlag
+    let before = durable
+    rejects { _ = try bridge.handle("beginSourceSession",arguments:invalid) }
+    expect(durable == before,"malformed opt-in must not mutate authority")
+}
+let forcedEpoch = try bridge.handle("beginSourceSession",arguments:beginArguments) as! Int
+_ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":forcedEpoch])
+let originalForRevoke = try fence.current()
+try fence.revoke(originalForRevoke)
+_ = try bridge.handle("beginSourceSession",arguments:adoption)
+let afterRevokedAdoption = try fence.current().state
+expect(afterRevokedAdoption == .quarantined,"revoked source cannot be adopted")
+print("PASS each changed claim, malformed opt-in and revoked adoption negatives")
+let coldEpoch = try bridge.handle("beginSourceSession",arguments:beginArguments) as! Int
+_ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":coldEpoch])
+let coldFence = SharedMemberSourceFence(containerURL:directory,readState:{durable},writeState:{durable = $0})
+rejects { try coldFence.requireAppSession("bridge-owner") }
+let coldBridge = SharedMemberSourceBridge(source:coldFence,containerURL:directory,accessGroup:"synthetic")
+_ = try coldBridge.handle("beginSourceSession",arguments:adoption)
+let coldAdopted = try coldFence.current()
+try coldFence.withCurrentSource(coldAdopted,requireActive:true) {}
+try coldFence.requireAppSession("adopting-owner")
+print("PASS cold process adopts only after independent authenticated begin")

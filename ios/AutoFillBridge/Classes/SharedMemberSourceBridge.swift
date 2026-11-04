@@ -66,8 +66,17 @@ final class SharedMemberSourceBridge {
             guard let session = arguments["sessionId"] as? String,
                   let profile = arguments["profileBinding"] as? String,
                   let account = arguments["accountUnlock"] as? [String: Any] else { throw SharedMemberSourceError.invalid }
+            let forceQuarantine: Bool
+            if let supplied = arguments["forceQuarantine"] {
+                guard CFGetTypeID(supplied as CFTypeRef) == CFBooleanGetTypeID(),
+                      let value = supplied as? Bool else { throw SharedMemberSourceError.invalid }
+                forceQuarantine = value
+            } else {
+                forceQuarantine = true
+            }
             return try source.beginSession(sessionID: session, profileBinding: profile,
-                claims: SharedMemberSourceClaims(arguments: arguments), accountUnlock: account).epoch
+                claims: SharedMemberSourceClaims(arguments: arguments), accountUnlock: account,
+                forceQuarantine: forceQuarantine).epoch
         case "invalidateSession":
             guard let session = arguments["sessionId"] as? String else { throw SharedMemberSourceError.invalid }
             source.invalidateSession(session)
