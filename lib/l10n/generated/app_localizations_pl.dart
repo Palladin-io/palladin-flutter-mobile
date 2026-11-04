@@ -5053,8 +5053,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get autofillPreparationTitle => 'Hasła do autouzupełniania';
 
   @override
-  String get autofillPreparationWaiting =>
-      'Przygotowujemy zapisane hasła… Możesz dalej korzystać z Palladina.';
+  String get autofillPreparationWaiting => 'Przygotowujemy zapisane hasła…';
 
   @override
   String autofillPreparationProgress(int examined, int total) {
@@ -5063,11 +5062,11 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get autofillPreparationPublishing =>
-      'Zapisywanie haseł w usłudze systemowej…';
+      'Zapisujemy zmiany autouzupełniania…';
 
   @override
   String get autofillPreparationReady =>
-      'Hasła są przygotowane. Uzupełnianie nadal wymaga wybrania usługi w systemie i autoryzacji.';
+      'Hasła zaktualizowane. Autouzupełnianie wymaga autoryzacji i włączonej usługi Palladin w ustawieniach systemowych.';
 
   @override
   String get autofillPreparationEmpty =>
@@ -5079,5 +5078,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get autofillPreparationUnknown =>
-      'Odblokuj Palladina, aby sprawdzić i przygotować zapisane hasła.';
+      'Stan autouzupełniania nie został jeszcze potwierdzony.';
+
+  @override
+  String get autofillPreparationChecking => 'Sprawdzamy autouzupełnianie…';
+
+  @override
+  String get autofillPreparationKeepOpen =>
+      'Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana.';
 }

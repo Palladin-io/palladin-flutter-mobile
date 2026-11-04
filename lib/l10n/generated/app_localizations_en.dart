@@ -5003,8 +5003,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autofillPreparationTitle => 'AutoFill passwords';
 
   @override
-  String get autofillPreparationWaiting =>
-      'Preparing saved passwords… You can keep using Palladin.';
+  String get autofillPreparationWaiting => 'Preparing saved passwords…';
 
   @override
   String autofillPreparationProgress(int examined, int total) {
@@ -5012,12 +5011,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get autofillPreparationPublishing =>
-      'Saving passwords to the system provider…';
+  String get autofillPreparationPublishing => 'Applying AutoFill updates…';
 
   @override
   String get autofillPreparationReady =>
-      'Passwords are prepared. Filling still requires system provider selection and authorization.';
+      'Passwords updated. AutoFill requires authorization and Palladin enabled in system settings.';
 
   @override
   String get autofillPreparationEmpty =>
@@ -5029,5 +5027,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autofillPreparationUnknown =>
-      'Unlock Palladin to check and prepare saved passwords.';
+      'AutoFill status has not been confirmed yet.';
+
+  @override
+  String get autofillPreparationChecking => 'Checking AutoFill…';
+
+  @override
+  String get autofillPreparationKeepOpen =>
+      'Keep Palladin open until preparation finishes. Work may pause in the background.';
 }

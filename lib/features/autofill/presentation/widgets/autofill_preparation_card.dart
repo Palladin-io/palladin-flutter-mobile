@@ -10,8 +10,7 @@ import '../../domain/autofill_preparation.dart';
 
 /// Cache preparation is independent from selecting Palladin in system settings.
 class AutoFillPreparationCard extends StatelessWidget {
-  const AutoFillPreparationCard({super.key, this.hideWhenReady = false});
-  final bool hideWhenReady;
+  const AutoFillPreparationCard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,19 +19,17 @@ class AutoFillPreparationCard extends StatelessWidget {
     return ValueListenableBuilder<AutoFillPreparation>(
       valueListenable: service.preparation,
       builder: (context, state, _) {
-        if (hideWhenReady &&
-            (state.phase == AutoFillPreparationPhase.ready ||
-                state.phase == AutoFillPreparationPhase.unknown)) {
-          return const SizedBox.shrink();
-        }
         final l10n = AppLocalizations.of(context)!;
         final total = state.total;
         final message = switch (state.phase) {
           AutoFillPreparationPhase.unknown => l10n.autofillPreparationUnknown,
+          AutoFillPreparationPhase.checking => l10n.autofillPreparationChecking,
           AutoFillPreparationPhase.preparing =>
             total == null
                 ? l10n.autofillPreparationWaiting
-                : l10n.autofillPreparationProgress(state.examined, total),
+                : total > 0
+                ? l10n.autofillPreparationProgress(state.examined, total)
+                : l10n.autofillPreparationChecking,
           AutoFillPreparationPhase.publishing =>
             l10n.autofillPreparationPublishing,
           AutoFillPreparationPhase.ready => l10n.autofillPreparationReady,
@@ -40,11 +37,17 @@ class AutoFillPreparationCard extends StatelessWidget {
           AutoFillPreparationPhase.failed => l10n.autofillPreparationFailed,
         };
         final busy =
+            state.phase == AutoFillPreparationPhase.checking ||
             state.phase == AutoFillPreparationPhase.preparing ||
             state.phase == AutoFillPreparationPhase.publishing;
         return SetupCard(
           title: l10n.autofillPreparationTitle,
-          descriptions: [message],
+          descriptions: [
+            message,
+            if (state.phase == AutoFillPreparationPhase.preparing &&
+                (total == null || total > 0))
+              l10n.autofillPreparationKeepOpen,
+          ],
           actions: [
             if (busy)
               LinearProgressIndicator(

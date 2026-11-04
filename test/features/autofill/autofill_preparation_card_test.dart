@@ -45,6 +45,57 @@ void main() {
             .value,
         isNull,
       );
+      final keepOpen = locale == 'en'
+          ? 'Keep Palladin open until preparation finishes. Work may pause in the background.'
+          : 'Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana.';
+      expect(find.text(keepOpen), findsOneWidget);
+      status.value = const AutoFillPreparation(
+        AutoFillPreparationPhase.preparing,
+        total: 0,
+      );
+      await tester.pump();
+      expect(
+        find.text(
+          locale == 'en'
+              ? 'Checking AutoFill…'
+              : 'Sprawdzamy autouzupełnianie…',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(keepOpen), findsNothing);
+      expect(
+        find.textContaining(locale == 'en' ? '0 of 0' : '0 z 0'),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        isNull,
+      );
+      status.value = const AutoFillPreparation(
+        AutoFillPreparationPhase.checking,
+      );
+      await tester.pump();
+      expect(find.text(keepOpen), findsNothing);
+      expect(
+        find.text(
+          locale == 'en'
+              ? 'Checking AutoFill…'
+              : 'Sprawdzamy autouzupełnianie…',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        isNull,
+      );
       status.value = const AutoFillPreparation(
         AutoFillPreparationPhase.preparing,
         examined: 2,
@@ -95,7 +146,7 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(
         find.textContaining(
-          locale == 'en' ? 'Passwords are prepared.' : 'Hasła są przygotowane.',
+          locale == 'en' ? 'Passwords updated.' : 'Hasła zaktualizowane.',
         ),
         findsOneWidget,
       );

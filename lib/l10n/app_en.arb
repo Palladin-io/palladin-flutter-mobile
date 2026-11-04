@@ -3788,12 +3788,14 @@
   "autoFillSaveHost": "Choose the exact host",
   "autoFillSaveUnavailable": "The login could not be saved safely. Try again or cancel.",
   "autofillPreparationTitle": "AutoFill passwords",
-  "autofillPreparationWaiting": "Preparing saved passwords… You can keep using Palladin.",
+  "autofillPreparationWaiting": "Preparing saved passwords…",
   "autofillPreparationProgress": "Preparing {examined} of {total} entries",
-  "autofillPreparationPublishing": "Saving passwords to the system provider…",
-  "autofillPreparationReady": "Passwords are prepared. Filling still requires system provider selection and authorization.",
+  "autofillPreparationPublishing": "Applying AutoFill updates…",
+  "autofillPreparationReady": "Passwords updated. AutoFill requires authorization and Palladin enabled in system settings.",
   "autofillPreparationEmpty": "No eligible saved passwords to prepare. Add a login with a website address to a Vault that allows offline access.",
   "autofillPreparationFailed": "Could not prepare passwords. Try again while Palladin is unlocked.",
-  "autofillPreparationUnknown": "Unlock Palladin to check and prepare saved passwords.",
-  "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}}
+  "autofillPreparationUnknown": "AutoFill status has not been confirmed yet.",
+  "@autofillPreparationProgress": {"placeholders": {"examined": {"type": "int"}, "total": {"type": "int"}}},
+  "autofillPreparationChecking": "Checking AutoFill…",
+  "autofillPreparationKeepOpen": "Keep Palladin open until preparation finishes. Work may pause in the background."
 }

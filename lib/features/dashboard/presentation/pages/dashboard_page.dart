@@ -555,9 +555,9 @@ class _DashboardViewState extends State<_DashboardView> {
                   padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
                   child: Column(
                     children: [
-                      BiometricSetupCard(hideWhenHandled: true),
+                      AutoFillPreparationCard(),
                       AutoFillSetupCard(hideWhenEnabled: true),
-                      AutoFillPreparationCard(hideWhenReady: true),
+                      BiometricSetupCard(hideWhenHandled: true),
                     ],
                   ),
                 ),

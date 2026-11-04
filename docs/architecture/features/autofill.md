@@ -290,9 +290,17 @@ stale failures/acknowledgements. Ordinary app lock hides prior readiness without
 claiming the independently protected native cache was erased; unlock activates a
 new native session and prepares again. This is a publication status, not a promise
 that every third-party form is supported or that an offline lease never expires.
-Home hides the ready/unknown card; Security retains the status. Copy is EN/PL and
-measured progress has a localized accessibility label. Its brand-red fill and
-neutral muted track reuse the Home onboarding progress palette in both themes.
+Home keeps a stable preparation card before the provider/biometric setup cards,
+including acknowledged and unknown states; Security retains the same status.
+Only positive known work totals produce a numeric fraction. Zero changed entries
+still require validation and acknowledgement, so they show indeterminate checking,
+never “0 of 0” or an inferred empty/ready result. `checking` describes validation
+without claiming provider availability. The acknowledged copy says passwords were
+updated, distinct from selecting Palladin in OS settings and provider authorization.
+Keep-open guidance accompanies active preparation only, not checking or zero-work
+refresh. Background work may pause; this message promises no background execution.
+Copy is EN/PL and measured progress has a localized accessibility label. Its
+brand-red fill and neutral muted track reuse the Home onboarding progress palette in both themes.
 
 ## Provider activation and status
 
