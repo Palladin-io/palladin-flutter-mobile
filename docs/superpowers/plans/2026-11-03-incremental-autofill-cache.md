@@ -148,3 +148,17 @@ including held-check ordinary lock and strict unknown/token/owner paths. The rea
 loopback coordinator chain and final integrated review/full checks are next.
 Root owns physical S22 validation, PR stack integration and release. No iOS
 publication; diagnostics remain isolated from production commits.
+
+Debug14 physical acceptance failed despite clean CI/review: startup renewal
+interrupted full reveals, and periodic Inbox hydration synchronized two Vaults.
+The first durable update admitted repair while the second Vault was still running.
+Diagnostic15 traced this without credential values; no SignalR reconnect occurred.
+`palladin-autofill-sync-lifecycle` removes the Inbox hydration sync side effect,
+waits for the complete current Vault set, and accepts only completed producer-proven
+renewals across preparation/revalidation while retaining original lease bounds.
+Real SQLite/crypto regression spans renewal during AEAD reveal and after native
+commit before acknowledgement: one full write, no restart; staggered two-Vault
+renewal makes one unchanged check. Core focused71 tests pass; final review,
+full-suite integration and physical acceptance remain pending. Separate native
+biometric writer reauthorization is needed to eliminate full work after unlock;
+it is not implemented or implied by this loop correction. No merge/store release.

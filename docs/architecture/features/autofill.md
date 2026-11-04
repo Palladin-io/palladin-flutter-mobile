@@ -117,6 +117,23 @@ publication; a later renewal cannot erase that change. The publisher compares it
 acknowledged content/read/session revisions and complete Vault set synchronously,
 before any await. Unknown state and pending mutation owners retain pre-denial.
 
+Publication waits for the currently relevant complete Vault synchronization set,
+not only the first Vault that emitted a durable update. Inbox presentation reads
+already-prepared Entry labels; its scoped Grant hydration does not start another
+Member synchronization. Unlock/resume/reconnect and invalidations remain the
+owners of authoritative index repair.
+
+Completed producer-proven renewals may advance the publication revision while
+preserving the content revision. Runtime index authority retains the validated
+current access context, installed only after the current-generation durable
+commit and removed on lock/quarantine/removal. The synchronous publication guard
+checks complete Vault coverage, unchanged content/session epochs, no running sync,
+and both original/current non-narrowing overlapping leases. Preparation-only Entry
+revalidation accepts that same proof while retaining exact head/wrapper bindings;
+ordinary Entry reads keep strict context equality. After native acknowledgement,
+publication waits for current source work and revalidates before recording readiness.
+A failed stale-session wait cannot purge the replacement session's cache.
+
 An admitted check still calls native `applyCacheDelta`: both platforms validate
 the exact current base, complete authority, retained record integrity and leases.
 A truly unchanged result returns the same revision without writing catalog/fence

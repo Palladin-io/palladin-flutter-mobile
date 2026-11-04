@@ -38,12 +38,14 @@ final class LocalMemberEntryMaterial {
     required this.accessContext,
     required this.memberVaultKey,
     required this.readGeneration,
+    this.contentRevision = 0,
   });
 
   final MemberSyncItemModel item;
   final MemberOfflineAccessContext accessContext;
   final Map<String, dynamic> memberVaultKey;
   final int readGeneration;
+  final int contentRevision;
 }
 
 /// Raised when a local ciphertext read loses its lock, lease, or access fence.
@@ -108,6 +110,7 @@ abstract interface class LocalMemberEntryReader {
     required String entryId,
     required LocalMemberEntryMaterial material,
     required MemberSyncSessionAuthority authority,
+    bool allowCompletedRenewal = false,
   });
 }
 
@@ -230,6 +233,7 @@ final class MemberSyncService
   int _lockGeneration = 0;
   int _autoFillPublicationRevision = 0;
   int _autoFillContentRevision = 0;
+  final Map<String, MemberOfflineAccessContext> _runtimeAccessContexts = {};
   int _sessionEpoch = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
@@ -322,6 +326,7 @@ final class MemberSyncService
         if (error.afterSnapshot) {
           if (snapshotRestarts >= maximumSnapshotRestarts) {
             _indexes.remove(vaultId);
+            _runtimeAccessContexts.remove(vaultId);
             _publishIndexUpdate(vaultId);
             throw StateError('Member snapshot restart limit exceeded');
           }
@@ -400,6 +405,7 @@ final class MemberSyncService
       _autoFillPublicationRevision++;
       _autoFillContentRevision++;
       _profileQuarantined = true;
+      _runtimeAccessContexts.clear();
       return;
     }
     if (state == null) return;
@@ -427,7 +433,11 @@ final class MemberSyncService
           expectedVaultKeyVersion: state.accessContext.vaultKeyVersion,
           generation: generation,
         );
-        _scheduleLeaseExpiry(vaultId, state.accessContext);
+        _scheduleLeaseExpiry(
+          vaultId,
+          state.accessContext,
+          generation: generation,
+        );
       } finally {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
@@ -556,8 +566,17 @@ final class MemberSyncService
   void validateAutoFillPublication(MemberAutoFillMetadata snapshot) {
     if (_profileQuarantined ||
         snapshot.readGeneration != _lockGeneration ||
-        snapshot.publicationRevision != _autoFillPublicationRevision ||
         snapshot.contentRevision != _autoFillContentRevision) {
+      throw const LocalMemberEntryReadInvalidatedException();
+    }
+    if (snapshot.publicationRevision != _autoFillPublicationRevision &&
+        (snapshot.vaults.length != _indexes.length ||
+            !snapshot.vaults.keys.every(_indexes.containsKey) ||
+            snapshot.vaults.entries.any((vault) {
+              final current = _runtimeAccessContexts[vault.key];
+              return current == null ||
+                  !_preservesAutoFillAuthority(vault.value.context, current);
+            }))) {
       throw const LocalMemberEntryReadInvalidatedException();
     }
     final now = _now().toUtc();
@@ -624,9 +643,9 @@ final class MemberSyncService
     MemberAutoFillMetadata snapshot, {
     required MemberSyncSessionAuthority authority,
   }) async {
+    await Future.wait(snapshot.vaults.keys.map(waitForCurrent));
     if (_profileQuarantined ||
         snapshot.readGeneration != _lockGeneration ||
-        snapshot.publicationRevision != _autoFillPublicationRevision ||
         snapshot.contentRevision != _autoFillContentRevision) {
       throw const LocalMemberEntryReadInvalidatedException();
     }
@@ -638,8 +657,12 @@ final class MemberSyncService
       if (state == null ||
           index == null ||
           state.sequence != vault.value.sequence ||
-          _canonicalJson(state.accessContext.toJson()) !=
-              _canonicalJson(vault.value.context.toJson()) ||
+          (_canonicalJson(state.accessContext.toJson()) !=
+                  _canonicalJson(vault.value.context.toJson()) &&
+              !_preservesAutoFillAuthority(
+                vault.value.context,
+                state.accessContext,
+              )) ||
           index.length != vault.value.entries.length ||
           vault.value.entries.any(
             (entry) => !identical(index[entry.entryId], entry),
@@ -677,6 +700,7 @@ final class MemberSyncService
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
+    _runtimeAccessContexts.clear();
     _connectedSessionVaults.clear();
   }
 
@@ -851,7 +875,7 @@ final class MemberSyncService
     _indexes[vaultId] = stagedIndex;
     _connectedSessionVaults.add(vaultId);
     _revokedVaults.remove(vaultId);
-    _scheduleLeaseExpiry(vaultId, accessContext);
+    _scheduleLeaseExpiry(vaultId, accessContext, generation: generation);
     _publishDurableUpdate(vaultId);
     _publishIndexUpdate(vaultId);
     return applied;
@@ -974,7 +998,12 @@ final class MemberSyncService
     _connectedSessionVaults.add(vaultId);
     _revokedVaults.remove(vaultId);
     final state = await _cache.state(vaultId);
-    if (state != null) _scheduleLeaseExpiry(vaultId, state.accessContext);
+    if (state != null)
+      _scheduleLeaseExpiry(
+        vaultId,
+        state.accessContext,
+        generation: generation,
+      );
     _publishIndexUpdate(vaultId, preservesContent: preservesContent);
 
     return MemberSyncResult(
@@ -992,6 +1021,7 @@ final class MemberSyncService
   }) async {
     _knownVaults.add(vaultId);
     final generation = _lockGeneration;
+    final contentRevision = _autoFillContentRevision;
     if (_profileQuarantined || _revokedVaults.contains(vaultId)) return null;
     final MemberSyncCacheState? state;
     try {
@@ -1000,6 +1030,7 @@ final class MemberSyncService
       _autoFillPublicationRevision++;
       _autoFillContentRevision++;
       _profileQuarantined = true;
+      _runtimeAccessContexts.clear();
       return null;
     }
     if (state == null) return null;
@@ -1034,6 +1065,7 @@ final class MemberSyncService
         accessContext: state.accessContext,
         memberVaultKey: Map<String, dynamic>.unmodifiable(state.memberVaultKey),
         readGeneration: generation,
+        contentRevision: contentRevision,
       );
     } on LocalMemberEntryReadInvalidatedException {
       rethrow;
@@ -1049,14 +1081,26 @@ final class MemberSyncService
     required String entryId,
     required LocalMemberEntryMaterial material,
     required MemberSyncSessionAuthority authority,
+    bool allowCompletedRenewal = false,
   }) async {
     try {
+      if (allowCompletedRenewal) {
+        await waitForCurrent(vaultId);
+        if (material.contentRevision != _autoFillContentRevision) {
+          throw const LocalMemberEntryReadInvalidatedException();
+        }
+      }
       _requireReadable(vaultId, material.readGeneration);
       final state = await _cache.state(vaultId);
       _requireReadable(vaultId, material.readGeneration);
       if (state == null ||
-          _canonicalJson(state.accessContext.toJson()) !=
-              _canonicalJson(material.accessContext.toJson()) ||
+          (allowCompletedRenewal
+              ? !_preservesAutoFillAuthority(
+                  material.accessContext,
+                  state.accessContext,
+                )
+              : _canonicalJson(state.accessContext.toJson()) !=
+                    _canonicalJson(material.accessContext.toJson())) ||
           _canonicalJson(state.memberVaultKey) !=
               _canonicalJson(material.memberVaultKey)) {
         throw const LocalMemberEntryReadInvalidatedException();
@@ -1076,12 +1120,25 @@ final class MemberSyncService
           _canonicalJson(current.entryKey) !=
               _canonicalJson(material.item.entryKey) ||
           _canonicalJson(current.memberSecret) !=
-              _canonicalJson(material.item.memberSecret)) {
+              _canonicalJson(material.item.memberSecret) ||
+          (allowCompletedRenewal &&
+              (material.contentRevision != _autoFillContentRevision ||
+                  _running.containsKey(vaultId) ||
+                  _runtimeAccessContexts[vaultId] == null ||
+                  !_preservesAutoFillAuthority(
+                    material.accessContext,
+                    _runtimeAccessContexts[vaultId]!,
+                  )))) {
         throw const LocalMemberEntryReadInvalidatedException();
       }
     } on LocalMemberEntryReadInvalidatedException {
       rethrow;
     } on Object {
+      // A failed wait can belong to a session that has already been replaced.
+      // It must not quarantine that newer session's independently valid cache.
+      if (material.readGeneration != _lockGeneration) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
       try {
         await purgeVault(vaultId);
       } on Object {
@@ -1107,6 +1164,7 @@ final class MemberSyncService
     }
     _leaseTimers.remove(vaultId)?.cancel();
     _indexes.remove(vaultId);
+    _runtimeAccessContexts.remove(vaultId);
     _connectedSessionVaults.remove(vaultId);
     _publishIndexUpdate(vaultId);
     await _serializeVault(vaultId, () => _cache.clearVault(vaultId));
@@ -1127,6 +1185,7 @@ final class MemberSyncService
     }
     _leaseTimers.clear();
     _indexes.clear();
+    _runtimeAccessContexts.clear();
     _connectedSessionVaults.clear();
     final quarantineGeneration = await _cache.quarantineProfile();
     await Future.wait(_vaultCommitTails.values.toList(growable: false));
@@ -1348,8 +1407,11 @@ final class MemberSyncService
 
   void _scheduleLeaseExpiry(
     String vaultId,
-    MemberOfflineAccessContext context,
-  ) {
+    MemberOfflineAccessContext context, {
+    required int generation,
+  }) {
+    _requireCurrent(generation);
+    _runtimeAccessContexts[vaultId] = context;
     _leaseTimers.remove(vaultId)?.cancel();
     if (context.offlinePolicy == 'disabled') return;
     final delay = context.notAfter.difference(_now().toUtc());

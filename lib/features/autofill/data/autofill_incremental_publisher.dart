@@ -406,6 +406,12 @@ class AutoFillIncrementalPublisher {
           validatePublication: validatePublication,
         );
       }
+      // A completed same-content renewal may have arrived during native I/O.
+      // Wait outside the synchronous bridge guard, retaining original leases.
+      await _metadata.revalidateAutoFillMetadata(
+        currentSnapshot,
+        authority: claims,
+      );
       validatePublication();
       _requireBase(acknowledged, allowUnchanged: noOpCandidate);
       _base = acknowledged;

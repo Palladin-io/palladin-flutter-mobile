@@ -153,6 +153,7 @@ class LocalCurrentEntryService {
         entryId: entryId,
         material: material,
         authority: authority,
+        allowCompletedRenewal: preparationAuthority != null,
       );
       preparationAuthority?.validateCurrent();
       returningSnapshot = true;
