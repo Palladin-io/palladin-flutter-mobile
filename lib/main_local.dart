@@ -1,3 +1,5 @@
+export 'autofill_extension.dart' show autoFillExtensionMain;
+
 import 'package:flutter/material.dart';
 import 'core/storage/device_secure_storage.dart';
 
