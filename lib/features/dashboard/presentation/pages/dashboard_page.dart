@@ -128,7 +128,7 @@ class _DashboardViewState extends State<_DashboardView> {
     _searchSession.attachView(_clearSearchView);
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated && auth.privateKey != null) {
-      _searchCubit.prepare(auth.privateKey!);
+      _searchCubit.prepare(auth.privateKey!, principalId: auth.userId);
     }
   }
 

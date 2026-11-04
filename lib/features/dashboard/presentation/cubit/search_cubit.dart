@@ -51,9 +51,9 @@ class SearchCubit extends Cubit<SearchState> {
 
   /// Starts rebuilding the runtime-only local index for Home search.
   /// No key reference is retained after the returned operation completes.
-  void prepare(Uint8List memberPrivateKey) {
-    _localPreparation = _localRepository
-        .prepare(memberPrivateKey)
+  void prepare(Uint8List memberPrivateKey, {required String principalId}) {
+    _localPreparation = _sessionController
+        .prepare(principalId, () => _localRepository.prepare(memberPrivateKey))
         .then(
           (_) {},
           onError: (Object _, StackTrace stackTrace) {
