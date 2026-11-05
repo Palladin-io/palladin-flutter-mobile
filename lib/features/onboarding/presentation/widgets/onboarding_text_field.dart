@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/theme/app_spacing.dart';
 
 /// Reusable animated feedback slot used below every input field.
@@ -254,7 +255,8 @@ class OnboardingTextField extends StatelessWidget {
       style: TextStyle(
         color: AppColors.inputText(brightness),
         fontSize: 13,
-        fontFamily: monospace ? 'monospace' : null,
+        fontFamily: monospace ? AppFonts.monospace : null,
+        fontFamilyFallback: monospace ? AppFonts.monospaceFallback : null,
       ),
       decoration: InputDecoration(
         // isDense + tighter vertical padding brings the field to ~44px, in line with the app's

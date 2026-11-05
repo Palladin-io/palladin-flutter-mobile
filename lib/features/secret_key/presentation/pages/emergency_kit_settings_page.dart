@@ -5,6 +5,7 @@ import '../../../../config/env_config.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/storage/account_secret_store.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
@@ -192,6 +193,7 @@ class _BodyState extends State<_Body> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _create(),
                     feedbackVisible: state.wrongPassword,
+                    feedbackReserveSpace: false,
                     feedbackChild: Text(
                       l10n.emergencyKitSettingsWrongPassword,
                       style: const TextStyle(
@@ -275,7 +277,8 @@ class _SecretKeyCard extends StatelessWidget {
                   masked,
                   style: TextStyle(
                     color: AppColors.onSurface(brightness),
-                    fontFamily: 'monospace',
+                    fontFamily: AppFonts.monospace,
+                    fontFamilyFallback: AppFonts.monospaceFallback,
                     fontSize: 13,
                   ),
                 ),

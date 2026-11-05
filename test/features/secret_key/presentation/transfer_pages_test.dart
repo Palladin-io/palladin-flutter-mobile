@@ -1,12 +1,14 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_palladin/core/crypto/identity/device_pairing.dart';
 import 'package:mobile_palladin/core/crypto/identity/secret_key_codec.dart';
 import 'package:mobile_palladin/core/storage/account_secret_store.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_text_field.dart';
 import 'package:mobile_palladin/features/secret_key/data/datasources/secret_key_transfer_remote_datasource.dart';
 import 'package:mobile_palladin/features/secret_key/presentation/cubit/device_transfer_sender_cubit.dart';
 import 'package:mobile_palladin/features/secret_key/presentation/cubit/secret_key_acquisition_cubit.dart';
@@ -232,6 +234,37 @@ void main() {
       expect(result, _secret);
       await cubit.close();
       expect(result, _secret, reason: 'the popped copy survives cubit close');
+    });
+
+    testWidgets('Secret Key hint is laid out unclipped at 390pt width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester);
+      await tester.tap(find.text('Use Emergency Kit'));
+      await tester.pumpAndSettle();
+
+      final hint = find.text(
+        'Starts with PSK2, then 9 groups of 6 characters. '
+        'Dashes and spaces are optional.',
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(hint);
+      final singleLine = paragraph.getMinIntrinsicHeight(double.infinity);
+      final wrapped = paragraph.getMaxIntrinsicHeight(paragraph.size.width);
+      expect(wrapped, greaterThan(singleLine), reason: 'hint wraps');
+      expect(paragraph.size.height, greaterThanOrEqualTo(wrapped));
+
+      final slot = find.ancestor(
+        of: hint,
+        matching: find.byType(FieldFeedbackSlot),
+      );
+      final slotRect = tester.getRect(slot);
+      final hintRect = tester.getRect(hint);
+      expect(slotRect.top, lessThanOrEqualTo(hintRect.top));
+      expect(slotRect.bottom, greaterThanOrEqualTo(hintRect.bottom));
+      await cubit.close();
     });
 
     testWidgets('scanning the kit QR pops the key', (tester) async {

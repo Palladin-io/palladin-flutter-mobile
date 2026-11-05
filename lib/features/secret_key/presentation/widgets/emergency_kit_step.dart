@@ -6,6 +6,7 @@ import '../../../../config/env_config.dart';
 import '../../../../core/crypto/identity/secret_key_codec.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -247,7 +248,8 @@ class _KitPreview extends StatelessWidget {
             secretKey,
             key: const ValueKey('emergencyKitSecretKey'),
             style: valueStyle.copyWith(
-              fontFamily: 'monospace',
+              fontFamily: AppFonts.monospace,
+              fontFamilyFallback: AppFonts.monospaceFallback,
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -389,6 +389,7 @@ class _KitEntryBodyState extends State<_KitEntryBody> {
                   ),
                 ),
                 feedbackVisible: true,
+                feedbackReserveSpace: false,
               ),
             ],
           ),

@@ -339,6 +339,8 @@ Brightness-aware semantic colors are static methods (`AppColors.onSurface(bright
 - `Color(0xFFxxxxxx)` — always add to `AppColors` with a descriptive name
 - `onPrimary: Colors.white` in `ThemeData` — use `AppColors.onBrandRed`
 
+**Monospace text:** use `fontFamily: AppFonts.monospace` with `fontFamilyFallback: AppFonts.monospaceFallback` (`lib/core/theme/app_fonts.dart`); a bare `'monospace'` family does not exist on iOS.
+
 **Audit Log colors:** roles map to `AppColors`: `positiveAccent` (#10B981 success), `vaultPeach` (#FFAB87 = pending / `grant.requested`), `vaultBlue` (#60A5FA info), `brandRed` (danger), `textTertiary` (#8A95A6 neutral). Consumed in `lib/features/audit/.../audit_log_format.dart`. Web ↔ mobile parity required; `agent.enrolled` = vaultBlue, `agent.reactivated` = positiveAccent.
 
 ## Spacing
