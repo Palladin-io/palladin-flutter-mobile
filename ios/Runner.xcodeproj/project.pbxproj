@@ -7,15 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AFC101021AAAA00100000002 /* PendingPasswordSave.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC101031AAAA00100000003 /* PendingPasswordSave.swift */; };
-		AFB101021AAAA00100000002 /* AutoFillCredentialPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */; };
-		C64400010000000000000001 /* EntryShareMailbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000001 /* EntryShareMailbox.swift */; };
-		C64400010000000000000002 /* EntryShareActivityPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000002 /* EntryShareActivityPrivacy.swift */; };
-		C64400010000000000000003 /* EntryShareNativeIngress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000003 /* EntryShareNativeIngress.swift */; };
 		043748E03DCB8DC3F3E4FFBB /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F6260E78E8942529C354D6E1 /* Localizable.strings */; };
 		0D9F10D53F8635E2DF7989B1 /* CredentialProviderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 568D0ABBB8BDD3725AE45AE1 /* CredentialProviderViewController.swift */; };
-		AFA100021AAAA00100000002 /* AutoFillCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */; };
-		AFA100041AAAA00100000004 /* GeneratedPasswordHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		379C7C7796D7895EF9DFEB78 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2857A94836B26F214F0F2AB8 /* Pods_Runner.framework */; };
@@ -24,10 +17,18 @@
 		735A45327A9EF7547F5BF947 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9386C02431FF8B5BC2AD2F85 /* AuthenticationServices.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
+		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9EF345F615ADB2449F85FD96 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E798C5B8DD14C676D321155 /* Pods_RunnerTests.framework */; };
+		AFA100021AAAA00100000002 /* AutoFillCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */; };
+		AFA100041AAAA00100000004 /* GeneratedPasswordHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */; };
+		AFB101021AAAA00100000002 /* AutoFillCredentialPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */; };
+		AFC101021AAAA00100000002 /* PendingPasswordSave.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC101031AAAA00100000003 /* PendingPasswordSave.swift */; };
+		C64400010000000000000001 /* EntryShareMailbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000001 /* EntryShareMailbox.swift */; };
+		C64400010000000000000002 /* EntryShareActivityPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000002 /* EntryShareActivityPrivacy.swift */; };
+		C64400010000000000000003 /* EntryShareNativeIngress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000003 /* EntryShareNativeIngress.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,11 +73,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		AFC101031AAAA00100000003 /* PendingPasswordSave.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PendingPasswordSave.swift; path = AutoFillBridge/Classes/PendingPasswordSave.swift; sourceTree = "<group>"; };
-		AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutoFillCredentialPicker.swift; path = AutoFillBridge/Classes/AutoFillCredentialPicker.swift; sourceTree = "<group>"; };
-		C64400020000000000000001 /* EntryShareMailbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareMailbox.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareMailbox.swift; sourceTree = "<group>"; };
-		C64400020000000000000002 /* EntryShareActivityPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareActivityPrivacy.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareActivityPrivacy.swift; sourceTree = "<group>"; };
-		C64400020000000000000003 /* EntryShareNativeIngress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryShareNativeIngress.swift; sourceTree = "<group>"; };
 		0A6A5ED5140DFE490C4E8FB8 /* Pods-Runner.profile-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-staging.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-staging.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -91,13 +87,12 @@
 		3517B982BE5F92C18289E207 /* Pods-Runner.profile-production.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-production.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-production.xcconfig"; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		568D0ABBB8BDD3725AE45AE1 /* CredentialProviderViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CredentialProviderViewController.swift; sourceTree = "<group>"; };
-		AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AutoFillCacheStore.swift; path = AutoFillBridge/Classes/AutoFillCacheStore.swift; sourceTree = "<group>"; };
-		AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeneratedPasswordHistory.swift; path = AutoFillBridge/Classes/GeneratedPasswordHistory.swift; sourceTree = "<group>"; };
 		74710404F29760E5FBF37359 /* Pods-Runner.release-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-staging.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-staging.xcconfig"; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		760242C30A4B43CCDD68CF43 /* Pods-RunnerTests.debug-local.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug-local.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug-local.xcconfig"; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		7E798C5B8DD14C676D321155 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		86EEB3590CB4CBC8E0B36DC4 /* Pods-RunnerTests.release-local.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-local.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-local.xcconfig"; sourceTree = "<group>"; };
@@ -123,8 +118,15 @@
 		AA1001081AAAA00100000008 /* Release-local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Release-local.xcconfig"; path = "Flutter/Release-local.xcconfig"; sourceTree = "<group>"; };
 		AA1001091AAAA00100000009 /* Profile-local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Profile-local.xcconfig"; path = "Flutter/Profile-local.xcconfig"; sourceTree = "<group>"; };
 		AE3F1FF4963E9A1A1341AFEB /* Pods-Runner.profile-local.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-local.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-local.xcconfig"; sourceTree = "<group>"; };
+		AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AutoFillCacheStore.swift; path = AutoFillBridge/Classes/AutoFillCacheStore.swift; sourceTree = "<group>"; };
+		AFA100051AAAA00100000005 /* GeneratedPasswordHistory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeneratedPasswordHistory.swift; path = AutoFillBridge/Classes/GeneratedPasswordHistory.swift; sourceTree = "<group>"; };
+		AFB101031AAAA00100000003 /* AutoFillCredentialPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutoFillCredentialPicker.swift; path = AutoFillBridge/Classes/AutoFillCredentialPicker.swift; sourceTree = "<group>"; };
+		AFC101031AAAA00100000003 /* PendingPasswordSave.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PendingPasswordSave.swift; path = AutoFillBridge/Classes/PendingPasswordSave.swift; sourceTree = "<group>"; };
 		B76A62BC9EF5C7C4DFFDF202 /* pl */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C0147D1113B1F83B8076F50E /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C64400020000000000000001 /* EntryShareMailbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareMailbox.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareMailbox.swift; sourceTree = "<group>"; };
+		C64400020000000000000002 /* EntryShareActivityPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareActivityPrivacy.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareActivityPrivacy.swift; sourceTree = "<group>"; };
+		C64400020000000000000003 /* EntryShareNativeIngress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryShareNativeIngress.swift; sourceTree = "<group>"; };
 		D79D9DFAA0C4417B41AC881F /* Pods-Runner.release-production.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-production.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-production.xcconfig"; sourceTree = "<group>"; };
 		E37666F8D27B888D51355B45 /* Pods-RunnerTests.release-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-staging.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-staging.xcconfig"; sourceTree = "<group>"; };
 		E4CBBC55F17D40CB16F0977D /* Pods-RunnerTests.debug-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug-staging.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug-staging.xcconfig"; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
 				379C7C7796D7895EF9DFEB78 /* Pods_Runner.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -205,6 +208,7 @@
 		9740EEB11CF90186004384FC /* Flutter */ = {
 			isa = PBXGroup;
 			children = (
+				78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */,
 				3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
@@ -344,7 +348,6 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				827E891CBABD09B2EF7CA05F /* [CP] Embed Pods Frameworks */,
-				AE84A5FC676D22126023BF73 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -352,6 +355,9 @@
 				E5160B99F646FFD1621F8F37 /* PBXTargetDependency */,
 			);
 			name = Runner;
+			packageProductDependencies = (
+				78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */,
+			);
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
@@ -385,6 +391,9 @@
 				Base,
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
+			packageReferences = (
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
+			);
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -512,23 +521,6 @@
 			shellScript = "set -euo pipefail\n\nPLIST_DIR=\"${PROJECT_DIR}/config\"\nDESTINATION=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/GoogleService-Info.plist\"\n\nif [[ \"${CONFIGURATION}\" == *\"local\"* ]]; then\n    FLAVOR=\"local\"\nelif [[ \"${CONFIGURATION}\" == *\"staging\"* ]]; then\n    FLAVOR=\"staging\"\nelif [[ \"${CONFIGURATION}\" == *\"production\"* ]]; then\n    FLAVOR=\"production\"\nelse\n    echo \"warning: Unknown configuration '${CONFIGURATION}', defaulting to local\"\n    FLAVOR=\"local\"\nfi\n\nSOURCE=\"${PLIST_DIR}/${FLAVOR}/GoogleService-Info.plist\"\n\nif [[ ! -f \"${SOURCE}\" ]]; then\n    echo \"error: GoogleService-Info.plist not found at ${SOURCE}\"\n    exit 1\nfi\n\necho \"Copying GoogleService-Info.plist for ${FLAVOR}\"\ncp \"${SOURCE}\" \"${DESTINATION}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		AE84A5FC676D22126023BF73 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		DE77EAE84105F9BF91FCA9B9 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -645,9 +637,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.staging.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -672,9 +664,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -698,9 +690,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.staging.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -725,9 +717,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.local.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -752,9 +744,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.staging.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -778,9 +770,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.local.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -805,9 +797,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -868,7 +860,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -925,7 +917,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -976,7 +968,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -1030,7 +1022,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -1084,7 +1076,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -1136,7 +1128,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -1194,7 +1186,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -1245,7 +1237,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -1299,7 +1291,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -1549,9 +1541,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1726,9 +1718,9 @@
 				DEVELOPMENT_TEAM = Y82L5C86K4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CredentialProvider/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.local.CredentialProvider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1807,6 +1799,20 @@
 			defaultConfigurationName = "Release-production";
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FlutterGeneratedPluginSwiftPackage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 97C146E61CF9000F007C117D /* Project object */;
 }
