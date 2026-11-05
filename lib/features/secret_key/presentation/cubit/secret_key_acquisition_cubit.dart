@@ -142,11 +142,16 @@ class SecretKeyAcquisitionCubit extends Cubit<SecretKeyAcquisitionState> {
     final PairingQr qr;
     try {
       qr = PairingQr.parse(raw);
-      if (qr.role != PairingQrRole.senderShows) {
-        throw const DevicePairingException(DevicePairingError.malformedQr);
-      }
     } on DevicePairingException {
       emit(const SecretKeyAcquisitionFailed(DeviceTransferFailure.invalidCode));
+      return;
+    }
+    if (qr.role != PairingQrRole.senderShows) {
+      emit(
+        const SecretKeyAcquisitionFailed(
+          DeviceTransferFailure.codeForSignedInDevice,
+        ),
+      );
       return;
     }
     emit(const SecretKeyAcquisitionPreparing());

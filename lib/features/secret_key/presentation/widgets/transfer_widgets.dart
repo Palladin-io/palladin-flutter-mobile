@@ -6,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../cubit/device_transfer_failure.dart';
@@ -35,6 +36,10 @@ String transferFailureMessage(
   DeviceTransferFailure failure,
 ) => switch (failure) {
   DeviceTransferFailure.invalidCode => l10n.deviceTransferErrorInvalidCode,
+  DeviceTransferFailure.codeForSignedInDevice =>
+    l10n.deviceTransferErrorCodeForSignedInDevice,
+  DeviceTransferFailure.codeForNewDevice =>
+    l10n.deviceTransferErrorCodeForNewDevice,
   DeviceTransferFailure.keyMismatch => l10n.deviceTransferErrorKeyMismatch,
   DeviceTransferFailure.accountMismatch =>
     l10n.deviceTransferErrorAccountMismatch,
@@ -44,6 +49,16 @@ String transferFailureMessage(
   DeviceTransferFailure.expired => l10n.deviceTransferExpiredBody,
   DeviceTransferFailure.network => l10n.deviceTransferErrorNetwork,
   DeviceTransferFailure.server => l10n.deviceTransferErrorServer,
+};
+
+String transferFailureTitle(
+  AppLocalizations l10n,
+  DeviceTransferFailure failure,
+) => switch (failure) {
+  DeviceTransferFailure.expired => l10n.deviceTransferExpiredTitle,
+  DeviceTransferFailure.codeForSignedInDevice ||
+  DeviceTransferFailure.codeForNewDevice => l10n.deviceTransferWrongCodeTitle,
+  _ => l10n.deviceTransferFailedTitle,
 };
 
 /// The short authentication string both devices must show identically.
@@ -162,7 +177,8 @@ class TransferMethodTile extends StatelessWidget {
   }
 }
 
-/// Centered terminal state: approved, rejected, expired or failed.
+/// Centered terminal state: received, approved, rejected, expired or failed.
+/// Without an action it is a transient confirmation.
 class TransferStatusView extends StatelessWidget {
   const TransferStatusView({
     super.key,
@@ -170,16 +186,16 @@ class TransferStatusView extends StatelessWidget {
     required this.iconColor,
     required this.title,
     required this.message,
-    required this.actionLabel,
-    required this.onAction,
+    this.actionLabel,
+    this.onAction,
   });
 
   final IconData icon;
   final Color iconColor;
   final String title;
   final String message;
-  final String actionLabel;
-  final VoidCallback onAction;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +232,8 @@ class TransferStatusView extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          PrimaryButton(label: actionLabel, onPressed: onAction),
+          if (actionLabel case final label?)
+            PrimaryButton(label: label, onPressed: onAction),
         ],
       ),
     );
@@ -341,17 +358,16 @@ class _TransferQrScannerPageState extends State<TransferQrScannerPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         titleSpacing: 0,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: AppColors.onBrandRed),
-        title: Text(
-          widget.title,
-          style: const TextStyle(
-            color: AppColors.onBrandRed,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+        leading: const BackButton(color: AppColors.onBrandRed),
+        // The camera UI stays dark in both themes.
+        title: Theme(
+          data: Theme.of(context).copyWith(brightness: Brightness.dark),
+          child: AppBarTitle(title: widget.title),
         ),
       ),
       body: MobileScanner(
@@ -362,37 +378,81 @@ class _TransferQrScannerPageState extends State<TransferQrScannerPage> {
               error.errorCode == MobileScannerErrorCode.permissionDenied,
           l10n: l10n,
         ),
-        overlayBuilder: (context, _) => Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(
-              AppSpacing.xxl,
-              0,
-              AppSpacing.xxl,
-              AppSpacing.xxxl,
+        overlayBuilder: (context, _) => Stack(
+          fit: StackFit.expand,
+          children: [
+            const IgnorePointer(
+              child: CustomPaint(painter: _ScanFramePainter()),
             ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.darkBackground.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              widget.instruction,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.onBrandRed,
-                fontSize: 13,
-                height: 1.4,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(
+                  AppSpacing.xxl,
+                  0,
+                  AppSpacing.xxl,
+                  AppSpacing.xxxl,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.darkBackground.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  widget.instruction,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.onBrandRed,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
+}
+
+/// Dims the preview around a rounded square guide; purely visual, the
+/// scanner still decodes the whole preview.
+class _ScanFramePainter extends CustomPainter {
+  const _ScanFramePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final side = (size.shortestSide * 0.68).clamp(180.0, 280.0);
+    final frame = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: size.center(Offset.zero),
+        width: side,
+        height: side,
+      ),
+      const Radius.circular(24),
+    );
+    canvas.drawPath(
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(Offset.zero & size)
+        ..addRRect(frame),
+      Paint()..color = AppColors.darkBackground.withValues(alpha: 0.55),
+    );
+    canvas.drawRRect(
+      frame,
+      Paint()
+        ..color = AppColors.onBrandRed
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ScanFramePainter oldDelegate) => false;
 }
 
 class _CameraError extends StatelessWidget {

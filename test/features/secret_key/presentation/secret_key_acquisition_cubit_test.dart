@@ -101,7 +101,10 @@ void main() {
       await sub.cancel();
 
       final shown = states.whereType<SecretKeyAcquisitionShowingCode>().single;
-      expect(shown.qrPayload, startsWith('palladin-pair:v2:r:ISEhISEhISEhISEhISEhIQ.'));
+      expect(
+        shown.qrPayload,
+        startsWith('palladin-pair:v2:r:ISEhISEhISEhISEhISEhIQ.'),
+      );
       expect((cubit.state as SecretKeyAcquisitionAcquired).secret, _secret);
       expect(polls, 3);
       await cubit.close();
@@ -205,18 +208,21 @@ void main() {
     },
   );
 
-  test('a device code is not a computer code', () async {
-    final cubit = build();
-    await cubit.onScannedSenderCode(
-      'palladin-pair:v2:r:$_transferId.${encodeTransferBytes(_challenge)}',
-    );
-    expect(
-      (cubit.state as SecretKeyAcquisitionFailed).failure,
-      DeviceTransferFailure.invalidCode,
-    );
-    verifyZeroInteractions(datasource);
-    await cubit.close();
-  });
+  test(
+    'a new-device code is reported as meant for a signed-in phone',
+    () async {
+      final cubit = build();
+      await cubit.onScannedSenderCode(
+        PairingQr.recipientShows(_transferId, _challenge),
+      );
+      expect(
+        (cubit.state as SecretKeyAcquisitionFailed).failure,
+        DeviceTransferFailure.codeForSignedInDevice,
+      );
+      verifyZeroInteractions(datasource);
+      await cubit.close();
+    },
+  );
 
   group('Emergency Kit', () {
     final display = SecretKeyCodec.format(_accountId, _secret);

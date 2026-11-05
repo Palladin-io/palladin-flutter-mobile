@@ -97,7 +97,10 @@ void main() {
       );
     });
 
-    Future<DeviceTransferSenderCubit> pump(WidgetTester tester) async {
+    Future<DeviceTransferSenderCubit> pump(
+      WidgetTester tester, {
+      String Function()? scan,
+    }) async {
       final cubit = DeviceTransferSenderCubit(
         accountId: _accountId,
         datasource: datasource,
@@ -110,6 +113,7 @@ void main() {
             value: cubit,
             child: DeviceTransferApproveView(
               scanQr: (_, {required title, required instruction}) async =>
+                  scan?.call() ??
                   PairingQr.recipientShows(_transferId, recipientKey),
             ),
           ),
@@ -165,13 +169,40 @@ void main() {
       expect(find.text('Request rejected'), findsOneWidget);
       verifyNever(() => datasource.submitEnvelope(any(), any()));
     });
+
+    testWidgets('a computer code says it belongs on the new phone', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        scan: () => PairingQr.senderShows(_transferId, _challenge),
+      );
+      await tester.tap(find.text('Add a device'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Wrong code'), findsOneWidget);
+      expect(
+        find.text(
+          'This code is for a new phone. Scan it on the new phone from the '
+          'Set up this phone screen.',
+        ),
+        findsOneWidget,
+      );
+      verifyNever(() => datasource.readAsSender(any()));
+    });
   });
 
   group('SecretKeyAcquisitionView', () {
     late SecretKeyAcquisitionCubit cubit;
     Uint8List? result;
+    final scans = <(String, String)>[];
 
-    Future<void> pump(WidgetTester tester) async {
+    Future<void> pump(
+      WidgetTester tester, {
+      String Function()? scan,
+      Duration confirmationDelay = Duration.zero,
+    }) async {
+      scans.clear();
       result = null;
       cubit = SecretKeyAcquisitionCubit(
         accountId: _accountId,
@@ -195,8 +226,12 @@ void main() {
             builder: (_, _) => BlocProvider.value(
               value: cubit,
               child: SecretKeyAcquisitionView(
-                scanQr: (_, {required title, required instruction}) async =>
-                    SecretKeyCodec.emergencyKitQr(_accountId, _secret),
+                confirmationDelay: confirmationDelay,
+                scanQr: (_, {required title, required instruction}) async {
+                  scans.add((title, instruction));
+                  return scan?.call() ??
+                      SecretKeyCodec.emergencyKitQr(_accountId, _secret);
+                },
               ),
             ),
           ),
@@ -314,6 +349,101 @@ void main() {
           pollToken: 'poll',
         ),
       ).called(1);
+      await cubit.close();
+    });
+
+    testWidgets('confirms the received key before handing it to sign-in', (
+      tester,
+    ) async {
+      await pump(tester, confirmationDelay: const Duration(milliseconds: 900));
+      await tester.tap(find.text('Use Emergency Kit'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField),
+        SecretKeyCodec.format(_accountId, _secret),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Continue'));
+      await tester.pump();
+
+      expect(find.text('Secret Key received'), findsOneWidget);
+      expect(
+        find.text('Saving it on this phone and signing you in…'),
+        findsOneWidget,
+      );
+      expect(find.byType(BackButton), findsNothing);
+      expect(result, isNull);
+
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(result, _secret);
+      await cubit.close();
+    });
+
+    testWidgets('after scanning a computer code it says to approve there', (
+      tester,
+    ) async {
+      when(
+        () => datasource.attachRecipient(
+          transferId: _transferId,
+          challenge: any(named: 'challenge'),
+          recipientPublicKey: any(named: 'recipientPublicKey'),
+        ),
+      ).thenAnswer((_) async => 'poll');
+      when(
+        () => datasource.claim(transferId: _transferId, pollToken: 'poll'),
+      ).thenAnswer((_) async => null);
+      await pump(
+        tester,
+        scan: () => PairingQr.senderShows(_transferId, _challenge),
+      );
+      await tester.tap(find.text('Scan code from a computer'));
+      await tester.runAsync(() async {
+        while (cubit.state is! SecretKeyAcquisitionAwaitingSender) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+      await tester.pump();
+
+      expect(scans.single.$1, 'Scan code from a computer');
+      expect(scans.single.$2, contains('Settings › Add a phone'));
+      expect(find.text('Approve on your computer'), findsOneWidget);
+      expect(
+        find.text(
+          'Check the code on your computer. If it matches the code below, '
+          "approve there. There's nothing to tap on this phone.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Approve'), findsNothing);
+      expect(find.text('Cancel'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.text('Set up this phone'), findsOneWidget);
+      await cubit.close();
+    });
+
+    testWidgets('a new-device code says it belongs on a signed-in phone', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        scan: () => PairingQr.recipientShows(_transferId, _secret),
+      );
+      await tester.tap(find.text('Scan code from a computer'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Wrong code'), findsOneWidget);
+      expect(
+        find.text(
+          "This code is for a phone that's already signed in. On that phone, "
+          'open Settings › Add a device and scan it there.',
+        ),
+        findsOneWidget,
+      );
+      verifyZeroInteractions(datasource);
       await cubit.close();
     });
   });

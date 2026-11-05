@@ -28,6 +28,8 @@ from the backend and builds the offer with `PairingOffer.verify`:
   sealed only after the user taps Approve, and the buffer is wiped afterwards.
 - Reject cancels the session. Expired, consumed and unknown sessions show
   "Code expired".
+- A computer's `palladin-pair:v2:s:` code scanned here shows "Wrong code" and
+  tells the user to scan it on the new phone.
 
 The phone does not show a sender code itself; the web panel provides that
 mode.
@@ -50,9 +52,17 @@ close.
 - The claimed `accountId` must equal the bootstrap account, and the envelope
   must authenticate against the local transcript; otherwise nothing is
   returned.
+- The phone has no action while the computer decides; the screen says to
+  approve on the computer if the codes match. A scanned `v2:r:` code shows
+  "Wrong code" and points to Add a device on a signed-in phone.
+- Once the key is available the page shows "Secret Key received" for about a
+  second, then pops; the key is saved only after the sign-in it unlocks
+  succeeds.
 - **Emergency Kit:** typed `PSK2-…` (checksum bound to the account) or the kit
   QR (`palladin-kit:v1:`, account id must match).
 
 Camera scanning goes through the injectable `QrScanLauncher`
 (`TransferQrScannerPage` by default), so widget tests never start the camera.
+The scanner is always dark, uses `AppBarTitle` and draws a visual-only scan
+frame; decoding still covers the whole preview.
 A wrong Secret Key is detected only by a failed sign-in.

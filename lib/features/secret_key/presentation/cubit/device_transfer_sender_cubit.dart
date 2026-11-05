@@ -84,7 +84,11 @@ class DeviceTransferSenderCubit extends Cubit<DeviceTransferSenderState> {
       return;
     }
     if (qr.role != PairingQrRole.recipientShows) {
-      emit(const DeviceTransferSenderFailed(DeviceTransferFailure.invalidCode));
+      emit(
+        const DeviceTransferSenderFailed(
+          DeviceTransferFailure.codeForNewDevice,
+        ),
+      );
       return;
     }
     emit(const DeviceTransferSenderLoading());

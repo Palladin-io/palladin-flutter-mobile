@@ -131,12 +131,12 @@ void main() {
     verifyNever(() => store.read(any()));
   });
 
-  test('a sender-shows code is not a device code', () async {
+  test('a computer code is reported as meant for the new device', () async {
     final cubit = build();
     await cubit.onScanned(PairingQr.senderShows(_transferId, _challenge));
     expect(
       (cubit.state as DeviceTransferSenderFailed).failure,
-      DeviceTransferFailure.invalidCode,
+      DeviceTransferFailure.codeForNewDevice,
     );
     verifyNever(() => datasource.readAsSender(any()));
   });

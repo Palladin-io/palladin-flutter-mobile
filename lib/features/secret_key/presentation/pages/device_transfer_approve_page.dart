@@ -102,9 +102,7 @@ class DeviceTransferApproveView extends StatelessWidget {
               ? Icons.timer_off_outlined
               : Icons.error_outline,
           iconColor: AppColors.brandRed,
-          title: failure == DeviceTransferFailure.expired
-              ? l10n.deviceTransferExpiredTitle
-              : l10n.deviceTransferFailedTitle,
+          title: transferFailureTitle(l10n, failure),
           message: transferFailureMessage(l10n, failure),
           actionLabel: failure == DeviceTransferFailure.secretKeyMissing
               ? l10n.deviceTransferDone

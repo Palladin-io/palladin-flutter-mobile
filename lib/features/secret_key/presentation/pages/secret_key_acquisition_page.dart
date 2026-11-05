@@ -42,9 +42,17 @@ class SecretKeyAcquisitionPage extends StatelessWidget {
 }
 
 class SecretKeyAcquisitionView extends StatelessWidget {
-  const SecretKeyAcquisitionView({super.key, this.scanQr = launchQrScanner});
+  const SecretKeyAcquisitionView({
+    super.key,
+    this.scanQr = launchQrScanner,
+    this.confirmationDelay = const Duration(milliseconds: 900),
+  });
 
   final QrScanLauncher scanQr;
+
+  /// How long the "Secret Key received" confirmation stays before the page
+  /// hands the key back to sign-in.
+  final Duration confirmationDelay;
 
   Future<void> _scanComputer(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
@@ -75,32 +83,40 @@ class SecretKeyAcquisitionView extends StatelessWidget {
     final cubit = context.read<SecretKeyAcquisitionCubit>();
     return BlocConsumer<SecretKeyAcquisitionCubit, SecretKeyAcquisitionState>(
       listenWhen: (_, state) => state is SecretKeyAcquisitionAcquired,
-      listener: (context, state) {
-        if (state is SecretKeyAcquisitionAcquired) {
-          context.pop<Uint8List>(Uint8List.fromList(state.secret));
+      listener: (context, state) async {
+        if (state is! SecretKeyAcquisitionAcquired) return;
+        final secret = Uint8List.fromList(state.secret);
+        await Future<void>.delayed(confirmationDelay);
+        if (!context.mounted) {
+          secret.fillRange(0, secret.length, 0);
+          return;
         }
+        context.pop<Uint8List>(secret);
       },
       builder: (context, state) {
         final title = switch (state) {
           SecretKeyAcquisitionShowingCode() => l10n.secretKeyEntryShowCodeTitle,
           SecretKeyAcquisitionAwaitingSender() =>
-            l10n.deviceTransferCompareTitle,
+            l10n.secretKeyEntryApproveOnComputerTitle,
           SecretKeyAcquisitionKitEntry() => l10n.secretKeyEntryUseKit,
           _ => l10n.secretKeyEntryTitle,
         };
         final onPicker = state is SecretKeyAcquisitionChoose;
+        final acquired = state is SecretKeyAcquisitionAcquired;
         return PopScope(
-          canPop: onPicker || state is SecretKeyAcquisitionAcquired,
+          canPop: onPicker,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) cubit.back();
+            if (!didPop && !acquired) cubit.back();
           },
           child: AppScreen.appBar(
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
               scrolledUnderElevation: 0,
-              titleSpacing: 0,
+              // Without the back button the title keeps the screen gutter.
+              titleSpacing: acquired ? AppSpacing.screenH : 0,
               centerTitle: false,
+              automaticallyImplyLeading: !acquired,
               iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
               title: AppBarTitle(title: title),
             ),
@@ -110,9 +126,14 @@ class SecretKeyAcquisitionView extends StatelessWidget {
                 onShowCode: cubit.showCode,
                 onUseKit: cubit.chooseEmergencyKit,
               ),
-              SecretKeyAcquisitionPreparing() ||
-              SecretKeyAcquisitionAcquired() => const Center(
+              SecretKeyAcquisitionPreparing() => const Center(
                 child: CircularProgressIndicator(color: AppColors.brandRed),
+              ),
+              SecretKeyAcquisitionAcquired() => TransferStatusView(
+                icon: Icons.check_circle_outline,
+                iconColor: AppColors.positiveAccent,
+                title: l10n.secretKeyEntryReceivedTitle,
+                message: l10n.secretKeyEntryReceivedBody,
               ),
               SecretKeyAcquisitionShowingCode(
                 :final qrPayload,
@@ -145,9 +166,7 @@ class SecretKeyAcquisitionView extends StatelessWidget {
                     ? Icons.timer_off_outlined
                     : Icons.error_outline,
                 iconColor: AppColors.brandRed,
-                title: failure == DeviceTransferFailure.expired
-                    ? l10n.deviceTransferExpiredTitle
-                    : l10n.deviceTransferFailedTitle,
+                title: transferFailureTitle(l10n, failure),
                 message: transferFailureMessage(l10n, failure),
                 actionLabel: l10n.deviceTransferTryAgain,
                 onAction: cubit.back,

@@ -5318,7 +5318,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get deviceTransferScanInstruction =>
-      'Skieruj aparat na kod wyświetlany na nowym telefonie lub w przeglądarce.';
+      'Skieruj aparat na kod QR, który nowy telefon lub przeglądarka pokazuje po zalogowaniu.';
 
   @override
   String get deviceTransferCompareTitle => 'Porównaj kody';
@@ -5376,6 +5376,17 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get deviceTransferErrorInvalidCode =>
       'To nie jest kod urządzenia Palladin.';
+
+  @override
+  String get deviceTransferWrongCodeTitle => 'Nieodpowiedni kod';
+
+  @override
+  String get deviceTransferErrorCodeForSignedInDevice =>
+      'Ten kod jest dla telefonu, na którym już jesteś zalogowany. Otwórz na nim Ustawienia › Dodaj urządzenie i zeskanuj go tam.';
+
+  @override
+  String get deviceTransferErrorCodeForNewDevice =>
+      'Ten kod jest dla nowego telefonu. Zeskanuj go nowym telefonem na ekranie „Skonfiguruj ten telefon”.';
 
   @override
   String get deviceTransferErrorKeyMismatch =>
@@ -5450,7 +5461,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get secretKeyEntryCompareComputerBody =>
-      'Komputer też pokazuje kod. Zatwierdź tam tylko wtedy, gdy oba kody są takie same.';
+      'Sprawdź kod na komputerze. Jeśli zgadza się z kodem poniżej, zatwierdź tam. Na tym telefonie nic nie musisz klikać.';
+
+  @override
+  String get secretKeyEntryApproveOnComputerTitle => 'Zatwierdź na komputerze';
 
   @override
   String get secretKeyEntryWaitingComputer =>
@@ -5469,6 +5483,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get secretKeyEntryWaiting => 'Czekamy na zatwierdzenie…';
+
+  @override
+  String get secretKeyEntryReceivedTitle => 'Otrzymano Secret Key';
+
+  @override
+  String get secretKeyEntryReceivedBody =>
+      'Zapisujemy go na tym telefonie i logujemy Cię…';
 
   @override
   String get secretKeyEntryCancel => 'Anuluj';

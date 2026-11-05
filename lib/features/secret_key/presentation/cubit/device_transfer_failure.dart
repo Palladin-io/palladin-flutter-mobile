@@ -4,6 +4,12 @@ import '../../data/datasources/secret_key_transfer_remote_datasource.dart';
 /// Presentation-level outcome of a failed Secret Key transfer step.
 enum DeviceTransferFailure {
   invalidCode,
+
+  /// A new device's code was scanned where a computer's code is expected.
+  codeForSignedInDevice,
+
+  /// A computer's code was scanned on a signed-in phone.
+  codeForNewDevice,
   keyMismatch,
   accountMismatch,
   decryptFailed,

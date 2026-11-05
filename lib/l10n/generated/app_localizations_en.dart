@@ -5269,7 +5269,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceTransferScanInstruction =>
-      'Point your camera at the code on your new phone or browser.';
+      'Point your camera at the QR code the new phone or browser shows after you sign in there.';
 
   @override
   String get deviceTransferCompareTitle => 'Compare codes';
@@ -5327,6 +5327,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceTransferErrorInvalidCode =>
       'This isn\'t a Palladin device code.';
+
+  @override
+  String get deviceTransferWrongCodeTitle => 'Wrong code';
+
+  @override
+  String get deviceTransferErrorCodeForSignedInDevice =>
+      'This code is for a phone that\'s already signed in. On that phone, open Settings › Add a device and scan it there.';
+
+  @override
+  String get deviceTransferErrorCodeForNewDevice =>
+      'This code is for a new phone. Scan it on the new phone from the Set up this phone screen.';
 
   @override
   String get deviceTransferErrorKeyMismatch =>
@@ -5400,7 +5411,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get secretKeyEntryCompareComputerBody =>
-      'Your computer shows a code too. Approve there only if both codes match.';
+      'Check the code on your computer. If it matches the code below, approve there. There\'s nothing to tap on this phone.';
+
+  @override
+  String get secretKeyEntryApproveOnComputerTitle => 'Approve on your computer';
 
   @override
   String get secretKeyEntryWaitingComputer =>
@@ -5419,6 +5433,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get secretKeyEntryWaiting => 'Waiting for approval…';
+
+  @override
+  String get secretKeyEntryReceivedTitle => 'Secret Key received';
+
+  @override
+  String get secretKeyEntryReceivedBody =>
+      'Saving it on this phone and signing you in…';
 
   @override
   String get secretKeyEntryCancel => 'Cancel';

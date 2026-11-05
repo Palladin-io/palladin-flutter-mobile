@@ -9311,7 +9311,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceTransferScanInstruction.
   ///
   /// In en, this message translates to:
-  /// **'Point your camera at the code on your new phone or browser.'**
+  /// **'Point your camera at the QR code the new phone or browser shows after you sign in there.'**
   String get deviceTransferScanInstruction;
 
   /// No description provided for @deviceTransferCompareTitle.
@@ -9415,6 +9415,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This isn\'t a Palladin device code.'**
   String get deviceTransferErrorInvalidCode;
+
+  /// No description provided for @deviceTransferWrongCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong code'**
+  String get deviceTransferWrongCodeTitle;
+
+  /// No description provided for @deviceTransferErrorCodeForSignedInDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This code is for a phone that\'s already signed in. On that phone, open Settings › Add a device and scan it there.'**
+  String get deviceTransferErrorCodeForSignedInDevice;
+
+  /// No description provided for @deviceTransferErrorCodeForNewDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This code is for a new phone. Scan it on the new phone from the Set up this phone screen.'**
+  String get deviceTransferErrorCodeForNewDevice;
 
   /// No description provided for @deviceTransferErrorKeyMismatch.
   ///
@@ -9533,8 +9551,14 @@ abstract class AppLocalizations {
   /// No description provided for @secretKeyEntryCompareComputerBody.
   ///
   /// In en, this message translates to:
-  /// **'Your computer shows a code too. Approve there only if both codes match.'**
+  /// **'Check the code on your computer. If it matches the code below, approve there. There\'s nothing to tap on this phone.'**
   String get secretKeyEntryCompareComputerBody;
+
+  /// No description provided for @secretKeyEntryApproveOnComputerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve on your computer'**
+  String get secretKeyEntryApproveOnComputerTitle;
 
   /// No description provided for @secretKeyEntryWaitingComputer.
   ///
@@ -9565,6 +9589,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Waiting for approval…'**
   String get secretKeyEntryWaiting;
+
+  /// No description provided for @secretKeyEntryReceivedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key received'**
+  String get secretKeyEntryReceivedTitle;
+
+  /// No description provided for @secretKeyEntryReceivedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving it on this phone and signing you in…'**
+  String get secretKeyEntryReceivedBody;
 
   /// No description provided for @secretKeyEntryCancel.
   ///
