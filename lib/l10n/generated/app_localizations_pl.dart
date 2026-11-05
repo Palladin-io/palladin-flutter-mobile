@@ -5151,4 +5151,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get entrySignInMethodAgentHint =>
       'Agenci widzą dostawcę i powiązany wpis, nigdy konto.';
+
+  @override
+  String get entrySignInMethodsLabel => 'Metody logowania';
+
+  @override
+  String get entrySignInMethodAdd => 'Dodaj metodę logowania';
+
+  @override
+  String get entrySignInMethodVisibility => 'Widoczna dla agentów';
 }

@@ -5102,4 +5102,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get entrySignInMethodAgentHint =>
       'Agents can see the provider and the linked entry, never the account.';
+
+  @override
+  String get entrySignInMethodsLabel => 'Sign-in methods';
+
+  @override
+  String get entrySignInMethodAdd => 'Add sign-in method';
+
+  @override
+  String get entrySignInMethodVisibility => 'Visible to agents';
 }

@@ -5,7 +5,7 @@ import 'package:unorm_dart/unorm_dart.dart' as unicode;
 import 'custom_field.dart';
 import 'entry_entity.dart';
 
-/// Closed set of external sign-in providers in `palladin.signin.v1`.
+/// Closed set of external sign-in providers shared by v1 and v2.
 enum SignInProvider {
   google({'google.com'}),
   apple({'apple.com'}),
@@ -121,10 +121,107 @@ final class SignInMethodAmbiguous extends SignInMethodState {
 /// Rejected user input for a new binding.
 enum SignInAccountError { tooLong }
 
-/// Reads and replaces the canonical `palladin.signin.v1` custom field.
+/// Legacy singleton compatibility and stable-ID sign-in method collections.
 abstract final class SignInMethodField {
   static const type = 'palladin.signin.v1';
   static const discoveryFieldId = 'signIn';
+  static const collectionType = 'palladin.signin.v2';
+  static const collectionDiscoveryFieldId = 'signInMethods';
+
+  static bool isMethodType(String rawType) =>
+      rawType == type || rawType == collectionType;
+
+  static String wireId(String id) =>
+      id.startsWith('custom:') ? id : 'custom:$id';
+
+  static bool validMethodId(String id) => RegExp(
+    r'^custom:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+  ).hasMatch(wireId(id));
+
+  /// Recognized methods retain stable IDs, order and independent accounts.
+  static List<SignInMethodRecognized> methods({
+    required EntryType entryType,
+    required List<CustomField> fields,
+  }) => [
+    if (entryType == EntryType.credential)
+      for (final field in fields)
+        if (isMethodType(field.rawType) && validMethodId(field.id))
+          if (parseValue(field.value) case final binding?)
+            SignInMethodRecognized(fieldId: field.id, binding: binding),
+  ];
+
+  /// Mutates only the explicitly selected recognized method. Opaque fields
+  /// and untouched legacy values remain byte-equivalent.
+  static List<CustomField> update(
+    List<CustomField> fields, {
+    String? fieldId,
+    required SignInMethodBinding? binding,
+    required String label,
+    required String newId,
+  }) {
+    if (fieldId != null &&
+        !methods(
+          entryType: EntryType.credential,
+          fields: fields,
+        ).any((method) => method.fieldId == fieldId)) {
+      throw const FormatException('Unknown sign-in method');
+    }
+    return [
+      for (final field in fields)
+        if (field.id != fieldId)
+          field
+        else if (binding != null)
+          CustomField(
+            id: field.id,
+            label: field.label,
+            type: CustomFieldType.unknown,
+            rawType: collectionType,
+            value: binding.toValue(),
+          ),
+      if (fieldId == null && binding != null)
+        CustomField(
+          id: newId,
+          label: label,
+          type: CustomFieldType.unknown,
+          rawType: collectionType,
+          value: binding.toValue(),
+        ),
+    ];
+  }
+
+  /// Redacted collection projection; any v2 presence suppresses singleton.
+  static String? collectionDiscovery(
+    List<CustomField> fields,
+    Set<String> visibleIds,
+  ) {
+    final selected =
+        fields
+            .where(
+              (field) =>
+                  isMethodType(field.rawType) &&
+                  visibleIds.contains(wireId(field.id)),
+            )
+            .toList()
+          ..sort((a, b) => wireId(a.id).compareTo(wireId(b.id)));
+    if (selected.isEmpty) return null;
+    final ids = <String>{};
+    final projected = <Map<String, Object?>>[];
+    for (final field in selected) {
+      final binding = parseValue(field.value);
+      final id = wireId(field.id);
+      if (binding == null || !validMethodId(id) || !ids.add(id)) return null;
+      projected.add({
+        'entry': switch (binding.entry) {
+          null => null,
+          final entry => {'entryId': entry.entryId, 'vaultId': entry.vaultId},
+        },
+        'id': id,
+        'provider': binding.provider.wireName,
+      });
+    }
+    return jsonEncode({'methods': projected, 'schema': collectionType});
+  }
+
   static const maxAccountLength = 256;
 
   static final _uuid = RegExp(

@@ -221,18 +221,19 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     }
   }
 
-  /// Sets, replaces or (with a null [binding]) removes the Credential's
-  /// `palladin.signin.v1` binding.
+  /// Adds a v2 method or edits/removes only the selected stable [fieldId].
   ///
   /// The change is applied to a freshly authenticated canonical head, which
   /// also becomes the optimistic base revision. Every other field, policy and
-  /// presentation value is carried over unchanged; see [_signInAccess] for
-  /// the new field's Agent access. The displayed snapshot stays intact until
+  /// presentation value is carried over unchanged. New methods default private;
+  /// an explicit visibility choice affects only the selected method. The displayed snapshot stays intact until
   /// success, so a failed save leaves the details and the Edit base usable.
   Future<void> saveSignInMethod({
     required EntryEntity entry,
     required Uint8List privateKey,
     required SignInMethodBinding? binding,
+    String? fieldId,
+    bool? discovery,
     required String fieldLabel,
   }) async {
     if (privateKey.isEmpty || _updateInFlight) return;
@@ -254,12 +255,23 @@ class EditEntryCubit extends Cubit<EditEntryState> {
         return;
       }
       final fields = CustomField.listFromPayload(fresh.payload);
-      final next = SignInMethodField.replace(
+      final next = SignInMethodField.update(
         fields,
+        fieldId: fieldId,
         binding: binding,
         label: fieldLabel,
         newId: CustomField.newId(),
       );
+      if (binding == null &&
+          SignInMethodField.methods(
+            entryType: EntryType.credential,
+            fields: next,
+          ).isEmpty &&
+          ((fresh.payload['username'] as String? ?? '').trim().isEmpty ||
+              (fresh.payload['password'] as String? ?? '').trim().isEmpty)) {
+        emit(const EditEntryError(EntryErrorKind.validation));
+        return;
+      }
       final content = Map<String, dynamic>.from(fresh.payload)
         ..['fields'] = CustomField.listToJson(next);
       final previous = AgentVisibilityPolicy.fromJson(
@@ -274,11 +286,15 @@ class EditEntryCubit extends Cubit<EditEntryState> {
               fields.any((field) => field.id == id) &&
               !retainedIds.contains(id),
         );
-      final access = _signInAccess(fields, previous);
-      for (final field in next) {
-        if (field.rawType == SignInMethodField.type) {
-          policyFields[field.id] = access;
-        }
+      final editedId = fieldId ?? next.lastOrNull?.id;
+      if (binding != null && editedId != null) {
+        policyFields[editedId] = !previous.discoverable
+            ? AgentFieldAccess.never
+            : discovery == null
+            ? (previous.fields[editedId] ?? AgentFieldAccess.never)
+            : discovery
+            ? AgentFieldAccess.discovery
+            : AgentFieldAccess.never;
       }
       final label = secret['memberLabel'] as String? ?? entry.label;
       final updated = await canonicalService.update(
@@ -313,27 +329,6 @@ class EditEntryCubit extends Cubit<EditEntryState> {
       fresh?.clear();
       _updateInFlight = false;
     }
-  }
-
-  /// A replaced recognized binding keeps its `never`/`discovery` access;
-  /// otherwise the new field is discoverable exactly when the Credential is.
-  AgentFieldAccess _signInAccess(
-    List<CustomField> fields,
-    AgentVisibilityPolicy policy,
-  ) {
-    if (!policy.discoverable) return AgentFieldAccess.never;
-    final previous = SignInMethodField.read(
-      entryType: EntryType.credential,
-      fields: fields,
-    );
-    if (previous is SignInMethodRecognized) {
-      final access = policy.fields[previous.fieldId];
-      if (access == AgentFieldAccess.never ||
-          access == AgentFieldAccess.discovery) {
-        return access!;
-      }
-    }
-    return AgentFieldAccess.discovery;
   }
 
   void _emitCanonicalFailure(CanonicalEntryDetailException e) {

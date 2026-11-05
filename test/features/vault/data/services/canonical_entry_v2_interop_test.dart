@@ -593,8 +593,12 @@ void main() {
     'web-shaped custom fields round-trip as canonical MemberSecret',
     () async {
       const textId = '44444444-4444-4444-8444-444444444444';
-      const signInId = '55555555-5555-4555-8555-555555555555';
-      const signInValue = {'provider': 'google', 'account': 'qa@example.test'};
+      const signInId = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
+      const signInValue = {
+        'provider': 'google',
+        'account': 'qa@example.test',
+        'entry': null,
+      };
       final source = <String, dynamic>{
         'schema': MemberSecret.schema,
         'entryType': 'credential',
@@ -621,7 +625,7 @@ void main() {
             {
               'id': 'custom:$signInId',
               'label': 'Sign-in method',
-              'type': 'palladin.signin.v1',
+              'type': 'palladin.signin.v2',
               'value': signInValue,
             },
           ],
@@ -656,7 +660,7 @@ void main() {
         {
           'id': signInId,
           'label': 'Sign-in method',
-          'type': 'palladin.signin.v1',
+          'type': 'palladin.signin.v2',
           'value': signInValue,
           'agentVisible': false,
         },
@@ -733,7 +737,7 @@ void main() {
         {
           'id': 'custom:$signInId',
           'label': 'Sign-in method',
-          'type': 'palladin.signin.v1',
+          'type': 'palladin.signin.v2',
           'value': signInValue,
         },
       ]);
@@ -856,7 +860,7 @@ void main() {
       expect(sealed.discoverable, isFalse);
       expect(sealed.agentLabel, isNull);
       final field = sealed.content.customFields.single;
-      expect(field.kind, 'palladin.signin.v1');
+      expect(field.kind, 'palladin.signin.v2');
       expect(sealed.agentFieldAccess[field.fieldId], AgentFieldAccess.never);
       expect(VaultPlaintextProjector.agentDiscovery(sealed), isNull);
     },

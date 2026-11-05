@@ -9019,6 +9019,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Agents can see the provider and the linked entry, never the account.'**
   String get entrySignInMethodAgentHint;
+
+  /// No description provided for @entrySignInMethodsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in methods'**
+  String get entrySignInMethodsLabel;
+
+  /// No description provided for @entrySignInMethodAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add sign-in method'**
+  String get entrySignInMethodAdd;
+
+  /// No description provided for @entrySignInMethodVisibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents'**
+  String get entrySignInMethodVisibility;
 }
 
 class _AppLocalizationsDelegate

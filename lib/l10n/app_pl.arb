@@ -1597,5 +1597,8 @@
   "entrySignInMethodLinkedEntryNone": "Brak",
   "entrySignInMethodLinkedEntryLoading": "Szukam pasujących wpisów…",
   "entrySignInMethodLinkedEntryEmpty": "Brak wpisu tego dostawcy widocznego dla agentów",
-  "entrySignInMethodAgentHint": "Agenci widzą dostawcę i powiązany wpis, nigdy konto."
+  "entrySignInMethodAgentHint": "Agenci widzą dostawcę i powiązany wpis, nigdy konto.",
+  "entrySignInMethodsLabel": "Metody logowania",
+  "entrySignInMethodAdd": "Dodaj metodę logowania",
+  "entrySignInMethodVisibility": "Widoczna dla agentów"
 }

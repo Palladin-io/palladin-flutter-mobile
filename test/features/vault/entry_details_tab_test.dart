@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_widgets.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -737,7 +738,10 @@ void main() {
       'fields': fields,
     };
 
-    Map<String, dynamic> binding(Object? value, {String id = 'b1'}) => {
+    Map<String, dynamic> binding(
+      Object? value, {
+      String id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    }) => {
       'id': id,
       'label': 'Sign-in method',
       'type': 'palladin.signin.v1',
@@ -753,7 +757,7 @@ void main() {
           )
           .map((text) => text.data)
           .whereType<String>();
-      return texts.join();
+      return texts.where((text) => text != 'Sign-in methods').join(' · ');
     }
 
     testWidgets('shows a recognized provider and account', (tester) async {
@@ -767,6 +771,48 @@ void main() {
       expect(await rowText(tester), 'GitHub · octo');
     });
 
+    testWidgets(
+      'OAuth-only edit enables Save and last draft removal restores validation',
+      (tester) async {
+        await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith([
+            binding({
+              'provider': 'google',
+              'account': 'synthetic@example.test',
+              'entry': null,
+            }),
+          ]),
+        );
+        await enterEdit(tester);
+        expect(
+          tester
+              .widget<EntrySaveButton>(find.byType(EntrySaveButton))
+              .onPressed,
+          isNotNull,
+        );
+        final edit = find.byKey(
+          const ValueKey(
+            'sign-in-method-edit-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          ),
+        );
+        await tester.ensureVisible(edit);
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        final remove = find.byKey(const ValueKey('sign-in-method-remove'));
+        await tester.ensureVisible(remove);
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<EntrySaveButton>(find.byType(EntrySaveButton))
+              .onPressed,
+          isNull,
+        );
+      },
+    );
+
     testWidgets('shows a missing account explicitly', (tester) async {
       await pumpTab(
         tester,
@@ -775,11 +821,10 @@ void main() {
           binding({'provider': 'apple', 'account': null, 'entry': null}),
         ]),
       );
-      expect(await rowText(tester), 'Apple · Account not specified');
+      expect(await rowText(tester), 'Apple');
     });
 
     testWidgets('unrecognized bindings stay neutral', (tester) async {
-      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
       await pumpTab(
         tester,
         entry: credential,
@@ -787,7 +832,7 @@ void main() {
           binding({'provider': 'twitter', 'account': 'x'}),
         ]),
       );
-      expect(await rowText(tester), l10n.entrySignInMethodUnrecognized);
+      expect(await rowText(tester), '');
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('entry-sign-in-method')),
@@ -799,7 +844,6 @@ void main() {
     });
 
     testWidgets('ambiguous bindings stay neutral', (tester) async {
-      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
       await pumpTab(
         tester,
         entry: credential,
@@ -809,10 +853,10 @@ void main() {
             'provider': 'github',
             'account': null,
             'entry': null,
-          }, id: 'b2'),
+          }, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
         ]),
       );
-      expect(await rowText(tester), l10n.entrySignInMethodAmbiguous);
+      expect(await rowText(tester), 'Google · GitHub');
     });
 
     testWidgets('choosing a provider saves through the canonical update', (
@@ -824,7 +868,7 @@ void main() {
         entry: credential,
         payload: payloadWith(const []),
       );
-      expect(await rowText(tester), l10n.entrySignInMethodNotSet);
+      expect(await rowText(tester), '');
       when(
         () => canonical.reveal(
           expected: any(named: 'expected'),
@@ -860,7 +904,7 @@ void main() {
         ),
       ).thenAnswer((_) async => credential);
 
-      await tester.tap(find.byKey(const ValueKey('entry-sign-in-method-edit')));
+      await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
       await tester.pumpAndSettle();
       expect(find.text(l10n.entrySignInMethodRemove), findsNothing);
       await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
@@ -894,7 +938,7 @@ void main() {
               ).captured.single
               as Map<String, dynamic>;
       final field = (content['fields'] as List).single as Map;
-      expect(field['type'], 'palladin.signin.v1');
+      expect(field['type'], 'palladin.signin.v2');
       expect(field['label'], l10n.entrySignInMethodLabel);
       expect(field['value'], {
         'provider': 'microsoft',
@@ -951,7 +995,7 @@ void main() {
         const CanonicalEntryDetailException(CanonicalEntryDetailError.network),
       );
 
-      await tester.tap(find.byKey(const ValueKey('entry-sign-in-method-edit')));
+      await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
       await tester.pumpAndSettle();
@@ -962,7 +1006,7 @@ void main() {
 
       expect(cubit.state, isA<EditEntryError>());
       expect(find.text('qa@example.test'), findsOneWidget);
-      expect(await rowText(tester), l10n.entrySignInMethodNotSet);
+      expect(await rowText(tester), '');
       expect(cubit.hasCanonicalSnapshot, isTrue);
       ScaffoldMessenger.of(
         tester.element(find.byType(EntryDetailsTab)),

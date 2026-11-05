@@ -43,6 +43,7 @@ import '../widgets/script_editor_field.dart';
 import '../widgets/script_parameters_editor.dart';
 import '../widgets/script_refs_editor.dart';
 import '../widgets/sign_in_method_sheet.dart';
+import '../widgets/sign_in_methods_section.dart';
 import '../widgets/totp_display.dart';
 import '../widgets/totp_section.dart';
 import '../widgets/vault_visuals.dart';
@@ -126,8 +127,53 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   List<ScriptParameterDefinition> _scriptParameters = const [];
   bool _returnResultToAgent = false;
 
-  /// Every custom field in display order — 2FA first, then the rest.
-  List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
+  List<CustomField> _methodFields = const [];
+  Set<String> _originalMethodIds = const {};
+  List<CustomField> get _allCustomFields => [
+    ..._totpFields,
+    ..._customFields,
+    ..._methodFields.where(
+      (field) =>
+          _type == EntryType.credential ||
+          _originalMethodIds.contains(field.id),
+    ),
+  ];
+
+  Future<void> _editDraftMethod(SignInMethodRecognized? current) async {
+    final choice = await SignInMethodSheet.show(
+      context,
+      initial: current?.binding,
+      canRemove: current != null,
+      discovery:
+          _agentPolicy?.fields[current?.fieldId] == AgentFieldAccess.discovery,
+      loadCandidates: getIt.isRegistered<SignInCandidateService>()
+          ? (provider) => _signInCandidates(widget.entry, provider)
+          : null,
+    );
+    if (choice == null || !mounted || !_editMode) return;
+    final id = current?.fieldId ?? CustomField.newId();
+    setState(() {
+      _methodFields = SignInMethodField.update(
+        _methodFields,
+        fieldId: current?.fieldId,
+        binding: choice.binding,
+        label: AppLocalizations.of(context)!.entrySignInMethodLabel,
+        newId: id,
+      );
+      final policy = _agentPolicy;
+      if (policy != null) {
+        final fields = Map<String, AgentFieldAccess>.from(policy.fields);
+        if (choice.binding == null) {
+          fields.remove(id);
+        } else {
+          fields[id] = choice.discovery && policy.discoverable
+              ? AgentFieldAccess.discovery
+              : AgentFieldAccess.never;
+        }
+        _agentPolicy = policy.copyWith(fields: fields);
+      }
+    });
+  }
 
   /// Legacy flat `otpauth://` TOTP string on an imported credential — kept
   /// so an edit does not drop it (v2 moves TOTP into a custom field).
@@ -298,6 +344,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _expiryYearController.clear();
     _billingAddressController.clear();
     _customFields = const [];
+    _methodFields = const [];
+    _originalMethodIds = const {};
     _totpFields = const [];
     _refs = const [];
     _scriptParameters = const [];
@@ -342,8 +390,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         .where((f) => f.type == CustomFieldType.totp)
         .toList();
     _customFields = allFields
-        .where((f) => f.type != CustomFieldType.totp)
+        .where(
+          (f) =>
+              f.type != CustomFieldType.totp &&
+              !SignInMethodField.isMethodType(f.rawType),
+        )
         .toList();
+    _methodFields = allFields
+        .where((f) => SignInMethodField.isMethodType(f.rawType))
+        .toList();
+    _originalMethodIds = _methodFields.map((field) => field.id).toSet();
     _customFieldsValid = true;
     switch (entry.type) {
       case EntryType.key:
@@ -513,6 +569,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         value: _valueController.text,
         username: _usernameController.text,
         password: _passwordController.text,
+        fields: _allCustomFields,
         script: _scriptController.text,
         description: _descriptionController.text,
         refs: _refs,
@@ -1110,7 +1167,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             ),
           );
         }
-        addField(_signInMethodField(entry, payload, l10n));
+
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
       case EntryType.creditCard:
@@ -1177,6 +1234,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           ),
         ),
       );
+    }
+
+    if (entry.type == EntryType.credential) {
+      addField(_signInMethodField(entry, payload, l10n));
     }
 
     return Column(
@@ -1249,45 +1310,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     Map<String, dynamic> payload,
     AppLocalizations l10n,
   ) {
-    final state = SignInMethodField.read(
-      entryType: entry.type,
+    return SignInMethodsSection(
+      key: const ValueKey('entry-sign-in-method'),
       fields: CustomField.listFromPayload(payload),
-    );
-    final account = state is SignInMethodRecognized
-        ? state.binding.account
-        : null;
-    final value = switch (state) {
-      SignInMethodRecognized(:final binding) when account != null =>
-        l10n.entrySignInMethodWithAccount(
-          signInProviderName(l10n, binding.provider),
-          account,
-        ),
-      SignInMethodRecognized(:final binding) => l10n.entrySignInMethodNoAccount(
-        signInProviderName(l10n, binding.provider),
-      ),
-      SignInMethodUnrecognized() => l10n.entrySignInMethodUnrecognized,
-      SignInMethodAmbiguous() => l10n.entrySignInMethodAmbiguous,
-      SignInMethodAbsent() => l10n.entrySignInMethodNotSet,
-    };
-    return _ReadOnlyField(
-      label: l10n.entrySignInMethodLabel,
-      row: EntryFieldRow(
-        key: const ValueKey('entry-sign-in-method'),
-        icon: Icons.login,
-        value: value,
-        isMasked: false,
-        revealed: true,
-        onToggleReveal: null,
-        onCopy: account == null
-            ? null
-            : () => _copy(account, l10n.entrySignInMethodLabel),
-        extraTrailing: EntrySmallIconButton(
-          key: const ValueKey('entry-sign-in-method-edit'),
-          icon: Icons.edit_outlined,
-          tooltip: l10n.entrySignInMethodEdit,
-          onPressed: () => _editSignInMethod(entry, state),
-        ),
-      ),
+      onEdit: (method) =>
+          _editSignInMethod(entry, method ?? const SignInMethodAbsent()),
     );
   }
 
@@ -1300,7 +1327,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final choice = await SignInMethodSheet.show(
       context,
       initial: current is SignInMethodRecognized ? current.binding : null,
-      canRemove: current is! SignInMethodAbsent,
+      canRemove: current is SignInMethodRecognized,
+      discovery:
+          current is SignInMethodRecognized &&
+          _agentPolicy?.fields[current.fieldId] == AgentFieldAccess.discovery,
       loadCandidates: getIt.isRegistered<SignInCandidateService>()
           ? (provider) => _signInCandidates(entry, provider)
           : null,
@@ -1320,6 +1350,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         entry: entry,
         privateKey: keyCopy,
         binding: choice.binding,
+        fieldId: current is SignInMethodRecognized ? current.fieldId : null,
+        discovery: choice.discovery,
         fieldLabel: l10n.entrySignInMethodLabel,
       );
     } finally {
@@ -1784,6 +1816,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                   controller: _notesController,
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
+                if (_type == EntryType.credential) ...[
+                  const SizedBox(height: AppSpacing.section),
+                  SignInMethodsSection(
+                    fields: _methodFields,
+                    onEdit: _editDraftMethod,
+                  ),
+                ],
                 if (state is EditEntryConflict) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(

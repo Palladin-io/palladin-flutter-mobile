@@ -52,6 +52,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
     bool exposeUsername = true,
     bool exposeDomain = true,
     bool discoverDescription = false,
+    Map<String, bool> signInDiscovery = const {},
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'createEntry called with invalid input');
@@ -80,6 +81,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
               icon: _trimToNull(icon) ?? '',
               content: payload,
               memberPrivateKey: privateKey,
+              signInDiscovery: signInDiscovery,
               exposeUsername: exposeUsername,
               exposeDomain: exposeDomain,
               discoverDescription: discoverDescription,

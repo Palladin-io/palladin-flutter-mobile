@@ -566,7 +566,7 @@ void main() {
     ).captured;
 
     test(
-      'replaces every binding on a fresh head and preserves the rest',
+      'adds a method on a fresh head preserving opaque legacy and policies',
       () async {
         final fresh = credentialSnapshot();
         stubReveal(fresh);
@@ -598,11 +598,15 @@ void main() {
         expect(content['password'], '');
         expect(content['notes'], 'keep');
         final fields = (content['fields'] as List).cast<Map<String, dynamic>>();
-        expect(fields.map((field) => field['id']).take(2), [otherId, futureId]);
-        expect(fields[1]['value'], {'x': 1});
-        expect(fields, hasLength(3));
+        expect(fields.map((field) => field['id']).take(3), [
+          otherId,
+          oldId,
+          futureId,
+        ]);
+        expect(fields[2]['value'], {'x': 1});
+        expect(fields, hasLength(4));
         final created = fields.last;
-        expect(created['type'], 'palladin.signin.v1');
+        expect(created['type'], 'palladin.signin.v2');
         expect(created['label'], 'Sign-in method');
         expect(created['value'], {
           'provider': 'github',
@@ -617,10 +621,9 @@ void main() {
         );
         final policy = captured[6] as AgentVisibilityPolicy;
         expect(policy.discoverable, isTrue);
-        // The retired two-key field is unrecognized, so the Credential's
-        // discoverability decides the default.
-        expect(policy.fields[created['id']], AgentFieldAccess.discovery);
-        expect(policy.fields.containsKey(oldId), isFalse);
+        // The opaque retired field is preserved; new methods default private.
+        expect(policy.fields[created['id']], AgentFieldAccess.never);
+        expect(policy.fields[oldId], AgentFieldAccess.never);
         expect(policy.fields[otherId], AgentFieldAccess.onGrantValue);
         expect(policy.fields[futureId], AgentFieldAccess.never);
         expect(policy.fields['username'], AgentFieldAccess.discovery);
@@ -629,22 +632,35 @@ void main() {
       },
     );
 
-    test('a null binding removes every sign-in field', () async {
-      stubReveal(credentialSnapshot());
-      stubUpdate();
+    test('cannot remove the last OAuth-only method', () async {
+      stubReveal(
+        credentialSnapshot(
+          fields: [
+            {
+              'id': oldId,
+              'label': 'Old',
+              'type': 'palladin.signin.v1',
+              'value': {'provider': 'google', 'account': null, 'entry': null},
+            },
+          ],
+        ),
+      );
       final cubit = buildCubit();
       await cubit.saveSignInMethod(
         entry: credential,
         privateKey: privateKey,
+        fieldId: oldId,
         binding: null,
         fieldLabel: 'Sign-in method',
       );
-      final captured = captureUpdate();
-      final fields = ((captured[5] as Map)['fields'] as List)
-          .cast<Map<String, dynamic>>();
-      expect(fields.map((field) => field['id']), [otherId, futureId]);
-      final policy = captured[6] as AgentVisibilityPolicy;
-      expect(policy.fields.containsKey(oldId), isFalse);
+      expect(
+        cubit.state,
+        isA<EditEntryError>().having(
+          (state) => state.kind,
+          'kind',
+          EntryErrorKind.validation,
+        ),
+      );
       await cubit.close();
     });
 
@@ -699,6 +715,7 @@ void main() {
       await cubit.saveSignInMethod(
         entry: credential,
         privateKey: privateKey,
+        fieldId: (snapshot.payload['fields'] as List).isEmpty ? null : oldId,
         binding: const SignInMethodBinding(provider: SignInProvider.apple),
         fieldLabel: 'Sign-in method',
       );
@@ -708,7 +725,7 @@ void main() {
           .cast<Map<String, dynamic>>();
       final policy = captured[6] as AgentVisibilityPolicy;
       final created = fields.singleWhere(
-        (field) => field['type'] == 'palladin.signin.v1',
+        (field) => field['type'] == 'palladin.signin.v2',
       );
       return AgentVisibilityPolicy(
         discoverable: policy.discoverable,
