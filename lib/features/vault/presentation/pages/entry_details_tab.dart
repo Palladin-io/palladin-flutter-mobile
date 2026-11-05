@@ -129,15 +129,48 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   List<CustomField> _methodFields = const [];
   Set<String> _originalMethodIds = const {};
-  List<CustomField> get _allCustomFields => [
-    ..._totpFields,
-    ..._customFields,
-    ..._methodFields.where(
-      (field) =>
-          _type == EntryType.credential ||
-          _originalMethodIds.contains(field.id),
-    ),
-  ];
+  List<String> _fieldOrder = const [];
+  List<CustomField> get _allCustomFields {
+    final current = <String, CustomField>{
+      for (final field in [
+        ..._totpFields,
+        ..._customFields,
+        ..._methodFields.where(
+          (field) =>
+              _type == EntryType.credential ||
+              _originalMethodIds.contains(field.id),
+        ),
+      ])
+        field.id: field,
+    };
+    return [
+      for (final id in _fieldOrder) ?current.remove(id),
+      ...current.values,
+    ];
+  }
+
+  void _updateCustomFields(List<CustomField> fields, bool valid) {
+    // Only explicit editable-field ordering can move existing slots. Opaque
+    // fields stay anchored even when the editor emits them after its drafts.
+    final orderedIds = fields
+        .where(
+          (field) =>
+              field.type != CustomFieldType.unknown &&
+              _fieldOrder.contains(field.id),
+        )
+        .map((field) => field.id)
+        .toList();
+    final reordered = orderedIds.toSet();
+    var index = 0;
+    setState(() {
+      _fieldOrder = [
+        for (final id in _fieldOrder)
+          reordered.contains(id) ? orderedIds[index++] : id,
+      ];
+      _customFields = fields;
+      _customFieldsValid = valid;
+    });
+  }
 
   Future<void> _editDraftMethod(SignInMethodRecognized? current) async {
     final choice = await SignInMethodSheet.show(
@@ -346,6 +379,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _customFields = const [];
     _methodFields = const [];
     _originalMethodIds = const {};
+    _fieldOrder = const [];
     _totpFields = const [];
     _refs = const [];
     _scriptParameters = const [];
@@ -361,9 +395,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _populated = true;
     _revealedEntry = entry;
     _payload = payload;
-    final cubit = context.read<EditEntryCubit>();
-    _agentPolicy = cubit.agentVisibilityPolicy(entry.type);
-    _agentLabel = cubit.agentLabel;
     _syncControllersFromSnapshot();
   }
 
@@ -374,6 +405,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final entry = _revealedEntry;
     final payload = _payload;
     if (entry == null || payload == null) return;
+    final cubit = context.read<EditEntryCubit>();
+    _agentPolicy = cubit.agentVisibilityPolicy(entry.type);
+    _agentLabel = cubit.agentLabel;
     _labelController.text = entry.label;
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
@@ -386,6 +420,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
     final allFields = CustomField.listFromPayload(payload);
+    _fieldOrder = allFields.map((field) => field.id).toList();
     _totpFields = allFields
         .where((f) => f.type == CustomFieldType.totp)
         .toList();
@@ -1806,10 +1841,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                 ],
                 CustomFieldsEditor(
                   initial: _customFields,
-                  onChanged: (fields, valid) => setState(() {
-                    _customFields = fields;
-                    _customFieldsValid = valid;
-                  }),
+                  onChanged: _updateCustomFields,
                 ),
                 const SizedBox(height: AppSpacing.section),
                 EntryNotesSection(

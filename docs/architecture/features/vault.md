@@ -161,7 +161,11 @@ reference is `{vaultId, entryId}` with lowercase UUIDs or null.
   only the selected ID. Editing a recognized v1 upgrades only that field to v2;
   untouched v1 and opaque fields, order, ID case and existing policies survive.
   Forms use bare UUIDs internally; canonical encode/adapt prefixes and removes
-  only literal `custom:` without normalizing UUID case.
+  only literal `custom:` without normalizing UUID case. Form sections do not
+  reorder serialized fields: surviving IDs keep their saved positions, new
+  methods append, and explicit ordinary-field reordering preserves opaque and
+  method slots. Discarding/restarting an edit restores both fields and Agent
+  policy/label from the authenticated saved snapshot.
 - A valid binding admits `never`/`discovery` only, on Credentials only. New
   methods default private; the editor owns an explicit visibility switch.
   No binding receives `onGrant*` access or enters MemberIndex.
