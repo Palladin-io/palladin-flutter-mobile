@@ -9,13 +9,6 @@ final class Ed25519PublicKey {
   Uint8List get bytes => Uint8List.fromList(_bytes);
 }
 
-/// X25519 recipient public key; never interchangeable with signing keys.
-final class X25519PublicKey {
-  X25519PublicKey(List<int> bytes) : _bytes = _copy32(bytes);
-  final Uint8List _bytes;
-  Uint8List get bytes => Uint8List.fromList(_bytes);
-}
-
 Uint8List _copy32(List<int> value) {
   if (value.length != 32) {
     throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);

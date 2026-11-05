@@ -4,7 +4,8 @@ final class AgentDiscoveryProvisioning {
     required this.agentId,
     required this.recipientKeyVersion,
     required this.status,
-    required this.x25519PublicKey,
+    required this.publicKey,
+    required this.keySuiteId,
     required this.ed25519PublicKey,
     this.agentName,
     this.manifestRevision,
@@ -14,7 +15,8 @@ final class AgentDiscoveryProvisioning {
     final status = json['status'];
     if (json['agentId'] is! String ||
         json['recipientKeyVersion'] is! int ||
-        json['x25519PublicKey'] is! String ||
+        json['publicKey'] is! String ||
+        json['keySuiteId'] is! String ||
         json['ed25519PublicKey'] is! String ||
         (status != 'current' && status != 'pending')) {
       throw const FormatException('Malformed Discovery provisioning row');
@@ -23,7 +25,8 @@ final class AgentDiscoveryProvisioning {
       agentId: json['agentId'] as String,
       agentName: json['agentName'] as String?,
       recipientKeyVersion: json['recipientKeyVersion'] as int,
-      x25519PublicKey: json['x25519PublicKey'] as String,
+      publicKey: json['publicKey'] as String,
+      keySuiteId: json['keySuiteId'] as String,
       ed25519PublicKey: json['ed25519PublicKey'] as String,
       status: status as String,
       manifestRevision: json['manifestRevision'] as String?,
@@ -33,7 +36,12 @@ final class AgentDiscoveryProvisioning {
   final String agentId;
   final String? agentName;
   final int recipientKeyVersion;
-  final String x25519PublicKey;
+
+  /// Agent encryption key from the authenticated directory.
+  final String publicKey;
+
+  /// Suite the key is published under; the authority for sealing to it.
+  final String keySuiteId;
   final String ed25519PublicKey;
   final String status;
   final String? manifestRevision;

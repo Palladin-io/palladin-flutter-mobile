@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
-
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../grants/data/models/grant_model.dart';
@@ -12,7 +11,6 @@ import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
 import '../../../vault/data/models/agent_discovery_provisioning.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
-import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../domain/entities/encrypted_reason.dart';
 import '../models/encrypted_reason_model.dart';
@@ -22,12 +20,12 @@ import 'encrypted_reason_crypto_service.dart';
 final class LocalGrantReasonResolver extends GrantReasonResolver {
   LocalGrantReasonResolver({
     required VaultRemoteDatasource vaults,
-    required VaultRotationCryptoService keys,
+    required this._keys,
     required AgentDiscoveryRemote discovery,
     EncryptedReasonCrypto? reasonCrypto,
-    Future<String> Function(Uint8List privateKey)? messageKeyFingerprint,
+    Future<String> Function(Uint8List privateKey, WrapperSuite suite)?
+    messageKeyFingerprint,
   }) : _readVault = vaults.getEncryptedVault,
-       _keys = keys,
        _readDiscovery = discovery.list,
        _reasonCrypto = reasonCrypto ?? EncryptedReasonCryptoService(),
        _messageKeyFingerprint =
@@ -38,7 +36,8 @@ final class LocalGrantReasonResolver extends GrantReasonResolver {
   final Future<List<AgentDiscoveryProvisioning>> Function(String)
   _readDiscovery;
   final EncryptedReasonCrypto _reasonCrypto;
-  final Future<String> Function(Uint8List privateKey) _messageKeyFingerprint;
+  final Future<String> Function(Uint8List privateKey, WrapperSuite suite)
+  _messageKeyFingerprint;
 
   LocalGrantReasonResolver._withReads(
     this._keys,
@@ -178,6 +177,7 @@ final class LocalGrantReasonResolver extends GrantReasonResolver {
       final messageKey = await _messageKey(reason, context);
       reasonKey = await _reasonCrypto.verifyAndOpenKey(
         reason: reason,
+        messageKeySuite: messageKey.suite,
         signingPublicKey: signingKey,
         recipientPrivateKey: messageKey.privateKey,
       );
@@ -186,6 +186,7 @@ final class LocalGrantReasonResolver extends GrantReasonResolver {
       }
       plaintext = await _reasonCrypto.decrypt(
         reason: reason,
+        messageKeySuite: messageKey.suite,
         reasonKey: reasonKey,
       );
       final decoded = jsonDecode(utf8.decode(plaintext, allowMalformed: false));
@@ -229,13 +230,18 @@ final class LocalGrantReasonResolver extends GrantReasonResolver {
         context.vaultKey,
         expectedKeyVersion: reason.agentMessageKeyVersion,
       );
-      final fingerprint = await _messageKeyFingerprint(privateKey);
+      final suite = VaultRotationCryptoService.agentMessageKeySuite(
+        context.vault,
+        reason.agentMessageKeyVersion,
+      );
+      final fingerprint = await _messageKeyFingerprint(privateKey, suite);
       if (fingerprint != reason.recipientAgentMessageKeyFingerprint) {
         throw const FormatException('Encrypted reason recipient mismatch');
       }
       final result = _MessageKey(
         privateKey: privateKey,
         fingerprint: fingerprint,
+        suite: suite,
       );
       context.messageKeys[reason.agentMessageKeyVersion] = result;
       privateKey = null;
@@ -247,21 +253,23 @@ final class LocalGrantReasonResolver extends GrantReasonResolver {
 
   static Future<String> _deriveMessageKeyFingerprint(
     Uint8List privateKey,
+    WrapperSuite suite,
   ) async {
-    Uint8List? publicKey;
-    final sodium = await SodiumProvider.instance();
-    final secret = SecureKey.fromList(sodium, privateKey);
+    final publicKey = VaultRotationCryptoService.agentMessagePublicKey(
+      await SodiumProvider.instance(),
+      suite,
+      privateKey,
+    );
     try {
-      publicKey = sodium.crypto.scalarmult.base(n: secret);
       return VaultProtocolBytes.base64UrlEncode(
-        vaultPublicKeyFingerprint(
-          VaultPublicKeyKind.vaultMessageX25519,
+        recipientFingerprint(
+          suite,
+          RecipientKeyKind.vaultAgentMessage.id,
           publicKey,
         ),
       );
     } finally {
-      secret.dispose();
-      publicKey?.fillRange(0, publicKey.length, 0);
+      publicKey.fillRange(0, publicKey.length, 0);
     }
   }
 
@@ -316,10 +324,15 @@ final class _VaultReasonContext {
 }
 
 final class _MessageKey {
-  const _MessageKey({required this.privateKey, required this.fingerprint});
+  const _MessageKey({
+    required this.privateKey,
+    required this.fingerprint,
+    required this.suite,
+  });
 
   final Uint8List privateKey;
   final String fingerprint;
+  final WrapperSuite suite;
 
   void dispose() => privateKey.fillRange(0, privateKey.length, 0);
 }

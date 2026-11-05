@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
-import '../../../../core/crypto/asymmetric_keys.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/kem/xwing.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../../core/crypto/vault_session_store.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
@@ -51,8 +52,15 @@ class VaultCryptoService {
       vaultId: EnvelopeId.parse(wrapperScope['vaultId'] as String),
       memberId: EnvelopeId.parse(wrapperScope['memberId'] as String),
     );
+    // The member key suite comes from the release registry for this
+    // account's security version, never from the envelope.
+    if (wrapperJson['wrapperSuiteId'] !=
+        WrapperSuite.memberKeySuite.wireValue) {
+      throw const EnvelopeException(EnvelopeErrorKind.authenticationFailed);
+    }
     final wrapper = WrapperContext(
       protocolVersion: wrapperJson['protocolVersion'] as int,
+      suiteId: WrapperSuite.memberKeySuite,
       purpose: wrapperPurpose,
       scope: scope,
       resourceRevision: int.parse(wrapperJson['resourceRevision'] as String),
@@ -66,12 +74,11 @@ class VaultCryptoService {
         wrapperJson['recipientFingerprint'] as String,
       ),
     );
-    final vk = await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader)
-        .open(
-          wrapped: _decode(wrapped['encodedSealedKeyPackage'] as String),
-          context: wrapper,
-          recipientSecretKey: memberPrivateKey,
-        );
+    final vk = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).open(
+      wrapped: _decode(wrapped['encodedSealedKeyPackage'] as String),
+      context: wrapper,
+      recipientSecretKey: memberPrivateKey,
+    );
     Uint8List? plaintext;
     Uint8List? discoveryKey;
     try {
@@ -200,6 +207,45 @@ class VaultCryptoService {
         );
   }
 
+  /// Seals a Vault private key (message key or manifest seed) under the VK
+  /// as a descriptor-based `vaultPrivateKeys` envelope.
+  Future<Map<String, Object>> sealVaultPrivateKey({
+    required String organizationId,
+    required String vaultId,
+    required EnvelopePurpose purpose,
+    required int resourceRevision,
+    required int keyVersion,
+    required int memberKeyGeneration,
+    required int vaultKeyVersion,
+    required Uint8List privateKey,
+    required Uint8List vaultKey,
+  }) async {
+    if (purpose != EnvelopePurpose.agentMessagePrivateByVk &&
+        purpose != EnvelopePurpose.manifestPrivateByVk) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final descriptor = EnvelopeDescriptor(
+      purpose: purpose,
+      scope: EnvelopeScope(
+        organizationId: EnvelopeId.parse(organizationId),
+        vaultId: EnvelopeId.parse(vaultId),
+      ),
+      resourceRevision: resourceRevision,
+      keyVersion: keyVersion,
+      memberKeyGeneration: memberKeyGeneration,
+      purposeData: WrappingPurposeData(
+        wrappingVaultKeyVersion: vaultKeyVersion,
+      ),
+    );
+    final payload = await XChaChaVaultEnvelopeSuite(
+      sodiumLoader: _sodiumLoader,
+    ).seal(descriptor: descriptor, rootKey: vaultKey, plaintext: privateKey);
+    return VaultOpaqueEnvelopeModel(
+      descriptor: _descriptorJson(descriptor),
+      encodedSuitePayload: payload.toBase64Url(),
+    ).toJson();
+  }
+
   /// Seals the next canonical MemberVaultMetadata revision using the exact
   /// protocol-v2 descriptor contract consumed by backend and web.
   Future<Map<String, dynamic>> sealMemberVaultMetadata({
@@ -279,16 +325,15 @@ class VaultCryptoService {
     final sodium = await _sodiumLoader();
     final vk = sodium.randombytes.buf(32);
     final vdk = sodium.randombytes.buf(32);
-    final messageKeys = sodium.crypto.box.keyPair();
+    final xwing = XWing(sodium);
+    final messagePrivate = xwing.generateSeed();
+    final messagePublic = xwing.publicKeyFromSeed(messagePrivate);
     final signingKeys = sodium.crypto.sign.keyPair();
-    final memberSecret = SecureKey.fromList(sodium, memberPrivateKey);
-    Uint8List? messagePrivate;
     Uint8List? signingPrivate;
     Uint8List? metadataPlaintext;
     try {
-      messagePrivate = messageKeys.secretKey.extractBytes();
       signingPrivate = signingKeys.secretKey.extractBytes();
-      final memberPublic = sodium.crypto.scalarmult.base(n: memberSecret);
+      final memberPublic = memberPublicKeyFromPrivate(sodium, memberPrivateKey);
       final scope = EnvelopeScope(
         organizationId: EnvelopeId.parse(organizationId),
         vaultId: EnvelopeId.parse(vaultId),
@@ -344,6 +389,7 @@ class VaultCryptoService {
       }
 
       final wrapperContext = WrapperContext(
+        suiteId: WrapperSuite.memberKeySuite,
         purpose: WrapperPurpose.memberVaultKey,
         scope: scope,
         resourceRevision: 1,
@@ -351,15 +397,24 @@ class VaultCryptoService {
         memberKeyGeneration: 1,
         recipientKeyKind: 5,
         recipientKeyVersion: memberKeyVersion,
-        recipientFingerprint: _fingerprint(memberPublic, 5),
+        recipientFingerprint: _memberFingerprint(memberPublic),
       );
-      final sealedVk =
-          await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).seal(
+      final sealedVk = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader)
+          .seal(
             key: vk,
             context: wrapperContext,
-            recipient: X25519PublicKey(memberPublic),
+            recipient: RecipientPublicKey(
+              suite: WrapperSuite.memberKeySuite,
+              keyKind: RecipientKeyKind.memberEncryption,
+              keyVersion: memberKeyVersion,
+              publicKey: memberPublic,
+            ),
           );
-      final messageFingerprint = _fingerprint(messageKeys.publicKey, 4);
+      final messageFingerprint = recipientFingerprint(
+        WrapperSuite.active,
+        RecipientKeyKind.vaultAgentMessage.id,
+        messagePublic,
+      );
       final signingFingerprint = _fingerprint(signingKeys.publicKey, 3);
       final request = CreateVaultV2Request(
         vaultId: vaultId,
@@ -392,15 +447,15 @@ class VaultCryptoService {
           ),
         ],
         vaultAgentMessagePublicKey: VaultPublicKeyContractModel(
-          schemeId: 'palladin-x25519-v1',
-          keyKind: VaultPublicKeyKind.agentMessageX25519,
+          schemeId: WrapperSuite.active.wireValue,
+          keyKind: VaultPublicKeyKind.agentMessage,
           keyVersion: 1,
-          encodedPublicKey: _b64(messageKeys.publicKey),
+          encodedPublicKey: _b64(messagePublic),
           fingerprint: _b64(messageFingerprint),
         ),
         vaultManifestSigningPublicKey: VaultPublicKeyContractModel(
           schemeId: 'palladin-ed25519-v1',
-          keyKind: VaultPublicKeyKind.manifestSigningEd25519,
+          keyKind: VaultPublicKeyKind.manifestSigning,
           keyVersion: 1,
           encodedPublicKey: _b64(signingKeys.publicKey),
           fingerprint: _b64(signingFingerprint),
@@ -411,16 +466,14 @@ class VaultCryptoService {
         vaultKey: Uint8List.fromList(vk),
         vaultDiscoveryKey: Uint8List.fromList(vdk),
         metadata: metadata,
-        memberFingerprint: _b64(_fingerprint(memberPublic, 5)),
+        memberFingerprint: _b64(_memberFingerprint(memberPublic)),
       );
     } finally {
       vk.fillRange(0, vk.length, 0);
       vdk.fillRange(0, vdk.length, 0);
-      messagePrivate?.fillRange(0, messagePrivate.length, 0);
+      messagePrivate.fillRange(0, messagePrivate.length, 0);
       signingPrivate?.fillRange(0, signingPrivate.length, 0);
       metadataPlaintext?.fillRange(0, metadataPlaintext.length, 0);
-      memberSecret.dispose();
-      messageKeys.dispose();
       signingKeys.dispose();
     }
   }
@@ -569,6 +622,12 @@ Uint8List _fingerprint(List<int> publicKey, int kind) {
     ]).bytes,
   );
 }
+
+Uint8List _memberFingerprint(List<int> publicKey) => recipientFingerprint(
+  WrapperSuite.memberKeySuite,
+  RecipientKeyKind.memberEncryption.id,
+  publicKey,
+);
 
 String _b64(List<int> value) => base64UrlEncode(value).replaceAll('=', '');
 

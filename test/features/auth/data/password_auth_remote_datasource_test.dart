@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/password_auth_remote_datasource.dart';
+import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
 import 'package:mobile_palladin/features/auth/domain/password_auth_exceptions.dart';
 
 class _RateLimitedAdapter implements HttpClientAdapter {
@@ -67,7 +68,11 @@ void main() {
 
   test('login maps 429 and Retry-After to a typed rate-limit error', () async {
     await expectLater(
-      datasource.login(email: 'member@example.com', authCredential: 'hash'),
+      datasource.login(
+        email: 'member@example.com',
+        authCredential: 'hash',
+        kdfVersion: IdentityKdfVersion.accountSecretV2,
+      ),
       throwsA(
         isA<LoginRateLimitedException>().having(
           (error) => error.retryAfterSeconds,

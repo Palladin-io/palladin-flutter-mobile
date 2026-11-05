@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -24,8 +23,7 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_share_copy.
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_list.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_share_copy_cubit.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 class _Config extends Mock implements EnvConfig {}
 
@@ -146,12 +144,7 @@ void main() {
   late bool ownerValid;
 
   setUpAll(() async {
-    final path = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    sodium = path != null || Platform.isLinux
-        ? await sodium_ffi.SodiumSumoInit.init(
-            () => DynamicLibrary.open(path ?? 'libsodium.so'),
-          )
-        : await SodiumSumoInit.init();
+    sodium = await SodiumSumoInit.init();
     SodiumProvider.debugOverride = sodium;
   });
   tearDownAll(() => SodiumProvider.debugOverride = null);

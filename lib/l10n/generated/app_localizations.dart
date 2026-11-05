@@ -5012,6 +5012,12 @@ abstract class AppLocalizations {
   /// **'Unlock your vault first to approve this request.'**
   String get approvalErrorVaultLocked;
 
+  /// Error — the agent's published encryption key is on a read-only suite (key-migration-pending)
+  ///
+  /// In en, this message translates to:
+  /// **'This agent must update its encryption key before it can receive access.'**
+  String get approvalErrorKeyMigrationPending;
+
   /// Error — unexpected failure on approval
   ///
   /// In en, this message translates to:
@@ -9019,6 +9025,852 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Agents can see the provider and the linked entry, never the account.'**
   String get entrySignInMethodAgentHint;
+
+  /// No description provided for @emergencyKitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your Emergency Kit'**
+  String get emergencyKitTitle;
+
+  /// No description provided for @emergencyKitIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'If you lose every signed-in device, the kit and your password are the only way back in.'**
+  String get emergencyKitIntro;
+
+  /// No description provided for @emergencyKitSecretKeyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key'**
+  String get emergencyKitSecretKeyTitle;
+
+  /// No description provided for @emergencyKitSecretKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'In your Emergency Kit. Signs you in on a new device, together with your password.'**
+  String get emergencyKitSecretKeyHint;
+
+  /// No description provided for @emergencyKitRecoveryPhraseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery phrase'**
+  String get emergencyKitRecoveryPhraseTitle;
+
+  /// No description provided for @emergencyKitRecoveryPhraseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The 24 words you saved. Resets a forgotten password.'**
+  String get emergencyKitRecoveryPhraseHint;
+
+  /// No description provided for @emergencyKitPreviewAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get emergencyKitPreviewAccount;
+
+  /// No description provided for @emergencyKitPreviewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Master password'**
+  String get emergencyKitPreviewPassword;
+
+  /// No description provided for @emergencyKitContents.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s inside: e-mail, Secret Key, QR code and a blank password field. Never your recovery phrase.'**
+  String get emergencyKitContents;
+
+  /// No description provided for @emergencyKitSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Emergency Kit (PDF)'**
+  String get emergencyKitSave;
+
+  /// No description provided for @emergencyKitStoreSeparatelyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Store separately'**
+  String get emergencyKitStoreSeparatelyTitle;
+
+  /// No description provided for @emergencyKitStoreSeparatelyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the kit away from your recovery phrase, for example in Files or printed.'**
+  String get emergencyKitStoreSeparatelyMessage;
+
+  /// No description provided for @emergencyKitSavedConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'I saved my Emergency Kit'**
+  String get emergencyKitSavedConfirm;
+
+  /// No description provided for @emergencyKitContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get emergencyKitContinue;
+
+  /// No description provided for @emergencyKitSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t create the Emergency Kit. Try again.'**
+  String get emergencyKitSaveFailed;
+
+  /// No description provided for @emergencyKitPdfTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin Emergency Kit'**
+  String get emergencyKitPdfTitle;
+
+  /// No description provided for @emergencyKitPdfIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this kit with your master password to sign in on a new device when no other signed-in device is available.'**
+  String get emergencyKitPdfIntro;
+
+  /// No description provided for @emergencyKitPdfAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account e-mail'**
+  String get emergencyKitPdfAccount;
+
+  /// No description provided for @emergencyKitPdfSecretKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key'**
+  String get emergencyKitPdfSecretKey;
+
+  /// No description provided for @emergencyKitPdfQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key QR code'**
+  String get emergencyKitPdfQr;
+
+  /// No description provided for @emergencyKitPdfPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Master password'**
+  String get emergencyKitPdfPassword;
+
+  /// No description provided for @emergencyKitPdfSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in address'**
+  String get emergencyKitPdfSignIn;
+
+  /// No description provided for @emergencyKitPdfGenerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get emergencyKitPdfGenerated;
+
+  /// No description provided for @emergencyKitPdfFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Created on your device. Palladin never receives a copy. Keep this kit away from your recovery phrase.'**
+  String get emergencyKitPdfFooter;
+
+  /// No description provided for @emergencyKitSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Kit'**
+  String get emergencyKitSettingsTitle;
+
+  /// No description provided for @emergencyKitSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key'**
+  String get emergencyKitSettingsSubtitle;
+
+  /// No description provided for @emergencyKitSettingsTileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Emergency Kit'**
+  String get emergencyKitSettingsTileTitle;
+
+  /// No description provided for @emergencyKitSettingsTileHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Secret Key for signing in on a new device'**
+  String get emergencyKitSettingsTileHint;
+
+  /// No description provided for @emergencyKitSettingsConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your password'**
+  String get emergencyKitSettingsConfirmTitle;
+
+  /// No description provided for @emergencyKitSettingsConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Emergency Kit contains your Secret Key. The PDF is created on this phone and never uploaded.'**
+  String get emergencyKitSettingsConfirmMessage;
+
+  /// No description provided for @emergencyKitSettingsPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Master password'**
+  String get emergencyKitSettingsPasswordLabel;
+
+  /// No description provided for @emergencyKitSettingsCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Emergency Kit'**
+  String get emergencyKitSettingsCreate;
+
+  /// No description provided for @emergencyKitSettingsWrongPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect master password.'**
+  String get emergencyKitSettingsWrongPassword;
+
+  /// No description provided for @emergencyKitSettingsMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone doesn\'t have your Secret Key. Sign in again with your Emergency Kit or approve this phone from another signed-in device.'**
+  String get emergencyKitSettingsMissing;
+
+  /// No description provided for @emergencyKitSettingsLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Palladin to save your Emergency Kit.'**
+  String get emergencyKitSettingsLocked;
+
+  /// No description provided for @emergencyKitSettingsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your account. Try again.'**
+  String get emergencyKitSettingsLoadFailed;
+
+  /// No description provided for @emergencyKitSettingsRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get emergencyKitSettingsRetry;
+
+  /// No description provided for @emergencyKitSettingsShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Kit created.'**
+  String get emergencyKitSettingsShared;
+
+  /// No description provided for @deviceTransferSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get deviceTransferSettingsTitle;
+
+  /// No description provided for @deviceTransferSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Give a new phone or browser your Secret Key.'**
+  String get deviceTransferSettingsSubtitle;
+
+  /// No description provided for @deviceTransferDevicesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Give a new phone or browser your Secret Key by scanning the code it shows.'**
+  String get deviceTransferDevicesSubtitle;
+
+  /// No description provided for @deviceTransferThisPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone'**
+  String get deviceTransferThisPhone;
+
+  /// No description provided for @deviceTransferSecretKeySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key saved in secure storage'**
+  String get deviceTransferSecretKeySaved;
+
+  /// No description provided for @deviceTransferSecretKeyMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone doesn\'t have the Secret Key'**
+  String get deviceTransferSecretKeyMissing;
+
+  /// No description provided for @deviceTransferCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get deviceTransferCurrent;
+
+  /// No description provided for @deviceTransferAddDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a device'**
+  String get deviceTransferAddDevice;
+
+  /// No description provided for @deviceTransferAddDeviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The new device shows a QR code after you sign in there with your password.'**
+  String get deviceTransferAddDeviceHint;
+
+  /// No description provided for @deviceTransferScanInstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Point your camera at the QR code the new phone or browser shows after you sign in there.'**
+  String get deviceTransferScanInstruction;
+
+  /// No description provided for @deviceTransferCompareTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compare codes'**
+  String get deviceTransferCompareTitle;
+
+  /// No description provided for @deviceTransferCompareBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve only if the new device shows exactly this code. This keeps someone else from receiving your Secret Key.'**
+  String get deviceTransferCompareBody;
+
+  /// No description provided for @deviceTransferCodeOnThisPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Code on this phone'**
+  String get deviceTransferCodeOnThisPhone;
+
+  /// No description provided for @deviceTransferReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get deviceTransferReject;
+
+  /// No description provided for @deviceTransferApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get deviceTransferApprove;
+
+  /// No description provided for @deviceTransferNotYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn\'t start this? Reject it and change your master password.'**
+  String get deviceTransferNotYou;
+
+  /// No description provided for @deviceTransferApprovedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device approved'**
+  String get deviceTransferApprovedTitle;
+
+  /// No description provided for @deviceTransferApprovedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The new device received your Secret Key and can now sign in with your password.'**
+  String get deviceTransferApprovedBody;
+
+  /// No description provided for @deviceTransferDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get deviceTransferDone;
+
+  /// No description provided for @deviceTransferRejectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Request rejected'**
+  String get deviceTransferRejectedTitle;
+
+  /// No description provided for @deviceTransferRejectedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was sent. If you didn\'t start this, change your master password.'**
+  String get deviceTransferRejectedBody;
+
+  /// No description provided for @deviceTransferExpiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Code expired'**
+  String get deviceTransferExpiredTitle;
+
+  /// No description provided for @deviceTransferExpiredBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Codes work for 5 minutes and only once. Ask the new device to show a new code.'**
+  String get deviceTransferExpiredBody;
+
+  /// No description provided for @deviceTransferScanAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan again'**
+  String get deviceTransferScanAgain;
+
+  /// No description provided for @deviceTransferTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get deviceTransferTryAgain;
+
+  /// No description provided for @deviceTransferFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t finish'**
+  String get deviceTransferFailedTitle;
+
+  /// No description provided for @deviceTransferErrorInvalidCode.
+  ///
+  /// In en, this message translates to:
+  /// **'This isn\'t a Palladin device code.'**
+  String get deviceTransferErrorInvalidCode;
+
+  /// No description provided for @deviceTransferWrongCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong code'**
+  String get deviceTransferWrongCodeTitle;
+
+  /// No description provided for @deviceTransferErrorCodeForSignedInDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This code is for a phone that\'s already signed in. On that phone, open Settings › Add a device and scan it there.'**
+  String get deviceTransferErrorCodeForSignedInDevice;
+
+  /// No description provided for @deviceTransferErrorCodeForNewDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This code is for a new phone. Scan it on the new phone from the Set up this phone screen.'**
+  String get deviceTransferErrorCodeForNewDevice;
+
+  /// No description provided for @deviceTransferErrorKeyMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'The code doesn\'t match the request on the server. Nothing was sent.'**
+  String get deviceTransferErrorKeyMismatch;
+
+  /// No description provided for @deviceTransferErrorAccountMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'This code belongs to a different account.'**
+  String get deviceTransferErrorAccountMismatch;
+
+  /// No description provided for @deviceTransferErrorDecrypt.
+  ///
+  /// In en, this message translates to:
+  /// **'The Secret Key couldn\'t be received. Start again on both devices.'**
+  String get deviceTransferErrorDecrypt;
+
+  /// No description provided for @deviceTransferErrorSecretKeyMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone doesn\'t have your Secret Key, so it can\'t approve other devices.'**
+  String get deviceTransferErrorSecretKeyMissing;
+
+  /// No description provided for @deviceTransferErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t connect. Check your connection and try again.'**
+  String get deviceTransferErrorNetwork;
+
+  /// No description provided for @deviceTransferErrorServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get deviceTransferErrorServer;
+
+  /// No description provided for @deviceTransferCameraDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off. Allow it in system settings to scan the code.'**
+  String get deviceTransferCameraDenied;
+
+  /// No description provided for @deviceTransferOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get deviceTransferOpenSettings;
+
+  /// No description provided for @deviceTransferExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {time}'**
+  String deviceTransferExpiresIn(String time);
+
+  /// No description provided for @secretKeyEntryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up this phone'**
+  String get secretKeyEntryTitle;
+
+  /// No description provided for @secretKeyEntryIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone needs your Secret Key once. Get it from a device where you\'re already signed in, or from your Emergency Kit.'**
+  String get secretKeyEntryIntro;
+
+  /// No description provided for @secretKeyEntryScanComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan code from a computer'**
+  String get secretKeyEntryScanComputer;
+
+  /// No description provided for @secretKeyEntryScanComputerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings › Add a phone in the web panel.'**
+  String get secretKeyEntryScanComputerHint;
+
+  /// No description provided for @secretKeyEntryScanComputerInstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'In the web panel, open Settings › Add a phone and point your camera at the code.'**
+  String get secretKeyEntryScanComputerInstruction;
+
+  /// No description provided for @secretKeyEntryShowCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a code to another phone'**
+  String get secretKeyEntryShowCode;
+
+  /// No description provided for @secretKeyEntryShowCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan it with Palladin on your signed-in phone.'**
+  String get secretKeyEntryShowCodeHint;
+
+  /// No description provided for @secretKeyEntryOr.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get secretKeyEntryOr;
+
+  /// No description provided for @secretKeyEntryUseKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Emergency Kit'**
+  String get secretKeyEntryUseKit;
+
+  /// No description provided for @secretKeyEntryUseKitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the kit QR code or type the Secret Key.'**
+  String get secretKeyEntryUseKitHint;
+
+  /// No description provided for @secretKeyEntryCompareComputerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the code on your computer. If it matches the code below, approve there. There\'s nothing to tap on this phone.'**
+  String get secretKeyEntryCompareComputerBody;
+
+  /// No description provided for @secretKeyEntryApproveOnComputerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve on your computer'**
+  String get secretKeyEntryApproveOnComputerTitle;
+
+  /// No description provided for @secretKeyEntryWaitingComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for approval on your computer…'**
+  String get secretKeyEntryWaitingComputer;
+
+  /// No description provided for @secretKeyEntryShowCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show code to your phone'**
+  String get secretKeyEntryShowCodeTitle;
+
+  /// No description provided for @secretKeyEntryShowCodeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'On your signed-in phone, open Settings › Add a device and scan this code.'**
+  String get secretKeyEntryShowCodeBody;
+
+  /// No description provided for @secretKeyEntrySameCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Your other phone should show the same code'**
+  String get secretKeyEntrySameCode;
+
+  /// No description provided for @secretKeyEntryWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for approval…'**
+  String get secretKeyEntryWaiting;
+
+  /// No description provided for @secretKeyEntryReceivedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key received'**
+  String get secretKeyEntryReceivedTitle;
+
+  /// No description provided for @secretKeyEntryReceivedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving it on this phone and signing you in…'**
+  String get secretKeyEntryReceivedBody;
+
+  /// No description provided for @secretKeyEntryCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get secretKeyEntryCancel;
+
+  /// No description provided for @secretKeyEntryKitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR code on your kit, or type the Secret Key printed next to it.'**
+  String get secretKeyEntryKitBody;
+
+  /// No description provided for @secretKeyEntryScanKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan kit QR code'**
+  String get secretKeyEntryScanKit;
+
+  /// No description provided for @secretKeyEntryScanKitInstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Point your camera at the QR code on your Emergency Kit.'**
+  String get secretKeyEntryScanKitInstruction;
+
+  /// No description provided for @secretKeyEntryFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key'**
+  String get secretKeyEntryFieldLabel;
+
+  /// No description provided for @secretKeyEntryFieldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts with PSK2, then 9 groups of 6 characters. Dashes and spaces are optional.'**
+  String get secretKeyEntryFieldHint;
+
+  /// No description provided for @secretKeyEntryContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get secretKeyEntryContinue;
+
+  /// No description provided for @secretKeyEntryErrorMalformed.
+  ///
+  /// In en, this message translates to:
+  /// **'This doesn\'t look like a Secret Key. Check the characters and try again.'**
+  String get secretKeyEntryErrorMalformed;
+
+  /// No description provided for @secretKeyEntryErrorChecksum.
+  ///
+  /// In en, this message translates to:
+  /// **'This Secret Key doesn\'t match this account. Check for typos.'**
+  String get secretKeyEntryErrorChecksum;
+
+  /// No description provided for @secretKeyEntryErrorKitAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'This Emergency Kit belongs to a different account.'**
+  String get secretKeyEntryErrorKitAccount;
+
+  /// No description provided for @secretKeyEntryErrorKitQr.
+  ///
+  /// In en, this message translates to:
+  /// **'This isn\'t an Emergency Kit QR code.'**
+  String get secretKeyEntryErrorKitQr;
+
+  /// No description provided for @secretKeyEntryCantScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t scan? Use Emergency Kit'**
+  String get secretKeyEntryCantScan;
+
+  /// No description provided for @securityUpgradeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating your account security'**
+  String get securityUpgradeTitle;
+
+  /// No description provided for @securityUpgradeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re moving your keys to stronger encryption. Keep the app open — it takes about a minute.'**
+  String get securityUpgradeSubtitle;
+
+  /// No description provided for @securityUpgradeStepAccountKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Account key'**
+  String get securityUpgradeStepAccountKey;
+
+  /// No description provided for @securityUpgradeStepVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Vaults'**
+  String get securityUpgradeStepVaults;
+
+  /// No description provided for @securityUpgradeStepAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get securityUpgradeStepAgents;
+
+  /// No description provided for @securityUpgradeStatusWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get securityUpgradeStatusWaiting;
+
+  /// No description provided for @securityUpgradeStatusRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get securityUpgradeStatusRunning;
+
+  /// No description provided for @securityUpgradeStatusDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get securityUpgradeStatusDone;
+
+  /// No description provided for @securityUpgradeStatusStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get securityUpgradeStatusStopped;
+
+  /// No description provided for @securityUpgradeCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total}'**
+  String securityUpgradeCount(int done, int total);
+
+  /// No description provided for @securityUpgradeStoppedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {done} of {total}'**
+  String securityUpgradeStoppedAt(int done, int total);
+
+  /// No description provided for @securityUpgradeEntriesUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Your entries stay as they are. Only the way your keys are shared changes.'**
+  String get securityUpgradeEntriesUnchanged;
+
+  /// No description provided for @securityUpgradeErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update paused'**
+  String get securityUpgradeErrorTitle;
+
+  /// No description provided for @securityUpgradeNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection lost. Your progress is saved, so nothing will be repeated.'**
+  String get securityUpgradeNetworkError;
+
+  /// No description provided for @securityUpgradeServerError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Your progress is saved, so try again.'**
+  String get securityUpgradeServerError;
+
+  /// No description provided for @securityUpgradeRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get securityUpgradeRetry;
+
+  /// No description provided for @securityUpgradePhraseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your new recovery phrase'**
+  String get securityUpgradePhraseTitle;
+
+  /// No description provided for @securityUpgradePhraseSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account key changed, so your old recovery phrase no longer works. Write down these 24 words.'**
+  String get securityUpgradePhraseSubtitle;
+
+  /// No description provided for @securityUpgradePhraseWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep it offline'**
+  String get securityUpgradePhraseWarningTitle;
+
+  /// No description provided for @securityUpgradePhraseWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Store it apart from your Emergency Kit. Anyone holding it can take over your account.'**
+  String get securityUpgradePhraseWarning;
+
+  /// No description provided for @securityUpgradePhraseWritten.
+  ///
+  /// In en, this message translates to:
+  /// **'I wrote it down'**
+  String get securityUpgradePhraseWritten;
+
+  /// No description provided for @securityUpgradeConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your recovery phrase'**
+  String get securityUpgradeConfirmTitle;
+
+  /// No description provided for @securityUpgradeConfirmSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter three words to make sure you saved it correctly.'**
+  String get securityUpgradeConfirmSubtitle;
+
+  /// No description provided for @securityUpgradeConfirmWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Word #{position}'**
+  String securityUpgradeConfirmWord(int position);
+
+  /// No description provided for @securityUpgradeConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get securityUpgradeConfirmAction;
+
+  /// No description provided for @securityUpgradeConfirmMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'These words don\'t match. Check your phrase and try again.'**
+  String get securityUpgradeConfirmMismatch;
+
+  /// No description provided for @securityUpgradeConfirmBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the phrase again'**
+  String get securityUpgradeConfirmBack;
+
+  /// No description provided for @securityUpgradeDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is up to date'**
+  String get securityUpgradeDoneTitle;
+
+  /// No description provided for @securityUpgradeDoneSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your keys use stronger encryption and your account has a Secret Key.'**
+  String get securityUpgradeDoneSubtitle;
+
+  /// No description provided for @securityUpgradeDoneDevicesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Other devices'**
+  String get securityUpgradeDoneDevicesTitle;
+
+  /// No description provided for @securityUpgradeDoneDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices will ask for the Secret Key once. Approve them from this phone or use your Emergency Kit.'**
+  String get securityUpgradeDoneDevices;
+
+  /// No description provided for @securityUpgradeDoneAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get securityUpgradeDoneAction;
+
+  /// No description provided for @unlockSecurityUpgradeNeedsPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your master password to finish the account security update.'**
+  String get unlockSecurityUpgradeNeedsPassword;
 }
 
 class _AppLocalizationsDelegate

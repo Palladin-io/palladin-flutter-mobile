@@ -38,20 +38,14 @@ final class EntryShareCopyState {
 
 class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
   EntryShareCopyCubit({
-    required EntryShareCopyService service,
-    required EntryShareSnapshot snapshot,
-    required EntrySharingSession owner,
-    required Future<EntrySharingSession?> Function() ownerReader,
-    required Uint8List Function() copyMemberPrivateKey,
+    required this._service,
+    required EntryShareSnapshot this._snapshot,
+    required this._owner,
+    required this._ownerReader,
+    required this._copyMemberPrivateKey,
     required EntryShareLifetime lifetime,
-    bool canCreateDefaultVault = false,
-  }) : _service = service,
-       _snapshot = snapshot,
-       _owner = owner,
-       _ownerReader = ownerReader,
-       _copyMemberPrivateKey = copyMemberPrivateKey,
-       _lifetime = lifetime,
-       _canCreateDefaultVault = canCreateDefaultVault,
+    this._canCreateDefaultVault = false,
+  }) : _lifetime = lifetime,
        super(const EntryShareCopyState()) {
     if (lifetime.isLive) {
       _expiry = Timer(lifetime.remaining, clear);

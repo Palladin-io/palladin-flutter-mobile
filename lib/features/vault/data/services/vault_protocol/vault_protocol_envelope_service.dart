@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../../core/crypto/sodium_provider.dart';
 import 'vault_protocol_aad.dart';

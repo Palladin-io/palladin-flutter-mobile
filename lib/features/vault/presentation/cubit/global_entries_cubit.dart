@@ -33,9 +33,8 @@ final class GlobalEntryRow {
       updatedAt: epoch,
       urlDomain: domain == null
           ? null
-          : Uri.tryParse(
-              domain.contains('://') ? domain : 'https://$domain',
-            )?.host,
+          : Uri.tryParse(domain.contains('://') ? domain : 'https://$domain')
+                ?.host,
       currentRevision: entry.revision,
       currentKeyVersion: entry.currentKeyVersion,
       lifecycleState: entry.state,
@@ -93,14 +92,11 @@ final class GlobalEntriesState {
 /// Loading is sequential and shares the existing loader's per-Vault flights.
 final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
   GlobalEntriesCubit({
-    required MemberIndexReader index,
-    required MemberEntryListLoader loader,
+    required this._index,
+    required this._loader,
     required Stream<String> indexUpdates,
-    required LocalCurrentEntryService localEntries,
-  }) : _index = index,
-       _localEntries = localEntries,
-       _loader = loader,
-       super(const GlobalEntriesState()) {
+    required this._localEntries,
+  }) : super(const GlobalEntriesState()) {
     _updates = indexUpdates.listen((_) {
       _clearReveals();
       _publish();

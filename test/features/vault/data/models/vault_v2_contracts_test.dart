@@ -5,14 +5,14 @@ void main() {
   test('Vault public keys use exact closed backend kinds', () {
     const messageKey = VaultPublicKeyContractModel(
       schemeId: 'x25519',
-      keyKind: VaultPublicKeyKind.agentMessageX25519,
+      keyKind: VaultPublicKeyKind.agentMessage,
       keyVersion: 1,
       encodedPublicKey: 'key',
       fingerprint: 'fingerprint',
     );
     const signingKey = VaultPublicKeyContractModel(
       schemeId: 'ed25519',
-      keyKind: VaultPublicKeyKind.manifestSigningEd25519,
+      keyKind: VaultPublicKeyKind.manifestSigning,
       keyVersion: 1,
       encodedPublicKey: 'key',
       fingerprint: 'fingerprint',
@@ -43,7 +43,7 @@ void main() {
     );
     const publicKey = VaultPublicKeyContractModel(
       schemeId: 'x25519',
-      keyKind: VaultPublicKeyKind.agentMessageX25519,
+      keyKind: VaultPublicKeyKind.agentMessage,
       keyVersion: 1,
       encodedPublicKey: 'key',
       fingerprint: 'fingerprint',

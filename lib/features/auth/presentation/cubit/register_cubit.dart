@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/storage/account_secret_store.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/domain/mnemonic.dart' as mnemonic;
@@ -25,11 +28,19 @@ class RegisterCubit extends Cubit<RegisterState> {
     required this.datasource,
     required this.cryptoService,
     required this.tokenStorage,
+    required this.accountSecrets,
   }) : super(const RegisterState());
 
   final PasswordAuthRemoteDatasource datasource;
   final PasswordAuthCryptoService cryptoService;
   final SecureTokenStorage tokenStorage;
+  final AccountSecretStore accountSecrets;
+
+  Uint8List? _accountSecret;
+  RegisterUnlockKeys? _pendingKeys;
+
+  /// Secret Key shown in the Emergency Kit step; owned by this cubit.
+  Uint8List? get emergencyKitSecret => _accountSecret;
 
   /// The chosen master password, held **in memory only** and never placed
   /// in the observable [RegisterState]. Dropped on completion via
@@ -116,6 +127,7 @@ class RegisterCubit extends Cubit<RegisterState> {
       );
       await tokenStorage.setAuthProvider(AuthProviderId.password);
       await tokenStorage.setDefaultVaultProvisioned(false);
+      await accountSecrets.write(material.accountId, material.accountSecret);
 
       if (state.step != RegisterStep.submitting) return;
       // Registration succeeded — the keys are derived and about to be handed
@@ -124,13 +136,15 @@ class RegisterCubit extends Cubit<RegisterState> {
       // step; the factory-scoped cubit closes when the page unmounts.)
       _clearPassword();
       AppLogger.i('Register', 'Registration complete');
+      _accountSecret = material.accountSecret;
+      _pendingKeys = RegisterUnlockKeys(
+        masterKey: material.masterKey,
+        privateKey: material.privateKey,
+      );
       emit(
         state.copyWith(
-          step: RegisterStep.completed,
-          unlockKeys: RegisterUnlockKeys(
-            masterKey: material.masterKey,
-            privateKey: material.privateKey,
-          ),
+          step: RegisterStep.emergencyKit,
+          emergencyKit: RegisterEmergencyKit(accountId: material.accountId),
         ),
       );
     } catch (e, s) {
@@ -138,6 +152,7 @@ class RegisterCubit extends Cubit<RegisterState> {
       // retained copies before they are dropped.
       material.masterKey.fillRange(0, material.masterKey.length, 0);
       material.privateKey.fillRange(0, material.privateKey.length, 0);
+      material.accountSecret.fillRange(0, material.accountSecret.length, 0);
       if (state.step != RegisterStep.submitting) return;
       AppLogger.e('Register', 'Registration failed', error: e, stackTrace: s);
       emit(state.copyWith(step: RegisterStep.recoveryKeyConfirm, error: e));
@@ -147,6 +162,30 @@ class RegisterCubit extends Cubit<RegisterState> {
   /// Drops the cubit's reference to the freshly derived keys after the page
   /// has handed them to `AuthBloc`. The buffers are intentionally NOT
   /// zeroed — the same references now live in `AuthAuthenticated`.
+  /// The user saved the Emergency Kit; hands the keys to the session.
+  void acknowledgeEmergencyKit() {
+    final keys = _pendingKeys;
+    if (state.step != RegisterStep.emergencyKit || keys == null) return;
+    _wipeSecret();
+    _pendingKeys = null;
+    emit(state.copyWith(step: RegisterStep.completed, unlockKeys: keys));
+  }
+
+  void _wipeSecret() {
+    _accountSecret?.fillRange(0, _accountSecret!.length, 0);
+    _accountSecret = null;
+  }
+
+  @override
+  Future<void> close() {
+    _wipeSecret();
+    final keys = _pendingKeys;
+    keys?.masterKey.fillRange(0, keys.masterKey.length, 0);
+    keys?.privateKey.fillRange(0, keys.privateKey.length, 0);
+    _pendingKeys = null;
+    return super.close();
+  }
+
   void clearUnlockKeys() {
     if (state.unlockKeys == null) return;
     emit(state.copyWith(clearUnlockKeys: true));
@@ -166,6 +205,7 @@ class RegisterCubit extends Cubit<RegisterState> {
         );
       case RegisterStep.credentials:
       case RegisterStep.submitting:
+      case RegisterStep.emergencyKit:
       case RegisterStep.completed:
         break;
     }

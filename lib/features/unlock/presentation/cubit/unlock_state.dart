@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../../../security_upgrade/domain/security_upgrade_start.dart';
+
 /// Base class for all states of the unlock screen.
 sealed class UnlockState {
   const UnlockState();
@@ -42,4 +44,20 @@ final class UnlockFailed extends UnlockState {
   const UnlockFailed(this.error);
 
   final Object error;
+}
+
+/// This device has no Secret Key for the version-2 account; the page obtains
+/// one and calls `UnlockCubit.unlockWithSecretKey`.
+final class UnlockSecretKeyRequired extends UnlockState {
+  const UnlockSecretKeyRequired({required this.accountId, required this.email});
+
+  final String accountId;
+  final String email;
+}
+
+/// The account must finish the security upgrade before the vault opens.
+final class UnlockSecurityUpgradeRequired extends UnlockState {
+  const UnlockSecurityUpgradeRequired(this.start);
+
+  final SecurityUpgradeStart start;
 }

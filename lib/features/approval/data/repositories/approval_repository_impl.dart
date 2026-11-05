@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
@@ -30,7 +31,7 @@ import '../datasources/approval_remote_datasource.dart';
 /// Orchestrates the GRANULAR approval pipeline:
 ///   1. fetch the entry's encrypted blob (`GET .../entries/{id}`),
 ///   2. fetch the vault's sealed VK (`GET /api/vaults/{id}`),
-///   3. produce the envelope on-device ([GrantCryptoService]),
+///   3. produce the envelope on-device ([EntryV2CryptoService]),
 ///   4. submit it (`PUT .../approve`).
 ///
 /// Reuses the vault feature's entry + vault datasources rather than
@@ -42,17 +43,14 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required EntryRemoteDatasource entryDatasource,
     required VaultRemoteDatasource vaultDatasource,
     required EntryV2CryptoService cryptoService,
-    required VaultRotationCryptoService vaultKeys,
-    required CanonicalEntryDetailService canonicalEntries,
-    required AgentDiscoveryRemote discovery,
+    required this._vaultKeys,
+    required this._canonicalEntries,
+    required this._discovery,
     ScriptExecutionPackageService? scriptPackages,
   }) : _approval = approvalDatasource,
        _entries = entryDatasource,
        _vaults = vaultDatasource,
        _crypto = cryptoService,
-       _vaultKeys = vaultKeys,
-       _canonicalEntries = canonicalEntries,
-       _discovery = discovery,
        _scriptPackages = scriptPackages ?? ScriptExecutionPackageService();
 
   final ApprovalRemoteDatasource _approval;
@@ -188,13 +186,11 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
         grantPayload,
       );
+      final agentKeySuite = _sealingSuite(candidate.keySuiteId);
       final recipientKey = VaultProtocolBytes.base64Decode(
-        candidate.x25519PublicKey,
-        maximumBytes: 32,
+        candidate.publicKey,
+        maximumBytes: agentKeySuite.publicKeyBytes,
       );
-      if (recipientKey.length != 32) {
-        throw const FormatException('Invalid Agent recipient key');
-      }
       stage = 'grant-seal';
       final grantEntry = await _crypto.sealGrant(
         organizationId: snapshot.entry['organizationId'] as String,
@@ -206,6 +202,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         memberKeyGeneration: vault['memberKeyGeneration'] as int,
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
+        agentKeySuite: agentKeySuite,
         approvedMethods: approvedMethods,
         deliveryPolicy: type.deliveryPolicyCode(),
         fieldIds: envelopeFieldIds,
@@ -269,6 +266,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -279,6 +277,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
+    final agentKeySuite = _sealingSuite(agentKeySuiteId);
     final grantId = _uuidV4();
     final wire = limit.toWire();
     final methodBits = _methodBits(methods);
@@ -340,6 +339,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         agentAccessEpoch: agentAccessEpoch,
         vaultKeyVersion: vaultKeyVersion,
         agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+        agentKeySuite: agentKeySuite,
         recipientKeyVersion: recipientKeyVersion,
         vaultSigningKeyVersion: vaultSigningKeyVersion,
         vaultSigningPrivateKey: vaultSigningPrivateKey,
@@ -373,6 +373,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     List<String>? selectedFieldIds,
     required String agentId,
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -383,6 +384,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
+    final agentKeySuite = _sealingSuite(agentKeySuiteId);
     final grantId = _uuidV4();
     final wire = limit.toWire();
     final methodBits = _methodBits(methods);
@@ -455,6 +457,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           entryRevision: int.parse(snapshot.entry['currentRevision'] as String),
           memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
           agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+          agentKeySuite: agentKeySuite,
           recipientKeyVersion: recipientKeyVersion,
           approvedMethods: methodBits,
           deliveryPolicy: type.deliveryPolicyCode(),
@@ -506,6 +509,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required String scriptEntryId,
     required String agentId,
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -515,6 +519,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
+    final agentKeySuite = _sealingSuite(agentKeySuiteId);
     final grantId = _uuidV4();
     final wire = limit.toWire();
     CanonicalEntrySnapshot? script;
@@ -614,17 +619,15 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
 
       agentRecipientKey = VaultProtocolBytes.base64Decode(
         agentPublicKey,
-        maximumBytes: 32,
+        maximumBytes: agentKeySuite.publicKeyBytes,
       );
-      if (agentRecipientKey.length != 32) {
-        throw const FormatException('Invalid Agent recipient key');
-      }
       final package = await _scriptPackages.seal(
         grantId: grantId,
         packageRevision: 1,
         agentId: agentId,
         agentAccessEpoch: agentAccessEpoch,
         agentPublicKey: agentRecipientKey,
+        agentKeySuite: agentKeySuite,
         recipientAgentKeyVersion: recipientKeyVersion,
         vaultSigningKeyVersion: vaultSigningKeyVersion,
         vaultSigningPrivateKey: vaultSigningPrivateKey,
@@ -661,6 +664,20 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         projection.clear();
       }
     }
+  }
+
+  /// Resolves the suite an Agent's encryption key is published under. A key
+  /// still on a read-only suite cannot receive new access until the Agent
+  /// rotates it (`key-migration-pending`).
+  WrapperSuite _sealingSuite(String keySuiteId) {
+    final suite = WrapperSuite.tryParse(keySuiteId);
+    if (suite == null) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+    if (!suite.canSeal) {
+      throw const ApprovalException(ApprovalErrorKind.keyMigrationPending);
+    }
+    return suite;
   }
 
   String _uuidV4() {

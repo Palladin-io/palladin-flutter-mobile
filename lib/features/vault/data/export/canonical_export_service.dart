@@ -18,17 +18,14 @@ typedef ExportWriterFactory = ExportWriter Function(ExportFormat format);
 /// each record into protected staging. No plaintext is sent to the backend.
 final class CanonicalExportService {
   CanonicalExportService({
-    required MemberEntryListLoader index,
-    required CanonicalEntryDetailService canonical,
-    required EntryRemoteDatasource entries,
-    required ExportWriterFactory writerFactory,
+    required this._index,
+    required this._canonical,
+    required this._entries,
+    required this._writerFactory,
     this.pageSize = 100,
     this.maximumEntries = 20000,
     this.maximumExportRecords = 50000,
-  }) : _index = index,
-       _canonical = canonical,
-       _entries = entries,
-       _writerFactory = writerFactory;
+  });
 
   final MemberEntryListLoader _index;
   final CanonicalEntryDetailService _canonical;

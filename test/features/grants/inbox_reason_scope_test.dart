@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
 import 'package:mobile_palladin/features/grants/data/repositories/grants_repository_impl.dart';
@@ -11,6 +12,8 @@ import 'package:mobile_palladin/features/vault/data/services/member_sync_service
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart'
+    show WrapperSuite;
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:mocktail/mocktail.dart';
@@ -153,6 +156,8 @@ void main() {
           return <String, dynamic>{
             'organizationId': 'org-1',
             'memberVaultKey': <String, dynamic>{'wrappedVaultKey': const {}},
+            'vaultAgentMessagePublicKey': {'keyVersion': 1},
+            'vaultAgentMessageKeySuiteId': 'palladin-xwing-v1',
             'vaultPrivateKeys': <Map<String, dynamic>>[
               {
                 'descriptor': {
@@ -182,7 +187,8 @@ void main() {
               agentId: 'a-1',
               recipientKeyVersion: 1,
               status: 'current',
-              x25519PublicKey: base64Encode(List<int>.filled(32, 1)),
+              keySuiteId: 'palladin-x25519-sealed-box-v1',
+              publicKey: base64Encode(List<int>.filled(32, 1)),
               ed25519PublicKey: base64Encode(signingKey),
             ),
           ];
@@ -190,6 +196,7 @@ void main() {
         when(
           () => reasonCrypto.verifyAndOpenKey(
             reason: any(named: 'reason'),
+            messageKeySuite: WrapperSuite.xwingV1,
             signingPublicKey: any(named: 'signingPublicKey'),
             recipientPrivateKey: any(named: 'recipientPrivateKey'),
           ),
@@ -200,6 +207,7 @@ void main() {
         when(
           () => reasonCrypto.decrypt(
             reason: any(named: 'reason'),
+            messageKeySuite: WrapperSuite.xwingV1,
             reasonKey: any(named: 'reasonKey'),
           ),
         ).thenAnswer((_) async => fresh(plaintext));
@@ -247,7 +255,8 @@ void main() {
                     'agentId': page == null ? 'other-agent' : 'a-1',
                     'recipientKeyVersion': 1,
                     'status': 'current',
-                    'x25519PublicKey': base64Encode(List.filled(32, 1)),
+                    'keySuiteId': 'palladin-x25519-sealed-box-v1',
+                    'publicKey': base64Encode(List.filled(32, 1)),
                     'ed25519PublicKey': base64Encode(signingKey),
                   },
                 ],
@@ -287,7 +296,7 @@ void main() {
             keys: keys,
             discovery: discoverySource,
             reasonCrypto: reasonCrypto,
-            messageKeyFingerprint: (_) async => fingerprint,
+            messageKeyFingerprint: (_, _) async => fingerprint,
           ),
         );
         final published = <String, InboxNotification>{};

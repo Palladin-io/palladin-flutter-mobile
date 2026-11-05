@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../unlock/data/services/identity_kdf_service.dart';
+
 /// DTO sent to `PUT /api/account/recovery` to complete the account
 /// recovery flow.
 ///
@@ -17,7 +19,11 @@ class RecoverAccountRequest {
     required this.newRecoverySalt,
     required this.newEncryptedPrivateKeyByRecovery,
     required this.recoveryProof,
+    this.kdfVersion = IdentityKdfVersion.passwordV1,
   });
+
+  /// The account's own profile; recovery never changes the security version.
+  final IdentityKdfVersion kdfVersion;
 
   /// 16-byte Argon2id salt for the new master-password key derivation.
   final int baseCredentialRevision;
@@ -49,8 +55,15 @@ class RecoverAccountRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'securityVersion': 1,
-      'kdfProfileId': 'identity-argon2id-password-v1',
+      'securityVersion': switch (kdfVersion) {
+        IdentityKdfVersion.passwordV1 => IdentityKdfProfile.securityVersion,
+        IdentityKdfVersion.accountSecretV2 =>
+          IdentityKdfProfileV2.securityVersion,
+      },
+      'kdfProfileId': switch (kdfVersion) {
+        IdentityKdfVersion.passwordV1 => IdentityKdfProfile.id,
+        IdentityKdfVersion.accountSecretV2 => IdentityKdfProfileV2.id,
+      },
       'baseCredentialRevision': baseCredentialRevision,
       'basePrivateKeyWrapRevision': basePrivateKeyWrapRevision,
       'newKdfSalt': _encode(newKdfSalt),

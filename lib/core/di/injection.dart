@@ -1,5 +1,13 @@
 import 'package:dio/dio.dart';
 import '../storage/device_secure_storage.dart';
+import '../storage/account_secret_store.dart';
+import '../../features/security_upgrade/data/security_upgrade_remote_datasource.dart';
+import '../../features/security_upgrade/data/security_upgrade_service.dart';
+import '../crypto/identity/device_pairing.dart';
+import '../../features/secret_key/data/datasources/secret_key_transfer_remote_datasource.dart';
+import '../../features/secret_key/presentation/cubit/device_transfer_sender_cubit.dart';
+import '../../features/secret_key/presentation/cubit/secret_key_acquisition_cubit.dart';
+import '../../features/secret_key/data/services/emergency_kit_pdf_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
@@ -132,6 +140,7 @@ import '../../features/vault/data/services/member_entry_list_service.dart';
 import '../../features/vault/data/services/member_index_preparation_service.dart';
 import '../../features/vault/data/services/member_vault_key_context_store.dart';
 import '../../features/vault/data/services/totp_service.dart';
+import '../../features/vault/data/services/agent_message_key_migration_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
@@ -221,6 +230,7 @@ void configureDependencies(EnvConfig config) {
       biometricKeyStore: getIt<BiometricKeyStore>(),
       autoFillCacheInvalidator: getIt<AutoFillCacheInvalidator>(),
       currentEntryCacheInvalidator: getIt<MemberSyncService>(),
+      accountSecrets: getIt<AccountSecretStore>(),
       googleServerClientId: config.googleServerClientId,
     ),
   );
@@ -248,6 +258,7 @@ void configureDependencies(EnvConfig config) {
   // dropped when the cubit closes.
   getIt.registerFactory<RegisterCubit>(
     () => RegisterCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
       datasource: getIt<PasswordAuthRemoteDatasource>(),
       cryptoService: getIt<PasswordAuthCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
@@ -255,6 +266,7 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<LoginCubit>(
     () => LoginCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
       datasource: getIt<PasswordAuthRemoteDatasource>(),
       identityKdfService: getIt<IdentityKdfService>(),
       accountDatasource: getIt<AccountRemoteDatasource>(),
@@ -330,12 +342,59 @@ void configureDependencies(EnvConfig config) {
     () => AccountRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
-  getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
+  getIt.registerLazySingleton<IdentityKdfService>(
+    () => IdentityKdfService(accountSecrets: getIt<AccountSecretStore>()),
+  );
+
+  // Secret Key — trusted-device copy and device-to-device transfer relay.
+  getIt.registerLazySingleton<AccountSecretStore>(AccountSecretStore.new);
+  getIt.registerLazySingleton<DevicePairingCrypto>(DevicePairingCrypto.new);
+  getIt.registerLazySingleton<SecretKeyTransferRemoteDatasource>(
+    () => SecretKeyTransferRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerFactoryParam<DeviceTransferSenderCubit, String, void>(
+    (accountId, _) => DeviceTransferSenderCubit(
+      accountId: accountId,
+      datasource: getIt<SecretKeyTransferRemoteDatasource>(),
+      crypto: getIt<DevicePairingCrypto>(),
+      secretStore: getIt<AccountSecretStore>(),
+    ),
+  );
+  getIt.registerFactoryParam<SecretKeyAcquisitionCubit, String, void>(
+    (accountId, _) => SecretKeyAcquisitionCubit(
+      accountId: accountId,
+      datasource: getIt<SecretKeyTransferRemoteDatasource>(),
+      crypto: getIt<DevicePairingCrypto>(),
+    ),
+  );
+  getIt.registerLazySingleton<EmergencyKitPdfService>(
+    EmergencyKitPdfService.new,
+  );
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)
+  getIt.registerLazySingleton<SecurityUpgradeRemoteDatasource>(
+    () => SecurityUpgradeRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<SecurityUpgradeService>(
+    () => SecurityUpgradeService(
+      remote: getIt<SecurityUpgradeRemoteDatasource>(),
+      vaults: getIt<VaultRemoteDatasource>(),
+      identityKdf: getIt<IdentityKdfService>(),
+      accountSecrets: getIt<AccountSecretStore>(),
+      messageKeys: AgentMessageKeyMigrationService(
+        rotations: getIt<VaultRotationRemoteDatasource>(),
+        vaults: getIt<VaultRemoteDatasource>(),
+        vaultCrypto: getIt<VaultCryptoService>(),
+        rotationCrypto: getIt<VaultRotationCryptoService>(),
+      ),
+      accessToken: () => getIt<SecureTokenStorage>().accessToken,
+    ),
+  );
   getIt.registerFactory<UnlockCubit>(
     () => UnlockCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
+      securityUpgrade: getIt<SecurityUpgradeService>(),
       datasource: getIt<AccountRemoteDatasource>(),
       cryptoService: getIt<UnlockCryptoService>(),
       keyStore: getIt<BiometricKeyStore>(),
@@ -359,6 +418,7 @@ void configureDependencies(EnvConfig config) {
   // any failed-recovery state is discarded when the user leaves)
   getIt.registerFactory<RecoveryCubit>(
     () => RecoveryCubit(
+      accountSecrets: getIt<AccountSecretStore>(),
       datasource: getIt<RecoveryRemoteDatasource>(),
       cryptoService: getIt<RecoveryCryptoService>(),
       sessionUserId: () => getIt<SecureTokenStorage>().userId,

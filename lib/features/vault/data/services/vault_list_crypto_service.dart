@@ -16,13 +16,11 @@ final class DecryptedVaultList {
 /// Decrypts Vault summaries only while an unlocked Member key is supplied.
 class VaultListCryptoService {
   VaultListCryptoService({
-    required VaultRemoteDatasource remote,
-    required VaultCryptoService crypto,
+    required this._remote,
+    required this._crypto,
     MemberVaultKeyContextStore? keyContexts,
     this.maximumVaults = 2000,
-  }) : _remote = remote,
-       _crypto = crypto,
-       _keyContexts = keyContexts ?? MemberVaultKeyContextStore();
+  }) : _keyContexts = keyContexts ?? MemberVaultKeyContextStore();
 
   final VaultRemoteDatasource _remote;
   final VaultCryptoService _crypto;

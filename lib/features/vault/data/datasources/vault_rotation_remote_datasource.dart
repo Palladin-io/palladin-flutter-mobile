@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/key_wrapper/key_wrapper.dart' show WrapperSuite;
 import '../models/vault_rotation_models.dart';
 
 final class RotationCommitResult {
@@ -28,6 +29,25 @@ class VaultRotationRemoteDatasource {
           ),
         )
         .toList(growable: false);
+  }
+
+  /// Starts (or returns the open) agent-message-only `ProtocolMigration`
+  /// rotation; null when the Vault's message key is already current (409).
+  Future<VaultRotationModel?> startAgentMessageKeyMigration(
+    String vaultId,
+    CancelToken cancelToken,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/key-rotations/agent-message-key-migration',
+      data: const <String, Object?>{},
+      options: Options(
+        validateStatus: (status) =>
+            status == 200 || status == 201 || status == 409,
+      ),
+      cancelToken: cancelToken,
+    );
+    if (response.statusCode == 409) return null;
+    return VaultRotationModel.fromJson(_body(response));
   }
 
   Future<VaultRotationClaimModel> claim(
@@ -116,6 +136,28 @@ class VaultRotationRemoteDatasource {
     cancelToken,
     RotationAgentRecipient.fromJson,
   );
+
+  /// Suite of the Vault's current Agent message key, from the fenced
+  /// rotation public-key source (the authority for unrotated keys).
+  Future<WrapperSuite> currentAgentMessageKeySuite(
+    String vaultId,
+    String rotationId,
+    String fencingToken,
+    CancelToken cancelToken,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/key-rotations/$rotationId/source/public-keys',
+      queryParameters: {'fencingToken': fencingToken},
+      cancelToken: cancelToken,
+    );
+    final suite = WrapperSuite.tryParse(
+      _body(response)['vaultAgentMessageKeySuiteId'],
+    );
+    if (suite == null) {
+      throw const FormatException('Unknown Vault Agent message key suite');
+    }
+    return suite;
+  }
 
   Future<Map<String, dynamic>> vaultMetadata(
     String vaultId,

@@ -6,11 +6,11 @@ import 'vault_protocol_aad.dart';
 import 'vault_protocol_bytes.dart';
 
 enum VaultPublicKeyKind {
-  agentX25519(1),
-  agentEd25519(2),
-  vaultSigningEd25519(3),
-  vaultMessageX25519(4),
-  memberX25519(5);
+  agentEncryption(1),
+  agentSigning(2),
+  vaultSigning(3),
+  vaultAgentMessage(4),
+  memberEncryption(5);
 
   const VaultPublicKeyKind(this.id);
   final int id;

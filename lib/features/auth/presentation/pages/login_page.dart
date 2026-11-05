@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../secret_key/presentation/pages/secret_key_acquisition_page.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/auth_brand_layout.dart';
@@ -445,7 +447,27 @@ class _LoginViewState extends State<_LoginView> {
     context.read<LoginCubit>().submitTotp(_codeController.text.trim());
   }
 
-  void _handleLoginState(BuildContext context, LoginState state) {
+  Future<void> _handleLoginState(BuildContext context, LoginState state) async {
+    if (state is LoginSecretKeyRequired) {
+      final cubit = context.read<LoginCubit>();
+      final secret = await context.push<Uint8List>(
+        AppRoutes.secretKeyAcquire,
+        extra: SecretKeyAcquisitionArgs(
+          accountId: state.accountId,
+          email: state.email,
+        ),
+      );
+      if (secret == null) {
+        cubit.cancelSecretKeyRequest();
+      } else {
+        await cubit.continueWithSecretKey(secret);
+      }
+      return;
+    }
+    if (state is LoginSucceededLocked) {
+      context.read<AuthBloc>().add(const AuthCheckRequested());
+      return;
+    }
     if (state is LoginSuccess) {
       context.read<AuthBloc>().add(
         PasswordSessionEstablished(

@@ -2,13 +2,12 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
-import '../../../../core/crypto/asymmetric_keys.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../models/entry_v2_contracts.dart';
 import 'vault_protocol/vault_protocol_signature_service.dart';
@@ -35,6 +34,7 @@ class EntryV2CryptoService {
     required int agentAccessEpoch,
     required int vaultKeyVersion,
     required Uint8List agentPublicKey,
+    required WrapperSuite agentKeySuite,
     required int recipientKeyVersion,
     required int vaultSigningKeyVersion,
     required Uint8List vaultSigningPrivateKey,
@@ -64,6 +64,7 @@ class EntryV2CryptoService {
         agentAccessEpoch: agentAccessEpoch,
         vaultKeyVersion: vaultKeyVersion,
         agentPublicKey: agentPublicKey,
+        agentKeySuite: agentKeySuite,
         recipientKeyVersion: recipientKeyVersion,
         vaultSigningKeyVersion: vaultSigningKeyVersion,
         vaultSigningKeyFingerprint: signingFingerprint,
@@ -125,6 +126,7 @@ class EntryV2CryptoService {
     required int entryRevision,
     required int memberKeyGeneration,
     required Uint8List agentPublicKey,
+    required WrapperSuite agentKeySuite,
     required int recipientKeyVersion,
     required int approvedMethods,
     required int deliveryPolicy,
@@ -135,18 +137,19 @@ class EntryV2CryptoService {
     DateTime? expiresAt,
     int? remainingUses,
   }) async {
+    if (!agentKeySuite.canSeal) throw const KeyMigrationPendingException();
+    final Uint8List fingerprint;
+    try {
+      fingerprint = recipientFingerprint(
+        agentKeySuite,
+        RecipientKeyKind.agentEncryption.id,
+        agentPublicKey,
+      );
+    } on KeyWrapperException {
+      throw const FormatException('Invalid Agent recipient key');
+    }
     final sodium = await _sodiumLoader();
     final dek = sodium.randombytes.buf(32);
-    final fingerprint = Uint8List.fromList(
-      sha256.convert([
-        ...ascii.encode('PLDNV2FP'),
-        0,
-        2,
-        0,
-        1,
-        ...agentPublicKey,
-      ]).bytes,
-    );
     final commitment = computeFieldSetCommitment(fieldIds);
     final scope = EnvelopeScope(
       organizationId: EnvelopeId.parse(organizationId),
@@ -165,6 +168,7 @@ class EntryV2CryptoService {
       memberKeyGeneration: memberKeyGeneration,
       purposeData: GrantPurposeData(
         entryRevision: entryRevision,
+        wrapperSuite: agentKeySuite,
         recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
         methods: approvedMethods,
@@ -189,6 +193,7 @@ class EntryV2CryptoService {
       );
       final parentHash = WrapperContext.hashParent(descriptor);
       final wrapper = WrapperContext(
+        suiteId: agentKeySuite,
         purpose: WrapperPurpose.grantDek,
         scope: scope,
         resourceRevision: grantEnvelopeRevision,
@@ -198,11 +203,16 @@ class EntryV2CryptoService {
         recipientFingerprint: fingerprint,
         parentDescriptorHash: parentHash,
       );
-      final sealed =
-          await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).seal(
+      final sealed = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader)
+          .seal(
             key: dek,
             context: wrapper,
-            recipient: X25519PublicKey(agentPublicKey),
+            recipient: RecipientPublicKey(
+              suite: wrapper.suiteId,
+              keyKind: RecipientKeyKind.agentEncryption,
+              keyVersion: recipientKeyVersion,
+              publicKey: agentPublicKey,
+            ),
           );
       return {
         ...envelope,
@@ -488,6 +498,7 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
     MemberSecretPurposeData(:final operation) => {'operation': operation},
     GrantPurposeData(
       :final entryRevision,
+      :final wrapperSuite,
       :final recipientKeyVersion,
       :final recipientFingerprint,
       :final methods,
@@ -499,7 +510,7 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
     ) =>
       {
         'entryRevision': entryRevision.toString(),
-        'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+        'wrapperSuiteId': wrapperSuite.wireValue,
         'recipientKeyVersion': recipientKeyVersion,
         'recipientKeyFingerprint': _b64(recipientFingerprint),
         'approvedMethods': methods,

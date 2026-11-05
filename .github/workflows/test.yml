@@ -53,10 +53,7 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         id: setup_flutter
         with:
-          flutter-version: 3.41.4
-      - name: Install libsodium for native protocol fixtures
-        id: install_libsodium_for_native_protocol_fixtures
-        run: sudo apt-get update && sudo apt-get install --yes libsodium-dev
+          flutter-version: 3.47.9
       - name: Verify cloud configuration installers
         id: verify_cloud_configuration_installers
         run: python3 -m unittest discover -s tool/tests
@@ -89,7 +86,6 @@ jobs:
           CHECKOUT: ${{ steps.checkout.outcome }}
           SCAN_CURRENT_TREE_FOR_SECRETS: ${{ steps.scan_current_tree_for_secrets.outcome }}
           SETUP_FLUTTER: ${{ steps.setup_flutter.outcome }}
-          INSTALL_LIBSODIUM_FOR_NATIVE_PROTOCOL_FIXTURES: ${{ steps.install_libsodium_for_native_protocol_fixtures.outcome }}
           VERIFY_CLOUD_CONFIGURATION_INSTALLERS: ${{ steps.verify_cloud_configuration_installers.outcome }}
           FLUTTER_PUB_GET: ${{ steps.flutter_pub_get.outcome }}
           VERIFY_THIRD_PARTY_NOTICES: ${{ steps.verify_third_party_notices.outcome }}
@@ -103,7 +99,6 @@ jobs:
             printf '| %s | %s |\n' 'Checkout' "${CHECKOUT:-not run}"
             printf '| %s | %s |\n' 'Scan current tree for secrets' "${SCAN_CURRENT_TREE_FOR_SECRETS:-not run}"
             printf '| %s | %s |\n' 'Set up Flutter' "${SETUP_FLUTTER:-not run}"
-            printf '| %s | %s |\n' 'Install libsodium for native protocol fixtures' "${INSTALL_LIBSODIUM_FOR_NATIVE_PROTOCOL_FIXTURES:-not run}"
             printf '| %s | %s |\n' 'Verify cloud configuration installers' "${VERIFY_CLOUD_CONFIGURATION_INSTALLERS:-not run}"
             printf '| %s | %s |\n' 'flutter pub get' "${FLUTTER_PUB_GET:-not run}"
             printf '| %s | %s |\n' 'Verify third-party notices' "${VERIFY_THIRD_PARTY_NOTICES:-not run}"
@@ -130,7 +125,7 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: 3.41.4
+          flutter-version: 3.47.9
       - name: Prepare isolated Android tooling
         timeout-minutes: 10
         shell: bash

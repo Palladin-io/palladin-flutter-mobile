@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:ffi';
 
 import 'package:crypto/crypto.dart';
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -47,355 +47,339 @@ void main() {
   late _Keys keys;
   late _Envelopes envelopes;
   late sodium_ffi.SodiumSumo sodium;
-  final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
 
-  group(
-    'EncryptedPresentationAssetService sodium contract',
-    () {
-      setUpAll(() async {
-        registerFallbackValue(Uint8List(0));
-        sodium = await sodium_ffi.SodiumSumoInit.init(
-          () => DynamicLibrary.open(library ?? 'libsodium.so'),
-        );
-      });
+  group('EncryptedPresentationAssetService sodium contract', () {
+    setUpAll(() async {
+      registerFallbackValue(Uint8List(0));
+      sodium = await sodium_ffi.SodiumSumoInit.init();
+    });
 
-      setUp(() {
-        remote = _Remote();
-        entries = _Entries();
-        keys = _Keys();
-        envelopes = _Envelopes();
-        when(
-          () => remote.getEncryptedVault(_vaultId),
-        ).thenAnswer((_) async => _vault());
-        when(
-          () => keys.openMemberVaultKey(
-            any(),
-            any(),
-            expectedOrganizationId: _organizationId,
-            expectedVaultId: _vaultId,
-            expectedVaultKeyVersion: 4,
-            expectedMemberKeyGeneration: 3,
-          ),
-        ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 7));
-        when(
-          () => remote.uploadEncryptedAsset(any(), any()),
-        ).thenAnswer((_) async {});
-      });
+    setUp(() {
+      remote = _Remote();
+      entries = _Entries();
+      keys = _Keys();
+      envelopes = _Envelopes();
+      when(
+        () => remote.getEncryptedVault(_vaultId),
+      ).thenAnswer((_) async => _vault());
+      when(
+        () => keys.openMemberVaultKey(
+          any(),
+          any(),
+          expectedOrganizationId: _organizationId,
+          expectedVaultId: _vaultId,
+          expectedVaultKeyVersion: 4,
+          expectedMemberKeyGeneration: 3,
+        ),
+      ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 7));
+      when(
+        () => remote.uploadEncryptedAsset(any(), any()),
+      ).thenAnswer((_) async {});
+    });
 
-      EncryptedPresentationAssetService service() =>
-          EncryptedPresentationAssetService(
-            remote: remote,
-            entries: entries,
-            keys: keys,
-            entryCrypto: envelopes,
-            sodiumLoader: () async => sodium,
-          );
-
-      test(
-        'Vault and Entry use the same opaque authenticated pipeline',
-        () async {
-          final privateKey = Uint8List(32);
-          final assets = service();
-          final vaultReference = await assets.encryptAndUpload(
-            target: PresentationAssetTarget.vault,
-            vaultId: _vaultId,
-            plaintext: _png(),
-            memberPrivateKey: privateKey,
-          );
-          when(() => entries.getCanonicalEntry(_vaultId, _entryId)).thenAnswer(
-            (_) async => {
-              'currentRevision': '12',
-              'currentKeyVersion': 5,
-              'entryKey': {
-                'descriptor': {
-                  'memberKeyGeneration': 3,
-                  'keyVersion': 5,
-                  'scope': {
-                    'organizationId': _organizationId,
-                    'vaultId': _vaultId,
-                    'entryId': _entryId,
-                  },
-                  'binding': {'wrappingVaultKeyVersion': 4},
-                },
-              },
-            },
-          );
-          when(
-            () => envelopes.openEntryDek(
-              entryKey: any(named: 'entryKey'),
-              vaultKey: any(named: 'vaultKey'),
-            ),
-          ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 9));
-          final entryReference = await assets.encryptAndUpload(
-            target: PresentationAssetTarget.entry,
-            vaultId: _vaultId,
-            entryId: _entryId,
-            plaintext: _png(),
-            memberPrivateKey: privateKey,
-          );
-
-          final payloads = verify(
-            () => remote.uploadEncryptedAsset(_vaultId, captureAny()),
-          ).captured.cast<Map<String, dynamic>>();
-          expect(vaultReference, 'asset:${payloads.first['assetId']}');
-          expect(entryReference, startsWith('asset:'));
-          expect(payloads.map((value) => value['target']), [1, 2]);
-          expect(
-            payloads.every((value) => value.keys.contains('ciphertext')),
-            isTrue,
-          );
-          expect(payloads.toString(), isNot(contains('uploadUrl')));
-
-          final vaultPayload = payloads.first;
-          final container = VaultProtocolBytes.base64UrlDecode(
-            vaultPayload['ciphertext'] as String,
-          );
-          final assetId = vaultReference.split(':')[1];
-          final metadata = EncryptedPresentationAssetMetadata(
-            assetId: assetId,
-            target: 1,
-            entryId: null,
-            mediaType: 'image/png',
-            ciphertextLength: container.length,
-            ciphertextSha256: vaultPayload['ciphertextSha256'] as String,
-            downloadUrl: '/opaque/$assetId',
-          );
-          when(
-            () => remote.getEncryptedAsset(_vaultId, assetId),
-          ).thenAnswer((_) async => metadata);
-          when(
-            () => remote.downloadEncryptedAsset(metadata),
-          ).thenAnswer((_) async => Uint8List.fromList(container));
-          final opened = await assets.load(
-            reference: vaultReference,
-            target: PresentationAssetTarget.vault,
-            vaultId: _vaultId,
-            memberPrivateKey: privateKey,
-          );
-          expect(opened.bytes, _png());
-          await expectLater(
-            assets.load(
-              reference: vaultReference,
-              target: PresentationAssetTarget.entry,
-              vaultId: _vaultId,
-              entryId: _entryId,
-              memberPrivateKey: privateKey,
-            ),
-            throwsA(
-              isA<PresentationAssetException>().having(
-                (error) => error.kind,
-                'kind',
-                PresentationAssetErrorKind.scope,
-              ),
-            ),
-          );
-          assets.lock();
-          expect(opened.bytes.every((value) => value == 0), isTrue);
-        },
-      );
-
-      test(
-        'opens a Web icon after metadata edits and rejects wrong authority',
-        () async {
-          final fixture =
-              jsonDecode(
-                    File(
-                      'test/fixtures/encrypted_assets/web-vault-icon.json',
-                    ).readAsStringSync(),
-                  )
-                  as Map<String, dynamic>;
-          final scope = fixture['scope'] as Map<String, dynamic>;
-          final assetId = scope['assetId'] as String;
-          final container = base64Decode(fixture['ciphertext'] as String);
-          final metadata = EncryptedPresentationAssetMetadata(
-            assetId: assetId,
-            target: 1,
-            entryId: null,
-            mediaType: 'image/png',
-            ciphertextLength: container.length,
-            ciphertextSha256: VaultProtocolBytes.base64UrlEncode(
-              Uint8List.fromList(sha256.convert(container).bytes),
-            ),
-            downloadUrl: '/opaque/$assetId',
-          );
-          when(
-            () => remote.getEncryptedAsset(_vaultId, assetId),
-          ).thenAnswer((_) async => metadata);
-          when(
-            () => remote.downloadEncryptedAsset(metadata),
-          ).thenAnswer((_) async => Uint8List.fromList(container));
-          final assets = service();
-          Future<PresentationAssetValue> load() => assets.load(
-            reference: 'asset:$assetId',
-            target: PresentationAssetTarget.vault,
-            vaultId: _vaultId,
-            memberPrivateKey: Uint8List(32),
-          );
-          final vault = _vault();
-          (vault['memberVaultMetadata'] as Map)['descriptor'] = {
-            'resourceRevision': '99',
-            'keyVersion': 4,
-          };
-          when(
-            () => remote.getEncryptedVault(_vaultId),
-          ).thenAnswer((_) async => vault);
-          final opened = await load();
-          expect(opened.bytes, base64Decode(fixture['plaintext'] as String));
-          assets.release(opened);
-          expect(opened.bytes.every((byte) => byte == 0), isTrue);
-
-          for (final changed in [
-            {...vault, 'organizationId': _entryId},
-            {...vault, 'memberKeyGeneration': 4},
-            {
-              ...vault,
-              'currentKeyEpoch': {'vaultKeyVersion': 5},
-            },
-          ]) {
-            when(
-              () => remote.getEncryptedVault(_vaultId),
-            ).thenAnswer((_) async => changed);
-            when(
-              () => keys.openMemberVaultKey(
-                any(),
-                any(),
-                expectedOrganizationId: changed['organizationId'] as String,
-                expectedVaultId: _vaultId,
-                expectedVaultKeyVersion:
-                    (changed['currentKeyEpoch'] as Map)['vaultKeyVersion']
-                        as int,
-                expectedMemberKeyGeneration:
-                    changed['memberKeyGeneration'] as int,
-              ),
-            ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 7));
-            await expectLater(
-              load(),
-              throwsA(isA<PresentationAssetException>()),
-            );
-          }
-        },
-      );
-
-      test(
-        'rejects a substituted Entry wrapper before opening its key',
-        () async {
-          when(() => entries.getCanonicalEntry(_vaultId, _entryId)).thenAnswer(
-            (_) async => {
-              'currentKeyVersion': 5,
-              'entryKey': {
-                'descriptor': {
-                  'scope': {
-                    'organizationId': _organizationId,
-                    'vaultId': _vaultId,
-                    'entryId': _vaultId,
-                  },
-                  'keyVersion': 5,
-                  'memberKeyGeneration': 3,
-                  'binding': {'wrappingVaultKeyVersion': 4},
-                },
-              },
-            },
-          );
-          await expectLater(
-            service().encryptAndUpload(
-              target: PresentationAssetTarget.entry,
-              vaultId: _vaultId,
-              entryId: _entryId,
-              plaintext: _png(),
-              memberPrivateKey: Uint8List(32),
-            ),
-            throwsA(isA<PresentationAssetException>()),
-          );
-          verifyNever(
-            () => envelopes.openEntryDek(
-              entryKey: any(named: 'entryKey'),
-              vaultKey: any(named: 'vaultKey'),
-            ),
-          );
-          verifyNever(() => remote.uploadEncryptedAsset(any(), any()));
-        },
-      );
-
-      test('wipes the opened Vault key when the crypto loader fails', () async {
-        final key = Uint8List(32)..fillRange(0, 32, 7);
-        when(
-          () => keys.openMemberVaultKey(
-            any(),
-            any(),
-            expectedOrganizationId: _organizationId,
-            expectedVaultId: _vaultId,
-            expectedVaultKeyVersion: 4,
-            expectedMemberKeyGeneration: 3,
-          ),
-        ).thenAnswer((_) async => key);
-        final assets = EncryptedPresentationAssetService(
+    EncryptedPresentationAssetService service() =>
+        EncryptedPresentationAssetService(
           remote: remote,
           entries: entries,
           keys: keys,
           entryCrypto: envelopes,
-          sodiumLoader: () async => throw StateError('unavailable'),
+          sodiumLoader: () async => sodium,
+        );
+
+    test(
+      'Vault and Entry use the same opaque authenticated pipeline',
+      () async {
+        final privateKey = Uint8List(32);
+        final assets = service();
+        final vaultReference = await assets.encryptAndUpload(
+          target: PresentationAssetTarget.vault,
+          vaultId: _vaultId,
+          plaintext: _png(),
+          memberPrivateKey: privateKey,
+        );
+        when(() => entries.getCanonicalEntry(_vaultId, _entryId)).thenAnswer(
+          (_) async => {
+            'currentRevision': '12',
+            'currentKeyVersion': 5,
+            'entryKey': {
+              'descriptor': {
+                'memberKeyGeneration': 3,
+                'keyVersion': 5,
+                'scope': {
+                  'organizationId': _organizationId,
+                  'vaultId': _vaultId,
+                  'entryId': _entryId,
+                },
+                'binding': {'wrappingVaultKeyVersion': 4},
+              },
+            },
+          },
+        );
+        when(
+          () => envelopes.openEntryDek(
+            entryKey: any(named: 'entryKey'),
+            vaultKey: any(named: 'vaultKey'),
+          ),
+        ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 9));
+        final entryReference = await assets.encryptAndUpload(
+          target: PresentationAssetTarget.entry,
+          vaultId: _vaultId,
+          entryId: _entryId,
+          plaintext: _png(),
+          memberPrivateKey: privateKey,
+        );
+
+        final payloads = verify(
+          () => remote.uploadEncryptedAsset(_vaultId, captureAny()),
+        ).captured.cast<Map<String, dynamic>>();
+        expect(vaultReference, 'asset:${payloads.first['assetId']}');
+        expect(entryReference, startsWith('asset:'));
+        expect(payloads.map((value) => value['target']), [1, 2]);
+        expect(
+          payloads.every((value) => value.keys.contains('ciphertext')),
+          isTrue,
+        );
+        expect(payloads.toString(), isNot(contains('uploadUrl')));
+
+        final vaultPayload = payloads.first;
+        final container = VaultProtocolBytes.base64UrlDecode(
+          vaultPayload['ciphertext'] as String,
+        );
+        final assetId = vaultReference.split(':')[1];
+        final metadata = EncryptedPresentationAssetMetadata(
+          assetId: assetId,
+          target: 1,
+          entryId: null,
+          mediaType: 'image/png',
+          ciphertextLength: container.length,
+          ciphertextSha256: vaultPayload['ciphertextSha256'] as String,
+          downloadUrl: '/opaque/$assetId',
+        );
+        when(
+          () => remote.getEncryptedAsset(_vaultId, assetId),
+        ).thenAnswer((_) async => metadata);
+        when(
+          () => remote.downloadEncryptedAsset(metadata),
+        ).thenAnswer((_) async => Uint8List.fromList(container));
+        final opened = await assets.load(
+          reference: vaultReference,
+          target: PresentationAssetTarget.vault,
+          vaultId: _vaultId,
+          memberPrivateKey: privateKey,
+        );
+        expect(opened.bytes, _png());
+        await expectLater(
+          assets.load(
+            reference: vaultReference,
+            target: PresentationAssetTarget.entry,
+            vaultId: _vaultId,
+            entryId: _entryId,
+            memberPrivateKey: privateKey,
+          ),
+          throwsA(
+            isA<PresentationAssetException>().having(
+              (error) => error.kind,
+              'kind',
+              PresentationAssetErrorKind.scope,
+            ),
+          ),
+        );
+        assets.lock();
+        expect(opened.bytes.every((value) => value == 0), isTrue);
+      },
+    );
+
+    test(
+      'opens a Web icon after metadata edits and rejects wrong authority',
+      () async {
+        final fixture =
+            jsonDecode(
+                  File(
+                    'test/fixtures/encrypted_assets/web-vault-icon.json',
+                  ).readAsStringSync(),
+                )
+                as Map<String, dynamic>;
+        final scope = fixture['scope'] as Map<String, dynamic>;
+        final assetId = scope['assetId'] as String;
+        final container = base64Decode(fixture['ciphertext'] as String);
+        final metadata = EncryptedPresentationAssetMetadata(
+          assetId: assetId,
+          target: 1,
+          entryId: null,
+          mediaType: 'image/png',
+          ciphertextLength: container.length,
+          ciphertextSha256: VaultProtocolBytes.base64UrlEncode(
+            Uint8List.fromList(sha256.convert(container).bytes),
+          ),
+          downloadUrl: '/opaque/$assetId',
+        );
+        when(
+          () => remote.getEncryptedAsset(_vaultId, assetId),
+        ).thenAnswer((_) async => metadata);
+        when(
+          () => remote.downloadEncryptedAsset(metadata),
+        ).thenAnswer((_) async => Uint8List.fromList(container));
+        final assets = service();
+        Future<PresentationAssetValue> load() => assets.load(
+          reference: 'asset:$assetId',
+          target: PresentationAssetTarget.vault,
+          vaultId: _vaultId,
+          memberPrivateKey: Uint8List(32),
+        );
+        final vault = _vault();
+        (vault['memberVaultMetadata'] as Map)['descriptor'] = {
+          'resourceRevision': '99',
+          'keyVersion': 4,
+        };
+        when(
+          () => remote.getEncryptedVault(_vaultId),
+        ).thenAnswer((_) async => vault);
+        final opened = await load();
+        expect(opened.bytes, base64Decode(fixture['plaintext'] as String));
+        assets.release(opened);
+        expect(opened.bytes.every((byte) => byte == 0), isTrue);
+
+        for (final changed in [
+          {...vault, 'organizationId': _entryId},
+          {...vault, 'memberKeyGeneration': 4},
+          {
+            ...vault,
+            'currentKeyEpoch': {'vaultKeyVersion': 5},
+          },
+        ]) {
+          when(
+            () => remote.getEncryptedVault(_vaultId),
+          ).thenAnswer((_) async => changed);
+          when(
+            () => keys.openMemberVaultKey(
+              any(),
+              any(),
+              expectedOrganizationId: changed['organizationId'] as String,
+              expectedVaultId: _vaultId,
+              expectedVaultKeyVersion:
+                  (changed['currentKeyEpoch'] as Map)['vaultKeyVersion'] as int,
+              expectedMemberKeyGeneration:
+                  changed['memberKeyGeneration'] as int,
+            ),
+          ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 7));
+          await expectLater(load(), throwsA(isA<PresentationAssetException>()));
+        }
+      },
+    );
+
+    test(
+      'rejects a substituted Entry wrapper before opening its key',
+      () async {
+        when(() => entries.getCanonicalEntry(_vaultId, _entryId)).thenAnswer(
+          (_) async => {
+            'currentKeyVersion': 5,
+            'entryKey': {
+              'descriptor': {
+                'scope': {
+                  'organizationId': _organizationId,
+                  'vaultId': _vaultId,
+                  'entryId': _vaultId,
+                },
+                'keyVersion': 5,
+                'memberKeyGeneration': 3,
+                'binding': {'wrappingVaultKeyVersion': 4},
+              },
+            },
+          },
         );
         await expectLater(
-          assets.encryptAndUpload(
-            target: PresentationAssetTarget.vault,
+          service().encryptAndUpload(
+            target: PresentationAssetTarget.entry,
             vaultId: _vaultId,
+            entryId: _entryId,
             plaintext: _png(),
             memberPrivateKey: Uint8List(32),
           ),
           throwsA(isA<PresentationAssetException>()),
         );
-        expect(key, Uint8List(32));
+        verifyNever(
+          () => envelopes.openEntryDek(
+            entryKey: any(named: 'entryKey'),
+            vaultKey: any(named: 'vaultKey'),
+          ),
+        );
         verifyNever(() => remote.uploadEncryptedAsset(any(), any()));
-      });
+      },
+    );
 
-      test(
-        'rejects malformed and polyglot image bytes before network',
-        () async {
-          final polyglot = Uint8List.fromList([..._png(), 1]);
-          for (final bytes in [
-            Uint8List.fromList([1, 2, 3]),
-            polyglot,
-          ]) {
-            await expectLater(
-              service().encryptAndUpload(
-                target: PresentationAssetTarget.vault,
-                vaultId: _vaultId,
-                plaintext: bytes,
-                memberPrivateKey: Uint8List(32),
-              ),
-              throwsA(isA<PresentationAssetException>()),
-            );
-          }
-          verifyNever(() => remote.uploadEncryptedAsset(any(), any()));
-        },
+    test('wipes the opened Vault key when the crypto loader fails', () async {
+      final key = Uint8List(32)..fillRange(0, 32, 7);
+      when(
+        () => keys.openMemberVaultKey(
+          any(),
+          any(),
+          expectedOrganizationId: _organizationId,
+          expectedVaultId: _vaultId,
+          expectedVaultKeyVersion: 4,
+          expectedMemberKeyGeneration: 3,
+        ),
+      ).thenAnswer((_) async => key);
+      final assets = EncryptedPresentationAssetService(
+        remote: remote,
+        entries: entries,
+        keys: keys,
+        entryCrypto: envelopes,
+        sodiumLoader: () async => throw StateError('unavailable'),
       );
+      await expectLater(
+        assets.encryptAndUpload(
+          target: PresentationAssetTarget.vault,
+          vaultId: _vaultId,
+          plaintext: _png(),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(isA<PresentationAssetException>()),
+      );
+      expect(key, Uint8List(32));
+      verifyNever(() => remote.uploadEncryptedAsset(any(), any()));
+    });
 
-      test(
-        'rejects oversized plaintext before any key or network operation',
-        () async {
-          await expectLater(
-            service().encryptAndUpload(
-              target: PresentationAssetTarget.vault,
-              vaultId: _vaultId,
-              plaintext: Uint8List(
-                EncryptedPresentationAssetService.maximumPlaintextBytes + 1,
-              ),
-              memberPrivateKey: Uint8List(32),
+    test('rejects malformed and polyglot image bytes before network', () async {
+      final polyglot = Uint8List.fromList([..._png(), 1]);
+      for (final bytes in [
+        Uint8List.fromList([1, 2, 3]),
+        polyglot,
+      ]) {
+        await expectLater(
+          service().encryptAndUpload(
+            target: PresentationAssetTarget.vault,
+            vaultId: _vaultId,
+            plaintext: bytes,
+            memberPrivateKey: Uint8List(32),
+          ),
+          throwsA(isA<PresentationAssetException>()),
+        );
+      }
+      verifyNever(() => remote.uploadEncryptedAsset(any(), any()));
+    });
+
+    test(
+      'rejects oversized plaintext before any key or network operation',
+      () async {
+        await expectLater(
+          service().encryptAndUpload(
+            target: PresentationAssetTarget.vault,
+            vaultId: _vaultId,
+            plaintext: Uint8List(
+              EncryptedPresentationAssetService.maximumPlaintextBytes + 1,
             ),
-            throwsA(
-              isA<PresentationAssetException>().having(
-                (error) => error.kind,
-                'kind',
-                PresentationAssetErrorKind.tooLarge,
-              ),
+            memberPrivateKey: Uint8List(32),
+          ),
+          throwsA(
+            isA<PresentationAssetException>().having(
+              (error) => error.kind,
+              'kind',
+              PresentationAssetErrorKind.tooLarge,
             ),
-          );
-          verifyNever(() => remote.getEncryptedVault(any()));
-        },
-      );
-    },
-    skip: library == null && !Platform.isLinux
-        ? 'PALLADIN_LIBSODIUM_PATH is not configured on this test host'
-        : false,
-  );
+          ),
+        );
+        verifyNever(() => remote.getEncryptedVault(any()));
+      },
+    );
+  });
 }

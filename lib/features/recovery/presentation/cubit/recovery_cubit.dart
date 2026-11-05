@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/storage/account_secret_store.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../unlock/data/services/identity_kdf_service.dart';
 import '../../data/datasources/recovery_remote_datasource.dart';
 import '../../data/services/recovery_crypto_service.dart';
 import '../../domain/recovery_exceptions.dart';
@@ -32,12 +35,24 @@ class RecoveryCubit extends Cubit<RecoveryState> {
   RecoveryCubit({
     required this.datasource,
     required this.cryptoService,
-    required Future<String?> Function() sessionUserId,
-  }) : _sessionUserId = sessionUserId,
-       super(const RecoveryInitial());
+    required this._sessionUserId,
+    this.accountSecrets,
+  }) : super(const RecoveryInitial());
 
   final RecoveryRemoteDatasource datasource;
   final RecoveryCryptoService cryptoService;
+  final AccountSecretStore? accountSecrets;
+  Uint8List? _newAccountSecret;
+
+  /// New Secret Key for the Emergency Kit step; owned by this cubit.
+  Uint8List? get newAccountSecret => _newAccountSecret;
+
+  @override
+  Future<void> close() {
+    _newAccountSecret?.fillRange(0, _newAccountSecret!.length, 0);
+    _newAccountSecret = null;
+    return super.close();
+  }
 
   /// User id of the authenticated session; the challenge must be bound to it.
   final Future<String?> Function() _sessionUserId;
@@ -137,6 +152,10 @@ class RecoveryCubit extends Cubit<RecoveryState> {
         sealedChallenge: sealedChallenge,
         baseCredentialRevision: kdf.credentialRevision,
         basePrivateKeyWrapRevision: kdf.privateKeyWrapRevision,
+        accountVersion:
+            kdf.securityVersion == IdentityKdfProfileV2.securityVersion
+            ? IdentityKdfVersion.accountSecretV2
+            : IdentityKdfVersion.passwordV1,
       );
 
       try {
@@ -146,7 +165,21 @@ class RecoveryCubit extends Cubit<RecoveryState> {
       }
 
       AppLogger.i('Recovery', 'Account recovery completed');
-      emit(RecoveryCompleted(newRecoveryMnemonic: result.newRecoveryMnemonic));
+      final secret = result.newAccountSecret;
+      if (secret != null) {
+        // The old Secret Key no longer opens anything; replace this device's
+        // copy (identity-kdf v3 deleteOn: account recovery).
+        await accountSecrets?.delete(account.userId);
+        await accountSecrets?.write(account.userId, secret);
+        _newAccountSecret = secret;
+      }
+      emit(
+        RecoveryCompleted(
+          newRecoveryMnemonic: result.newRecoveryMnemonic,
+          accountId: secret == null ? null : account.userId,
+          email: secret == null ? null : account.email,
+        ),
+      );
     } on WrongRecoveryKeyException catch (e) {
       // The mnemonic was validated in step 1 but the server rotated the
       // ciphertext between steps — very unlikely but surface the same

@@ -1,4 +1,4 @@
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 /// Lazy-loads the libsodium native library and exposes a shared
 /// [SodiumSumo] instance for all crypto operations.
@@ -7,8 +7,8 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 /// (Argon2id) and `crypto_scalarmult` — both required for the
 /// zero-knowledge onboarding flow.
 ///
-/// The sodium binaries are bundled via the `sodium_libs` plugin and
-/// loaded on first use; subsequent calls return the cached instance.
+/// libsodium 1.0.22 is compiled from the source archive pinned by the
+/// `sodium` package's native-asset build hook and bundled with the app.
 class SodiumProvider {
   SodiumProvider._();
 
@@ -16,8 +16,6 @@ class SodiumProvider {
 
   /// Returns the shared [SodiumSumo] instance, initializing it on first call.
   ///
-  /// Thread-safe: the underlying `SodiumSumoInit.init()` handles
-  /// concurrent initialization internally.
   static Future<SodiumSumo> instance() async {
     _sodium ??= await SodiumSumoInit.init();
     return _sodium!;

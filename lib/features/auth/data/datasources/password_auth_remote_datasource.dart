@@ -33,7 +33,7 @@ class PasswordAuthRemoteDatasource {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/login/salt',
-        data: {'email': email, 'profileId': profileId},
+        data: {'email': email},
       );
       return LoginKdfBootstrap.fromJson(_requireBody(response));
     } on DioException catch (e) {
@@ -65,14 +65,25 @@ class PasswordAuthRemoteDatasource {
   Future<LoginResponse> login({
     required String email,
     required String authCredential,
+    required IdentityKdfVersion kdfVersion,
   }) async {
+    final (securityVersion, profileId) = switch (kdfVersion) {
+      IdentityKdfVersion.passwordV1 => (
+        IdentityKdfProfile.securityVersion,
+        IdentityKdfProfile.id,
+      ),
+      IdentityKdfVersion.accountSecretV2 => (
+        IdentityKdfProfileV2.securityVersion,
+        IdentityKdfProfileV2.id,
+      ),
+    };
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/login',
         data: {
           'email': email,
-          'securityVersion': IdentityKdfProfile.securityVersion,
-          'kdfProfileId': IdentityKdfProfile.id,
+          'securityVersion': securityVersion,
+          'kdfProfileId': profileId,
           'authCredential': authCredential,
         },
       );
@@ -209,8 +220,8 @@ class PasswordAuthRemoteDatasource {
       await _dio.put<dynamic>(
         '/api/account/password',
         data: {
-          'securityVersion': IdentityKdfProfile.securityVersion,
-          'kdfProfileId': IdentityKdfProfile.id,
+          'securityVersion': IdentityKdfProfileV2.securityVersion,
+          'kdfProfileId': IdentityKdfProfileV2.id,
           'baseCredentialRevision': baseCredentialRevision,
           'basePrivateKeyWrapRevision': basePrivateKeyWrapRevision,
           'currentAuthCredential': _encode(currentAuthCredential),

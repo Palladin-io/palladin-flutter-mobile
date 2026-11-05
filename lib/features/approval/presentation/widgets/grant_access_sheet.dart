@@ -200,11 +200,13 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
     };
 
     final String agentPublicKey;
+    final String agentKeySuiteId;
     final int recipientKeyVersion;
     final int agentAccessEpoch;
     try {
       final agent = await getIt<AgentsRepository>().getAgent(subject.agentId);
       agentPublicKey = agent.publicKey;
+      agentKeySuiteId = agent.keySuiteId;
       recipientKeyVersion = agent.recipientKeyVersion;
       agentAccessEpoch = agent.accessEpoch;
     } catch (_) {
@@ -221,6 +223,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
             scriptEntryId: entryId,
             agentId: subject.agentId,
             agentPublicKey: agentPublicKey,
+            agentKeySuiteId: agentKeySuiteId,
             recipientKeyVersion: recipientKeyVersion,
             agentAccessEpoch: agentAccessEpoch,
             privateKey: key,
@@ -232,6 +235,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
             entryId: entryId,
             agentId: subject.agentId,
             agentPublicKey: agentPublicKey,
+            agentKeySuiteId: agentKeySuiteId,
             recipientKeyVersion: recipientKeyVersion,
             agentAccessEpoch: agentAccessEpoch,
             privateKey: key,
@@ -244,6 +248,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
           vaultId: subject.vaultId,
           agentId: subject.agentId,
           agentPublicKey: agentPublicKey,
+          agentKeySuiteId: agentKeySuiteId,
           recipientKeyVersion: recipientKeyVersion,
           agentAccessEpoch: agentAccessEpoch,
           privateKey: key,

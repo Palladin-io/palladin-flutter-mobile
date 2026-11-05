@@ -17,12 +17,8 @@ import '../../domain/repositories/notification_center_repository.dart';
 /// Emits `null` for messages that have no meaningful destination (e.g.
 /// [PushNotificationType.unknown]) so the listener can no-op.
 class PushNavigationCubit extends Cubit<String?> {
-  PushNavigationCubit({
-    required AnalyticsService analytics,
-    required NotificationCenterRepository repository,
-  }) : _analytics = analytics,
-       _repository = repository,
-       super(null);
+  PushNavigationCubit({required this._analytics, required this._repository})
+    : super(null);
 
   final AnalyticsService _analytics;
   final NotificationCenterRepository _repository;

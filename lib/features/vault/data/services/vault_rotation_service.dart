@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/recipient_key_wrapper.dart'
+    show KeyMigrationPendingException, WrapperSuite;
+
 import '../datasources/vault_rotation_remote_datasource.dart';
 import '../models/vault_rotation_models.dart';
 import 'vault_protocol/vault_protocol_aad.dart';
@@ -64,12 +67,10 @@ final class _RotationLease {
 /// or plaintext progress. Cancellation safely pauses at network/batch bounds.
 final class VaultRotationService {
   VaultRotationService({
-    required VaultRotationRemoteDatasource remote,
-    required VaultRotationCryptoService crypto,
+    required this._remote,
+    required this._crypto,
     DateTime Function()? now,
-  }) : _remote = remote,
-       _crypto = crypto,
-       _now = now ?? DateTime.now;
+  }) : _now = now ?? DateTime.now;
 
   static const _leaseRenewAfter = Duration(seconds: 55);
   static const _maximumCommitReconciliations = 3;
@@ -128,6 +129,20 @@ final class VaultRotationService {
     if (!listed.samePlan(lease.claim.rotation)) {
       throw const VaultRotationException('rotation-plan-changed');
     }
+    // Only Agent-facing material names the message key suite: a rotated key
+    // is created on the active suite, an unrotated one keeps its own.
+    final needsMessageKeySuite =
+        listed.rotates('Vdk') || listed.rotates('ManifestSigning');
+    final messageKeySuite = listed.rotates('AgentMessage')
+        ? WrapperSuite.active
+        : needsMessageKeySuite
+        ? await _remote.currentAgentMessageKeySuite(
+            listed.vaultId,
+            listed.id,
+            lease.token,
+            token,
+          )
+        : null;
     final secrets = await _loadSecrets(lease.claim, memberPrivateKey);
     var seedEstablished =
         lease.claim.pendingMemberVaultKey != null ||
@@ -144,13 +159,15 @@ final class VaultRotationService {
           seedEstablished,
           token,
         );
-        final envelope = await _crypto.sealMemberVaultKey(
-          recipient: self,
-          organizationId: secrets.organizationId,
-          vaultId: listed.vaultId,
-          vkVersion: listed.targetKeyEpoch.vaultKeyVersion,
-          memberKeyGeneration: listed.targetMemberKeyGeneration,
-          vaultKey: secrets.targetVaultKey,
+        final envelope = await _sealForCurrentRecipient(
+          () => _crypto.sealMemberVaultKey(
+            recipient: self,
+            organizationId: secrets.organizationId,
+            vaultId: listed.vaultId,
+            vkVersion: listed.targetKeyEpoch.vaultKeyVersion,
+            memberKeyGeneration: listed.targetMemberKeyGeneration,
+            vaultKey: secrets.targetVaultKey,
+          ),
         );
         await _remote.prepare(listed.vaultId, listed.id, lease.token, {
           'memberVaultKeys': [envelope],
@@ -168,6 +185,7 @@ final class VaultRotationService {
       if (listed.rotates('AgentMessage') || listed.rotates('ManifestSigning')) {
         final anchors = await _crypto.createPublicTrustAnchors(
           agentMessagePrivateKey: secrets.targetMessagePrivateKey,
+          agentMessageKeySuite: messageKeySuite!,
           manifestSigningPrivateKey: secrets.targetSigningSeed,
           agentMessageKeyVersion: listed.targetKeyEpoch.agentMessageKeyVersion,
           manifestSigningKeyVersion:
@@ -191,6 +209,7 @@ final class VaultRotationService {
           lease,
           memberPrivateKey,
           secrets,
+          messageKeySuite,
           seedEstablished,
           token,
         );
@@ -364,6 +383,7 @@ final class VaultRotationService {
     _RotationLease lease,
     Uint8List memberPrivateKey,
     _RotationSecrets secrets,
+    WrapperSuite? messageKeySuite,
     bool seedEstablished,
     CancelToken token,
   ) async {
@@ -381,13 +401,15 @@ final class VaultRotationService {
         final envelopes = <Map<String, dynamic>>[];
         for (final recipient in page.items) {
           envelopes.add(
-            await _crypto.sealMemberVaultKey(
-              recipient: recipient,
-              organizationId: secrets.organizationId,
-              vaultId: rotation.vaultId,
-              vkVersion: rotation.targetKeyEpoch.vaultKeyVersion,
-              memberKeyGeneration: rotation.targetMemberKeyGeneration,
-              vaultKey: secrets.targetVaultKey,
+            await _sealForCurrentRecipient(
+              () => _crypto.sealMemberVaultKey(
+                recipient: recipient,
+                organizationId: secrets.organizationId,
+                vaultId: rotation.vaultId,
+                vkVersion: rotation.targetKeyEpoch.vaultKeyVersion,
+                memberKeyGeneration: rotation.targetMemberKeyGeneration,
+                vaultKey: secrets.targetVaultKey,
+              ),
             ),
           );
         }
@@ -460,15 +482,17 @@ final class VaultRotationService {
         final wrappers = <Map<String, Object?>>[];
         for (final recipient in page.items) {
           wrappers.add(
-            await _crypto.sealAgentVaultKey(
-              recipient: recipient,
-              organizationId: secrets.organizationId,
-              vaultId: rotation.vaultId,
-              vaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
-              vaultKey: secrets.targetVaultKey,
-              vaultSigningKeyVersion:
-                  rotation.targetKeyEpoch.manifestSigningKeyVersion,
-              vaultSigningPrivateKey: secrets.targetSigningSeed,
+            await _sealForCurrentRecipient(
+              () => _crypto.sealAgentVaultKey(
+                recipient: recipient,
+                organizationId: secrets.organizationId,
+                vaultId: rotation.vaultId,
+                vaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
+                vaultKey: secrets.targetVaultKey,
+                vaultSigningKeyVersion:
+                    rotation.targetKeyEpoch.manifestSigningKeyVersion,
+                vaultSigningPrivateKey: secrets.targetSigningSeed,
+              ),
             ),
           );
         }
@@ -524,17 +548,23 @@ final class VaultRotationService {
         final page = await _remote.agents(rotation.vaultId, cursor, token);
         final items = <Map<String, dynamic>>[];
         for (final agent in page.items) {
-          items.add(
-            await _crypto.createAgentMaterial(
-              agent: agent,
-              organizationId: secrets.organizationId,
-              vaultId: rotation.vaultId,
-              epoch: rotation.targetKeyEpoch,
-              vdk: secrets.targetVdk,
-              messagePrivateKey: secrets.targetMessagePrivateKey,
-              signingSeed: secrets.targetSigningSeed,
-            ),
-          );
+          try {
+            items.add(
+              await _crypto.createAgentMaterial(
+                agent: agent,
+                organizationId: secrets.organizationId,
+                vaultId: rotation.vaultId,
+                epoch: rotation.targetKeyEpoch,
+                vdk: secrets.targetVdk,
+                messagePrivateKey: secrets.targetMessagePrivateKey,
+                messageKeySuite: messageKeySuite!,
+                signingSeed: secrets.targetSigningSeed,
+              ),
+            );
+          } on KeyMigrationPendingException {
+            // Discovery reconciliation re-provisions the Agent after it
+            // rotates its encryption key onto the active suite.
+          }
         }
         if (items.isNotEmpty) {
           await _remote.prepare(rotation.vaultId, rotation.id, lease.token, {
@@ -543,6 +573,16 @@ final class VaultRotationService {
         }
         cursor = page.nextAfterId;
       } while (cursor != null);
+    }
+  }
+
+  /// A VK recipient (member or FULL grant) still on a read-only suite blocks
+  /// the rotation: the backend accepts no new envelope sealed to it.
+  Future<T> _sealForCurrentRecipient<T>(Future<T> Function() seal) async {
+    try {
+      return await seal();
+    } on KeyMigrationPendingException {
+      throw const VaultRotationException('key-migration-pending');
     }
   }
 

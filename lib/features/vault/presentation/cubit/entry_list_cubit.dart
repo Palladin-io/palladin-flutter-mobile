@@ -30,10 +30,9 @@ class EntryListCubit extends Cubit<EntryListState> {
   EntryListCubit({
     required this.repository,
     required this.vaultId,
-    String? wrappedVK,
+    this._wrappedVK,
     this.indexLoader,
-  }) : _wrappedVK = wrappedVK,
-       super(const EntryListInitial());
+  }) : super(const EntryListInitial());
 
   final EntryRepository repository;
   final String vaultId;

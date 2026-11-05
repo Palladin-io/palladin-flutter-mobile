@@ -1,24 +1,28 @@
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import '../../domain/entities/encrypted_reason.dart';
 
 abstract interface class EncryptedReasonCrypto {
+  /// [messageKeySuite] is the suite of the Vault Agent message key named by
+  /// the authenticated Vault, never the suite the reason claims.
   Future<Uint8List> verifyAndOpenKey({
     required EncryptedReason reason,
+    required WrapperSuite messageKeySuite,
     required Uint8List signingPublicKey,
     required Uint8List recipientPrivateKey,
   });
 
   Future<Uint8List> decrypt({
     required EncryptedReason reason,
+    required WrapperSuite messageKeySuite,
     required Uint8List reasonKey,
   });
 }
@@ -32,21 +36,22 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
   @override
   Future<Uint8List> verifyAndOpenKey({
     required EncryptedReason reason,
+    required WrapperSuite messageKeySuite,
     required Uint8List signingPublicKey,
     required Uint8List recipientPrivateKey,
   }) async {
-    final descriptor = _descriptor(reason);
+    final descriptor = _descriptor(reason, messageKeySuite);
     final wrappedJson = reason.wrappedReasonDek;
     final wrapped = VaultProtocolBytes.base64UrlDecode(
       wrappedJson['encodedSealedKeyPackage'] as String,
-      maximumBytes: X25519SealedBoxKeyWrapper.encodedBytes,
+      maximumBytes: messageKeySuite.packageBytes,
     );
-    final wrapper = _wrapper(reason, descriptor);
+    final wrapper = _wrapper(reason, descriptor, messageKeySuite);
     final signature = VaultProtocolBytes.base64UrlDecode(
       reason.agentSignature,
       maximumBytes: 64,
     );
-    final transcript = signatureTranscript(reason);
+    final transcript = signatureTranscript(reason, messageKeySuite);
     try {
       if (signingPublicKey.length != 32 || signature.length != 64) {
         throw const FormatException('Invalid encrypted reason signature');
@@ -59,7 +64,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
       )) {
         throw const FormatException('Encrypted reason signature mismatch');
       }
-      return await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).open(
+      return await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).open(
         wrapped: wrapped,
         context: wrapper,
         recipientSecretKey: recipientPrivateKey,
@@ -72,18 +77,19 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
   }
 
   /// Canonical transcript shared with the backend and Rust CLI.
-  Uint8List signatureTranscript(EncryptedReason reason) {
-    final descriptorBytes = _descriptor(reason).encodeAad();
+  Uint8List signatureTranscript(
+    EncryptedReason reason,
+    WrapperSuite messageKeySuite,
+  ) {
+    final descriptorBytes = _descriptor(reason, messageKeySuite).encodeAad();
     final payloadBytes = EncodedSuitePayload.fromBase64Url(
       reason.encodedSuitePayload,
     ).bytes;
     final wrapped = VaultProtocolBytes.base64UrlDecode(
       reason.wrappedReasonDek['encodedSealedKeyPackage'] as String,
-      maximumBytes: X25519SealedBoxKeyWrapper.encodedBytes,
+      maximumBytes: messageKeySuite.packageBytes,
     );
-    final suite = VaultProtocolBytes.utf8Encode(
-      RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue,
-    );
+    final suite = VaultProtocolBytes.utf8Encode(messageKeySuite.wireValue);
     try {
       return VaultProtocolBytes.concat([
         VaultProtocolBytes.utf8Encode('PLDNV2SIG:ENCRYPTED-REASON:'),
@@ -105,21 +111,24 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
   @override
   Future<Uint8List> decrypt({
     required EncryptedReason reason,
+    required WrapperSuite messageKeySuite,
     required Uint8List reasonKey,
   }) => XChaChaVaultEnvelopeSuite(sodiumLoader: _sodiumLoader).open(
-    descriptor: _descriptor(reason),
+    descriptor: _descriptor(reason, messageKeySuite),
     rootKey: reasonKey,
     payload: EncodedSuitePayload.fromBase64Url(reason.encodedSuitePayload),
   );
 
-  EnvelopeDescriptor _descriptor(EncryptedReason reason) {
+  EnvelopeDescriptor _descriptor(
+    EncryptedReason reason,
+    WrapperSuite messageKeySuite,
+  ) {
     final json = reason.descriptor;
     final scope = reason.scope;
     final binding = reason.binding;
     if (json['cryptoSuiteId'] !=
             CryptoSuiteId.palladinVaultXChaChaV1.wireValue ||
-        binding['wrapperSuiteId'] !=
-            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue ||
+        binding['wrapperSuiteId'] != messageKeySuite.wireValue ||
         scope['memberId'] != null) {
       throw const FormatException('Invalid encrypted reason descriptor');
     }
@@ -137,6 +146,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
       keyVersion: json['keyVersion'] as int,
       memberKeyGeneration: json['memberKeyGeneration'] as int,
       purposeData: ReasonPurposeData(
+        wrapperSuite: messageKeySuite,
         agentMessageKeyVersion: binding['recipientKeyVersion'] as int,
         recipientFingerprint: VaultProtocolBytes.base64UrlDecode(
           binding['recipientKeyFingerprint'] as String,
@@ -147,7 +157,11 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
     );
   }
 
-  WrapperContext _wrapper(EncryptedReason reason, EnvelopeDescriptor parent) {
+  WrapperContext _wrapper(
+    EncryptedReason reason,
+    EnvelopeDescriptor parent,
+    WrapperSuite messageKeySuite,
+  ) {
     final json = Map<String, dynamic>.from(
       reason.wrappedReasonDek['descriptor'] as Map,
     );
@@ -157,8 +171,7 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
     final recipientKeyKind = VaultPublicKeyKind.parseWire(
       json['recipientKeyKind'],
     );
-    if (json['wrapperSuiteId'] !=
-            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue ||
+    if (json['wrapperSuiteId'] != messageKeySuite.wireValue ||
         WrapperPurpose.parseWire(json['purpose']) != WrapperPurpose.reasonDek ||
         scope['organizationId'] != parentScope['organizationId'] ||
         scope['vaultId'] != parentScope['vaultId'] ||
@@ -166,13 +179,14 @@ final class EncryptedReasonCryptoService implements EncryptedReasonCrypto {
         scope['grantOrRequestId'] != parentScope['grantOrRequestId'] ||
         scope['agentId'] != parentScope['agentId'] ||
         scope['memberId'] != null ||
-        recipientKeyKind != VaultPublicKeyKind.vaultMessageX25519 ||
+        recipientKeyKind != VaultPublicKeyKind.vaultAgentMessage ||
         json['recipientKeyVersion'] != binding['recipientKeyVersion'] ||
         json['recipientFingerprint'] != binding['recipientKeyFingerprint']) {
       throw const FormatException('Invalid encrypted reason wrapper profile');
     }
     final wrapper = WrapperContext(
       protocolVersion: json['protocolVersion'] as int,
+      suiteId: messageKeySuite,
       purpose: WrapperPurpose.parseWire(json['purpose']),
       scope: EnvelopeScope(
         organizationId: EnvelopeId.parse(scope['organizationId'] as String),

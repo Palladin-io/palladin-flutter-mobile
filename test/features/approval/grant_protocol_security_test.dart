@@ -1,37 +1,23 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
-import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
-import 'package:mobile_palladin/features/approval/data/services/grant_crypto_service.dart';
+import 'package:mobile_palladin/core/crypto/kem/xwing.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    if (configured != null) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(configured),
-      );
-    }
-    if (Platform.isLinux) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open('libsodium.so'),
-      );
-    }
     return await SodiumSumoInit.init();
   } catch (_) {
     return null;
@@ -154,154 +140,6 @@ void main() {
   );
 
   test(
-    'grant payload is revision-bound, narrowed and uses a fresh GrantDEK',
-    () async {
-      final crypto = sodium;
-      if (crypto == null) {
-        markTestSkipped('libsodium unavailable');
-        return;
-      }
-      final envelopes = VaultProtocolEnvelopeService(
-        sodiumLoader: () async => crypto,
-      );
-      final service = GrantCryptoService(
-        sodiumLoader: () async => crypto,
-        envelopes: envelopes,
-      );
-      final agent = crypto.crypto.box.keyPair();
-      final policy = AgentVisibilityPolicy(
-        discoverable: true,
-        fields: const {
-          'username': AgentFieldAccess.onGrantValue,
-          'totp': AgentFieldAccess.onGrantDerived,
-        },
-      );
-      Future<Map<String, dynamic>> produce() => service.produceProtocolEnvelope(
-        organizationId: '11111111-1111-4111-8111-111111111111',
-        vaultId: '22222222-2222-4222-8222-222222222222',
-        grantId: '77777777-7777-4777-8777-777777777777',
-        agentId: '55555555-5555-4555-8555-555555555555',
-        entryId: '33333333-3333-4333-8333-333333333333',
-        entryRevision: '9',
-        memberKeyGeneration: 4,
-        recipientAgentKeyVersion: 3,
-        agentPublicKey: base64.encode(agent.publicKey),
-        approvedMethods: 1,
-        type: EntryType.credential,
-        agentLabel: 'Mail',
-        description: '',
-        content: const {
-          'username': 'ada',
-          'totp':
-              'otpauth://totp/example?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
-        },
-        policy: policy,
-        approvedFieldIds: const ['totp'],
-        remainingUses: 5,
-      );
-      final first = await produce();
-      final second = await produce();
-      expect(first['entryRevision'], '9');
-      expect(first['remainingUses'], 5);
-      expect(first.containsKey('expiresAt'), isFalse);
-      expect(first['fieldIds'], ['credential.totp']);
-      expect(
-        first['agentWrappedGrantDek'],
-        isNot(second['agentWrappedGrantDek']),
-      );
-      expect(first['ciphertext'], isNot(second['ciphertext']));
-
-      final grantKey = await envelopes.openPackage(
-        ciphertext: VaultProtocolBytes.base64UrlDecode(
-          first['agentWrappedGrantDek'] as String,
-        ),
-        recipientPublicKey: agent.publicKey,
-        recipientPrivateKey: agent.secretKey.extractBytes(),
-      );
-      final context = <String, Object?>{
-        'organizationId': first['organizationId'],
-        'vaultId': first['vaultId'],
-        'entryId': first['entryId'],
-        'grantId': first['grantId'],
-        'agentId': '55555555-5555-4555-8555-555555555555',
-        'grantEnvelopeRevision': first['grantEnvelopeRevision'],
-        'entryRevision': first['entryRevision'],
-        'grantKeyVersion': 1,
-        'approvedMethods': 1,
-        'useLimit': 5,
-        'recipientAgentKeyVersion': 3,
-        'recipientAgentKeyFingerprint': first['agentKeyFingerprint'],
-        'header': {
-          'protocolVersion': 2,
-          'algorithmSuite': 1,
-          'resourceKind': 4,
-          'projectionKind': 6,
-          'resourceRevision': '1',
-          'keyVersion': 1,
-          'memberKeyGeneration': 4,
-          'nonce': first['nonce'],
-        },
-        'ciphertext': first['ciphertext'],
-      };
-      final opened = await envelopes.decrypt(
-        profile: VaultAadProfile.grantPayload,
-        envelope: context,
-        key: grantKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: context,
-          minimumMemberKeyGeneration: 4,
-        ),
-      );
-      final payload = jsonDecode(utf8.decode(opened)) as Map<String, dynamic>;
-      expect(payload['schema'], 'palladin.grant-payload.v2');
-      expect(payload['entryType'], 'credential');
-      final fields = payload['fields'] as List;
-      expect(fields, hasLength(1));
-      final totp = fields.single as Map;
-      expect(totp['id'], 'credential.totp');
-      expect(totp['kind'], 'totp');
-      expect(totp['mode'], 'derived');
-      final derivedTotp = totp['value'] as Map;
-      expect(derivedTotp, {
-        'source': 'totp',
-        'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
-        'algorithm': 'SHA1',
-        'digits': 6,
-        'period': 30,
-      });
-      expect(
-        first.toString(),
-        isNot(contains('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ')),
-      );
-      grantKey.fillRange(0, grantKey.length, 0);
-      opened.fillRange(0, opened.length, 0);
-      agent.dispose();
-
-      expect(
-        () => service.produceProtocolEnvelope(
-          organizationId: '11111111-1111-4111-8111-111111111111',
-          vaultId: '22222222-2222-4222-8222-222222222222',
-          grantId: '77777777-7777-4777-8777-777777777777',
-          agentId: '55555555-5555-4555-8555-555555555555',
-          entryId: '33333333-3333-4333-8333-333333333333',
-          entryRevision: '9',
-          memberKeyGeneration: 4,
-          recipientAgentKeyVersion: 3,
-          agentPublicKey: base64.encode(Uint8List(32)),
-          approvedMethods: 1,
-          type: EntryType.credential,
-          agentLabel: 'Mail',
-          description: '',
-          content: const {'password': 'secret'},
-          policy: policy,
-          approvedFieldIds: const ['password'],
-        ),
-        throwsFormatException,
-      );
-    },
-  );
-
-  test(
     'canonical grant preserves expiry precision and opens for the Agent',
     () async {
       final crypto = sodium;
@@ -334,11 +172,13 @@ void main() {
         ],
       };
       final expiry = DateTime.utc(2026, 8, 8, 12, 34, 56, 123, 456);
-      final agent = crypto.crypto.box.keyPair();
-      final agentPrivateKey = agent.secretKey.extractBytes();
-      final fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
-        agent.publicKey,
+      final xwing = XWing(crypto);
+      final agentPrivateKey = xwing.generateSeed();
+      final agentPublicKey = xwing.publicKeyFromSeed(agentPrivateKey);
+      final fingerprint = recipientFingerprint(
+        WrapperSuite.xwingV1,
+        RecipientKeyKind.agentEncryption.id,
+        agentPublicKey,
       );
       final commitment = computeFieldSetCommitment(fieldIds);
       Uint8List? grantKey;
@@ -353,7 +193,8 @@ void main() {
           agentId: agentId,
           entryRevision: 7,
           memberKeyGeneration: 4,
-          agentPublicKey: agent.publicKey,
+          agentPublicKey: agentPublicKey,
+          agentKeySuite: WrapperSuite.xwingV1,
           recipientKeyVersion: 3,
           approvedMethods: 2,
           deliveryPolicy: 0,
@@ -377,6 +218,11 @@ void main() {
         expect(serializedScope['agentId'], agentId);
         expect(serializedScope['memberId'], isNull);
         expect(binding['expiresAt'], expiry.toIso8601String());
+        expect(binding['wrapperSuiteId'], 'palladin-xwing-v1');
+        expect(
+          (envelope['wrappedGrantDek']! as Map)['descriptor']['wrapperSuiteId'],
+          'palladin-xwing-v1',
+        );
 
         final scope = EnvelopeScope(
           organizationId: EnvelopeId.parse(organizationId),
@@ -393,6 +239,7 @@ void main() {
           keyVersion: 1,
           memberKeyGeneration: 4,
           purposeData: GrantPurposeData(
+            wrapperSuite: WrapperSuite.xwingV1,
             entryRevision: 7,
             recipientKeyVersion: 3,
             recipientFingerprint: fingerprint,
@@ -405,6 +252,7 @@ void main() {
           ),
         );
         final wrapper = WrapperContext(
+          suiteId: WrapperSuite.xwingV1,
           purpose: WrapperPurpose.grantDek,
           scope: scope,
           resourceRevision: 1,
@@ -417,10 +265,8 @@ void main() {
         final wrappedJson = Map<String, dynamic>.from(
           envelope['wrappedGrantDek']! as Map,
         );
-        grantKey =
-            await X25519SealedBoxKeyWrapper(
-              sodiumLoader: () async => crypto,
-            ).open(
+        grantKey = await RecipientKeyWrapper(sodiumLoader: () async => crypto)
+            .open(
               wrapped: VaultProtocolBytes.base64UrlDecode(
                 wrappedJson['encodedSealedKeyPackage'] as String,
               ),
@@ -445,8 +291,39 @@ void main() {
         agentPrivateKey.fillRange(0, agentPrivateKey.length, 0);
         fingerprint.fillRange(0, fingerprint.length, 0);
         commitment.fillRange(0, commitment.length, 0);
-        agent.dispose();
       }
+    },
+  );
+
+  test(
+    'a legacy Agent key receives no new grant (key-migration-pending)',
+    () async {
+      final crypto = sodium;
+      if (crypto == null) {
+        markTestSkipped('libsodium unavailable');
+        return;
+      }
+      final agent = crypto.crypto.box.keyPair();
+      addTearDown(agent.dispose);
+      await expectLater(
+        () => EntryV2CryptoService(sodiumLoader: () async => crypto).sealGrant(
+          organizationId: '11111111-1111-4111-8111-111111111111',
+          vaultId: '22222222-2222-4222-8222-222222222222',
+          entryId: '33333333-3333-4333-8333-333333333333',
+          grantId: '77777777-7777-4777-8777-777777777777',
+          agentId: '55555555-5555-4555-8555-555555555555',
+          entryRevision: 1,
+          memberKeyGeneration: 1,
+          agentPublicKey: agent.publicKey,
+          agentKeySuite: WrapperSuite.x25519SealedBoxV1,
+          recipientKeyVersion: 1,
+          approvedMethods: 1,
+          deliveryPolicy: 0,
+          fieldIds: const ['credential.totp'],
+          grantPayload: const {'schema': 'palladin.grant-payload.v2'},
+        ),
+        throwsA(isA<KeyMigrationPendingException>()),
+      );
     },
   );
 

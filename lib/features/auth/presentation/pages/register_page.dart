@@ -26,6 +26,7 @@ import '../../data/services/hibp_service.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';
 import '../cubit/password_security_cubit.dart';
+import '../../../secret_key/presentation/widgets/emergency_kit_step_screen.dart';
 import '../cubit/register_cubit.dart';
 import '../widgets/auth_brand_header.dart';
 import '../widgets/password_security_status.dart';
@@ -105,9 +106,29 @@ class _RegisterView extends StatelessWidget {
       case RegisterStep.recoveryKeyConfirm:
       case RegisterStep.submitting:
         return const _RecoveryConfirmStep();
+      case RegisterStep.emergencyKit:
+        return const _EmergencyKitRegisterStep();
       case RegisterStep.completed:
         return const _CompletedPlaceholder();
     }
+  }
+}
+
+class _EmergencyKitRegisterStep extends StatelessWidget {
+  const _EmergencyKitRegisterStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<RegisterCubit>();
+    final kit = cubit.state.emergencyKit;
+    final secret = cubit.emergencyKitSecret;
+    if (kit == null || secret == null) return const _CompletedPlaceholder();
+    return EmergencyKitStepScreen(
+      email: cubit.state.email,
+      accountId: kit.accountId,
+      accountSecret: secret,
+      onContinue: cubit.acknowledgeEmergencyKit,
+    );
   }
 }
 

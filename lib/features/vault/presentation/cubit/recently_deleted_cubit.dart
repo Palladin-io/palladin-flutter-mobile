@@ -99,16 +99,12 @@ final class RecentlyDeletedLoaded extends RecentlyDeletedState {
 class RecentlyDeletedCubit extends Cubit<RecentlyDeletedState> {
   RecentlyDeletedCubit({
     required this.vaultId,
-    required EntryRemoteDatasource remote,
-    required MemberIndexReader index,
-    required MemberEntryListLoader sync,
-    required EntryArchiveRestorer lifecycle,
+    required this._remote,
+    required this._index,
+    required this._sync,
+    required this._lifecycle,
     this.maximumEntries = 10000,
-  }) : _remote = remote,
-       _index = index,
-       _sync = sync,
-       _lifecycle = lifecycle,
-       super(const RecentlyDeletedLoading());
+  }) : super(const RecentlyDeletedLoading());
 
   final String vaultId;
   final EntryRemoteDatasource _remote;
@@ -144,9 +140,8 @@ class RecentlyDeletedCubit extends Cubit<RecentlyDeletedState> {
             throw const FormatException('Malformed Deleted item');
           }
           final deletedAt = DateTime.parse(raw['deletedAt'] as String).toUtc();
-          final purgeAt = DateTime.parse(
-            raw['retentionExpiresAt'] as String,
-          ).toUtc();
+          final purgeAt = DateTime.parse(raw['retentionExpiresAt'] as String)
+              .toUtc();
           if (purgeAt.isBefore(deletedAt)) {
             throw const FormatException('Invalid retention deadline');
           }

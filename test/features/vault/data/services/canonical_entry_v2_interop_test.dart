@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/recipient_key_wrapper.dart'
+    show WrapperSuite;
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
@@ -155,6 +157,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(WrapperSuite.xwingV1);
     registerFallbackValue(() => true);
     registerFallbackValue(
       MemberSecret(
@@ -1089,6 +1092,7 @@ void main() {
                   type: GrantScope.granular,
                   createdAt: '2026-09-19T00:00:00Z',
                   agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+                  agentKeySuiteId: 'palladin-xwing-v1',
                   recipientAgentKeyVersion: 1,
                   methods: 'Inject',
                   entryScopes: [
@@ -1118,6 +1122,7 @@ void main() {
               entryRevision: any(named: 'entryRevision'),
               memberKeyGeneration: any(named: 'memberKeyGeneration'),
               agentPublicKey: any(named: 'agentPublicKey'),
+              agentKeySuite: any(named: 'agentKeySuite'),
               recipientKeyVersion: any(named: 'recipientKeyVersion'),
               approvedMethods: any(named: 'approvedMethods'),
               deliveryPolicy: any(named: 'deliveryPolicy'),
@@ -1777,6 +1782,7 @@ void main() {
                     type: GrantScope.granular,
                     createdAt: '2026-07-01T00:00:00Z',
                     agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+                    agentKeySuiteId: 'palladin-xwing-v1',
                     recipientAgentKeyVersion: 3,
                     methods: 'Inject',
                     entryScopes: const [
@@ -1805,6 +1811,7 @@ void main() {
                 entryRevision: 8,
                 memberKeyGeneration: 3,
                 agentPublicKey: any(named: 'agentPublicKey'),
+                agentKeySuite: any(named: 'agentKeySuite'),
                 recipientKeyVersion: 3,
                 approvedMethods: any(named: 'approvedMethods'),
                 deliveryPolicy: 0,

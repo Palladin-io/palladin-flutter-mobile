@@ -13,10 +13,9 @@ import 'biometric_key_storage.dart';
 /// [FlutterSecureStorage] holds only the non-secret marker + legacy cleanup.
 class BiometricStorageKeyStore implements BiometricKeyStore {
   BiometricStorageKeyStore({
-    required FlutterSecureStorage markerStorage,
+    required this._markerStorage,
     BiometricStorage? biometric,
-  }) : _markerStorage = markerStorage,
-       _biometric = biometric ?? BiometricStorage();
+  }) : _biometric = biometric ?? BiometricStorage();
 
   final FlutterSecureStorage _markerStorage;
   final BiometricStorage _biometric;
@@ -162,9 +161,8 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
 
   Future<void> _clear() async {
     try {
-      await const MethodChannel(
-        'io.palladin.mobile/biometric-key-cleanup',
-      ).invokeMethod<void>('deleteKey');
+      await const MethodChannel('io.palladin.mobile/biometric-key-cleanup')
+          .invokeMethod<void>('deleteKey');
     } catch (_) {
       throw const BiometricKeyCleanupException();
     } finally {

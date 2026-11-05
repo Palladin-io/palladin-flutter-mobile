@@ -2,12 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
-import '../../../../core/crypto/asymmetric_keys.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -40,6 +39,7 @@ class ScriptExecutionPackageService {
     required String agentId,
     required int agentAccessEpoch,
     required Uint8List agentPublicKey,
+    required WrapperSuite agentKeySuite,
     required int recipientAgentKeyVersion,
     required int vaultSigningKeyVersion,
     required Uint8List vaultSigningPrivateKey,
@@ -51,7 +51,7 @@ class ScriptExecutionPackageService {
         agentAccessEpoch <= 0 ||
         recipientAgentKeyVersion <= 0 ||
         vaultSigningKeyVersion <= 0 ||
-        agentPublicKey.length != 32 ||
+        agentPublicKey.length != agentKeySuite.publicKeyBytes ||
         (vaultSigningPrivateKey.length != 32 &&
             vaultSigningPrivateKey.length != 64) ||
         referencedEntries.length > 64) {
@@ -201,8 +201,10 @@ class ScriptExecutionPackageService {
           (left, right) =>
               (left['entryId'] as String).compareTo(right['entryId'] as String),
         );
-      fingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.agentX25519,
+      if (!agentKeySuite.canSeal) throw const KeyMigrationPendingException();
+      fingerprint = recipientFingerprint(
+        agentKeySuite,
+        RecipientKeyKind.agentEncryption.id,
         agentPublicKey,
       );
       final sodium = await _sodiumLoader();
@@ -210,7 +212,7 @@ class ScriptExecutionPackageService {
       vaultSigningPublicKey = signing.publicKey;
       normalizedVaultSigningPrivateKey = signing.privateKey;
       vaultSigningFingerprint = vaultPublicKeyFingerprint(
-        VaultPublicKeyKind.vaultSigningEd25519,
+        VaultPublicKeyKind.vaultSigning,
         vaultSigningPublicKey,
       );
       final transport = <String, Object?>{
@@ -225,6 +227,7 @@ class ScriptExecutionPackageService {
         'packageRevision': packageRevision.toString(),
         'recipientAgentKeyVersion': recipientAgentKeyVersion,
         'recipientAgentKeyFingerprint': _b64(fingerprint),
+        'wrapperSuiteId': agentKeySuite.wireValue,
         'vaultSigningKeyVersion': vaultSigningKeyVersion,
         'vaultSigningKeyFingerprint': _b64(vaultSigningFingerprint),
         'manifestDigest': manifestDigest,
@@ -285,6 +288,7 @@ class ScriptExecutionPackageService {
         key.dispose();
       }
       final wrapper = WrapperContext(
+        suiteId: agentKeySuite,
         purpose: WrapperPurpose.scriptExecutionDek,
         scope: EnvelopeScope(
           organizationId: EnvelopeId.parse(organizationId),
@@ -299,12 +303,16 @@ class ScriptExecutionPackageService {
         recipientFingerprint: fingerprint,
         parentDescriptorHash: parentHash,
       );
-      sealedDek = await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader)
-          .seal(
-            key: packageDek,
-            context: wrapper,
-            recipient: X25519PublicKey(agentPublicKey),
-          );
+      sealedDek = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).seal(
+        key: packageDek,
+        context: wrapper,
+        recipient: RecipientPublicKey(
+          suite: wrapper.suiteId,
+          keyKind: RecipientKeyKind.agentEncryption,
+          keyVersion: recipientAgentKeyVersion,
+          publicKey: agentPublicKey,
+        ),
+      );
       containerBytes = canonicalVaultJson({
         'schema': 'palladin.script-execution-package-ciphertext.v1',
         'contractVersion': contractVersion,

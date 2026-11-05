@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../domain/unlock_exceptions.dart';
@@ -11,12 +11,19 @@ import 'identity_kdf_service.dart';
 /// key material that downstream features (vault decryption, grant
 /// approval, etc.) need in memory.
 class UnlockResult {
-  const UnlockResult({required this.masterKey, required this.privateKey});
+  const UnlockResult({
+    required this.masterKey,
+    required this.privateKey,
+    this.kdfVersion = IdentityKdfVersion.accountSecretV2,
+  });
+
+  /// Profile the password was derived with; version 1 requires the upgrade.
+  final IdentityKdfVersion kdfVersion;
 
   /// 32-byte Argon2id-derived master key.
   final Uint8List masterKey;
 
-  /// 32-byte X25519 private key decrypted with [masterKey].
+  /// 32-byte member private key decrypted with [masterKey].
   final Uint8List privateKey;
 }
 
@@ -52,18 +59,34 @@ class UnlockCryptoService {
     required String accountId,
     required IdentityKdfMetadata kdf,
     required String encryptedPrivateKeyBase64,
+    Uint8List? accountSecret,
   }) async {
-    _identityKdfService.assertSupported(kdf);
+    final version = _identityKdfService.assertSupported(kdf);
     final sodium = await _sodiumLoader();
     final salt = _decodeWireBytes(kdf.kdfSalt);
     IdentityKdfOutputs? outputs;
     SecureKey? masterKey;
     try {
-      outputs = await _identityKdfService.derive(
-        password: masterPassword,
-        accountId: accountId,
-        kdfSalt: salt,
-      );
+      outputs = switch (version) {
+        IdentityKdfVersion.passwordV1 => await _identityKdfService.derive(
+          password: masterPassword,
+          accountId: accountId,
+          kdfSalt: salt,
+        ),
+        IdentityKdfVersion.accountSecretV2 when accountSecret != null =>
+          await _identityKdfService.deriveV2(
+            password: masterPassword,
+            accountId: accountId,
+            kdfSalt: salt,
+            accountSecret: accountSecret,
+          ),
+        IdentityKdfVersion.accountSecretV2 =>
+          await _identityKdfService.deriveWithStoredSecret(
+            password: masterPassword,
+            accountId: accountId,
+            kdfSalt: salt,
+          ),
+      };
       masterKey = SecureKey.fromList(sodium, outputs.masterKey);
       final privateKeyBytes = _openPrivateKey(
         sodium,
@@ -73,11 +96,11 @@ class UnlockCryptoService {
 
       // Copy the raw MK bytes into a detached Uint8List so the
       // presentation layer can hold them after we dispose the
-      // SecureKey wrapper. `extractBytes()` already returns a copy
-      // (not backed by the native buffer) so this is safe.
+      // SecureKey wrapper.
       return UnlockResult(
         masterKey: Uint8List.fromList(outputs.masterKey),
         privateKey: privateKeyBytes,
+        kdfVersion: version,
       );
     } finally {
       salt.fillRange(0, salt.length, 0);

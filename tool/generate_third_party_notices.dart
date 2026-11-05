@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 
 const _outputPath = 'THIRD_PARTY_NOTICES.md';
 const _packageConfigPath = '.dart_tool/package_config.json';
 const _lockfilePath = 'pubspec.lock';
-const _expectedFlutterVersion = '3.41.4';
+const _expectedFlutterVersion = '3.47.9';
+const _robotoLicensePath = 'assets/fonts/Roboto_LICENSE.txt';
 
 void main(List<String> arguments) {
   final checkOnly = arguments.contains('--check');
@@ -161,6 +163,34 @@ String _generate() {
   }
 
   buffer
+    ..writeln('## Bundled native libsodium')
+    ..writeln()
+    ..writeln(
+      'The `sodium` package compiles libsodium from the source archive it '
+      'pins and the app ships that library. Its licence:',
+    )
+    ..writeln();
+  for (final line in const LineSplitter().convert(
+    _libsodiumLicense(configuredPackages['sodium'], configUri),
+  )) {
+    buffer.writeln('    $line');
+  }
+  buffer
+    ..writeln()
+    ..writeln('## Bundled fonts')
+    ..writeln()
+    ..writeln(
+      'Roboto (`assets/fonts/Roboto-Regular.ttf`, `Roboto-Bold.ttf`) renders '
+      'the Emergency Kit PDF. Licensed under the Apache License 2.0:',
+    )
+    ..writeln();
+  for (final line in const LineSplitter().convert(
+    _normalize(File(_robotoLicensePath).readAsStringSync()),
+  )) {
+    buffer.writeln('    $line');
+  }
+  buffer
+    ..writeln()
     ..writeln('## Native Android credential-association dependencies')
     ..writeln()
     ..writeln('The following notice is also bundled in the Android APK assets.')
@@ -172,6 +202,25 @@ String _generate() {
     );
 
   return buffer.toString();
+}
+
+String _libsodiumLicense(Map<String, Object?>? sodium, Uri configUri) {
+  if (sodium == null) throw StateError('sodium is missing.');
+  final root = Directory.fromUri(configUri.resolve(sodium['rootUri']! as String));
+  final archives = Directory('${root.path}/3rdparty')
+      .listSync()
+      .whereType<File>()
+      .where((file) => file.path.endsWith('-stable.tar.gz'))
+      .toList();
+  if (archives.length != 1) {
+    throw StateError('Expected one pinned libsodium source archive.');
+  }
+  final tar = TarDecoder().decodeBytes(
+    GZipDecoder().decodeBytes(archives.single.readAsBytesSync()),
+  );
+  final license = tar.findFile('libsodium-stable/LICENSE');
+  if (license == null) throw StateError('libsodium LICENSE not found.');
+  return _normalize(utf8.decode(license.content));
 }
 
 void _verifyFlutterVersion(

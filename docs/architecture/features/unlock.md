@@ -13,7 +13,11 @@ Master-password unlock with a biometric shortcut.
   flexible space between the Unlock action and the forgot-password controls.
   The body remains scrollable on compact screens and when the keyboard opens.
 - **Layering:** full data / domain / presentation split. `IdentityKdfService`
-  owns the frozen password-only v1 Argon2id + HKDF contract;
+  owns the version-2 (password + Secret Key) and the migration-only
+  password-v1 Argon2id + HKDF contracts; a version-2 unlock without a stored
+  Secret Key emits `UnlockSecretKeyRequired`, and a version-1 unlock or a
+  pending re-wrap emits `UnlockSecurityUpgradeRequired`
+  ([security upgrade](security-upgrade.md));
   `UnlockCryptoService` opens the wrapped private key with the derived master
   key. Both use `try/finally` zero-out patterns for key bytes.
 - **Flow:** on success, a password account with pending default-vault

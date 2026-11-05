@@ -48,15 +48,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 /// `PushNavigationCubit` in `app.dart`).
 class PushNotificationService {
   PushNotificationService({
-    required PushTokenRemoteDatasource datasource,
-    required FlutterSecureStorage secureStorage,
+    required this._datasource,
+    required this._secureStorage,
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
     DeviceInfoPlugin? deviceInfo,
     PushEventDeduplicator? deduplicator,
-  }) : _datasource = datasource,
-       _secureStorage = secureStorage,
-       _messaging = messaging ?? FirebaseMessaging.instance,
+  }) : _messaging = messaging ?? FirebaseMessaging.instance,
        _localNotifications =
            localNotifications ?? FlutterLocalNotificationsPlugin(),
        _deviceInfo = deviceInfo ?? DeviceInfoPlugin(),

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,18 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/recovery/data/models/recover_account_request.dart';
 import 'package:mobile_palladin/features/recovery/data/services/recovery_crypto_service.dart';
 import 'package:mobile_palladin/features/recovery/domain/recovery_exceptions.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
-Future<SodiumSumo> _loadSodium() {
-  final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-  if (configured != null || Platform.isLinux) {
-    return sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(configured ?? 'libsodium.so'),
-    );
-  }
-  return SodiumSumoInit.init();
-}
+Future<SodiumSumo> _loadSodium() async => SodiumSumoInit.init();
 
 Uint8List _decode(String value) =>
     Uint8List.fromList(base64Url.decode(base64Url.normalize(value)));

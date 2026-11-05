@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -11,8 +10,7 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_kdf.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
+import 'package:sodium/sodium_sumo.dart';
 
 const _pinnedManifestSha256 =
     'b3cbd9bee6a663789fae4047931e411abb3ad0c15fa2204a747be6c09b54fd9e';
@@ -49,11 +47,11 @@ VaultKdfPurpose _purpose(String value) => switch (value) {
 };
 
 VaultPublicKeyKind _keyKind(int value) => switch (value) {
-  1 => VaultPublicKeyKind.agentX25519,
-  2 => VaultPublicKeyKind.agentEd25519,
-  3 => VaultPublicKeyKind.vaultSigningEd25519,
-  4 => VaultPublicKeyKind.vaultMessageX25519,
-  5 => VaultPublicKeyKind.memberX25519,
+  1 => VaultPublicKeyKind.agentEncryption,
+  2 => VaultPublicKeyKind.agentSigning,
+  3 => VaultPublicKeyKind.vaultSigning,
+  4 => VaultPublicKeyKind.vaultAgentMessage,
+  5 => VaultPublicKeyKind.memberEncryption,
   _ => throw FormatException('unsupported fixture key kind: $value'),
 };
 
@@ -106,27 +104,7 @@ void main() {
       },
     );
     try {
-      final configuredLibrary = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-      if (configuredLibrary != null) {
-        sodium = await sodium_ffi.SodiumSumoInit.init(
-          () => DynamicLibrary.open(configuredLibrary),
-        );
-      } else if (Platform.isLinux) {
-        sodium = await sodium_ffi.SodiumSumoInit.init(
-          () => DynamicLibrary.open('libsodium.so'),
-        );
-      } else if (Platform.isMacOS &&
-          File(
-            '/opt/homebrew/opt/libsodium/lib/libsodium.dylib',
-          ).existsSync()) {
-        sodium = await sodium_ffi.SodiumSumoInit.init(
-          () => DynamicLibrary.open(
-            '/opt/homebrew/opt/libsodium/lib/libsodium.dylib',
-          ),
-        );
-      } else {
-        sodium = await SodiumSumoInit.init();
-      }
+      sodium = await SodiumSumoInit.init();
       sodiumAvailable = true;
     } catch (error) {
       sodiumAvailable = false;

@@ -10,7 +10,7 @@ Entries each before timing. Each pass starts with an empty isolated SQLite
 cache (OS filesystem caches are not dropped). Fixture/schema creation and
 initial FFI loading are outside the timer. It exercises production `MemberEntryListService`, `MemberSyncService`,
 `MemberSyncRemoteDatasource`, Dio socket transport, `SqliteMemberSyncCache`,
-X25519 Vault-key unwrap and MemberIndex decryption through libsodium. The native
+X-Wing Vault-key unwrap and MemberIndex decryption through libsodium. The native
 SQLite database lives in a unique temporary directory and is closed/deleted;
 the application database and secure storage are never read or changed.
 
@@ -40,7 +40,7 @@ there is deliberately no flaky elapsed-time pass threshold.
 ## Host verification
 
 ```sh
-PALLADIN_LIBSODIUM_PATH=/path/to/libsodium.dylib flutter test --no-pub test/performance/member_preparation_loopback_test.dart --reporter expanded
+flutter test --no-pub test/performance/member_preparation_loopback_test.dart --reporter expanded
 flutter analyze --no-pub tool/member-preparation-benchmark/main.dart test/performance/member_preparation_loopback_test.dart
 ```
 

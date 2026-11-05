@@ -18,12 +18,10 @@ final class VaultSettingsException implements Exception {
 /// Performs read-authenticate-compare-encrypt-write for Vault settings.
 class VaultSettingsService {
   VaultSettingsService({
-    required VaultRemoteDatasource remote,
-    required VaultCryptoService vaultCrypto,
-    required EncryptedPresentationAssetService assets,
-  }) : _remote = remote,
-       _vaultCrypto = vaultCrypto,
-       _assets = assets;
+    required this._remote,
+    required this._vaultCrypto,
+    required this._assets,
+  });
 
   final VaultRemoteDatasource _remote;
   final VaultCryptoService _vaultCrypto;

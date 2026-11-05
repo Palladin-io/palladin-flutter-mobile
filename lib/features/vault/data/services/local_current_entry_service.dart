@@ -29,16 +29,12 @@ final class LocalCurrentEntryReveal {
 /// snapshot lifecycle and the `finally` block below.
 class LocalCurrentEntryService {
   const LocalCurrentEntryService({
-    required LocalMemberEntryReader reader,
-    required MemberSyncSessionAuthorityProvider authorityProvider,
-    required VaultRotationCryptoService vaultKeys,
-    required EntryV2CryptoService entryCrypto,
-    required CanonicalEntryDetailService canonicalAdapter,
-  }) : _reader = reader,
-       _authorityProvider = authorityProvider,
-       _vaultKeys = vaultKeys,
-       _entryCrypto = entryCrypto,
-       _canonicalAdapter = canonicalAdapter;
+    required this._reader,
+    required this._authorityProvider,
+    required this._vaultKeys,
+    required this._entryCrypto,
+    required this._canonicalAdapter,
+  });
 
   final LocalMemberEntryReader _reader;
   final MemberSyncSessionAuthorityProvider _authorityProvider;

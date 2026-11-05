@@ -5,7 +5,7 @@ import '../storage/secure_token_storage.dart';
 /// Dio interceptor that attaches the Bearer token to outgoing requests
 /// and handles 401 responses by attempting a token refresh.
 class AuthInterceptor extends QueuedInterceptor {
-  AuthInterceptor({required this.tokenStorage, required Dio dio}) : _dio = dio;
+  AuthInterceptor({required this.tokenStorage, required this._dio});
 
   static const sessionGuardKey = 'palladinSessionGuard';
   static const dispatchGuardKey = 'palladinDispatchGuard';

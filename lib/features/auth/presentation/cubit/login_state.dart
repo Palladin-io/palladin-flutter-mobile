@@ -40,6 +40,22 @@ final class LoginSuccess extends LoginState {
   final Uint8List privateKey;
 }
 
+/// This device has no Secret Key for a version-2 account. The page obtains
+/// one (QR transfer, Emergency Kit or manual entry) and calls
+/// `continueWithSecretKey`; the password stays in cubit memory only.
+final class LoginSecretKeyRequired extends LoginState {
+  const LoginSecretKeyRequired({required this.accountId, required this.email});
+
+  final String accountId;
+  final String email;
+}
+
+/// A version-1 account signed in; the session stays locked so the unlock
+/// screen runs the security upgrade.
+final class LoginSucceededLocked extends LoginState {
+  const LoginSucceededLocked();
+}
+
 /// Login failed. Carries the typed [error] so the page resolves a
 /// localized message.
 final class LoginFailure extends LoginState {

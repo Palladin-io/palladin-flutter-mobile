@@ -1,27 +1,13 @@
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    if (configured != null) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(configured),
-      );
-    }
-    if (Platform.isLinux) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open('libsodium.so'),
-      );
-    }
     return await SodiumSumoInit.init();
   } catch (_) {
     return null;

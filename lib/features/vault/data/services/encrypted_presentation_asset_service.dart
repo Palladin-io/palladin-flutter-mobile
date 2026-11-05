@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:image/image.dart' as image;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../datasources/entry_remote_datasource.dart';
@@ -57,16 +57,12 @@ final class PresentationAssetValue {
 /// One zero-knowledge pipeline for Vault and Entry presentation assets.
 class EncryptedPresentationAssetService {
   EncryptedPresentationAssetService({
-    required VaultRemoteDatasource remote,
-    required EntryRemoteDatasource entries,
-    required VaultRotationCryptoService keys,
-    required EntryV2CryptoService entryCrypto,
+    required this._remote,
+    required this._entries,
+    required this._keys,
+    required this._entryCrypto,
     Future<SodiumSumo> Function()? sodiumLoader,
-  }) : _remote = remote,
-       _entries = entries,
-       _keys = keys,
-       _entryCrypto = entryCrypto,
-       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   static const maximumPlaintextBytes = 2 * 1024 * 1024;
   static const maximumCiphertextBytes = 5 * 1024 * 1024;

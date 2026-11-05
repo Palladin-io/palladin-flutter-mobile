@@ -95,22 +95,16 @@ final class EntryShareReceptionState {
 
 class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   EntryShareReceptionCubit({
-    required EntryShareRecipientDatasource remote,
-    required EntryShareCryptoService crypto,
-    required String shareId,
-    required EntryShareSecrets secrets,
-    required EntryShareRecipientOwner owner,
-    required Future<EntryShareRecipientOwner?> Function() ownerReader,
+    required EntryShareRecipientDatasource this._remote,
+    required this._crypto,
+    required this._shareId,
+    required EntryShareSecrets this._secrets,
+    required this._owner,
+    required this._ownerReader,
     DateTime Function()? now,
     Duration Function()? elapsed,
     EntryShareLifetime? lifetime,
-  }) : _remote = remote,
-       _crypto = crypto,
-       _shareId = shareId,
-       _secrets = secrets,
-       _owner = owner,
-       _ownerReader = ownerReader,
-       _lifetime = lifetime ?? EntryShareLifetime(now: now, elapsed: elapsed),
+  }) : _lifetime = lifetime ?? EntryShareLifetime(now: now, elapsed: elapsed),
        super(const EntryShareReceptionState()) {
     if (_lifetime.isLive) {
       _expiry = Timer(_lifetime.remaining, clear);
@@ -509,27 +503,18 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
 /// The app-level coordinator must dispose it on abandonment or session loss.
 final class EntryShareReceptionTransfer {
   EntryShareReceptionTransfer._({
-    required EntryShareRecipientDatasource remote,
-    required EntryShareCryptoService crypto,
-    required String shareId,
-    required EntryShareSecrets secrets,
+    required EntryShareRecipientDatasource this._remote,
+    required this._crypto,
+    required this._shareId,
+    required EntryShareSecrets this._secrets,
     required this.initialOwner,
     required EntryShareLifetime lifetime,
-    required EntryShareRecipientSession? session,
-    required EntryShareReceptionState state,
-    required int otpGeneration,
-    required int? pendingOtp,
-    required Duration? otpReadyAtRemaining,
-  }) : _remote = remote,
-       _crypto = crypto,
-       _shareId = shareId,
-       _secrets = secrets,
-       _lifetime = lifetime,
-       _session = session,
-       _state = state,
-       _otpGeneration = otpGeneration,
-       _pendingOtp = pendingOtp,
-       _otpReadyAtRemaining = otpReadyAtRemaining {
+    required this._session,
+    required EntryShareReceptionState this._state,
+    required this._otpGeneration,
+    required this._pendingOtp,
+    required this._otpReadyAtRemaining,
+  }) : _lifetime = lifetime {
     _expiry = Timer(lifetime.remaining, dispose);
   }
 

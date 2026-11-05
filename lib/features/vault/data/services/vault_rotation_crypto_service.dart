@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 
 import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/envelope/envelope_suite.dart';
+import '../../../../core/crypto/kem/xwing.dart';
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../../core/crypto/x25519_key_wrapper.dart';
+import '../../../../core/crypto/recipient_key_wrapper.dart';
 import '../models/vault_rotation_models.dart';
 import 'vault_protocol/vault_protocol_aad.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
@@ -51,6 +52,7 @@ class VaultRotationCryptoService {
     VaultProtocolEnvelopeService? envelopes,
     VaultProtocolSignatureService? signatures,
     CryptoSuiteRegistry? cryptoSuites,
+    this._memberKeySuite = WrapperSuite.memberKeySuite,
   }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
        _envelopes = envelopes ?? VaultProtocolEnvelopeService(),
        _signatures =
@@ -68,10 +70,14 @@ class VaultRotationCryptoService {
              ],
            );
 
+  /// Suite of the unlocked member key; the security-upgrade flow passes the
+  /// legacy suite only to open envelopes addressed to the old key.
+  final WrapperSuite _memberKeySuite;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
   Future<Map<String, Map<String, Object>>> createPublicTrustAnchors({
     required Uint8List agentMessagePrivateKey,
+    required WrapperSuite agentMessageKeySuite,
     required Uint8List manifestSigningPrivateKey,
     required int agentMessageKeyVersion,
     required int manifestSigningKeyVersion,
@@ -80,23 +86,27 @@ class VaultRotationCryptoService {
       throw const FormatException('Invalid Vault public-key version');
     }
     final sodium = await _sodiumLoader();
-    final messageSecret = SecureKey.fromList(sodium, agentMessagePrivateKey);
     final signing = _normalizeSigningKey(sodium, manifestSigningPrivateKey);
     Uint8List? messagePublic;
     try {
-      messagePublic = Uint8List.fromList(
-        sodium.crypto.scalarmult.base(n: messageSecret),
+      messagePublic = agentMessagePublicKey(
+        sodium,
+        agentMessageKeySuite,
+        agentMessagePrivateKey,
       );
       return {
         'agentMessage': {
           'protocolVersion': 2,
-          'schemeId': 'palladin-x25519-v1',
+          'schemeId': agentMessageKeySuite.wireValue,
           'keyKind': 1,
           'keyVersion': agentMessageKeyVersion,
           'encodedPublicKey': VaultProtocolBytes.base64UrlEncode(messagePublic),
-          'fingerprint': _fingerprint(
-            VaultPublicKeyKind.vaultMessageX25519,
-            messagePublic,
+          'fingerprint': VaultProtocolBytes.base64UrlEncode(
+            recipientFingerprint(
+              agentMessageKeySuite,
+              RecipientKeyKind.vaultAgentMessage.id,
+              messagePublic,
+            ),
           ),
         },
         'manifestSigning': {
@@ -108,17 +118,57 @@ class VaultRotationCryptoService {
             signing.publicKey,
           ),
           'fingerprint': _fingerprint(
-            VaultPublicKeyKind.vaultSigningEd25519,
+            VaultPublicKeyKind.vaultSigning,
             signing.publicKey,
           ),
         },
       };
     } finally {
-      messageSecret.dispose();
       messagePublic?.fillRange(0, messagePublic.length, 0);
       signing.publicKey.fillRange(0, signing.publicKey.length, 0);
       signing.privateKey.fillRange(0, signing.privateKey.length, 0);
     }
+  }
+
+  /// Suite of the Vault Agent message key [keyVersion] from the encrypted
+  /// Vault response: its top-level `vaultAgentMessageKeySuiteId` names the
+  /// current key's suite; any earlier key version predates the migration
+  /// and is legacy.
+  static WrapperSuite agentMessageKeySuite(
+    Map<String, dynamic> vault,
+    int keyVersion,
+  ) {
+    final current = vault['vaultAgentMessagePublicKey'];
+    if (current is! Map || current['keyVersion'] is! int) {
+      throw const FormatException('Vault Agent message key is missing');
+    }
+    if (current['keyVersion'] != keyVersion) {
+      return WrapperSuite.x25519SealedBoxV1;
+    }
+    return WrapperSuite.tryParse(vault['vaultAgentMessageKeySuiteId']) ??
+        (throw const FormatException('Unknown Vault Agent message key suite'));
+  }
+
+  /// Public half of a Vault Agent message key under its published suite.
+  static Uint8List agentMessagePublicKey(
+    SodiumSumo sodium,
+    WrapperSuite suite,
+    Uint8List privateKey,
+  ) {
+    if (privateKey.length != 32) {
+      throw const FormatException('Vault Agent message key length');
+    }
+    return switch (suite) {
+      WrapperSuite.xwingV1 => XWing(sodium).publicKeyFromSeed(privateKey),
+      WrapperSuite.x25519SealedBoxV1 => () {
+        final secret = SecureKey.fromList(sodium, privateKey);
+        try {
+          return Uint8List.fromList(sodium.crypto.scalarmult.base(n: secret));
+        } finally {
+          secret.dispose();
+        }
+      }(),
+    };
   }
 
   final VaultProtocolEnvelopeService _envelopes;
@@ -152,19 +202,16 @@ class VaultRotationCryptoService {
     return matches.single;
   }
 
+  /// A rotated Vault Agent message key is always created on the active
+  /// suite; its private key is the 32-byte X-Wing seed.
   Future<VaultRotationKeys> generateKeys() async {
     final sodium = await _sodiumLoader();
-    final messagePair = sodium.crypto.box.keyPair();
-    try {
-      return VaultRotationKeys(
-        vaultKey: sodium.randombytes.buf(32),
-        vdk: sodium.randombytes.buf(32),
-        agentMessagePrivateKey: messagePair.secretKey.extractBytes(),
-        manifestSigningSeed: sodium.randombytes.buf(32),
-      );
-    } finally {
-      messagePair.dispose();
-    }
+    return VaultRotationKeys(
+      vaultKey: sodium.randombytes.buf(32),
+      vdk: sodium.randombytes.buf(32),
+      agentMessagePrivateKey: XWing(sodium).generateSeed(),
+      manifestSigningSeed: sodium.randombytes.buf(32),
+    );
   }
 
   Future<Map<String, Object?>> sealAgentVaultKey({
@@ -176,20 +223,24 @@ class VaultRotationCryptoService {
     required int vaultSigningKeyVersion,
     required Uint8List vaultSigningPrivateKey,
   }) async {
+    if (!recipient.keySuite.canSeal) throw const KeyMigrationPendingException();
     final publicKey = VaultProtocolBytes.base64UrlDecode(
-      recipient.x25519PublicKey,
+      recipient.publicKey,
+      maximumBytes: recipient.keySuite.publicKeyBytes,
+    );
+    _requireDirectoryFingerprint(
+      recipient.keySuite,
+      RecipientKeyKind.agentEncryption,
+      publicKey,
+      recipient.recipientKeyFingerprint,
     );
     final sodium = await _sodiumLoader();
     final signing = _normalizeSigningKey(sodium, vaultSigningPrivateKey);
     final signingFingerprint = vaultPublicKeyFingerprint(
-      VaultPublicKeyKind.vaultSigningEd25519,
+      VaultPublicKeyKind.vaultSigning,
       signing.publicKey,
     );
     try {
-      if (_fingerprint(VaultPublicKeyKind.agentX25519, publicKey) !=
-          recipient.recipientKeyFingerprint) {
-        throw const FormatException('Agent recipient fingerprint mismatch');
-      }
       return await buildAgentWrappedVaultKeyContract(
         vaultKey: vaultKey,
         organizationId: organizationId,
@@ -199,6 +250,7 @@ class VaultRotationCryptoService {
         agentAccessEpoch: recipient.agentAccessEpoch,
         vaultKeyVersion: vaultKeyVersion,
         agentPublicKey: publicKey,
+        agentKeySuite: recipient.keySuite,
         recipientKeyVersion: recipient.recipientKeyVersion,
         vaultSigningKeyVersion: vaultSigningKeyVersion,
         vaultSigningKeyFingerprint: signingFingerprint,
@@ -273,8 +325,7 @@ class VaultRotationCryptoService {
     final scopeJson = descriptor['scope'];
     if (purpose != WrapperPurpose.memberVaultKey ||
         scopeJson is! Map ||
-        descriptor['wrapperSuiteId'] !=
-            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue) {
+        descriptor['wrapperSuiteId'] != _memberKeySuite.wireValue) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
     final scope = Map<String, dynamic>.from(scopeJson);
@@ -314,7 +365,7 @@ class VaultRotationCryptoService {
     final parsedRecipientKeyKind = VaultPublicKeyKind.parseWire(
       recipientKeyKind,
     );
-    if (parsedRecipientKeyKind != VaultPublicKeyKind.memberX25519) {
+    if (parsedRecipientKeyKind != VaultPublicKeyKind.memberEncryption) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
     final fingerprint = VaultProtocolBytes.base64UrlDecode(
@@ -328,6 +379,7 @@ class VaultRotationCryptoService {
     try {
       final context = WrapperContext(
         protocolVersion: protocolVersion,
+        suiteId: _memberKeySuite,
         purpose: purpose,
         scope: EnvelopeScope(
           organizationId: EnvelopeId.parse(organizationId),
@@ -341,7 +393,7 @@ class VaultRotationCryptoService {
         recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
       );
-      return await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).open(
+      return await RecipientKeyWrapper(sodiumLoader: _sodiumLoader).open(
         wrapped: sealedPackage,
         context: context,
         recipientSecretKey: memberPrivateKey,
@@ -454,6 +506,29 @@ class VaultRotationCryptoService {
           rootKey: vaultKey,
           payload: EncodedSuitePayload.fromBase64Url(encodedPayload),
         );
+    if (expectedPurpose == EnvelopePurpose.manifestPrivateByVk &&
+        opened.length == 64) {
+      // Clients store libsodium's 64-byte Ed25519 secret key (seed || public
+      // key); hand out the seed only after the embedded public key checks.
+      try {
+        final sodium = await _sodiumLoader();
+        final seed = Uint8List.fromList(opened.sublist(0, 32));
+        final normalized = _normalizeSigningKey(sodium, seed);
+        final matches = VaultProtocolBytes.constantTimeEquals(
+          normalized.publicKey,
+          Uint8List.sublistView(opened, 32),
+        );
+        normalized.publicKey.fillRange(0, 32, 0);
+        normalized.privateKey.fillRange(0, normalized.privateKey.length, 0);
+        if (!matches) {
+          seed.fillRange(0, seed.length, 0);
+          throw FormatException('$label does not match its public key');
+        }
+        return seed;
+      } finally {
+        opened.fillRange(0, opened.length, 0);
+      }
+    }
     if (opened.length != 32) {
       opened.fillRange(0, opened.length, 0);
       throw FormatException('$label must be 32 bytes');
@@ -484,6 +559,9 @@ class VaultRotationCryptoService {
     return opened;
   }
 
+  /// Seals the target VK to one member with the suite of that member's key
+  /// directory entry; a member still on a read-only suite fails with
+  /// [KeyMigrationPendingException].
   Future<Map<String, dynamic>> sealMemberVaultKey({
     required RotationMemberRecipient recipient,
     required String organizationId,
@@ -492,48 +570,69 @@ class VaultRotationCryptoService {
     required int memberKeyGeneration,
     required Uint8List vaultKey,
   }) async {
+    if (!recipient.keySuite.canSeal) throw const KeyMigrationPendingException();
     final publicKey = VaultProtocolBytes.base64UrlDecode(
-      recipient.x25519PublicKey,
-      maximumBytes: 32,
-    );
-    final expectedFingerprint = VaultProtocolBytes.base64UrlEncode(
-      vaultPublicKeyFingerprint(VaultPublicKeyKind.memberX25519, publicKey),
-    );
-    if (expectedFingerprint != recipient.recipientKeyFingerprint) {
-      throw const FormatException('Member key directory fingerprint mismatch');
-    }
-    final plaintext = VaultProtocolBytes.utf8Encode(
-      canonicalizeVaultJson({
-        'protocolVersion': 2,
-        'organizationId': organizationId,
-        'vaultId': vaultId,
-        'memberId': recipient.memberId,
-        'vkVersion': vkVersion,
-        'memberKeyGeneration': memberKeyGeneration,
-        'vaultKey': VaultProtocolBytes.base64UrlEncode(vaultKey),
-      }),
+      recipient.publicKey,
+      maximumBytes: recipient.keySuite.publicKeyBytes,
     );
     try {
-      final sealed = await _envelopes.sealPackage(
-        packageBytes: plaintext,
-        recipientPublicKey: publicKey,
+      final fingerprint = _requireDirectoryFingerprint(
+        recipient.keySuite,
+        RecipientKeyKind.memberEncryption,
+        publicKey,
+        recipient.recipientKeyFingerprint,
       );
-      return {
-        'protocolVersion': 2,
-        'algorithmSuite': 1,
-        'organizationId': organizationId,
-        'vaultId': vaultId,
-        'memberId': recipient.memberId,
-        'vkVersion': vkVersion,
-        'memberKeyGeneration': memberKeyGeneration,
-        'recipientMemberKeyVersion': recipient.recipientKeyVersion,
-        'recipientMemberKeyFingerprint': recipient.recipientKeyFingerprint,
-        'sealedVaultKeyPackage': VaultProtocolBytes.base64UrlEncode(sealed),
-      };
+      final context = WrapperContext(
+        suiteId: recipient.keySuite,
+        purpose: WrapperPurpose.memberVaultKey,
+        scope: EnvelopeScope(
+          organizationId: EnvelopeId.parse(organizationId),
+          vaultId: EnvelopeId.parse(vaultId),
+          memberId: EnvelopeId.parse(recipient.memberId),
+        ),
+        resourceRevision: vkVersion,
+        wrappedKeyVersion: vkVersion,
+        memberKeyGeneration: memberKeyGeneration,
+        recipientKeyKind: RecipientKeyKind.memberEncryption.id,
+        recipientKeyVersion: recipient.recipientKeyVersion,
+        recipientFingerprint: fingerprint,
+      );
+      final sealed = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader)
+          .seal(
+            key: vaultKey,
+            context: context,
+            recipient: RecipientPublicKey(
+              suite: recipient.keySuite,
+              keyKind: RecipientKeyKind.memberEncryption,
+              keyVersion: recipient.recipientKeyVersion,
+              publicKey: publicKey,
+            ),
+          );
+      return {'wrappedVaultKey': context.wrappedKeyJson(sealed)};
     } finally {
-      plaintext.fillRange(0, plaintext.length, 0);
       publicKey.fillRange(0, publicKey.length, 0);
     }
+  }
+
+  /// The directory fingerprint is checked against the suite-bound fingerprint
+  /// of the directory's own public key before anything is sealed to it.
+  Uint8List _requireDirectoryFingerprint(
+    WrapperSuite suite,
+    RecipientKeyKind kind,
+    Uint8List publicKey,
+    String directoryFingerprint,
+  ) {
+    final Uint8List fingerprint;
+    try {
+      fingerprint = recipientFingerprint(suite, kind.id, publicKey);
+    } on KeyWrapperException {
+      throw const FormatException('Recipient key does not match its suite');
+    }
+    if (VaultProtocolBytes.base64UrlEncode(fingerprint) !=
+        directoryFingerprint) {
+      throw const FormatException('Key directory fingerprint mismatch');
+    }
+    return fingerprint;
   }
 
   Future<Map<String, dynamic>> rewrapEntryKey(
@@ -722,6 +821,11 @@ class VaultRotationCryptoService {
     };
   }
 
+  /// Discovery provisioning for one Agent: the VDK sealed with the suite of
+  /// the Agent's published encryption key, and a signed manifest that names
+  /// the Vault Agent message key suite whenever that key is not legacy.
+  /// An Agent still on a read-only suite fails with
+  /// [KeyMigrationPendingException].
   Future<Map<String, dynamic>> createAgentMaterial({
     required RotationAgentRecipient agent,
     required String organizationId,
@@ -729,68 +833,105 @@ class VaultRotationCryptoService {
     required VaultKeyEpochModel epoch,
     required Uint8List vdk,
     required Uint8List messagePrivateKey,
+    required WrapperSuite messageKeySuite,
     required Uint8List signingSeed,
     DateTime? now,
   }) async {
+    if (!agent.keySuite.canSeal) throw const KeyMigrationPendingException();
     final sodium = await _sodiumLoader();
-    final agentX = Uint8List.fromList(base64.decode(agent.x25519PublicKey));
+    final agentPublicKey = Uint8List.fromList(base64.decode(agent.publicKey));
     final agentEd = Uint8List.fromList(base64.decode(agent.ed25519PublicKey));
-    final messageSecret = SecureKey.fromList(sodium, messagePrivateKey);
     final seedSecret = SecureKey.fromList(sodium, signingSeed);
     final signingPair = sodium.crypto.sign.seedKeyPair(seedSecret);
     final signingPrivateKey = signingPair.secretKey.extractBytes();
-    final messagePublic = sodium.crypto.scalarmult.base(n: messageSecret);
-    final payload = VaultProtocolBytes.utf8Encode(
-      canonicalizeVaultJson({
-        'protocolVersion': 2,
-        'organizationId': organizationId,
-        'vaultId': vaultId,
-        'agentId': agent.agentId,
-        'vdkVersion': epoch.vdkVersion,
-        'vdk': VaultProtocolBytes.base64UrlEncode(vdk),
-      }),
+    final messagePublic = agentMessagePublicKey(
+      sodium,
+      messageKeySuite,
+      messagePrivateKey,
     );
     try {
-      final wrapped = await _envelopes.sealPackage(
-        packageBytes: payload,
-        recipientPublicKey: agentX,
+      final Uint8List agentFingerprint;
+      try {
+        agentFingerprint = recipientFingerprint(
+          agent.keySuite,
+          RecipientKeyKind.agentEncryption.id,
+          agentPublicKey,
+        );
+      } on KeyWrapperException {
+        throw const FormatException('Agent key does not match its suite');
+      }
+      final context = WrapperContext(
+        suiteId: agent.keySuite,
+        purpose: WrapperPurpose.agentVdk,
+        scope: EnvelopeScope(
+          organizationId: EnvelopeId.parse(organizationId),
+          vaultId: EnvelopeId.parse(vaultId),
+          agentId: EnvelopeId.parse(agent.agentId),
+        ),
+        resourceRevision: epoch.vdkVersion,
+        wrappedKeyVersion: epoch.vdkVersion,
+        recipientKeyKind: RecipientKeyKind.agentEncryption.id,
+        recipientKeyVersion: agent.recipientKeyVersion,
+        recipientFingerprint: agentFingerprint,
       );
-      final digestInput = VaultProtocolBytes.concat([
-        VaultProtocolBytes.utf8Encode('PLDNV2DG:AGENT-WRAPPED-VDK:'),
-        VaultProtocolBytes.u16(2),
-        wrapped,
-      ]);
-      final digest = Uint8List.fromList(sha256.convert(digestInput).bytes);
+      final wrapped = await RecipientKeyWrapper(sodiumLoader: _sodiumLoader)
+          .seal(
+            key: vdk,
+            context: context,
+            recipient: RecipientPublicKey(
+              suite: agent.keySuite,
+              keyKind: RecipientKeyKind.agentEncryption,
+              keyVersion: agent.recipientKeyVersion,
+              publicKey: agentPublicKey,
+            ),
+          );
+      final digest = Uint8List.fromList(
+        sha256
+            .convert(
+              VaultProtocolBytes.concat([
+                VaultProtocolBytes.utf8Encode('PLDNV2DG:AGENT-WRAPPED-VDK:'),
+                VaultProtocolBytes.u16(2),
+                wrapped,
+              ]),
+            )
+            .bytes,
+      );
       final revision = _next(agent.manifestRevision ?? '0');
       final unsigned = <String, Object?>{
         'protocolVersion': 2,
-        'algorithmSuite': 1,
+        'cryptoSuiteId': CryptoSuiteId.palladinVaultXChaChaV1.wireValue,
+        'wrapperSuiteId': agent.keySuite.wireValue,
+        'signatureSuiteId': 'palladin-ed25519-v1',
         'organizationId': organizationId,
         'vaultId': vaultId,
         'agentId': agent.agentId,
-        'agentX25519Fingerprint': _fingerprint(
-          VaultPublicKeyKind.agentX25519,
-          agentX,
+        'agentX25519Fingerprint': VaultProtocolBytes.base64UrlEncode(
+          agentFingerprint,
         ),
         'agentEd25519Fingerprint': _fingerprint(
-          VaultPublicKeyKind.agentEd25519,
+          VaultPublicKeyKind.agentSigning,
           agentEd,
         ),
         'vaultSigningPublicKey': VaultProtocolBytes.base64UrlEncode(
           signingPair.publicKey,
         ),
         'vaultSigningKeyFingerprint': _fingerprint(
-          VaultPublicKeyKind.vaultSigningEd25519,
+          VaultPublicKeyKind.vaultSigning,
           signingPair.publicKey,
         ),
         'manifestSigningKeyVersion': epoch.manifestSigningKeyVersion,
         'vaultAgentMessagePublicKey': VaultProtocolBytes.base64UrlEncode(
           messagePublic,
         ),
-        'vaultAgentMessageKeyFingerprint': _fingerprint(
-          VaultPublicKeyKind.vaultMessageX25519,
-          messagePublic,
+        'vaultAgentMessageKeyFingerprint': VaultProtocolBytes.base64UrlEncode(
+          recipientFingerprint(
+            messageKeySuite,
+            RecipientKeyKind.vaultAgentMessage.id,
+            messagePublic,
+          ),
         ),
+        if (messageKeySuite != WrapperSuite.x25519SealedBoxV1)
+          'vaultAgentMessageKeySuiteId': messageKeySuite.wireValue,
         'agentMessageKeyVersion': epoch.agentMessageKeyVersion,
         'vdkVersion': epoch.vdkVersion,
         'agentWrappedVdkDigest': VaultProtocolBytes.base64UrlEncode(digest),
@@ -811,21 +952,17 @@ class VaultRotationCryptoService {
           'vaultId': vaultId,
           'agentId': agent.agentId,
           'vdkVersion': epoch.vdkVersion,
-          'algorithmSuite': 1,
-          'recipientAgentKeyVersion': agent.recipientKeyVersion,
-          'recipientAgentKeyFingerprint': unsigned['agentX25519Fingerprint'],
-          'agentWrappedVdk': VaultProtocolBytes.base64UrlEncode(wrapped),
+          'wrappedVdk': context.wrappedKeyJson(wrapped),
           'manifestRevision': revision,
           'manifestSignature': signature,
         },
         'manifest': {...unsigned, 'signature': signature},
       };
     } finally {
-      messageSecret.dispose();
       seedSecret.dispose();
       signingPair.dispose();
       signingPrivateKey.fillRange(0, signingPrivateKey.length, 0);
-      payload.fillRange(0, payload.length, 0);
+      messagePublic.fillRange(0, messagePublic.length, 0);
     }
   }
 

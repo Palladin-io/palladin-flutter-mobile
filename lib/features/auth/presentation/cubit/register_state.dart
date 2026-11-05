@@ -15,6 +15,10 @@ enum RegisterStep {
   /// in-flight.
   submitting,
 
+  /// Registration succeeded and the Secret Key is stored on this device;
+  /// the mandatory Emergency Kit step runs before the keys are handed off.
+  emergencyKit,
+
   /// Registration succeeded — the app navigates to the verify-email gate.
   completed,
 }
@@ -27,6 +31,14 @@ class RegisterUnlockKeys {
 
   final Uint8List masterKey;
   final Uint8List privateKey;
+}
+
+/// Account identity shown in the Emergency Kit; the Secret Key stays in the
+/// cubit and is read through `RegisterCubit.emergencyKitSecret`.
+class RegisterEmergencyKit {
+  const RegisterEmergencyKit({required this.accountId});
+
+  final String accountId;
 }
 
 /// State held by the registration wizard.
@@ -43,6 +55,7 @@ class RegisterState {
     this.mnemonic = const <String>[],
     this.error,
     this.unlockKeys,
+    this.emergencyKit,
   });
 
   final RegisterStep step;
@@ -57,6 +70,9 @@ class RegisterState {
   /// to `AuthBloc`.
   final RegisterUnlockKeys? unlockKeys;
 
+  /// Set alongside [RegisterStep.emergencyKit].
+  final RegisterEmergencyKit? emergencyKit;
+
   RegisterState copyWith({
     RegisterStep? step,
     String? email,
@@ -65,6 +81,7 @@ class RegisterState {
     bool clearError = false,
     RegisterUnlockKeys? unlockKeys,
     bool clearUnlockKeys = false,
+    RegisterEmergencyKit? emergencyKit,
   }) {
     return RegisterState(
       step: step ?? this.step,
@@ -72,6 +89,7 @@ class RegisterState {
       mnemonic: mnemonic ?? this.mnemonic,
       error: clearError ? null : (error ?? this.error),
       unlockKeys: clearUnlockKeys ? null : (unlockKeys ?? this.unlockKeys),
+      emergencyKit: emergencyKit ?? this.emergencyKit,
     );
   }
 }

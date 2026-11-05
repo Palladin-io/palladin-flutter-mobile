@@ -47,12 +47,10 @@ class EntryHistoryPage {
 /// Coordinates bounded history reads and canonical N+1 restores.
 class EntryHistoryService {
   EntryHistoryService({
-    required EntryRemoteDatasource entries,
-    required CanonicalEntryDetailService canonical,
-    required OrganizationMemberDirectoryService memberDirectory,
-  }) : _entries = entries,
-       _canonical = canonical,
-       _memberDirectory = memberDirectory;
+    required this._entries,
+    required this._canonical,
+    required this._memberDirectory,
+  });
 
   static const pageSize = VaultPerformanceBudget.historyPageItems;
   static const maximumLoadedVersions =

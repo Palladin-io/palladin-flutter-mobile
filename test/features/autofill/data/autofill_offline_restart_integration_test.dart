@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -22,8 +21,7 @@ import 'package:mobile_palladin/features/vault/data/services/vault_rotation_cryp
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:path/path.dart' as p;
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
-import 'package:sodium_libs/sodium_libs_sumo.dart';
+import 'package:sodium/sodium_sumo.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final class _MockVaultKeys extends Mock implements VaultRotationCryptoService {}
@@ -121,23 +119,6 @@ final class _CapturingBridge implements AutoFillCacheBridge {
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
-    final configured = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    if (configured != null) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(configured),
-      );
-    }
-    if (Platform.isLinux) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open('libsodium.so'),
-      );
-    }
-    const homebrewLibrary = '/opt/homebrew/opt/libsodium/lib/libsodium.dylib';
-    if (Platform.isMacOS && File(homebrewLibrary).existsSync()) {
-      return await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(homebrewLibrary),
-      );
-    }
     return await SodiumSumoInit.init();
   } catch (_) {
     return null;

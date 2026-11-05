@@ -98,6 +98,7 @@ abstract class RegrantCubit extends Cubit<RegrantState> {
       final agent = await agentsRepository.getAgent(agentId);
       await _createGrant(
         agentPublicKey: agent.publicKey,
+        agentKeySuiteId: agent.keySuiteId,
         recipientKeyVersion: agent.recipientKeyVersion,
         agentAccessEpoch: agent.accessEpoch,
         privateKey: privateKey,
@@ -142,6 +143,7 @@ abstract class RegrantCubit extends Cubit<RegrantState> {
 
   Future<void> _createGrant({
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -161,6 +163,7 @@ final class FullRegrantCubit extends RegrantCubit {
   @override
   Future<void> _createGrant({
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -170,6 +173,7 @@ final class FullRegrantCubit extends RegrantCubit {
     vaultId: vaultId,
     agentId: agentId,
     agentPublicKey: agentPublicKey,
+    agentKeySuiteId: agentKeySuiteId,
     recipientKeyVersion: recipientKeyVersion,
     agentAccessEpoch: agentAccessEpoch,
     privateKey: privateKey,
@@ -194,6 +198,7 @@ final class GranularRegrantCubit extends RegrantCubit {
   @override
   Future<void> _createGrant({
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -205,6 +210,7 @@ final class GranularRegrantCubit extends RegrantCubit {
     selectedFieldIds: selectedFieldIds,
     agentId: agentId,
     agentPublicKey: agentPublicKey,
+    agentKeySuiteId: agentKeySuiteId,
     recipientKeyVersion: recipientKeyVersion,
     agentAccessEpoch: agentAccessEpoch,
     privateKey: privateKey,
@@ -227,6 +233,7 @@ final class ScriptExecutionRegrantCubit extends RegrantCubit {
   @override
   Future<void> _createGrant({
     required String agentPublicKey,
+    required String agentKeySuiteId,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required Uint8List privateKey,
@@ -241,6 +248,7 @@ final class ScriptExecutionRegrantCubit extends RegrantCubit {
       scriptEntryId: scriptEntryId,
       agentId: agentId,
       agentPublicKey: agentPublicKey,
+      agentKeySuiteId: agentKeySuiteId,
       recipientKeyVersion: recipientKeyVersion,
       agentAccessEpoch: agentAccessEpoch,
       privateKey: privateKey,

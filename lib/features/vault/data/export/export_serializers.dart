@@ -15,11 +15,10 @@ abstract interface class ExportWriter {
 
 final class ProtectedExportWriter implements ExportWriter {
   ProtectedExportWriter({
-    required ProtectedExportStaging staging,
-    required ExportFormat format,
+    required this._staging,
+    required this._format,
     this.maximumBytes = 50 * 1024 * 1024,
-  }) : _staging = staging,
-       _format = format;
+  });
 
   final ProtectedExportStaging _staging;
   final ExportFormat _format;

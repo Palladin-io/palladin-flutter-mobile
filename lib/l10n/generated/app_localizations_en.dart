@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -2813,6 +2814,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unlock your vault first to approve this request.';
 
   @override
+  String get approvalErrorKeyMigrationPending =>
+      'This agent must update its encryption key before it can receive access.';
+
+  @override
   String get approvalErrorUnknown => 'Something went wrong. Please try again.';
 
   @override
@@ -5102,4 +5107,496 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get entrySignInMethodAgentHint =>
       'Agents can see the provider and the linked entry, never the account.';
+
+  @override
+  String get emergencyKitTitle => 'Save your Emergency Kit';
+
+  @override
+  String get emergencyKitIntro =>
+      'If you lose every signed-in device, the kit and your password are the only way back in.';
+
+  @override
+  String get emergencyKitSecretKeyTitle => 'Secret Key';
+
+  @override
+  String get emergencyKitSecretKeyHint =>
+      'In your Emergency Kit. Signs you in on a new device, together with your password.';
+
+  @override
+  String get emergencyKitRecoveryPhraseTitle => 'Recovery phrase';
+
+  @override
+  String get emergencyKitRecoveryPhraseHint =>
+      'The 24 words you saved. Resets a forgotten password.';
+
+  @override
+  String get emergencyKitPreviewAccount => 'Account';
+
+  @override
+  String get emergencyKitPreviewPassword => 'Master password';
+
+  @override
+  String get emergencyKitContents =>
+      'What\'s inside: e-mail, Secret Key, QR code and a blank password field. Never your recovery phrase.';
+
+  @override
+  String get emergencyKitSave => 'Save Emergency Kit (PDF)';
+
+  @override
+  String get emergencyKitStoreSeparatelyTitle => 'Store separately';
+
+  @override
+  String get emergencyKitStoreSeparatelyMessage =>
+      'Keep the kit away from your recovery phrase, for example in Files or printed.';
+
+  @override
+  String get emergencyKitSavedConfirm => 'I saved my Emergency Kit';
+
+  @override
+  String get emergencyKitContinue => 'Continue';
+
+  @override
+  String get emergencyKitSaveFailed =>
+      'Couldn\'t create the Emergency Kit. Try again.';
+
+  @override
+  String get emergencyKitPdfTitle => 'Palladin Emergency Kit';
+
+  @override
+  String get emergencyKitPdfIntro =>
+      'Use this kit with your master password to sign in on a new device when no other signed-in device is available.';
+
+  @override
+  String get emergencyKitPdfAccount => 'Account e-mail';
+
+  @override
+  String get emergencyKitPdfSecretKey => 'Secret Key';
+
+  @override
+  String get emergencyKitPdfQr => 'Secret Key QR code';
+
+  @override
+  String get emergencyKitPdfPassword => 'Master password';
+
+  @override
+  String get emergencyKitPdfSignIn => 'Sign-in address';
+
+  @override
+  String get emergencyKitPdfGenerated => 'Created';
+
+  @override
+  String get emergencyKitPdfFooter =>
+      'Created on your device. Palladin never receives a copy. Keep this kit away from your recovery phrase.';
+
+  @override
+  String get emergencyKitSettingsTitle => 'Emergency Kit';
+
+  @override
+  String get emergencyKitSettingsSubtitle => 'Secret Key';
+
+  @override
+  String get emergencyKitSettingsTileTitle => 'Save Emergency Kit';
+
+  @override
+  String get emergencyKitSettingsTileHint =>
+      'Your Secret Key for signing in on a new device';
+
+  @override
+  String get emergencyKitSettingsConfirmTitle => 'Confirm your password';
+
+  @override
+  String get emergencyKitSettingsConfirmMessage =>
+      'Your Emergency Kit contains your Secret Key. The PDF is created on this phone and never uploaded.';
+
+  @override
+  String get emergencyKitSettingsPasswordLabel => 'Master password';
+
+  @override
+  String get emergencyKitSettingsCreate => 'Create Emergency Kit';
+
+  @override
+  String get emergencyKitSettingsWrongPassword => 'Incorrect master password.';
+
+  @override
+  String get emergencyKitSettingsMissing =>
+      'This phone doesn\'t have your Secret Key. Sign in again with your Emergency Kit or approve this phone from another signed-in device.';
+
+  @override
+  String get emergencyKitSettingsLocked =>
+      'Unlock Palladin to save your Emergency Kit.';
+
+  @override
+  String get emergencyKitSettingsLoadFailed =>
+      'Couldn\'t load your account. Try again.';
+
+  @override
+  String get emergencyKitSettingsRetry => 'Try again';
+
+  @override
+  String get emergencyKitSettingsShared => 'Emergency Kit created.';
+
+  @override
+  String get deviceTransferSettingsTitle => 'Devices';
+
+  @override
+  String get deviceTransferSettingsSubtitle =>
+      'Give a new phone or browser your Secret Key.';
+
+  @override
+  String get deviceTransferDevicesSubtitle =>
+      'Give a new phone or browser your Secret Key by scanning the code it shows.';
+
+  @override
+  String get deviceTransferThisPhone => 'This phone';
+
+  @override
+  String get deviceTransferSecretKeySaved =>
+      'Secret Key saved in secure storage';
+
+  @override
+  String get deviceTransferSecretKeyMissing =>
+      'This phone doesn\'t have the Secret Key';
+
+  @override
+  String get deviceTransferCurrent => 'Current';
+
+  @override
+  String get deviceTransferAddDevice => 'Add a device';
+
+  @override
+  String get deviceTransferAddDeviceHint =>
+      'The new device shows a QR code after you sign in there with your password.';
+
+  @override
+  String get deviceTransferScanInstruction =>
+      'Point your camera at the QR code the new phone or browser shows after you sign in there.';
+
+  @override
+  String get deviceTransferCompareTitle => 'Compare codes';
+
+  @override
+  String get deviceTransferCompareBody =>
+      'Approve only if the new device shows exactly this code. This keeps someone else from receiving your Secret Key.';
+
+  @override
+  String get deviceTransferCodeOnThisPhone => 'Code on this phone';
+
+  @override
+  String get deviceTransferReject => 'Reject';
+
+  @override
+  String get deviceTransferApprove => 'Approve';
+
+  @override
+  String get deviceTransferNotYou =>
+      'Didn\'t start this? Reject it and change your master password.';
+
+  @override
+  String get deviceTransferApprovedTitle => 'Device approved';
+
+  @override
+  String get deviceTransferApprovedBody =>
+      'The new device received your Secret Key and can now sign in with your password.';
+
+  @override
+  String get deviceTransferDone => 'Done';
+
+  @override
+  String get deviceTransferRejectedTitle => 'Request rejected';
+
+  @override
+  String get deviceTransferRejectedBody =>
+      'Nothing was sent. If you didn\'t start this, change your master password.';
+
+  @override
+  String get deviceTransferExpiredTitle => 'Code expired';
+
+  @override
+  String get deviceTransferExpiredBody =>
+      'Codes work for 5 minutes and only once. Ask the new device to show a new code.';
+
+  @override
+  String get deviceTransferScanAgain => 'Scan again';
+
+  @override
+  String get deviceTransferTryAgain => 'Try again';
+
+  @override
+  String get deviceTransferFailedTitle => 'Couldn\'t finish';
+
+  @override
+  String get deviceTransferErrorInvalidCode =>
+      'This isn\'t a Palladin device code.';
+
+  @override
+  String get deviceTransferWrongCodeTitle => 'Wrong code';
+
+  @override
+  String get deviceTransferErrorCodeForSignedInDevice =>
+      'This code is for a phone that\'s already signed in. On that phone, open Settings › Add a device and scan it there.';
+
+  @override
+  String get deviceTransferErrorCodeForNewDevice =>
+      'This code is for a new phone. Scan it on the new phone from the Set up this phone screen.';
+
+  @override
+  String get deviceTransferErrorKeyMismatch =>
+      'The code doesn\'t match the request on the server. Nothing was sent.';
+
+  @override
+  String get deviceTransferErrorAccountMismatch =>
+      'This code belongs to a different account.';
+
+  @override
+  String get deviceTransferErrorDecrypt =>
+      'The Secret Key couldn\'t be received. Start again on both devices.';
+
+  @override
+  String get deviceTransferErrorSecretKeyMissing =>
+      'This phone doesn\'t have your Secret Key, so it can\'t approve other devices.';
+
+  @override
+  String get deviceTransferErrorNetwork =>
+      'Couldn\'t connect. Check your connection and try again.';
+
+  @override
+  String get deviceTransferErrorServer => 'Something went wrong. Try again.';
+
+  @override
+  String get deviceTransferCameraDenied =>
+      'Camera access is off. Allow it in system settings to scan the code.';
+
+  @override
+  String get deviceTransferOpenSettings => 'Open settings';
+
+  @override
+  String deviceTransferExpiresIn(String time) {
+    return 'Expires in $time';
+  }
+
+  @override
+  String get secretKeyEntryTitle => 'Set up this phone';
+
+  @override
+  String get secretKeyEntryIntro =>
+      'This phone needs your Secret Key once. Get it from a device where you\'re already signed in, or from your Emergency Kit.';
+
+  @override
+  String get secretKeyEntryScanComputer => 'Scan code from a computer';
+
+  @override
+  String get secretKeyEntryScanComputerHint =>
+      'Open Settings › Add a phone in the web panel.';
+
+  @override
+  String get secretKeyEntryScanComputerInstruction =>
+      'In the web panel, open Settings › Add a phone and point your camera at the code.';
+
+  @override
+  String get secretKeyEntryShowCode => 'Show a code to another phone';
+
+  @override
+  String get secretKeyEntryShowCodeHint =>
+      'Scan it with Palladin on your signed-in phone.';
+
+  @override
+  String get secretKeyEntryOr => 'or';
+
+  @override
+  String get secretKeyEntryUseKit => 'Use Emergency Kit';
+
+  @override
+  String get secretKeyEntryUseKitHint =>
+      'Scan the kit QR code or type the Secret Key.';
+
+  @override
+  String get secretKeyEntryCompareComputerBody =>
+      'Check the code on your computer. If it matches the code below, approve there. There\'s nothing to tap on this phone.';
+
+  @override
+  String get secretKeyEntryApproveOnComputerTitle => 'Approve on your computer';
+
+  @override
+  String get secretKeyEntryWaitingComputer =>
+      'Waiting for approval on your computer…';
+
+  @override
+  String get secretKeyEntryShowCodeTitle => 'Show code to your phone';
+
+  @override
+  String get secretKeyEntryShowCodeBody =>
+      'On your signed-in phone, open Settings › Add a device and scan this code.';
+
+  @override
+  String get secretKeyEntrySameCode =>
+      'Your other phone should show the same code';
+
+  @override
+  String get secretKeyEntryWaiting => 'Waiting for approval…';
+
+  @override
+  String get secretKeyEntryReceivedTitle => 'Secret Key received';
+
+  @override
+  String get secretKeyEntryReceivedBody =>
+      'Saving it on this phone and signing you in…';
+
+  @override
+  String get secretKeyEntryCancel => 'Cancel';
+
+  @override
+  String get secretKeyEntryKitBody =>
+      'Scan the QR code on your kit, or type the Secret Key printed next to it.';
+
+  @override
+  String get secretKeyEntryScanKit => 'Scan kit QR code';
+
+  @override
+  String get secretKeyEntryScanKitInstruction =>
+      'Point your camera at the QR code on your Emergency Kit.';
+
+  @override
+  String get secretKeyEntryFieldLabel => 'Secret Key';
+
+  @override
+  String get secretKeyEntryFieldHint =>
+      'Starts with PSK2, then 9 groups of 6 characters. Dashes and spaces are optional.';
+
+  @override
+  String get secretKeyEntryContinue => 'Continue';
+
+  @override
+  String get secretKeyEntryErrorMalformed =>
+      'This doesn\'t look like a Secret Key. Check the characters and try again.';
+
+  @override
+  String get secretKeyEntryErrorChecksum =>
+      'This Secret Key doesn\'t match this account. Check for typos.';
+
+  @override
+  String get secretKeyEntryErrorKitAccount =>
+      'This Emergency Kit belongs to a different account.';
+
+  @override
+  String get secretKeyEntryErrorKitQr =>
+      'This isn\'t an Emergency Kit QR code.';
+
+  @override
+  String get secretKeyEntryCantScan => 'Can\'t scan? Use Emergency Kit';
+
+  @override
+  String get securityUpgradeTitle => 'Updating your account security';
+
+  @override
+  String get securityUpgradeSubtitle =>
+      'We\'re moving your keys to stronger encryption. Keep the app open — it takes about a minute.';
+
+  @override
+  String get securityUpgradeStepAccountKey => 'Account key';
+
+  @override
+  String get securityUpgradeStepVaults => 'Vaults';
+
+  @override
+  String get securityUpgradeStepAgents => 'Agents';
+
+  @override
+  String get securityUpgradeStatusWaiting => 'Waiting';
+
+  @override
+  String get securityUpgradeStatusRunning => 'In progress';
+
+  @override
+  String get securityUpgradeStatusDone => 'Done';
+
+  @override
+  String get securityUpgradeStatusStopped => 'Stopped';
+
+  @override
+  String securityUpgradeCount(int done, int total) {
+    return '$done of $total';
+  }
+
+  @override
+  String securityUpgradeStoppedAt(int done, int total) {
+    return 'Stopped at $done of $total';
+  }
+
+  @override
+  String get securityUpgradeEntriesUnchanged =>
+      'Your entries stay as they are. Only the way your keys are shared changes.';
+
+  @override
+  String get securityUpgradeErrorTitle => 'Update paused';
+
+  @override
+  String get securityUpgradeNetworkError =>
+      'Connection lost. Your progress is saved, so nothing will be repeated.';
+
+  @override
+  String get securityUpgradeServerError =>
+      'Something went wrong. Your progress is saved, so try again.';
+
+  @override
+  String get securityUpgradeRetry => 'Retry';
+
+  @override
+  String get securityUpgradePhraseTitle => 'Save your new recovery phrase';
+
+  @override
+  String get securityUpgradePhraseSubtitle =>
+      'Your account key changed, so your old recovery phrase no longer works. Write down these 24 words.';
+
+  @override
+  String get securityUpgradePhraseWarningTitle => 'Keep it offline';
+
+  @override
+  String get securityUpgradePhraseWarning =>
+      'Store it apart from your Emergency Kit. Anyone holding it can take over your account.';
+
+  @override
+  String get securityUpgradePhraseWritten => 'I wrote it down';
+
+  @override
+  String get securityUpgradeConfirmTitle => 'Confirm your recovery phrase';
+
+  @override
+  String get securityUpgradeConfirmSubtitle =>
+      'Enter three words to make sure you saved it correctly.';
+
+  @override
+  String securityUpgradeConfirmWord(int position) {
+    return 'Word #$position';
+  }
+
+  @override
+  String get securityUpgradeConfirmAction => 'Confirm';
+
+  @override
+  String get securityUpgradeConfirmMismatch =>
+      'These words don\'t match. Check your phrase and try again.';
+
+  @override
+  String get securityUpgradeConfirmBack => 'Show the phrase again';
+
+  @override
+  String get securityUpgradeDoneTitle => 'Your account is up to date';
+
+  @override
+  String get securityUpgradeDoneSubtitle =>
+      'Your keys use stronger encryption and your account has a Secret Key.';
+
+  @override
+  String get securityUpgradeDoneDevicesTitle => 'Other devices';
+
+  @override
+  String get securityUpgradeDoneDevices =>
+      'Your other devices will ask for the Secret Key once. Approve them from this phone or use your Emergency Kit.';
+
+  @override
+  String get securityUpgradeDoneAction => 'Done';
+
+  @override
+  String get unlockSecurityUpgradeNeedsPassword =>
+      'Enter your master password to finish the account security update.';
 }
