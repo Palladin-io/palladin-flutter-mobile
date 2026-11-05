@@ -132,16 +132,17 @@ class _EmergencyKitStepState extends State<EmergencyKitStep> {
                 ),
               ),
               const SizedBox(height: AppSpacing.section),
+              // Shown before the save action so the advice is read before the kit leaves the app.
+              WarningZone(
+                title: l10n.emergencyKitStoreSeparatelyTitle,
+                message: l10n.emergencyKitStoreSeparatelyMessage,
+              ),
+              const SizedBox(height: AppSpacing.section),
               PrimaryButton(
                 label: l10n.emergencyKitSave,
                 leading: const Icon(Icons.ios_share, size: 18),
                 isLoading: _saving,
                 onPressed: _save,
-              ),
-              const SizedBox(height: AppSpacing.section),
-              WarningZone(
-                title: l10n.emergencyKitStoreSeparatelyTitle,
-                message: l10n.emergencyKitStoreSeparatelyMessage,
               ),
             ],
           ),

@@ -1041,6 +1041,16 @@ void main() {
           }
           await tap(tester, 'Verify & Complete Setup');
           expect(registration.state.step, RegisterStep.emergencyKit);
+          await tester.scrollUntilVisible(
+            find.text('Save Emergency Kit (PDF)'),
+            200,
+            scrollable: find
+                .ancestor(
+                  of: find.text('Save your Emergency Kit').last,
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
           await tap(tester, 'Save Emergency Kit (PDF)');
           await tap(tester, 'I saved my Emergency Kit');
           await tap(tester, 'Continue');
