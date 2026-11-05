@@ -150,21 +150,23 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   }
 
   void _updateCustomFields(List<CustomField> fields, bool valid) {
-    // Only explicit editable-field ordering can move existing slots. Opaque
-    // fields stay anchored even when the editor emits them after its drafts.
+    // New editable IDs receive appended slots before applying the editor order.
+    // Opaque fields stay anchored when the editor emits them after its drafts.
     final orderedIds = fields
-        .where(
-          (field) =>
-              field.type != CustomFieldType.unknown &&
-              _fieldOrder.contains(field.id),
-        )
+        .where((field) => field.type != CustomFieldType.unknown)
         .map((field) => field.id)
         .toList();
+    final existing = _fieldOrder.toSet();
+    final slots = [
+      ..._fieldOrder,
+      for (final id in orderedIds)
+        if (!existing.contains(id)) id,
+    ];
     final reordered = orderedIds.toSet();
     var index = 0;
     setState(() {
       _fieldOrder = [
-        for (final id in _fieldOrder)
+        for (final id in slots)
           reordered.contains(id) ? orderedIds[index++] : id,
       ];
       _customFields = fields;

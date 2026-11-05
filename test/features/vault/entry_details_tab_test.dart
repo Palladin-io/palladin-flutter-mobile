@@ -1012,6 +1012,94 @@ void main() {
     );
 
     testWidgets(
+      'new ordinary field Move up survives save with anchored neighbors',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final harness = await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith(interleaved),
+          fieldAccess: interleavedAccess,
+        );
+        final saves = recordSaves(harness.canonical);
+        final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+        await enterEdit(tester);
+        final add = find.text(l10n.entryAddFieldAction);
+        await tester.ensureVisible(add);
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.entryFieldTypeText));
+        await tester.pumpAndSettle();
+        final name = find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is TextField &&
+                  widget.decoration?.hintText == l10n.entryFieldNameLabel,
+            )
+            .last;
+        final value = find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is TextField &&
+                  widget.decoration?.hintText == l10n.entryFieldValueLabel,
+            )
+            .last;
+        await tester.enterText(name, 'New field B');
+        await tester.enterText(value, 'New value B');
+        final row = find
+            .ancestor(
+              of: find.widgetWithText(TextField, 'New value B'),
+              matching: find.byType(Row),
+            )
+            .first;
+        final menu = find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.more_vert),
+        );
+        await tester.ensureVisible(menu);
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.entryFieldMoveUp));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.widgetWithText(TextField, 'New value B')).dy,
+          lessThan(
+            tester.getTopLeft(find.widgetWithText(TextField, 'Operations')).dy,
+          ),
+        );
+        await saveForm(tester);
+        final fields = (saves.single.content['fields'] as List).cast<Map>();
+        expect(fields.map((field) => field['label']), [
+          'Legacy',
+          'New field B',
+          'Opaque',
+          'Github',
+          'Authenticator',
+          'Team',
+        ]);
+        expect(fields[0], interleaved[0]);
+        expect(fields[2], interleaved[2]);
+        expect(fields[3], interleaved[3]);
+        expect(fields[4], interleaved[4]);
+        expect(fields[5], interleaved[1]);
+        expect(fields[1]['value'], 'New value B');
+        expect(
+          fields[1]['id'],
+          isNot(isIn(interleaved.map((field) => field['id']))),
+        );
+        for (final access in interleavedAccess.entries) {
+          expect(
+            saves.single.policy?.fields[access.key]?.wireName,
+            access.value,
+          );
+        }
+      },
+    );
+
+    testWidgets(
       'method edit delete and add preserve neighboring positions and append the new ID',
       (tester) async {
         final harness = await pumpTab(

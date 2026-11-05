@@ -163,9 +163,10 @@ reference is `{vaultId, entryId}` with lowercase UUIDs or null.
   Forms use bare UUIDs internally; canonical encode/adapt prefixes and removes
   only literal `custom:` without normalizing UUID case. Form sections do not
   reorder serialized fields: surviving IDs keep their saved positions, new
-  methods append, and explicit ordinary-field reordering preserves opaque and
-  method slots. Discarding/restarting an edit restores both fields and Agent
-  policy/label from the authenticated saved snapshot.
+  methods append, and explicit ordinary-field reordering (including fields added
+  in the current draft) preserves opaque and method slots. Discarding/restarting
+  an edit restores both fields and Agent policy/label from the authenticated
+  saved snapshot.
 - A valid binding admits `never`/`discovery` only, on Credentials only. New
   methods default private; the editor owns an explicit visibility switch.
   No binding receives `onGrant*` access or enters MemberIndex.
