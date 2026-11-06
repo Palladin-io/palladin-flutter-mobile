@@ -8912,6 +8912,30 @@ abstract class AppLocalizations {
   /// **'Remember which provider you use to sign in to this service. Palladin does not sign in for you and cannot detect provider sign-ins in other apps or browsers.'**
   String get entrySignInMethodHint;
 
+  /// No description provided for @entrySignInMethodPreviousProviders.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous providers'**
+  String get entrySignInMethodPreviousProviders;
+
+  /// No description provided for @entrySignInMethodNextProviders.
+  ///
+  /// In en, this message translates to:
+  /// **'Next providers'**
+  String get entrySignInMethodNextProviders;
+
+  /// No description provided for @entrySignInMethodMissingProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing a provider? Let us know'**
+  String get entrySignInMethodMissingProvider;
+
+  /// No description provided for @entrySignInMethodMissingProviderSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in provider suggestion'**
+  String get entrySignInMethodMissingProviderSubject;
+
   /// No description provided for @entrySignInMethodProvider.
   ///
   /// In en, this message translates to:

@@ -32,9 +32,10 @@ void main() {
   }
 
   Future<void> chooseProvider(WidgetTester tester, String name) async {
-    await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
+    final tile = find.byKey(ValueKey('sign-in-provider-$name'));
+    await tester.ensureVisible(tile);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(name).last);
+    await tester.tap(tile);
     await tester.pumpAndSettle();
   }
 
@@ -100,6 +101,44 @@ void main() {
         entry: _reference,
       ),
     );
+  });
+
+  testWidgets('scrolling the provider rail never changes the selected method', (
+    tester,
+  ) async {
+    SignInMethodChoice? choice;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => choice = await SignInMethodSheet.show(
+              context,
+              initial: const SignInMethodBinding(
+                provider: SignInProvider.google,
+              ),
+              canRemove: false,
+              loadCandidates: loader,
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey('sign-in-method-provider')),
+      const Offset(-250, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip(l10n.entrySignInMethodPreviousProviders));
+    await tester.pumpAndSettle();
+    expect(requested, [SignInProvider.google]);
+    await tester.tap(find.text(l10n.entrySaveAction));
+    await tester.pumpAndSettle();
+    expect(choice?.binding?.provider, SignInProvider.google);
   });
 
   testWidgets('typing an account clears the linked Credential', (tester) async {
