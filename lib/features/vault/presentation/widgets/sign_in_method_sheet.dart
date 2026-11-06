@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../../config/contact_config.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -83,6 +86,8 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
   late final TextEditingController _accountController = TextEditingController(
     text: widget.initial?.account ?? '',
   );
+  final _providerScroll = ScrollController();
+  final _initialProvider = GlobalKey();
   bool _accountTooLong = false;
   late bool _discovery = widget.discovery;
   late SignInEntryReference? _entry = widget.initial?.entry;
@@ -93,7 +98,19 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
   void initState() {
     super.initState();
     final provider = _provider;
-    if (provider != null) _loadCandidates(provider);
+    if (provider != null) {
+      _loadCandidates(provider);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_providerScroll.hasClients) return;
+        final target = _initialProvider.currentContext?.findRenderObject();
+        if (target != null) {
+          _providerScroll.position.ensureVisible(
+            target,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _loadCandidates(SignInProvider provider) async {
@@ -141,6 +158,7 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
 
   @override
   void dispose() {
+    _providerScroll.dispose();
     _accountController.dispose();
     super.dispose();
   }
@@ -219,6 +237,121 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
     );
   }
 
+  void _scrollProviders(double direction) {
+    if (!_providerScroll.hasClients) return;
+    final target =
+        (_providerScroll.offset +
+                direction * _providerScroll.position.viewportDimension * 0.75)
+            .clamp(0.0, _providerScroll.position.maxScrollExtent);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _providerScroll.jumpTo(target);
+    } else {
+      _providerScroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Widget _providerChoices(AppLocalizations l10n, Brightness brightness) {
+    const providers = [
+      SignInProvider.google,
+      SignInProvider.github,
+      SignInProvider.apple,
+      SignInProvider.microsoft,
+      SignInProvider.facebook,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.entrySignInMethodProvider,
+                style: TextStyle(
+                  color: AppColors.onSurfaceMuted(brightness),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: l10n.entrySignInMethodPreviousProviders,
+              onPressed: () => _scrollProviders(-1),
+              icon: const Icon(Icons.chevron_left),
+            ),
+            IconButton(
+              tooltip: l10n.entrySignInMethodNextProviders,
+              onPressed: () => _scrollProviders(1),
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
+        SingleChildScrollView(
+          key: const ValueKey('sign-in-method-provider'),
+          controller: _providerScroll,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.all(AppSpacing.xs),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final provider in providers) ...[
+                  if (provider != providers.first)
+                    const SizedBox(width: AppSpacing.innerGap),
+                  SizedBox(
+                    width: 104,
+                    child: Semantics(
+                      key: provider == widget.initial?.provider
+                          ? _initialProvider
+                          : null,
+                      selected: _provider == provider,
+                      child: OutlinedButton(
+                        key: ValueKey(
+                          'sign-in-provider-${signInProviderName(l10n, provider)}',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.onSurface(brightness),
+                          side: BorderSide(
+                            color: _provider == provider
+                                ? AppColors.onSurface(brightness)
+                                : AppColors.inputBorder(brightness),
+                          ),
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () => _selectProvider(provider),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/images/signin_${provider.wireName}.png',
+                              width: 24,
+                              height: 24,
+                              excludeFromSemantics: true,
+                            ),
+                            const SizedBox(height: AppSpacing.innerGap),
+                            Text(
+                              signInProviderName(l10n, provider),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -266,24 +399,29 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.section),
-                  AppDropdownField<SignInProvider>(
-                    key: const ValueKey('sign-in-method-provider'),
-                    label: l10n.entrySignInMethodProvider,
-                    value: _provider,
-                    filled: false,
-                    hint: Text(l10n.entrySignInMethodChooseProvider),
-                    items: [
-                      for (final provider in SignInProvider.values)
-                        DropdownMenuItem(
-                          value: provider,
-                          child: Text(signInProviderName(l10n, provider)),
+                  _providerChoices(l10n, brightness),
+                  if (ContactConfig.email.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => launchUrl(
+                          ContactConfig.providerSuggestionUri(
+                            l10n.entrySignInMethodMissingProviderSubject,
+                          ),
+                          mode: LaunchMode.externalApplication,
                         ),
-                    ],
-                    onChanged: _selectProvider,
-                  ),
+                        child: Text(l10n.entrySignInMethodMissingProvider),
+                      ),
+                    ),
                   if (widget.loadCandidates != null && _provider != null) ...[
                     const SizedBox(height: AppSpacing.fieldGap),
-                    _linkedEntryField(l10n),
+                    AnimatedSize(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      alignment: Alignment.topCenter,
+                      child: _linkedEntryField(l10n),
+                    ),
                   ],
                   const SizedBox(height: AppSpacing.fieldGap),
                   OnboardingTextField(

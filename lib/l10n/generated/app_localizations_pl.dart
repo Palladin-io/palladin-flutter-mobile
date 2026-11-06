@@ -5096,6 +5096,20 @@ class AppLocalizationsPl extends AppLocalizations {
       'Zapamiętaj, przez którego dostawcę logujesz się do tego serwisu. Palladin nie loguje się za Ciebie i nie wykrywa logowań przez dostawców w innych aplikacjach ani przeglądarkach.';
 
   @override
+  String get entrySignInMethodPreviousProviders => 'Poprzedni dostawcy';
+
+  @override
+  String get entrySignInMethodNextProviders => 'Następni dostawcy';
+
+  @override
+  String get entrySignInMethodMissingProvider =>
+      'Brakuje dostawcy? Napisz do nas';
+
+  @override
+  String get entrySignInMethodMissingProviderSubject =>
+      'Propozycja dostawcy logowania';
+
+  @override
   String get entrySignInMethodProvider => 'Dostawca';
 
   @override

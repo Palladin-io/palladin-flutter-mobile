@@ -5046,6 +5046,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remember which provider you use to sign in to this service. Palladin does not sign in for you and cannot detect provider sign-ins in other apps or browsers.';
 
   @override
+  String get entrySignInMethodPreviousProviders => 'Previous providers';
+
+  @override
+  String get entrySignInMethodNextProviders => 'Next providers';
+
+  @override
+  String get entrySignInMethodMissingProvider =>
+      'Missing a provider? Let us know';
+
+  @override
+  String get entrySignInMethodMissingProviderSubject =>
+      'Sign-in provider suggestion';
+
+  @override
   String get entrySignInMethodProvider => 'Provider';
 
   @override
