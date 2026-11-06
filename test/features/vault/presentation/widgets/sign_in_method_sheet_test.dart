@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/widgets/app_toggle.dart';
 import 'package:mobile_palladin/features/vault/data/services/sign_in_candidate_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/sign_in_method.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/sign_in_method_sheet.dart';
@@ -140,6 +141,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(choice?.binding?.provider, SignInProvider.google);
   });
+
+  testWidgets(
+    'editing the final provider reveals it once without scrolling the sheet',
+    (tester) async {
+      tester.view
+        ..physicalSize = const Size(320, 600)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => SignInMethodSheet.show(
+                context,
+                initial: const SignInMethodBinding(
+                  provider: SignInProvider.facebook,
+                ),
+                canRemove: true,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      final rail = find.byKey(const ValueKey('sign-in-method-provider'));
+      final selected = find.byKey(const ValueKey('sign-in-provider-Facebook'));
+      expect(
+        tester.getRect(selected).left,
+        greaterThanOrEqualTo(tester.getRect(rail).left),
+      );
+      expect(
+        tester.getRect(selected).right,
+        lessThanOrEqualTo(tester.getRect(rail).right),
+      );
+      final vertical = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(SingleChildScrollView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(vertical.position.pixels, 0);
+      await tester.drag(rail, const Offset(500, 0));
+      await tester.pumpAndSettle();
+      final horizontal = tester.state<ScrollableState>(
+        find.descendant(of: rail, matching: find.byType(Scrollable)),
+      );
+      expect(horizontal.position.pixels, 0);
+      await tester.tap(find.byType(AppToggle));
+      await tester.pumpAndSettle();
+      expect(horizontal.position.pixels, 0);
+    },
+  );
 
   testWidgets('typing an account clears the linked Credential', (tester) async {
     SignInMethodChoice? choice;

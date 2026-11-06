@@ -87,6 +87,7 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
     text: widget.initial?.account ?? '',
   );
   final _providerScroll = ScrollController();
+  final _initialProvider = GlobalKey();
   bool _accountTooLong = false;
   late bool _discovery = widget.discovery;
   late SignInEntryReference? _entry = widget.initial?.entry;
@@ -97,7 +98,19 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
   void initState() {
     super.initState();
     final provider = _provider;
-    if (provider != null) _loadCandidates(provider);
+    if (provider != null) {
+      _loadCandidates(provider);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_providerScroll.hasClients) return;
+        final target = _initialProvider.currentContext?.findRenderObject();
+        if (target != null) {
+          _providerScroll.position.ensureVisible(
+            target,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _loadCandidates(SignInProvider provider) async {
@@ -290,6 +303,9 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
                   SizedBox(
                     width: 104,
                     child: Semantics(
+                      key: provider == widget.initial?.provider
+                          ? _initialProvider
+                          : null,
                       selected: _provider == provider,
                       child: OutlinedButton(
                         key: ValueKey(
