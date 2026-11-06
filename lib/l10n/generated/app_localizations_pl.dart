@@ -5027,7 +5027,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get autofillManualIos =>
-      'Otwórz Ustawienia → Hasła → Opcje haseł (Autowypełnianie haseł w starszym iOS), włącz autouzupełnianie i wybierz Palladin.';
+      'Otwórz Ustawienia → Ogólne → Wypełnianie i hasła, włącz automatyczne wypełnianie haseł i wybierz Palladin. W iOS 17 i starszym szukaj w Hasła → Opcje haseł.';
 
   @override
   String get autofillChromeHint =>
@@ -5151,4 +5151,51 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get entrySignInMethodAgentHint =>
       'Agenci widzą dostawcę i powiązany wpis, nigdy konto.';
+
+  @override
+  String get autofillGuideTitle => 'Jak używać Autofill';
+
+  @override
+  String get autofillGuideSubtitle =>
+      'Włącz Palladin i uzupełniaj zapisane loginy.';
+
+  @override
+  String get autofillGuideEnableTitle => '1. Włącz Palladin';
+
+  @override
+  String get autofillGuideIosEnable =>
+      'Otwórz Ustawienia iPhone’a → Ogólne → Wypełnianie i hasła. Włącz automatyczne wypełnianie haseł i wybierz Palladin. W iOS 17 i starszym szukaj w Hasła → Opcje haseł.';
+
+  @override
+  String get autofillGuideAndroidEnable =>
+      'W ustawieniach Androida wyszukaj „Autouzupełnianie” i wybierz Palladin jako preferowaną usługę haseł/autouzupełniania. Nazwy zależą od urządzenia. Możesz też otworzyć te ustawienia z karty Autofill w Palladin → Ustawienia → Bezpieczeństwo.';
+
+  @override
+  String get autofillGuideChrome =>
+      'Używasz Chrome? W Chrome otwórz Ustawienia → Usługi autouzupełniania, wybierz autouzupełnianie przy użyciu innej usługi i uruchom Chrome ponownie, gdy o to poprosi.';
+
+  @override
+  String get autofillGuidePrepareTitle => '2. Przygotuj zapisany login';
+
+  @override
+  String get autofillGuidePrepare =>
+      'Zaloguj się do Palladin, odblokuj aplikację i poczekaj na synchronizację wpisów. Zapisz dane logowania z nazwą użytkownika, hasłem i dokładnym adresem strony logowania. Skonfiguruj Face ID, Touch ID lub odcisk palca na urządzeniu: Autofill wymaga autoryzacji biometrycznej.';
+
+  @override
+  String get autofillGuideUseTitle => '3. Uzupełnij dane logowania';
+
+  @override
+  String get autofillGuideIosUse =>
+      'W Safari lub obsługiwanej aplikacji dotknij pola nazwy użytkownika lub hasła. Wybierz podpowiadany login albo otwórz menu haseł/ikony klucza i wybierz Palladin. Potwierdź przez Face ID lub Touch ID i w razie potrzeby wybierz zapisany login. Sprawdź uzupełnione pola, a potem się zaloguj.';
+
+  @override
+  String get autofillGuideAndroidUse =>
+      'W Chrome lub obsługiwanej aplikacji dotknij pola nazwy użytkownika lub hasła. Dotknij podpowiedzi Palladin nad klawiaturą lub w menu pola. Potwierdź biometrią urządzenia i w razie potrzeby wybierz login. Sprawdź uzupełnione pola, a potem się zaloguj.';
+
+  @override
+  String get autofillGuideHelpTitle => 'Brak podpowiedzi?';
+
+  @override
+  String get autofillGuideHelp =>
+      'Otwórz i odblokuj ponownie Palladin, aby odświeżyć wpisy. Sprawdź, czy zapisana strona dokładnie odpowiada domenie formularza logowania; subdomeny mogą się różnić. Nie każda aplikacja i formularz obsługują Autofill. Jeśli Palladin ostrzeże, że miejsce docelowe jest niezweryfikowane, samodzielnie sprawdź aplikację i wybrany login przed użyciem „Wypełnij raz” albo anuluj.';
 }

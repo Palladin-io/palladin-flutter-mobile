@@ -56,6 +56,13 @@ class SecurityPage extends StatelessWidget {
           const BiometricSetupCard(),
           const AutoFillSetupCard(),
           _SecurityAction(
+            icon: Icons.help_outline,
+            title: l10n.autofillGuideTitle,
+            subtitle: l10n.autofillGuideSubtitle,
+            onTap: () => context.push(AppRoutes.autofillGuide),
+          ),
+          const SizedBox(height: AppSpacing.cardGap),
+          _SecurityAction(
             icon: Icons.key_outlined,
             title: l10n.generatedPasswordTitle,
             subtitle: l10n.generatedPasswordSubtitle,

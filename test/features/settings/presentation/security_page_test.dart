@@ -10,6 +10,9 @@ import 'package:mobile_palladin/features/unlock/data/models/account_response.dar
 import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile_palladin/core/router/app_router.dart';
+import 'package:mobile_palladin/features/autofill/presentation/autofill_guide_page.dart';
 
 class _AuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
@@ -40,10 +43,30 @@ void main() {
         authProvider: provider,
       ),
     );
+    final router = GoRouter(
+      initialLocation: AppRoutes.settingsSecurity,
+      routes: [
+        GoRoute(
+          path: AppRoutes.settingsSecurity,
+          builder: (_, _) => SecurityPage(
+            loadAccount: () async =>
+                AccountResponse(userId: 'account', kdf: kdf),
+          ),
+          routes: [
+            GoRoute(
+              path: 'autofill-guide',
+              builder: (_, _) => const AutofillGuidePage(),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       BlocProvider<AuthBloc>.value(
         value: auth,
-        child: MaterialApp(
+        child: MaterialApp.router(
+          routerConfig: router,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => AppShellScope(
@@ -53,15 +76,25 @@ void main() {
             clearFab: (_) {},
             child: child!,
           ),
-          home: SecurityPage(
-            loadAccount: () async =>
-                AccountResponse(userId: 'account', kdf: kdf),
-          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('Autofill guide is available to OAuth accounts', (tester) async {
+    await pump(tester, provider: AuthProviderId.google, kdf: null);
+    final action = find.text('How to use Autofill');
+    expect(action, findsOneWidget);
+    await tester.ensureVisible(action);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(find.byType(AutofillGuidePage), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(AutofillGuidePage), findsNothing);
+    expect(action, findsOneWidget);
+  });
 
   for (final provider in [AuthProviderId.password, AuthProviderId.google]) {
     testWidgets('$provider account with a password credential sees TOTP', (

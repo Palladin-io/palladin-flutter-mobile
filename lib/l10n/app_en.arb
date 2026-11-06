@@ -3786,7 +3786,7 @@
   "autofillOpenSettings": "Open AutoFill settings",
   "autofillCheckAgain": "Check again",
   "autofillStatusError": "Could not check AutoFill. Try again.",
-  "autofillManualIos": "Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.",
+  "autofillManualIos": "Open Settings → General → AutoFill & Passwords, turn on password autofill and select Palladin. On iOS 17 or earlier, look under Passwords → Password Options.",
   "autofillChromeHint": "In Chrome, you may also need Settings → Autofill services → Autofill using another service, then restart Chrome.",
   "autofillChromeSetupTitle": "Set up AutoFill in Chrome",
   "autofillChromeSetupHint": "Palladin is selected in Android. In Chrome, choose Autofill using another service, then confirm and restart Chrome.",
@@ -3824,5 +3824,18 @@
   "entrySignInMethodLinkedEntryNone": "None",
   "entrySignInMethodLinkedEntryLoading": "Looking for matching entries…",
   "entrySignInMethodLinkedEntryEmpty": "No agent-discoverable entry for this provider",
-  "entrySignInMethodAgentHint": "Agents can see the provider and the linked entry, never the account."
+  "entrySignInMethodAgentHint": "Agents can see the provider and the linked entry, never the account.",
+  "autofillGuideTitle": "How to use Autofill",
+  "autofillGuideSubtitle": "Set up Palladin and fill saved logins.",
+  "autofillGuideEnableTitle": "1. Enable Palladin",
+  "autofillGuideIosEnable": "Open iPhone Settings → General → AutoFill & Passwords. Turn on password autofill and select Palladin. On iOS 17 or earlier, look under Passwords → Password Options.",
+  "autofillGuideAndroidEnable": "In Android Settings, search for “Autofill” and choose Palladin as the preferred password/autofill service. Names vary by device. You can also open these settings from the Autofill card in Palladin → Settings → Security.",
+  "autofillGuideChrome": "Using Chrome? In Chrome Settings → Autofill services, select Autofill using another service and restart Chrome when prompted.",
+  "autofillGuidePrepareTitle": "2. Prepare your saved login",
+  "autofillGuidePrepare": "Sign in to Palladin, unlock it and let your Entries sync. Save a Credential with a username, password and the exact website address you use to sign in. Set up Face ID, Touch ID or a fingerprint on your device: Autofill requires biometric authorization.",
+  "autofillGuideUseTitle": "3. Fill a login",
+  "autofillGuideIosUse": "In Safari or a supported app, tap a username or password field. Choose the suggested login, or open the password/key menu and choose Palladin. Confirm with Face ID or Touch ID and select your saved login if asked. Check the filled fields, then sign in.",
+  "autofillGuideAndroidUse": "In Chrome or a supported app, tap a username or password field. Tap the Palladin suggestion above the keyboard or in the field menu. Confirm with your device biometrics and select a login if asked. Check the filled fields, then sign in.",
+  "autofillGuideHelpTitle": "No suggestion?",
+  "autofillGuideHelp": "Open and unlock Palladin again to refresh your Entries. Check that the saved website matches the login host exactly; subdomains can differ. Some apps and forms do not support Autofill. If Palladin warns that the destination is unverified, check the app and selected login yourself before choosing Fill once, or cancel."
 }

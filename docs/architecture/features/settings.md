@@ -116,3 +116,9 @@ sheet and settle on `/settings/security` when dismissed.
 General Save, Team member/invitation Save and editable Permission Role Save use
 `AppActionFooter` for one shared bottom safe-area contract. Their hosts leave
 bottom inset ownership to the footer, so system navigation cannot cover actions.
+
+Security also exposes the persistent **How to use Autofill** action for all account
+types. Its nested `AppRoutes.autofillGuide` destination is a presentation-only,
+platform-specific EN/PL tutorial; see [AutoFill](autofill.md#in-app-tutorial).
+The provider activation card and its OS settings actions remain unchanged apart
+from updating the manual iOS settings path to include iOS 18+.
