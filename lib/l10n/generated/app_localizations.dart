@@ -8801,7 +8801,7 @@ abstract class AppLocalizations {
   /// No description provided for @autofillManualIos.
   ///
   /// In en, this message translates to:
-  /// **'Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.'**
+  /// **'Open Settings → General → AutoFill & Passwords, turn on password autofill and select Palladin. On iOS 17 or earlier, look under Passwords → Password Options.'**
   String get autofillManualIos;
 
   /// No description provided for @autofillChromeHint.
@@ -9019,6 +9019,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Agents can see the provider and the linked entry, never the account.'**
   String get entrySignInMethodAgentHint;
+
+  /// No description provided for @autofillGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to use Autofill'**
+  String get autofillGuideTitle;
+
+  /// No description provided for @autofillGuideSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up Palladin and fill saved logins.'**
+  String get autofillGuideSubtitle;
+
+  /// No description provided for @autofillGuideEnableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Enable Palladin'**
+  String get autofillGuideEnableTitle;
+
+  /// No description provided for @autofillGuideIosEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Open iPhone Settings → General → AutoFill & Passwords. Turn on password autofill and select Palladin. On iOS 17 or earlier, look under Passwords → Password Options.'**
+  String get autofillGuideIosEnable;
+
+  /// No description provided for @autofillGuideAndroidEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'In Android Settings, search for “Autofill” and choose Palladin as the preferred password/autofill service. Names vary by device. You can also open these settings from the Autofill card in Palladin → Settings → Security.'**
+  String get autofillGuideAndroidEnable;
+
+  /// No description provided for @autofillGuideChrome.
+  ///
+  /// In en, this message translates to:
+  /// **'Using Chrome? In Chrome Settings → Autofill services, select Autofill using another service and restart Chrome when prompted.'**
+  String get autofillGuideChrome;
+
+  /// No description provided for @autofillGuidePrepareTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Prepare your saved login'**
+  String get autofillGuidePrepareTitle;
+
+  /// No description provided for @autofillGuidePrepare.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to Palladin, unlock it and let your Entries sync. Save a Credential with a username, password and the exact website address you use to sign in. Set up Face ID, Touch ID or a fingerprint on your device: Autofill requires biometric authorization.'**
+  String get autofillGuidePrepare;
+
+  /// No description provided for @autofillGuideUseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'3. Fill a login'**
+  String get autofillGuideUseTitle;
+
+  /// No description provided for @autofillGuideIosUse.
+  ///
+  /// In en, this message translates to:
+  /// **'In Safari or a supported app, tap a username or password field. Choose the suggested login, or open the password/key menu and choose Palladin. Confirm with Face ID or Touch ID and select your saved login if asked. Check the filled fields, then sign in.'**
+  String get autofillGuideIosUse;
+
+  /// No description provided for @autofillGuideAndroidUse.
+  ///
+  /// In en, this message translates to:
+  /// **'In Chrome or a supported app, tap a username or password field. Tap the Palladin suggestion above the keyboard or in the field menu. Confirm with your device biometrics and select a login if asked. Check the filled fields, then sign in.'**
+  String get autofillGuideAndroidUse;
+
+  /// No description provided for @autofillGuideHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No suggestion?'**
+  String get autofillGuideHelpTitle;
+
+  /// No description provided for @autofillGuideHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open and unlock Palladin again to refresh your Entries. Check that the saved website matches the login host exactly; subdomains can differ. Some apps and forms do not support Autofill. If Palladin warns that the destination is unverified, check the app and selected login yourself before choosing Fill once, or cancel.'**
+  String get autofillGuideHelp;
 }
 
 class _AppLocalizationsDelegate

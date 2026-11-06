@@ -4978,7 +4978,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autofillManualIos =>
-      'Open Settings → Passwords → Password Options (AutoFill Passwords on older iOS), turn on AutoFill and select Palladin.';
+      'Open Settings → General → AutoFill & Passwords, turn on password autofill and select Palladin. On iOS 17 or earlier, look under Passwords → Password Options.';
 
   @override
   String get autofillChromeHint =>
@@ -5102,4 +5102,50 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get entrySignInMethodAgentHint =>
       'Agents can see the provider and the linked entry, never the account.';
+
+  @override
+  String get autofillGuideTitle => 'How to use Autofill';
+
+  @override
+  String get autofillGuideSubtitle => 'Set up Palladin and fill saved logins.';
+
+  @override
+  String get autofillGuideEnableTitle => '1. Enable Palladin';
+
+  @override
+  String get autofillGuideIosEnable =>
+      'Open iPhone Settings → General → AutoFill & Passwords. Turn on password autofill and select Palladin. On iOS 17 or earlier, look under Passwords → Password Options.';
+
+  @override
+  String get autofillGuideAndroidEnable =>
+      'In Android Settings, search for “Autofill” and choose Palladin as the preferred password/autofill service. Names vary by device. You can also open these settings from the Autofill card in Palladin → Settings → Security.';
+
+  @override
+  String get autofillGuideChrome =>
+      'Using Chrome? In Chrome Settings → Autofill services, select Autofill using another service and restart Chrome when prompted.';
+
+  @override
+  String get autofillGuidePrepareTitle => '2. Prepare your saved login';
+
+  @override
+  String get autofillGuidePrepare =>
+      'Sign in to Palladin, unlock it and let your Entries sync. Save a Credential with a username, password and the exact website address you use to sign in. Set up Face ID, Touch ID or a fingerprint on your device: Autofill requires biometric authorization.';
+
+  @override
+  String get autofillGuideUseTitle => '3. Fill a login';
+
+  @override
+  String get autofillGuideIosUse =>
+      'In Safari or a supported app, tap a username or password field. Choose the suggested login, or open the password/key menu and choose Palladin. Confirm with Face ID or Touch ID and select your saved login if asked. Check the filled fields, then sign in.';
+
+  @override
+  String get autofillGuideAndroidUse =>
+      'In Chrome or a supported app, tap a username or password field. Tap the Palladin suggestion above the keyboard or in the field menu. Confirm with your device biometrics and select a login if asked. Check the filled fields, then sign in.';
+
+  @override
+  String get autofillGuideHelpTitle => 'No suggestion?';
+
+  @override
+  String get autofillGuideHelp =>
+      'Open and unlock Palladin again to refresh your Entries. Check that the saved website matches the login host exactly; subdomains can differ. Some apps and forms do not support Autofill. If Palladin warns that the destination is unverified, check the app and selected login yourself before choosing Fill once, or cancel.';
 }

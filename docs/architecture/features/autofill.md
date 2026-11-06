@@ -739,3 +739,32 @@ password (for example OAuth-only accounts) remain excluded from the native
 AutoFill cache exactly as before (`AutofillCacheService` skips them and
 `AutofillRecord` rejects them), and AutoFill saving still requires a non-empty
 password.
+
+## In-app tutorial
+
+Settings → Security → **How to use Autofill** opens the localized EN/PL guide at
+`/settings/security/autofill-guide`. It remains available whether the provider is
+enabled or disabled and for password and OAuth accounts. The scrolling page uses
+`AppScreen`, `AppBarTitle` and `SetupCard`, suppresses the shell FAB and selects
+instructions for the current platform without reading credentials or native state.
+
+The three steps explain system provider selection, preparing/synchronizing a saved
+Credential with an exact login host, and choosing a login with biometric approval.
+iOS copy includes the iOS 18+ General → AutoFill & Passwords path and older Passwords
+→ Password Options path. Android includes device-dependent settings search and
+Chrome's separate third-party service choice/restart. Troubleshooting explains
+exact-host matching, unsupported forms and the existing unverified-destination
+warning/Fill once decision. It does not promise universal app/browser support.
+The existing Security setup card remains responsible for opening OS settings.
+
+The guide describes the committed provider behavior, not the separately developed
+shared-ciphertext replacement. It adds no native/crypto/cache changes, new analytics,
+persistent completion flag or automatic onboarding interruption.
+
+Copy references (checked 2026-11-06): [Apple iPhone Autofill](https://support.apple.com/en-lamr/guide/iphone/iphf9219d8c9/ios),
+[older iOS settings](https://support.apple.com/en-ge/102441),
+[Polish settings names](https://support.apple.com/pl-pl/120758),
+[Chrome Autofill](https://support.google.com/chrome/answer/142893).
+Widget coverage checks Security navigation/back and EN/PL on both platforms in
+light/dark mode at 320dp and 2× text, including scrollable semantic content.
+Physical VoiceOver/TalkBack and system settings/provider handoff remain device QA.
