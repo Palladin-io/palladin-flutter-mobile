@@ -22,16 +22,21 @@ import '../../../public_asset_catalog/domain/services/website_icon_service.dart'
 import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
+import '../../data/services/sign_in_candidate_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/sign_in_method.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../cubit/create_entry_cubit.dart';
+import '../cubit/vault_list_cubit.dart';
 import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_tile.dart';
 import '../widgets/entry_notes_section.dart';
+import '../widgets/sign_in_method_sheet.dart';
+import '../widgets/sign_in_methods_section.dart';
 import '../widgets/script_editor_field.dart';
 import '../widgets/script_parameters_editor.dart';
 import '../widgets/script_refs_editor.dart';
@@ -172,8 +177,66 @@ class _AddEntryViewState extends State<_AddEntryView> {
   List<ScriptParameterDefinition> _scriptParameters = const [];
   bool _returnResultToAgent = true;
 
-  /// Every custom field in display order — 2FA first, then the rest.
-  List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
+  List<CustomField> _methodFields = const [];
+  final Map<String, bool> _signInDiscovery = {};
+  List<CustomField> get _allCustomFields => [
+    ..._totpFields,
+    ..._customFields,
+    if (_type == EntryType.credential) ..._methodFields,
+  ];
+
+  Future<List<SignInProviderCandidate>> _signInCandidates(
+    SignInProvider provider,
+  ) async {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) return const [];
+    final vaultIds = getIt.isRegistered<VaultListCubit>()
+        ? switch (getIt<VaultListCubit>().state) {
+            VaultListLoaded(:final vaults) => [
+              for (final vault in vaults) vault.id,
+            ],
+            _ => [widget.vaultId],
+          }
+        : [widget.vaultId];
+    final key = Uint8List.fromList(auth.privateKey!);
+    try {
+      return await getIt<SignInCandidateService>().candidates(
+        provider: provider,
+        vaultIds: vaultIds,
+        memberPrivateKey: key,
+      );
+    } finally {
+      key.fillRange(0, key.length, 0);
+    }
+  }
+
+  Future<void> _editMethod(SignInMethodRecognized? current) async {
+    final choice = await SignInMethodSheet.show(
+      context,
+      initial: current?.binding,
+      canRemove: current != null,
+      discovery: _signInDiscovery[current?.fieldId] ?? false,
+      loadCandidates: getIt.isRegistered<SignInCandidateService>()
+          ? _signInCandidates
+          : null,
+    );
+    if (choice == null || !mounted) return;
+    final id = current?.fieldId ?? CustomField.newId();
+    setState(() {
+      _methodFields = SignInMethodField.update(
+        _methodFields,
+        fieldId: current?.fieldId,
+        binding: choice.binding,
+        label: AppLocalizations.of(context)!.entrySignInMethodLabel,
+        newId: id,
+      );
+      if (choice.binding == null) {
+        _signInDiscovery.remove(id);
+      } else {
+        _signInDiscovery[id] = choice.discovery;
+      }
+    });
+  }
 
   /// Candidate reference targets for a Script entry, loaded lazily the
   /// first time the user selects the Script type. `null` = not loaded yet.
@@ -265,6 +328,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         value: _valueController.text,
         username: _usernameController.text,
         password: _passwordController.text,
+        fields: _allCustomFields,
         script: _scriptController.text,
         description: _descriptionController.text,
         refs: _refs,
@@ -745,6 +809,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         agentFields: CustomField.agentFieldsFrom(_allCustomFields),
+        signInDiscovery: Map<String, bool>.of(_signInDiscovery),
         exposeUsername: _exposeUsername,
         exposeDomain: _exposeDomain,
         discoverDescription: _discoverDescription,
@@ -951,6 +1016,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
                             .trim()
                             .isNotEmpty,
                       ),
+                      if (_type == EntryType.credential) ...[
+                        const SizedBox(height: AppSpacing.section),
+                        SignInMethodsSection(
+                          fields: _methodFields,
+                          onEdit: _editMethod,
+                        ),
+                      ],
                       if (state is CreateEntryError) ...[
                         const SizedBox(height: AppSpacing.fieldGap),
                         Text(

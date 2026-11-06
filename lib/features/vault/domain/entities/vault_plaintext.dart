@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'custom_field.dart';
 import 'sign_in_method.dart';
 
 /// A malformed or unsupported Vault v2 plaintext document.
@@ -651,8 +652,12 @@ final class MemberSecret {
     final field = content.customFields.singleWhere(
       (value) => value.fieldId == id,
     );
+    if (field.kind == SignInMethodField.collectionType &&
+        !SignInMethodField.validMethodId(field.fieldId)) {
+      return {AgentFieldAccess.never};
+    }
     return switch (field.kind) {
-      SignInMethodField.type => {
+      SignInMethodField.type || SignInMethodField.collectionType => {
         AgentFieldAccess.never,
         if (SignInMethodField.allowsDiscovery(
           credential: entryType == VaultEntryType.credential,
@@ -758,6 +763,32 @@ abstract final class VaultPlaintextProjector {
   /// Ambiguous methods are never exposed and the account is never included.
   static ProjectedAgentField? _signInDiscovery(MemberSecret secret) {
     if (secret.entryType != VaultEntryType.credential) return null;
+    if (secret.content.customFields.any(
+      (field) => field.kind == SignInMethodField.collectionType,
+    )) {
+      final value = SignInMethodField.collectionDiscovery(
+        [
+          for (final field in secret.content.customFields)
+            CustomField(
+              id: field.fieldId,
+              label: '',
+              type: CustomFieldType.unknown,
+              rawType: field.kind,
+              value: field.value,
+            ),
+        ],
+        {
+          for (final access in secret.agentFieldAccess.entries)
+            if (access.value == AgentFieldAccess.discovery) access.key,
+        },
+      );
+      return value == null
+          ? null
+          : ProjectedAgentField(
+              id: SignInMethodField.collectionDiscoveryFieldId,
+              value: value,
+            );
+    }
     final discoverable = secret.content.customFields
         .where(
           (field) =>

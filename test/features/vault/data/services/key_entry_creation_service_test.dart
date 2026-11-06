@@ -514,14 +514,33 @@ void main() {
         icon: '',
         content: {
           'type': 'CREDENTIAL',
-          'username': 'operator',
-          'password': 'secret',
+          'username': '',
+          'password': '',
+          'fields': [
+            {
+              'id': 'ABCDEF12-3456-4789-ABCD-123456789ABC',
+              'label': 'Google',
+              'type': 'palladin.signin.v2',
+              'value': {
+                'provider': 'google',
+                'account': 'synthetic@example.test',
+                'entry': null,
+              },
+            },
+            {
+              'id': '44444455-6677-4889-9aab-ccddeeff0011',
+              'label': 'Future',
+              'type': 'future.v9',
+              'value': {'opaque': true},
+            },
+          ],
           'url': 'https://mail.example.com/login',
         },
         memberPrivateKey: Uint8List(32),
         exposeUsername: true,
         exposeDomain: false,
         discoverDescription: true,
+        signInDiscovery: {'ABCDEF12-3456-4789-ABCD-123456789ABC': true},
       );
 
       final secret =
@@ -542,6 +561,24 @@ void main() {
               ).captured.single
               as MemberSecret;
 
+      expect(
+        secret.content.customFields.first.fieldId,
+        'custom:ABCDEF12-3456-4789-ABCD-123456789ABC',
+      );
+      expect(secret.content.customFields.last.value, {'opaque': true});
+      expect(
+        secret.agentFieldAccess['custom:ABCDEF12-3456-4789-ABCD-123456789ABC'],
+        AgentFieldAccess.discovery,
+      );
+      expect(
+        secret.agentFieldAccess['custom:44444455-6677-4889-9aab-ccddeeff0011'],
+        AgentFieldAccess.never,
+      );
+      final discovery = VaultPlaintextProjector.agentDiscovery(
+        secret,
+      ).toString();
+      expect(discovery, contains('signInMethods'));
+      expect(discovery, isNot(contains('synthetic@example.test')));
       expect(secret.agentFieldAccess['agentLabel'], AgentFieldAccess.discovery);
       expect(
         secret.agentFieldAccess['description'],

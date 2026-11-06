@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/crypto/vault_session_store.dart';
 import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/sign_in_method.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../datasources/entry_remote_datasource.dart';
@@ -68,6 +69,7 @@ final class KeyEntryCreationService {
     required bool exposeUsername,
     required bool exposeDomain,
     bool discoverDescription = false,
+    Map<String, bool> signInDiscovery = const {},
     bool Function()? isOperationCurrent,
     Future<bool> Function()? validateOperation,
   }) => _create(
@@ -78,6 +80,7 @@ final class KeyEntryCreationService {
     content: content,
     memberPrivateKey: memberPrivateKey,
     type: EntryType.credential,
+    signInDiscovery: signInDiscovery,
     exposeUsername: exposeUsername,
     exposeDomain: exposeDomain,
     discoverDescription: discoverDescription,
@@ -138,6 +141,7 @@ final class KeyEntryCreationService {
     required bool exposeUsername,
     required bool exposeDomain,
     required bool discoverDescription,
+    Map<String, bool> signInDiscovery = const {},
     bool Function()? isOperationCurrent,
     Future<bool> Function()? validateOperation,
   }) async {
@@ -180,6 +184,7 @@ final class KeyEntryCreationService {
         description,
         icon,
         content,
+        signInDiscovery: signInDiscovery,
         exposeUsername: exposeUsername,
         exposeDomain: exposeDomain,
         discoverDescription: discoverDescription,
@@ -298,6 +303,7 @@ final class KeyEntryCreationService {
     required bool exposeUsername,
     required bool exposeDomain,
     required bool discoverDescription,
+    Map<String, bool> signInDiscovery = const {},
   }) {
     final custom = (raw['fields'] as List? ?? const [])
         .whereType<Map>()
@@ -357,6 +363,17 @@ final class KeyEntryCreationService {
       exposeUsername: exposeUsername,
       exposeDomain: exposeDomain,
     );
+    for (final field in custom) {
+      if (field.kind == SignInMethodField.collectionType &&
+          SignInMethodField.allowsDiscovery(
+            credential: type == EntryType.credential,
+            value: field.value,
+          )) {
+        fields[field.fieldId] = signInDiscovery[field.id] == true
+            ? AgentFieldAccess.discovery
+            : AgentFieldAccess.never;
+      }
+    }
     return MemberSecret(
       entryType: VaultEntryType.values[type.index],
       memberLabel: label,

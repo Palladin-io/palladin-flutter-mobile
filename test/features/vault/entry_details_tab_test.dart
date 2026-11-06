@@ -7,6 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/core/widgets/app_toggle.dart';
+import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_widgets.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
@@ -66,6 +68,9 @@ void main() {
     WidgetTester tester, {
     required EntryEntity entry,
     required Map<String, dynamic> payload,
+    Map<String, String> fieldAccess = const {},
+    String? savedAgentLabel,
+    EntryEditController? editController,
   }) async {
     final canonical = _MockCanonicalService();
     when(
@@ -79,7 +84,7 @@ void main() {
         payload: Map<String, dynamic>.from(payload),
         secret: {
           'schemaVersion': 1,
-          'agentLabel': entry.label,
+          'agentLabel': savedAgentLabel ?? entry.label,
           'agentVisibilityPolicy': {
             'discoverable': true,
             'fields': {
@@ -88,6 +93,7 @@ void main() {
                 'username': 'discovery',
                 'urlDomain': 'never',
               },
+              ...fieldAccess,
             },
           },
         },
@@ -116,6 +122,7 @@ void main() {
             ],
             child: EntryDetailsTab(
               entry: entry,
+              editController: editController,
               onUpdated: (_) {},
               onDeleted: (_) {},
             ),
@@ -737,7 +744,10 @@ void main() {
       'fields': fields,
     };
 
-    Map<String, dynamic> binding(Object? value, {String id = 'b1'}) => {
+    Map<String, dynamic> binding(
+      Object? value, {
+      String id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    }) => {
       'id': id,
       'label': 'Sign-in method',
       'type': 'palladin.signin.v1',
@@ -753,8 +763,414 @@ void main() {
           )
           .map((text) => text.data)
           .whereType<String>();
-      return texts.join();
+      return texts.where((text) => text != 'Sign-in methods').join(' · ');
     }
+
+    const legacyId = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
+    const ordinaryId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const opaqueId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const collectionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const totpId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    final interleaved = <Map<String, dynamic>>[
+      {
+        'id': legacyId,
+        'label': 'Legacy',
+        'type': 'palladin.signin.v1',
+        'value': {
+          'provider': 'google',
+          'account': 'legacy@example.test',
+          'entry': null,
+        },
+      },
+      {
+        'id': ordinaryId,
+        'label': 'Team',
+        'type': 'text',
+        'value': 'Operations',
+      },
+      {
+        'id': opaqueId,
+        'label': 'Opaque',
+        'type': 'future.v9',
+        'value': {
+          'keep': ['byte', 'equivalent'],
+        },
+      },
+      {
+        'id': collectionId,
+        'label': 'Github',
+        'type': 'palladin.signin.v2',
+        'value': {'provider': 'github', 'account': 'octo', 'entry': null},
+      },
+      {
+        'id': totpId,
+        'label': 'Authenticator',
+        'type': 'totp',
+        'value': {
+          'secret': 'JBSWY3DPEHPK3PXP',
+          'algorithm': 'SHA1',
+          'digits': 6,
+          'period': 30,
+          'issuer': null,
+          'account': null,
+        },
+      },
+    ];
+    final interleavedAccess = <String, String>{
+      legacyId: 'never',
+      ordinaryId: 'onGrantValue',
+      opaqueId: 'never',
+      collectionId: 'discovery',
+      totpId: 'never',
+    };
+
+    List<
+      ({
+        Map<String, dynamic> content,
+        AgentVisibilityPolicy? policy,
+        String? agentLabel,
+      })
+    >
+    recordSaves(_MockCanonicalService canonical) {
+      final saves =
+          <
+            ({
+              Map<String, dynamic> content,
+              AgentVisibilityPolicy? policy,
+              String? agentLabel,
+            })
+          >[];
+      when(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+          agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+          agentLabel: any(named: 'agentLabel'),
+        ),
+      ).thenAnswer((invocation) async {
+        saves.add((
+          content: Map<String, dynamic>.from(
+            invocation.namedArguments[#content] as Map,
+          ),
+          policy:
+              invocation.namedArguments[#agentVisibilityPolicy]
+                  as AgentVisibilityPolicy?,
+          agentLabel: invocation.namedArguments[#agentLabel] as String?,
+        ));
+        return credential;
+      });
+      return saves;
+    }
+
+    Future<void> openMethod(WidgetTester tester, String id) async {
+      final edit = find.byKey(ValueKey('sign-in-method-edit-$id'));
+      await tester.ensureVisible(edit);
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> saveSheet(WidgetTester tester) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text(l10n.entrySaveAction),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> saveForm(WidgetTester tester) async {
+      final footer = find.byKey(const ValueKey('entry-save-footer'));
+      await tester.tap(
+        find.descendant(of: footer, matching: find.byType(EntrySaveButton)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'canceling method visibility restores saved policy before an unrelated save',
+      (tester) async {
+        final controller = EntryEditController();
+        addTearDown(controller.dispose);
+        final harness = await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith([interleaved.first]),
+          fieldAccess: {legacyId: 'never'},
+          savedAgentLabel: 'Saved agent label',
+          editController: controller,
+        );
+        final saves = recordSaves(harness.canonical);
+        await enterEdit(tester);
+        await openMethod(tester, legacyId);
+        await tester.tap(find.byType(AppToggle));
+        await saveSheet(tester);
+        controller.requestCancel();
+        await tester.pumpAndSettle();
+        await enterEdit(tester);
+        await tester.enterText(
+          find.byType(TextField).first,
+          'Unrelated rename',
+        );
+        await saveForm(tester);
+        expect(saves, hasLength(1));
+        expect(saves.single.policy?.fields[legacyId], AgentFieldAccess.never);
+        expect(saves.single.agentLabel, 'Saved agent label');
+        expect(
+          (saves.single.content['fields'] as List).single,
+          interleaved.first,
+        );
+      },
+    );
+
+    testWidgets(
+      'unrelated form save retains original interleaved custom field order',
+      (tester) async {
+        final harness = await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith(interleaved),
+          fieldAccess: interleavedAccess,
+        );
+        final saves = recordSaves(harness.canonical);
+        await enterEdit(tester);
+        await tester.enterText(
+          find.byType(TextField).first,
+          'Unrelated rename',
+        );
+        await saveForm(tester);
+        expect(saves, hasLength(1));
+        expect(saves.single.content['fields'], interleaved);
+        for (final access in interleavedAccess.entries) {
+          expect(
+            saves.single.policy?.fields[access.key]?.wireName,
+            access.value,
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'explicit ordinary field reordering keeps opaque and method slots anchored',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        const otherId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+        final other = {
+          'id': otherId,
+          'label': 'Second',
+          'type': 'text',
+          'value': 'Second value',
+        };
+        final harness = await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith([...interleaved, other]),
+          fieldAccess: {...interleavedAccess, otherId: 'never'},
+        );
+        final saves = recordSaves(harness.canonical);
+        await enterEdit(tester);
+        final row = find
+            .ancestor(
+              of: find.widgetWithText(TextField, 'Operations'),
+              matching: find.byType(Row),
+            )
+            .first;
+        final menu = find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.more_vert),
+        );
+        await tester.ensureVisible(menu);
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+        await tester.tap(find.text(l10n.entryFieldMoveDown));
+        await tester.pumpAndSettle();
+        await saveForm(tester);
+        final fields = (saves.single.content['fields'] as List).cast<Map>();
+        expect(fields.map((field) => field['id']), [
+          legacyId,
+          otherId,
+          opaqueId,
+          collectionId,
+          totpId,
+          ordinaryId,
+        ]);
+        expect(fields[1], other);
+        expect(fields[2], interleaved[2]);
+        expect(fields[3], interleaved[3]);
+      },
+    );
+
+    testWidgets(
+      'new ordinary field Move up survives save with anchored neighbors',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final harness = await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith(interleaved),
+          fieldAccess: interleavedAccess,
+        );
+        final saves = recordSaves(harness.canonical);
+        final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+        await enterEdit(tester);
+        final add = find.text(l10n.entryAddFieldAction);
+        await tester.ensureVisible(add);
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.entryFieldTypeText));
+        await tester.pumpAndSettle();
+        final name = find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is TextField &&
+                  widget.decoration?.hintText == l10n.entryFieldNameLabel,
+            )
+            .last;
+        final value = find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is TextField &&
+                  widget.decoration?.hintText == l10n.entryFieldValueLabel,
+            )
+            .last;
+        await tester.enterText(name, 'New field B');
+        await tester.enterText(value, 'New value B');
+        final row = find
+            .ancestor(
+              of: find.widgetWithText(TextField, 'New value B'),
+              matching: find.byType(Row),
+            )
+            .first;
+        final menu = find.descendant(
+          of: row,
+          matching: find.byIcon(Icons.more_vert),
+        );
+        await tester.ensureVisible(menu);
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.entryFieldMoveUp));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.widgetWithText(TextField, 'New value B')).dy,
+          lessThan(
+            tester.getTopLeft(find.widgetWithText(TextField, 'Operations')).dy,
+          ),
+        );
+        await saveForm(tester);
+        final fields = (saves.single.content['fields'] as List).cast<Map>();
+        expect(fields.map((field) => field['label']), [
+          'Legacy',
+          'New field B',
+          'Opaque',
+          'Github',
+          'Authenticator',
+          'Team',
+        ]);
+        expect(fields[0], interleaved[0]);
+        expect(fields[2], interleaved[2]);
+        expect(fields[3], interleaved[3]);
+        expect(fields[4], interleaved[4]);
+        expect(fields[5], interleaved[1]);
+        expect(fields[1]['value'], 'New value B');
+        expect(
+          fields[1]['id'],
+          isNot(isIn(interleaved.map((field) => field['id']))),
+        );
+        for (final access in interleavedAccess.entries) {
+          expect(
+            saves.single.policy?.fields[access.key]?.wireName,
+            access.value,
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'method edit delete and add preserve neighboring positions and append the new ID',
+      (tester) async {
+        final harness = await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith(interleaved),
+          fieldAccess: interleavedAccess,
+        );
+        final saves = recordSaves(harness.canonical);
+        await enterEdit(tester);
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Operations'),
+          'Updated operations',
+        );
+        await openMethod(tester, legacyId);
+        await tester.enterText(
+          find.descendant(
+            of: find.byKey(const ValueKey('sign-in-method-account')),
+            matching: find.byType(TextField),
+          ),
+          'edited@example.test',
+        );
+        await saveSheet(tester);
+        await openMethod(tester, collectionId);
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('sign-in-method-remove')),
+        );
+        await tester.tap(find.byKey(const ValueKey('sign-in-method-remove')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Apple').last);
+        await tester.pumpAndSettle();
+        await saveSheet(tester);
+        await saveForm(tester);
+        expect(saves, hasLength(1));
+        final fields = (saves.single.content['fields'] as List).cast<Map>();
+        expect(fields.take(4).map((field) => field['id']), [
+          legacyId,
+          ordinaryId,
+          opaqueId,
+          totpId,
+        ]);
+        expect(fields.first, {
+          ...interleaved.first,
+          'type': 'palladin.signin.v2',
+          'value': {
+            'provider': 'google',
+            'account': 'edited@example.test',
+            'entry': null,
+          },
+        });
+        expect(fields[1], {...interleaved[1], 'value': 'Updated operations'});
+        expect(fields[2], interleaved[2]);
+        expect(fields[3], interleaved[4]);
+        expect(
+          fields.last['id'],
+          isNot(isIn([legacyId, ordinaryId, opaqueId, collectionId, totpId])),
+        );
+        expect(fields.last['value'], {
+          'provider': 'apple',
+          'account': null,
+          'entry': null,
+        });
+        expect(saves.single.policy?.fields[legacyId], AgentFieldAccess.never);
+        expect(saves.single.policy?.fields[opaqueId], AgentFieldAccess.never);
+        expect(saves.single.policy?.fields.containsKey(collectionId), isFalse);
+      },
+    );
 
     testWidgets('shows a recognized provider and account', (tester) async {
       await pumpTab(
@@ -767,6 +1183,48 @@ void main() {
       expect(await rowText(tester), 'GitHub · octo');
     });
 
+    testWidgets(
+      'OAuth-only edit enables Save and last draft removal restores validation',
+      (tester) async {
+        await pumpTab(
+          tester,
+          entry: credential,
+          payload: payloadWith([
+            binding({
+              'provider': 'google',
+              'account': 'synthetic@example.test',
+              'entry': null,
+            }),
+          ]),
+        );
+        await enterEdit(tester);
+        expect(
+          tester
+              .widget<EntrySaveButton>(find.byType(EntrySaveButton))
+              .onPressed,
+          isNotNull,
+        );
+        final edit = find.byKey(
+          const ValueKey(
+            'sign-in-method-edit-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          ),
+        );
+        await tester.ensureVisible(edit);
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        final remove = find.byKey(const ValueKey('sign-in-method-remove'));
+        await tester.ensureVisible(remove);
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<EntrySaveButton>(find.byType(EntrySaveButton))
+              .onPressed,
+          isNull,
+        );
+      },
+    );
+
     testWidgets('shows a missing account explicitly', (tester) async {
       await pumpTab(
         tester,
@@ -775,11 +1233,10 @@ void main() {
           binding({'provider': 'apple', 'account': null, 'entry': null}),
         ]),
       );
-      expect(await rowText(tester), 'Apple · Account not specified');
+      expect(await rowText(tester), 'Apple');
     });
 
     testWidgets('unrecognized bindings stay neutral', (tester) async {
-      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
       await pumpTab(
         tester,
         entry: credential,
@@ -787,7 +1244,7 @@ void main() {
           binding({'provider': 'twitter', 'account': 'x'}),
         ]),
       );
-      expect(await rowText(tester), l10n.entrySignInMethodUnrecognized);
+      expect(await rowText(tester), '');
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('entry-sign-in-method')),
@@ -799,7 +1256,6 @@ void main() {
     });
 
     testWidgets('ambiguous bindings stay neutral', (tester) async {
-      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
       await pumpTab(
         tester,
         entry: credential,
@@ -809,10 +1265,10 @@ void main() {
             'provider': 'github',
             'account': null,
             'entry': null,
-          }, id: 'b2'),
+          }, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
         ]),
       );
-      expect(await rowText(tester), l10n.entrySignInMethodAmbiguous);
+      expect(await rowText(tester), 'Google · GitHub');
     });
 
     testWidgets('choosing a provider saves through the canonical update', (
@@ -824,7 +1280,7 @@ void main() {
         entry: credential,
         payload: payloadWith(const []),
       );
-      expect(await rowText(tester), l10n.entrySignInMethodNotSet);
+      expect(await rowText(tester), '');
       when(
         () => canonical.reveal(
           expected: any(named: 'expected'),
@@ -860,7 +1316,7 @@ void main() {
         ),
       ).thenAnswer((_) async => credential);
 
-      await tester.tap(find.byKey(const ValueKey('entry-sign-in-method-edit')));
+      await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
       await tester.pumpAndSettle();
       expect(find.text(l10n.entrySignInMethodRemove), findsNothing);
       await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
@@ -894,7 +1350,7 @@ void main() {
               ).captured.single
               as Map<String, dynamic>;
       final field = (content['fields'] as List).single as Map;
-      expect(field['type'], 'palladin.signin.v1');
+      expect(field['type'], 'palladin.signin.v2');
       expect(field['label'], l10n.entrySignInMethodLabel);
       expect(field['value'], {
         'provider': 'microsoft',
@@ -951,7 +1407,7 @@ void main() {
         const CanonicalEntryDetailException(CanonicalEntryDetailError.network),
       );
 
-      await tester.tap(find.byKey(const ValueKey('entry-sign-in-method-edit')));
+      await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
       await tester.pumpAndSettle();
@@ -962,7 +1418,7 @@ void main() {
 
       expect(cubit.state, isA<EditEntryError>());
       expect(find.text('qa@example.test'), findsOneWidget);
-      expect(await rowText(tester), l10n.entrySignInMethodNotSet);
+      expect(await rowText(tester), '');
       expect(cubit.hasCanonicalSnapshot, isTrue);
       ScaffoldMessenger.of(
         tester.element(find.byType(EntryDetailsTab)),

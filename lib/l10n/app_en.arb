@@ -3824,5 +3824,8 @@
   "entrySignInMethodLinkedEntryNone": "None",
   "entrySignInMethodLinkedEntryLoading": "Looking for matching entries…",
   "entrySignInMethodLinkedEntryEmpty": "No agent-discoverable entry for this provider",
-  "entrySignInMethodAgentHint": "Agents can see the provider and the linked entry, never the account."
+  "entrySignInMethodAgentHint": "Agents can see the provider and the linked entry, never the account.",
+  "entrySignInMethodsLabel": "Sign-in methods",
+  "entrySignInMethodAdd": "Add sign-in method",
+  "entrySignInMethodVisibility": "Visible to agents"
 }

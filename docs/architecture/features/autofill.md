@@ -723,10 +723,10 @@ contracts retain their prior response/authority paths.
 
 A Credential may remember the external OAuth/social provider (Google, Apple,
 Microsoft, GitHub, Facebook) and provider account the user signs in with,
-stored as one `palladin.signin.v1` custom field inside the encrypted
-MemberSecret (see [vault](vault.md#federated-sign-in-method-binding)). Mobile
-supports only explicit management of that binding in Entry Details: choose,
-change, remember and remove it. It syncs with Web and the browser extension
+stored as independent `palladin.signin.v2` custom fields inside the encrypted
+MemberSecret, with untouched v1 values retained (see
+[vault](vault.md#federated-sign-in-methods)). Mobile supports explicit management
+in Add, Edit and Entry Details: choose, change, remember and remove a method. It syncs with Web and the browser extension
 through the ordinary encrypted Entry.
 
 System AutoFill does not read, suggest or fill this binding. iOS and Android

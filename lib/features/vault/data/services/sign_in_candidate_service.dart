@@ -44,7 +44,7 @@ class SignInCandidateService {
   Future<List<SignInProviderCandidate>> candidates({
     required SignInProvider provider,
     required List<String> vaultIds,
-    required SignInEntryReference exclude,
+    SignInEntryReference? exclude,
     required Uint8List memberPrivateKey,
   }) async {
     final matches = <(String, MemberIndexEntry)>[];
@@ -53,7 +53,8 @@ class SignInCandidateService {
         if (entry.state != MemberEntryState.active ||
             entry.corrupt ||
             entry.entryType != EntryType.credential.index ||
-            (vaultId == exclude.vaultId && entry.entryId == exclude.entryId) ||
+            (vaultId == exclude?.vaultId &&
+                entry.entryId == exclude?.entryId) ||
             !entry.autofillDomains.any((domain) => _owns(provider, domain))) {
           continue;
         }

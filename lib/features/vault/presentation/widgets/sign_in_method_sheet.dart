@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_dropdown_field.dart';
+import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/sheet_drag_handle.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -11,9 +12,11 @@ import '../../data/services/sign_in_candidate_service.dart';
 import '../../domain/entities/sign_in_method.dart';
 
 /// The user's explicit choice from [SignInMethodSheet]. A null [binding]
-/// removes every saved sign-in method.
+/// removes the selected saved sign-in method.
 final class SignInMethodChoice {
-  const SignInMethodChoice(this.binding);
+  const SignInMethodChoice(this.binding, {this.discovery = false});
+
+  final bool discovery;
 
   final SignInMethodBinding? binding;
 }
@@ -42,6 +45,7 @@ class SignInMethodSheet {
   static Future<SignInMethodChoice?> show(
     BuildContext context, {
     SignInMethodBinding? initial,
+    bool discovery = false,
     required bool canRemove,
     SignInCandidateLoader? loadCandidates,
   }) => showModalBottomSheet<SignInMethodChoice>(
@@ -50,6 +54,7 @@ class SignInMethodSheet {
     backgroundColor: AppColors.transparent,
     builder: (_) => _SignInMethodBody(
       initial: initial,
+      discovery: discovery,
       canRemove: canRemove,
       loadCandidates: loadCandidates,
     ),
@@ -59,11 +64,13 @@ class SignInMethodSheet {
 class _SignInMethodBody extends StatefulWidget {
   const _SignInMethodBody({
     required this.initial,
+    required this.discovery,
     required this.canRemove,
     required this.loadCandidates,
   });
 
   final SignInMethodBinding? initial;
+  final bool discovery;
   final bool canRemove;
   final SignInCandidateLoader? loadCandidates;
 
@@ -77,6 +84,7 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
     text: widget.initial?.account ?? '',
   );
   bool _accountTooLong = false;
+  late bool _discovery = widget.discovery;
   late SignInEntryReference? _entry = widget.initial?.entry;
   List<SignInProviderCandidate>? _candidates;
   int _candidateGeneration = 0;
@@ -151,6 +159,7 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
             account: account,
             entry: _entry,
           ),
+          discovery: _discovery,
         ),
       );
     } on SignInAccountException {
@@ -307,6 +316,25 @@ class _SignInMethodBodyState extends State<_SignInMethodBody> {
                     ),
                     feedbackVisible: _accountTooLong,
                     feedbackReserveSpace: false,
+                  ),
+                  const SizedBox(height: AppSpacing.fieldGap),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.entrySignInMethodVisibility,
+                          style: TextStyle(
+                            color: AppColors.onSurface(brightness),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      AppToggle(
+                        value: _discovery,
+                        onChanged: (value) =>
+                            setState(() => _discovery = value),
+                      ),
+                    ],
                   ),
                   if (widget.canRemove) ...[
                     const SizedBox(height: AppSpacing.fieldGap),

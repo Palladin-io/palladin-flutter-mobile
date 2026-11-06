@@ -153,14 +153,20 @@ final class AgentVisibilityPolicy {
     final rawId = id.startsWith('custom:') ? id.substring(7) : id;
     Map<dynamic, dynamic>? field;
     for (final candidate in raw) {
-      if (candidate is Map && candidate['id'] == rawId) {
+      if (candidate is Map &&
+          (candidate['id'] == rawId || candidate['id'] == id)) {
         field = candidate;
         break;
       }
     }
     if (field == null) return const {AgentFieldAccess.never};
     final fieldType = field['type'];
-    if (fieldType == SignInMethodField.type) {
+    if (fieldType == SignInMethodField.collectionType &&
+        !SignInMethodField.validMethodId(id)) {
+      return const {AgentFieldAccess.never};
+    }
+    if (fieldType == SignInMethodField.type ||
+        fieldType == SignInMethodField.collectionType) {
       return SignInMethodField.allowsDiscovery(
             credential: type == EntryType.credential,
             value: field['value'],
