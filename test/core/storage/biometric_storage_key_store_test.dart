@@ -48,33 +48,29 @@ void main() {
     cancelLabel: 'Cancel',
   );
 
-  test(
-    'request-owned native unlock is used without a second plugin prompt',
-    () async {
-      var prompts = 0;
-      store = BiometricStorageKeyStore(
-        markerStorage: const FlutterSecureStorage(),
-        activeRequestUnlock: () => (_) async {
-          prompts++;
-          return Uint8List.fromList(List.filled(32, 7));
-        },
-      );
-      final key = await store.unlockKey(prompt);
-      expect(key, hasLength(32));
-      expect(prompts, 1);
-      key!.fillRange(0, key.length, 0);
-    },
-  );
+  test('request lifecycle guard runs once without a second unlock', () async {
+    var prompts = 0;
+    store = BiometricStorageKeyStore(
+      markerStorage: const FlutterSecureStorage(),
+      guardRequestUnlock: (_) async {
+        prompts++;
+        return Uint8List.fromList(List.filled(32, 7));
+      },
+    );
+    final key = await store.unlockKey(prompt);
+    expect(key, hasLength(32));
+    expect(prompts, 1);
+    key!.fillRange(0, key.length, 0);
+  });
 
   test(
     'request cancellation never falls back to a normal unlock prompt',
     () async {
       store = BiometricStorageKeyStore(
         markerStorage: const FlutterSecureStorage(),
-        activeRequestUnlock: () =>
-            (_) async => throw const BiometricAuthException(
-              BiometricAuthFailureReason.canceled,
-            ),
+        guardRequestUnlock: (_) async => throw const BiometricAuthException(
+          BiometricAuthFailureReason.canceled,
+        ),
       );
       await expectLater(
         store.unlockKey(prompt),
@@ -94,7 +90,7 @@ void main() {
     final entered = Completer<void>();
     store = BiometricStorageKeyStore(
       markerStorage: const FlutterSecureStorage(),
-      activeRequestUnlock: () => (_) {
+      guardRequestUnlock: (_) {
         entered.complete();
         return pending.future;
       },

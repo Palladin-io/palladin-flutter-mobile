@@ -4,6 +4,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_request_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/config/env_config.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_source_access_service.dart';
@@ -44,11 +47,13 @@ void main() {
   late Map<String, Object?> response;
   late int requestCount;
   late int revision;
+  Future<void> Function()? beforeResponse;
   late AccountRemoteDatasource datasource;
   late AutoFillSourceConfigurationLoader loader;
   late List<Map<Object?, Object?>> nativeConfigurations;
   setUp(() async {
     revision = 1;
+    beforeResponse = null;
     requestCount = 0;
     release = Completer<void>();
     arrived = Completer<void>();
@@ -65,6 +70,7 @@ void main() {
       requestCount++;
       if (!arrived.isCompleted) arrived.complete();
       await release.future;
+      await beforeResponse?.call();
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode(response));
       await request.response.close();
@@ -128,6 +134,108 @@ void main() {
       );
     },
   );
+
+  for (final scenario in [
+    'refresh',
+    'replacement',
+    'scope',
+    'repeated-refresh',
+  ]) {
+    test(
+      'request biometric cold source handles $scenario without stale auth',
+      () async {
+        FlutterSecureStorage.setMockInitialValues({});
+        final tokens = SecureTokenStorage(const FlutterSecureStorage());
+        String token({String organization = 'org'}) =>
+            'synthetic.${base64Url.encode(utf8.encode(jsonEncode({'sub': 'member', 'org_id': organization, 'authz_ver': '1', 'org_offline_policy': 1, 'org_offline_policy_ver': 1})))}.synthetic';
+        Future<void> login() => tokens.saveTokens(
+          accessToken: token(),
+          refreshToken: 'synthetic-refresh',
+          userId: 'member',
+          isOnboarded: true,
+        );
+        await login();
+        final provider = MemberSyncSessionAuthorityProvider(tokens);
+        loader = AutoFillSourceConfigurationLoader(
+          authorityProvider: provider,
+          accountDatasource: datasource,
+          config: EnvConfig.staging(apiBaseUrl: 'https://api.example.invalid'),
+        );
+        beforeResponse = () async {
+          if (requestCount != 1 && scenario != 'repeated-refresh') return;
+          if (scenario == 'replacement') {
+            await tokens.clearAll();
+            await login();
+          } else {
+            await tokens.updateTokens(
+              accessToken: token(
+                organization: scenario == 'scope' ? 'other-org' : 'org',
+              ),
+              refreshToken: 'synthetic-refresh',
+            );
+          }
+        };
+        var prompts = 0;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          switch (call.method) {
+            case 'pending':
+              return {
+                'id': 'request',
+                'mode': 'WEB',
+                'verifiedHosts': ['example.com'],
+                'usernameOnly': false,
+                'remainingMs': 30000,
+              };
+            case 'beginSourceSession':
+              nativeConfigurations.add(
+                Map<Object?, Object?>.from(call.arguments as Map),
+              );
+              return 1;
+            case 'cancel':
+              return null;
+            case 'bind':
+              return 'binding';
+            case 'readBiometricMasterKey':
+              prompts++;
+              return {
+                'masterKey': Uint8List.fromList(List.filled(32, 7)),
+                'authorizationToken': 'authorization',
+              };
+            default:
+              throw StateError('Unexpected native operation');
+          }
+        });
+        final source = AutoFillSourceAccessService(
+          channel: channel,
+          loadConfiguration: loader.load,
+        );
+        final controller = AutoFillRequestController(
+          source: source,
+          authority: provider,
+          channel: channel,
+        );
+        addTearDown(controller.dispose);
+        await controller.poll();
+        final unlocking = controller.readBiometricMasterKey(
+          promptTitle: 'Synthetic',
+          cancelLabel: 'Cancel',
+        );
+        final result = scenario == 'refresh'
+            ? expectLater(unlocking, completion(hasLength(32)))
+            : expectLater(unlocking, throwsStateError);
+        await arrived.future;
+        release.complete();
+        await result;
+        expect(prompts, scenario == 'refresh' ? 1 : 0);
+        expect(controller.isAuthorized, scenario == 'refresh');
+        expect(nativeConfigurations, hasLength(scenario == 'refresh' ? 1 : 0));
+        expect(
+          requestCount,
+          scenario == 'refresh' || scenario == 'repeated-refresh' ? 2 : 1,
+        );
+      },
+    );
+  }
 
   test(
     'account envelope cannot be bound to a different independently authenticated principal',

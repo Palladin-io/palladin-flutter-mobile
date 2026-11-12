@@ -39,8 +39,8 @@ class DriverChecks(unittest.TestCase):
   with self.assertRaises(AssertionError):self.ns['focus_field']()
   self.assertEqual(self.calls,[])
  def test_dropdown_uses_observed_bounds(self):
-  self.ns['nodes']=lambda:[ET.Element('node',{'text':'Unlock Palladin to autofill','bounds':'[10,200][310,280]','enabled':'true'})]
-  self.assertTrue(self.ns['tap_text']('Unlock Palladin to autofill'))
+  self.ns['nodes']=lambda:[ET.Element('node',{'text':'Fill with Palladin.io','bounds':'[10,200][310,280]','enabled':'true'})]
+  self.assertTrue(self.ns['tap_text']('Fill with Palladin.io'))
   self.assertEqual(self.calls,[('shell','input','tap','160','240')])
  def test_negative_fixtures_without_edittext_request_autofill(self):
   for mode in ('native-hidden','native-container','web-disabled'):
@@ -57,7 +57,7 @@ class DriverChecks(unittest.TestCase):
     runpy.run_path(str(root/'exercise.py'),run_name='__main__')
    self.assertIn(['shell','input','tap','60','60'],calls)
  def test_dropdown_is_not_biometric_prompt(self):
-  self.ns['nodes']=lambda:[ET.Element('node',{'text':'Unlock Palladin to autofill','package':'com.android.systemui'})]
+  self.ns['nodes']=lambda:[ET.Element('node',{'text':'Fill with Palladin.io','package':'com.android.systemui'})]
   with self.assertRaises(AssertionError):self.ns['authenticate']()
   self.assertEqual(self.calls,[])
  def test_unlock_dropdown_is_selected_from_interactive_windows(self):
@@ -71,17 +71,17 @@ class DriverChecks(unittest.TestCase):
     return 'UI hierarchy dumped'
    if parts[:2]==('shell','cat'):
     if not all_windows:return '<hierarchy><node text="Synthetic username"/></hierarchy>'
-    return '<displays><display><window><node package="android" text="Unlock Palladin to autofill" bounds="[10,200][310,280]" enabled="true"/></window></display></displays>'
+    return '<displays><display><window><node package="android" text="Fill with Palladin.io" bounds="[10,200][310,280]" enabled="true"/></window></display></displays>'
    return ''
   self.ns['command']=command
-  self.assertTrue(self.ns['tap_text']('Unlock Palladin to autofill'))
+  self.assertTrue(self.ns['tap_text']('Fill with Palladin.io'))
   self.assertIn(('shell','input','tap','160','240'),self.calls)
  def test_failure_evidence_omits_node_text_and_values(self):
   with tempfile.TemporaryDirectory() as directory:
    self.ns.update({'os':os,'Path':pathlib.Path,'json':json,'subprocess':subprocess,'adb':'adb','__file__':str(pathlib.Path(directory)/'exercise.py'),'args':types.SimpleNamespace(mode='native-login',inspect_response=False,serial='emulator-5554')})
    self.ns['service']='synthetic/service'
    self.ns['command']=lambda *parts:'domains=ZERO\norigin=VERIFIED\nresult=RESPONSE_OFFERED\nsecret=must-not-be-recorded\n'
-   self.ns['nodes']=lambda:[ET.Element('node',{'text':'arbitrary-field-value','value':'arbitrary-value','package':'fixture','class':'android.widget.EditText'}),ET.Element('node',{'text':'Unlock Palladin to autofill','package':'android'})]
+   self.ns['nodes']=lambda:[ET.Element('node',{'text':'arbitrary-field-value','value':'arbitrary-value','package':'fixture','class':'android.widget.EditText'}),ET.Element('node',{'text':'Fill with Palladin.io','package':'android'})]
    with patch.dict(os.environ,{'GITHUB_ACTIONS':'true'}),patch.object(subprocess,'check_output',return_value=b'synthetic-screen'):
     self.ns['record_failure']()
    raw=(pathlib.Path(directory)/'build/exercise/native-login-handoff/nodes.json').read_text()
@@ -97,7 +97,7 @@ class DriverChecks(unittest.TestCase):
    self.calls.append(parts)
    return 'ime.test/.Keyboard' if parts[:3]==('shell','settings','get') else ''
   self.ns['command']=command
-  self.assertTrue(self.ns['tap_text']('Unlock Palladin to autofill'))
+  self.assertTrue(self.ns['tap_text']('Fill with Palladin.io'))
   self.assertIn(('shell','input','tap','540','1106'),self.calls)
  def test_textless_inline_chip_rejects_ambiguous_or_unrelated_nodes(self):
   for container in ('ime.test:id/key_pos_proactive_suggestions','ime.test:id/keyboard_header_view_holder'):
@@ -107,7 +107,7 @@ class DriverChecks(unittest.TestCase):
     self.calls.append(parts)
     return 'ime.test/.Keyboard'
    self.ns['command']=command
-   self.assertFalse(self.ns['tap_text']('Unlock Palladin to autofill'))
+   self.assertFalse(self.ns['tap_text']('Fill with Palladin.io'))
   self.assertFalse(any(c[:3]==('shell','input','tap') for c in self.calls))
  def test_null_root_transition_retries_without_reading_missing_xml(self):
   for filename in ('exercise.py','prepare_ci.py'):

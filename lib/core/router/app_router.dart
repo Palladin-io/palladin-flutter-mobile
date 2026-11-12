@@ -155,6 +155,7 @@ ShellTabPage _shellTabPage(
 GoRouter createRouter(
   AuthBloc authBloc, {
   GlobalKey<NavigatorState>? navigatorKey,
+  GlobalKey<NavigatorState>? shellNavigatorKey,
   EntryShareIngress? sharingIngress,
   EntryShareAccountContinuation? sharingAccount,
 }) {
@@ -318,6 +319,7 @@ GoRouter createRouter(
         builder: (_, _) => const TotpEnrollPage(),
       ),
       ShellRoute(
+        navigatorKey: shellNavigatorKey,
         builder: (context, state, child) => AppShell(child: child),
         routes: [
           // Home — landing tab. Dashboard with onboarding

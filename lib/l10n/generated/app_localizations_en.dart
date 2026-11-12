@@ -5064,11 +5064,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autofillRequestManualWarning =>
-      'This app has no verified website association. Confirm the exact login you want to share.';
+      'We can’t verify this app. Tap a login only if you trust it.';
 
   @override
   String get autofillRequestUsernameOnly => 'Only the username will be filled.';
 
   @override
-  String get autofillRequestConfirm => 'Fill login';
+  String get autofillRequestEmptyHint =>
+      'No saved login is available for this request. You can cancel and check your entries in Palladin.';
+
+  @override
+  String get autofillRequestSearchEmptyHint =>
+      'Try another name or clear the search to see the available logins.';
+
+  @override
+  String get autofillRequestClearSearch => 'Clear search';
+
+  @override
+  String get unlockFailed => 'Could not unlock Palladin. Please try again.';
+
+  @override
+  String autofillRequestUnverifiedWebWarning(String app) {
+    return 'We can’t verify $app. Tap a login only if you trust this app.';
+  }
+
+  @override
+  String get autofillDestinationWarningTitle => 'UNVERIFIED APP';
+
+  @override
+  String get autofillUsernameUnavailable => 'Login unavailable';
 }

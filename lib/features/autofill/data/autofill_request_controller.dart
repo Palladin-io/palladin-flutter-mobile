@@ -12,7 +12,7 @@ final class AutoFillRequestInvalidated implements Exception {
   const AutoFillRequestInvalidated();
 }
 
-enum AutoFillRequestMode { web, verifiedNative, manualNative }
+enum AutoFillRequestMode { web, verifiedNative, manualNative, manualWeb }
 
 final class AutoFillRequest {
   AutoFillRequest._(
@@ -21,12 +21,22 @@ final class AutoFillRequest {
     this.verifiedHosts,
     this.usernameOnly,
     this._remaining,
+    this.reportedHost,
+    this.destinationApp,
   ) : _elapsed = Stopwatch()..start();
 
   final String id;
   final AutoFillRequestMode mode;
   final Set<String> verifiedHosts;
   final bool usernameOnly;
+  final String? reportedHost;
+  final String? destinationApp;
+  Set<String> get matchingHosts =>
+      mode == AutoFillRequestMode.manualWeb ? {reportedHost!} : verifiedHosts;
+  bool get requiresConfirmation =>
+      usernameOnly ||
+      mode == AutoFillRequestMode.manualNative ||
+      mode == AutoFillRequestMode.manualWeb;
   final Duration _remaining;
   final Stopwatch _elapsed;
   bool get expired => _elapsed.elapsed >= _remaining;
@@ -40,6 +50,7 @@ final class AutoFillRequest {
       'WEB' => AutoFillRequestMode.web,
       'VERIFIED_NATIVE' => AutoFillRequestMode.verifiedNative,
       'MANUAL_NATIVE' => AutoFillRequestMode.manualNative,
+      'MANUAL_WEB' => AutoFillRequestMode.manualWeb,
       _ => null,
     };
     if (id is! String ||
@@ -55,7 +66,20 @@ final class AutoFillRequest {
       throw const AutoFillRequestInvalidated();
     }
     final domains = Set<String>.unmodifiable(hosts.cast<String>());
-    if ((mode == AutoFillRequestMode.manualNative) != domains.isEmpty) {
+    final reportedHost = raw['reportedHost'];
+    final destinationApp = raw['destinationApp'];
+    if (mode == AutoFillRequestMode.manualWeb) {
+      if (domains.isNotEmpty ||
+          reportedHost is! String ||
+          normalizeAutoFillDomain(reportedHost) != reportedHost ||
+          destinationApp is! String ||
+          destinationApp.trim().isEmpty ||
+          destinationApp.length > 512) {
+        throw const AutoFillRequestInvalidated();
+      }
+    } else if ((mode == AutoFillRequestMode.manualNative) != domains.isEmpty ||
+        reportedHost != null ||
+        destinationApp != null) {
       throw const AutoFillRequestInvalidated();
     }
     return AutoFillRequest._(
@@ -64,6 +88,8 @@ final class AutoFillRequest {
       domains,
       usernameOnly,
       Duration(milliseconds: remaining),
+      reportedHost as String?,
+      destinationApp as String?,
     );
   }
 }
@@ -90,19 +116,22 @@ final class AutoFillRequestController extends ChangeNotifier {
   AutoFillRequest? _request;
   String? _binding;
   String? _boundPrincipalId;
+  String? _boundSessionId;
   String? get boundPrincipalId => _boundPrincipalId;
   String? _authorization;
   int _generation = 0;
   bool _disposed = false;
   Future<void>? _polling;
   Object? _authentication;
+  bool _authenticationInteractive = false;
   bool _completing = false;
   Timer? _expiry;
   int _selectionRevision = 0;
   int get selectionRevision => _selectionRevision;
 
   AutoFillRequest? get request => _request;
-  bool get isAuthenticating => _authentication != null;
+  bool get isAuthenticating =>
+      _authentication != null && _authenticationInteractive;
   bool get hasBoundRequest =>
       !_disposed && _request != null && !_request!.expired && _binding != null;
   bool get isAuthorized =>
@@ -115,10 +144,14 @@ final class AutoFillRequestController extends ChangeNotifier {
   Future<void> _onNativeEvent(MethodCall event) async {
     if (_disposed) return;
     if (event.method == 'pendingChanged') {
+      if (kDebugMode) debugPrint('AUTOFILL_HANDOFF PENDING_EVENT');
       await poll();
     } else if (event.method == 'invalidated') {
       final arguments = event.arguments;
-      if (arguments is String && arguments == _request?.id) await cancel();
+      if (arguments is String && arguments == _request?.id) {
+        if (kDebugMode) debugPrint('AUTOFILL_HANDOFF NATIVE_INVALIDATED_CLEAR');
+        _clearRequest();
+      }
     } else if (event.method == 'sourceChanged') {
       final arguments = event.arguments;
       if (arguments is String && arguments == _request?.id) {
@@ -136,8 +169,12 @@ final class AutoFillRequestController extends ChangeNotifier {
     final generation = _generation;
     final raw = await _channel.invokeMapMethod<dynamic, dynamic>('pending');
     if (_disposed || generation != _generation) return;
-    if (raw == null) return;
+    if (raw == null) {
+      if (kDebugMode) debugPrint('AUTOFILL_HANDOFF PENDING_EMPTY');
+      return;
+    }
     final pending = _request = AutoFillRequest.parse(raw);
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF PENDING_ACCEPTED');
     _expiry?.cancel();
     _expiry = Timer(pending._remaining, () {
       if (identical(_request, pending)) unawaited(cancel());
@@ -189,6 +226,7 @@ final class AutoFillRequestController extends ChangeNotifier {
     final generation = ++_generation;
     _binding = null;
     _boundPrincipalId = null;
+    _boundSessionId = null;
     _authorization = null;
     final binding = await _channel.invokeMethod<String>('bind', {
       'id': pending.id,
@@ -202,6 +240,7 @@ final class AutoFillRequestController extends ChangeNotifier {
     }
     _binding = binding;
     _boundPrincipalId = principalId;
+    _boundSessionId = sessionId;
     notifyListeners();
   }
 
@@ -230,6 +269,55 @@ final class AutoFillRequestController extends ChangeNotifier {
     };
   }
 
+  /// The app supplies its captured, verified unlock-session guard; native still
+  /// mints only a request-bound capability and independently fences the source.
+  Future<void> authorizeUnlockedSession({
+    required String expectedPrincipalId,
+    required void Function() validateCurrentSession,
+  }) async {
+    final pending = _requireRequest();
+    validateCurrentSession();
+    await ensureBound();
+    if (!identical(_request, pending) ||
+        _boundPrincipalId != expectedPrincipalId) {
+      throw const AutoFillRequestInvalidated();
+    }
+    final generation = _generation;
+    final binding = _requireBinding();
+    void guard() {
+      _requireCurrent(generation, pending);
+      validateCurrentSession();
+      if (_boundPrincipalId != expectedPrincipalId) {
+        throw const AutoFillRequestInvalidated();
+      }
+    }
+
+    guard();
+    final ticket = await _source.ticket();
+    guard();
+    if (_boundSessionId != ticket.sessionId) {
+      throw const AutoFillRequestInvalidated();
+    }
+    _source.validateTicket(ticket);
+    final operation = _beginAuthentication(interactive: false);
+    _authorization = null;
+    try {
+      final authorization = await _channel
+          .invokeMethod<String>('authorizeUnlockedSession', {
+            'id': pending.id,
+            'bindingToken': binding,
+            'principalId': expectedPrincipalId,
+            'sessionId': ticket.sessionId,
+            'sourceEpoch': ticket.sourceEpoch,
+          });
+      guard();
+      _source.validateTicket(ticket);
+      _acceptAuthorization(generation, pending, authorization);
+    } finally {
+      if (identical(_authentication, operation)) _authentication = null;
+    }
+  }
+
   Future<void> authenticatePresence() async {
     final pending = _requireRequest();
     await ensureBound();
@@ -244,6 +332,29 @@ final class AutoFillRequestController extends ChangeNotifier {
         {'id': pending.id, 'bindingToken': binding},
       );
       _acceptAuthorization(generation, pending, authorization);
+    } finally {
+      if (identical(_authentication, operation)) _authentication = null;
+    }
+  }
+
+  /// Keeps OS-prompt lifecycle/cancellation bound to this request without
+  /// waiting for source initialization or granting a fill capability.
+  Future<Uint8List?> guardLocalBiometricUnlock(
+    Future<Uint8List?> Function() unlock,
+  ) async {
+    final pending = _requireRequest();
+    final operation = _beginAuthentication();
+    Uint8List? key;
+    try {
+      key = await unlock();
+      if (!identical(_requireRequest(), pending) ||
+          !identical(_authentication, operation)) {
+        throw const AutoFillRequestInvalidated();
+      }
+      return key;
+    } catch (_) {
+      key?.fillRange(0, key.length, 0);
+      rethrow;
     } finally {
       if (identical(_authentication, operation)) _authentication = null;
     }
@@ -284,8 +395,9 @@ final class AutoFillRequestController extends ChangeNotifier {
     }
   }
 
-  Object _beginAuthentication() {
+  Object _beginAuthentication({bool interactive = true}) {
     if (_authentication != null) throw const AutoFillRequestInvalidated();
+    _authenticationInteractive = interactive;
     return _authentication = Object();
   }
 
@@ -341,8 +453,7 @@ final class AutoFillRequestController extends ChangeNotifier {
     guard();
     final pending = _requireRequest();
     if (_completing ||
-        ((pending.usernameOnly ||
-                pending.mode == AutoFillRequestMode.manualNative) &&
+        (pending.requiresConfirmation &&
             (consentToken == null || consentToken.isEmpty))) {
       throw const AutoFillRequestInvalidated();
     }
@@ -410,6 +521,11 @@ final class AutoFillRequestController extends ChangeNotifier {
   }
 
   Future<void> cancel() async {
+    final id = _clearRequest();
+    if (id != null) await _channel.invokeMethod<void>('cancel', {'id': id});
+  }
+
+  String? _clearRequest() {
     final id = _request?.id;
     _expiry?.cancel();
     _expiry = null;
@@ -417,11 +533,12 @@ final class AutoFillRequestController extends ChangeNotifier {
     _request = null;
     _binding = null;
     _boundPrincipalId = null;
+    _boundSessionId = null;
     _authorization = null;
     _authentication = null;
     _bindingOperation = null;
     if (!_disposed) notifyListeners();
-    if (id != null) await _channel.invokeMethod<void>('cancel', {'id': id});
+    return id;
   }
 
   @override

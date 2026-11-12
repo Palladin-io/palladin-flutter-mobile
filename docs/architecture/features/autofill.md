@@ -20,10 +20,11 @@
   iOS 26.2+ implements `ASGeneratePasswordsRequest`; earlier iOS versions use
   the explicit Generate action in the app's Add Credential form. Both paths
   commit encrypted recovery history before returning the password.
-- Android accepts `webDomain` only when Android 12+ reports an OS-verified App
+- Android treats `webDomain` as verified only when Android 12+ reports an OS-verified App
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
-  identity. For a native form with no reported domain, the service instead
+  identity, or the exact credential delegation described below. The separate
+  MANUAL_WEB consent path below does not verify the claimed domain. For a native form with no reported domain, the service instead
   obtains that package's exact OS-verified App Link hosts. After request
   authentication, a chooser displays each matching Entry and exact domain;
   even one match requires a deliberate choice before one dataset is released.
@@ -121,6 +122,29 @@ and [selected Dataset completion](https://github.com/bitwarden/android/blob/924c
 provide precedent for the public flow, not Palladin's origin or ephemeral policy.
 The change removes dependence on redisplaying a second suggestion after an
 explicit native selection; it does not claim to repair IME rendering failures.
+
+Native request invalidation clears Flutter's local capability without echoing a
+second cancellation command. The native owner has already ended that request;
+replaying cancellation could background the app while a replacement is opening.
+Explicit user cancellation, expiry and background cancellation retain their
+native cancellation boundary. Incoming requests are not treated as presented
+until the main activity resumes: the delayed hidden/stopped events during the
+external authentication activity's handoff cannot cancel the incoming request.
+After presentation, leaving the main activity still cancels that exact request;
+replacement, expiry, lock and revocation retain their independent fences.
+
+## Physical preparation timing (2026-11-06)
+
+On S22 Debug29, the Binance attempt spent about 3.0 seconds inside picker
+preparation; candidate metadata reading took 14 ms. Value-free HTTP classification
+showed one Vault-list request (1,944 ms) and two overlapping delta requests for
+two Vaults, with no snapshot or duplicate list/sync pass. Preparation completed
+264 ms after the last delta response. These are one-device observations, not a
+CPU profile or a general latency guarantee. They identify network freshness
+repair as the dominant observed wait; they do not justify skipping authority,
+lease or revoke checks. Concurrent foreground preparation and picker reads
+already share the active MemberIndex preparation; later freshness requests may
+require a trailing pass to preserve mutation/reconnect correctness.
 
 ## Generic native field recognition
 
@@ -671,8 +695,12 @@ direct `https://<exact-host>/.well-known/assetlinks.json` statement containing
 and every current installed APK signing certificate. Historical signer lineage,
 sibling/root domains, `handle_all_urls` alone and transitive `include` statements
 do not supply this authority. Existing OS/browser checks remain first; disabled
-link handling and unavailable OS association state are not overridden. Native
-manual selection, password generation and SaveInfo/save authorization are unchanged.
+link handling and failed OS association queries are not overridden. A successful
+null OS result means the package declares no HTTP/HTTPS App Links; it is unverified,
+not a query failure, so independent exact-host credential delegation may still be
+checked. Null never authorizes fill by itself. A missing system service or thrown
+query remains denied even with a cached proof. Save/generation still require OS
+authority. Native manual selection, password generation and SaveInfo/save authorization are unchanged.
 
 The request runs off the UI thread. Its three-second deadline includes queue and
 DNS time; two workers and two queued requests bound stuck platform DNS calls.
@@ -740,3 +768,197 @@ Quarantined/revoked sources and changed bindings remain quarantined. Activation
 of an already ACTIVE exact registered app ticket is an idempotent acknowledgement;
 it does not rewrite authority or extend any original Vault lease. Mutation and
 security-repair owners must request quarantine before changing the shared DB.
+
+The Android request host reads the app-owned AuthBloc from BlocProvider.
+AuthBloc is factory-registered in DI; resolving it again would create an
+unauthenticated session and silently prevent the picker from opening. The
+host regression uses the production factory lifetime and verifies cold/warm
+requests, unlock continuation, and cancellation on leaving the presented flow.
+
+The picker uses the same AppScreen.titled / ListScreenHeader, Entry count,
+scrolling AppSearchField, skeleton and card/list spacing as Global Entries.
+There is no separate Material AppBar; a header close action cancels selection.
+EntryListCard is reused in selection mode. A single
+verified host prepopulates the text filter; manual-native requests have no
+invented trusted search origin. Editing/clearing search never expands the native
+verified host set. Rows contain metadata only; no reveal/edit controls are
+shown, and selecting a row still performs the guarded selected-body read.
+Source changes before request authorization clear stale state without falsely
+claiming a fill failure; post-authorization invalidation still fences selection.
+The authenticated picker uses AppEmptyState for no eligible logins and separately
+for a search with no results. Clearing search filters only the already-authorized
+candidates; it cannot expand the original request's verified hosts. Loading and
+failed preparation never appear as an empty result. Both states are localized.
+
+Product-owner decision 2026-11-05: an already unlocked app authorizes a new
+Android request through its live verified session, without another KDF/biometric
+prompt. The host captures the current app-owned principal and private-key object
+identity, verifies unlocked state before/after async authorization, and mints only
+a request-bound native capability for the bound source session. There is no new
+persisted grant or key. Lock/logout/key or account replacement and process death
+remove this authority. A locked app still uses its existing unlock screen once;
+manual-native and username-only selections retain explicit one-operation consent; the Android picker row tap grants it after the visible notice (2026-11-09 decision).
+
+While candidates are being read, source invalidation clears stale rows and may
+trigger at most one coalesced metadata recovery per request. A further change
+after recovery starts requires explicit Retry; there is no timer or unbounded
+full-preparation loop. Lock, expiry, revoke and request replacement never reload.
+
+The Android host observes the application's GoRouter delegate and waits for
+the destination Navigator frame after `/unlock` redirects before pushing its
+picker. Otherwise the router removes that pageless route with the outgoing
+unlock page and its completion incorrectly cancels AutoFill. This is a route
+readiness gate, not a delay or reopening after Back; lock and user cancellation
+still terminate the original request. A real-GoRouter regression covers both
+successful redirect and lock while redirect completion is pending.
+
+The pre-authorization dropdown/inline action reads “Fill with Palladin.io” /
+“Uzupełnij z Palladin.io”, with the existing Palladin icon at the start. Inline
+icon rendering remains controlled by the IME; RemoteViews is the fallback.
+
+Successful Android completion restores the exact task of the live non-exported
+SourceAutofillAuthenticationActivity with ActivityManager.moveTaskToFront(taskId,
+0), then sets the original result and finishes that owner. REORDER_TASKS is used
+only for this OS-owned task; no package launcher, Dart task ID or arbitrary
+Intent is accepted. Main must not subsequently move its task to the background:
+on Samsung that resumed the launcher instead of the requester. Task restoration
+failure aborts the original request without reporting success. Source origin,
+lease/revocation and one-use consumption checks still precede the callback.
+Synthetic OS probes verify exactly one result and requester foreground under
+standard and home-behind-picker task ordering; physical OEM acceptance remains
+separate. Explicit cancellation retains its existing lifecycle behavior.
+
+Cold source bootstrap may refresh an expired token during its account request.
+The loader discards that response and permits one new account request only when
+the independent login lifecycle and all authority scope fields remain unchanged.
+Logout/login (even the same account), changed authority or a second refresh
+rejects preparation before biometric authorization. Publication remains fenced
+by the captured authority and source identity. This retries source preparation,
+never a cancelled biometric prompt; no additional key or session is persisted.
+
+Queued failures from the same expired access token share its first completed
+refresh: later old-token 401s replay once with the current token instead of
+rotating it again. Each outgoing request retains the login lifecycle through
+token reads, refresh, guarded dispatch and the replayed response; same-account
+logout/login cannot adopt an old refresh or successful replay response. A
+loopback integration exercises three concurrent 401s through real source
+bootstrap and the request-bound biometric MethodChannel, asserting one refresh
+and one prompt. Local unlock errors use a neutral unlock-failed message instead
+of incorrectly claiming a connection failure.
+
+Password-only regression coverage uses both native input type and HTML password
+semantics, including a hidden username from an earlier step and excluded OTP,
+confirmation and read-only targets. A synthetic Android requester invokes the
+same source result builder as production and verifies the exact original
+password field/value, ephemeral Dataset, one result and requester foreground.
+These tests pass on the existing matching policy; no Binance-specific heuristic
+was added. Debug-only diagnostics expose field-role counts, focused role and
+known HTML semantic booleans, never values/text/identifiers. A physical Binance
+trace is still required to explain its missing fill despite successful return.
+
+Debug31 physical Binance metadata narrows the unresolved failure: the last of
+two FillContexts reports a focused HTML password input; parser roles are zero
+usernames and one password. Handoff returns one password in a Dataset. Android
+then logs an inactive authentication-result session (NO_SESSION), before it
+examines that result. This is a session-lifetime failure, not evidence that
+password-only recognition needs a broader heuristic. A real AutofillManager
+WebView comparison is required before changing the handoff. A separate first
+selection failure reports AutoFillCredentialException; Debug-only boolean
+predicates distinguish its binding/staleness/lease boundary without revealing
+credential content or weakening those checks.
+
+Debug32 identified the first-selection failure independently: disabled=false,
+beforeIssued=true, expired=false. The phone clock was several seconds behind
+the server. AutoFill now uses the same existing five-minute issuance admission
+allowance as canonical Member reads, via memberLeaseClockTolerance. The original
+absolute notAfter remains strict; no expiry grace period or lease extension is
+introduced. Canonical maximum-observed-time rollback checks, native source fences
+and request expiration remain intact. Deterministic boundary tests cover small
+skew, exact allowance, excessive future issuance and expiry during handoff. The
+iOS readonly SQLite/crypto runtime also verifies selection while issuance is
+still in the permitted future window; this is not a physical-device test.
+
+
+## Explicit unverified WebView consent (owner decision 2026-11-07)
+
+Android API31+ non-browser current-login requests with exactly one canonical HTTPS
+host may enter MANUAL_WEB when verification returns UNVERIFIED. Lookup errors,
+missing system services, disabled links, ambiguous/HTTP/malformed origins and
+browsers cannot enter it. Save/generation remain unavailable. The generic parser
+and exact-host credential filtering are unchanged; no application-specific rule.
+
+The native bridge sends reportedHost separately from an empty verifiedHosts set.
+The authenticated existing Entries picker searches only that exact host and shows
+the installed app label/package. Selecting a row shows the app, Entry, exact host
+and a warning; explicit row selection grants one-operation consent (2026-11-09 decision). Cancel does not decrypt the selected
+body. Consent binds request, selected Entry/host and source epoch, is consumed once,
+and disappears on invalidation, cancellation or replacement. Final handoff checks
+current installed signatures and allowed origin status again, plus existing
+source lock/revoke/lease fences. A subsequent successful verification does not
+remove the consent requirement of a request initially admitted as MANUAL_WEB.
+No association is remembered. iOS extension sessions explicitly reject this
+Android-only mode; existing iOS service identifier policy remains unchanged.
+
+This adopts Android's documented authenticated warning/confirmation fallback:
+https://developer.android.com/reference/android/service/autofill/AutofillService
+Tests cover policy exclusions, exact-host search, EN/PL warning and cancellation,
+no completion without consent, revocation during confirmation and one-use binding.
+Physical DEGIRO acceptance remains separate from the generic synthetic regressions.
+
+
+Android package visibility also includes MAIN/LAUNCHER apps. HTTPS-handler queries
+alone hide installed launchable apps that declare no HTTP(S) intent filters;
+Package Manager then cannot supply their identity/signatures, and domain lookup
+fails before manual consent is considered. This visibility declaration enables
+inspection only, never verifies a domain, bypasses a signature check, or enumerates
+and uploads installed apps. Apps without a launcher or supported HTTPS handler
+remain subject to platform visibility limits. No QUERY_ALL_PACKAGES permission.
+The provider-UID regression is documented in the Android harness README.
+
+
+### Entries picker and account labels (Debug38)
+
+The Android picker and global Entries page share `EntriesListView` and
+`EntryListCard`. Canonical `MemberIndex.username` is retained in the runtime
+projection, candidate and Entry row; the account username precedes the exact
+host instead of substituting the Vault name. Matching never infers username
+from untyped `searchFields`. Different saved hosts remain excluded from WEB
+and MANUAL_WEB, even after clearing the text query.
+
+Legacy compact indexes have no typed username. Only mounted credential rows
+may request a local username preview through the existing guarded Entry read;
+the temporary body is cleared before returning the username. These previews
+are view-local, do not export passwords, do not trigger a full-Vault pass or
+make network requests. Lock/source changes discard rows and fence late reads.
+The selected body is independently reopened and validated at actual handoff.
+Thus the historical “no body read before selection” statement applies to
+canonical indexes; it is not claimed for these bounded legacy previews.
+
+Product-owner decision of 2026-11-09: MANUAL_WEB and other consent-required
+Android flows use the single pinned warning and an explicit row tap. That tap
+both chooses the Entry and requests one-operation consent; there is no second
+Fill once action or modal. Consent still binds the exact request, Entry/host and
+source epoch and is consumed only at handoff. Double taps cannot start concurrent
+fills. Closing before selection grants nothing; cancellation, replacement or
+source changes during consent deny the late fill. No association is remembered.
+The iOS native picker retains its existing confirmation UI.
+
+The picker is pushed onto the existing shell navigator when it is available,
+preserving Palladin navigation; it suppresses the underlying Add FAB. Leaving
+the picker cancels the native request. The root fallback is retained for hosts
+without an authenticated shell. Navigation changes do not broaden origin policy.
+
+### Warm app requests (2026-11-12, implementation under validation)
+
+After successful source activation, the app retains a value-free preparation
+stamp: source ticket, authority revision, Member read/content/publication
+revisions, Vault IDs and original lease contexts. It retains no Entry projection
+or key. A normal warm request may skip all-Vault synchronization while this stamp
+remains valid. Explicit freshness/reconnect repairs and pending mutation or
+invalidation reconciliation still take the authoritative preparation path.
+
+Reuse does not authorize filling: every request still passes the durable repair
+gate, current metadata revalidation and native source acknowledgement. Lock,
+account/source replacement, content changes, active synchronization and expired
+leases reject the stamp; final selection/handoff guards remain unchanged.
+The independent iOS Credential Provider runtime does not share this app RAM cache.

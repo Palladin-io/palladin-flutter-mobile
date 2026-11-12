@@ -34,7 +34,7 @@ class _CountingCrypto extends EntryV2CryptoService {
 void main() {
   for (final usePassword in [false, true]) {
     test(
-      'real readonly SQLite ${usePassword ? 'password KDF' : 'biometric key'} opens only selected body',
+      'real readonly SQLite ${usePassword ? 'password KDF' : 'biometric key with future-issued lease'} opens only selected body',
       () async {
         sqfliteFfiInit();
         databaseFactory = databaseFactoryFfi;
@@ -73,6 +73,9 @@ void main() {
           const member = '44444444-4444-4444-8444-444444444444';
           const org = '11111111-1111-4111-8111-111111111111';
           final now = DateTime.now().toUtc();
+          final issuedAt = usePassword
+              ? now.subtract(const Duration(minutes: 1))
+              : now.add(const Duration(minutes: 4));
           final wrapper = fixture['wrapper'] as Map<String, dynamic>;
           final context = MemberOfflineAccessContext(
             contextVersion: 1,
@@ -89,10 +92,8 @@ void main() {
                     as String,
             offlinePolicy: '24h',
             offlinePolicyVersion: 1,
-            issuedAt: now.subtract(const Duration(minutes: 1)),
-            notAfter: now
-                .subtract(const Duration(minutes: 1))
-                .add(const Duration(hours: 24)),
+            issuedAt: issuedAt,
+            notAfter: issuedAt.add(const Duration(hours: 24)),
           );
           final cache = SqliteMemberSyncCache(databaseLoader: () async => db);
           await cache.beginSnapshot(vault, invalidateActive: false);
@@ -206,6 +207,9 @@ void main() {
           expect(rows, hasLength(1));
           expect(rows.single['label'], 'Synthetic');
           expect(crypto.bodyOpens, 0);
+          if (!usePassword) {
+            expect(DateTime.now().toUtc().isBefore(context.issuedAt), isTrue);
+          }
           await runtime.session.select(
             selectionId: rows.single['selectionId'] as String,
             selectedHost: 'example.invalid',

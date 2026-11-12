@@ -21,7 +21,8 @@ final class AutoFillExtensionSession {
        _validateNative = validateNative,
        _completeNative = completeNative,
        _clearRuntime = clearRuntime {
-    if (memberPrivateKey.length != 32) {
+    if (memberPrivateKey.length != 32 ||
+        request.mode == AutoFillRequestMode.manualWeb) {
       close();
       throw const AutoFillRequestInvalidated();
     }

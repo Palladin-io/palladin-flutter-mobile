@@ -585,7 +585,7 @@ final class MemberSyncService
       final context = vault.value.context;
       if (_running.containsKey(vault.key) ||
           !_indexes.containsKey(vault.key) ||
-          now.add(const Duration(minutes: 5)).isBefore(context.issuedAt) ||
+          now.add(memberLeaseClockTolerance).isBefore(context.issuedAt) ||
           (context.offlinePolicy != 'disabled' &&
               !now.isBefore(context.notAfter)) ||
           (context.offlinePolicy == 'disabled' &&
@@ -1253,8 +1253,8 @@ final class MemberSyncService
         previous.offlinePolicy != 'disabled' &&
         now.isBefore(previous.notAfter) &&
         now.isBefore(current.notAfter) &&
-        !now.add(const Duration(minutes: 5)).isBefore(previous.issuedAt) &&
-        !now.add(const Duration(minutes: 5)).isBefore(current.issuedAt) &&
+        !now.add(memberLeaseClockTolerance).isBefore(previous.issuedAt) &&
+        !now.add(memberLeaseClockTolerance).isBefore(current.issuedAt) &&
         previous.issuedAt.isBefore(previous.notAfter) &&
         current.issuedAt.isBefore(current.notAfter) &&
         current.issuedAt.isBefore(previous.notAfter) &&
@@ -1307,7 +1307,7 @@ final class MemberSyncService
     }
     _validateMemberVaultKeyCoordinates(context, memberVaultKey);
     final now = _now().toUtc();
-    if (context.issuedAt.isAfter(now.add(const Duration(minutes: 5))) ||
+    if (context.issuedAt.isAfter(now.add(memberLeaseClockTolerance)) ||
         (context.offlinePolicy != 'disabled' &&
             !now.isBefore(context.notAfter))) {
       throw const FormatException('Invalid Member access lease');
@@ -1329,9 +1329,9 @@ final class MemberSyncService
     _validateMemberVaultKeyCoordinates(context, state.memberVaultKey);
     final now = _now().toUtc();
     if (now
-            .add(const Duration(minutes: 5))
+            .add(memberLeaseClockTolerance)
             .isBefore(state.maximumObservedWallTime) ||
-        now.add(const Duration(minutes: 5)).isBefore(context.issuedAt) ||
+        now.add(memberLeaseClockTolerance).isBefore(context.issuedAt) ||
         (context.offlinePolicy != 'disabled' &&
             !now.isBefore(context.notAfter)) ||
         (context.offlinePolicy == 'disabled' &&
@@ -1673,6 +1673,7 @@ final class MemberSyncService
       entryId: item.entryId,
       entryType: index.entryType.index,
       memberLabel: index.memberLabel,
+      username: index.username,
       searchFields: fields,
       revision: item.memberIndexRevision!,
       currentKeyVersion: item.currentKeyVersion!,

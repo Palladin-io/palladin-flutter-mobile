@@ -116,6 +116,11 @@ class PalladinAutofillService : AutofillService() {
         val fields = CredentialFieldIds.from(
             structure, manualRequest = request.flags and FillRequest.FLAG_MANUAL_REQUEST != 0,
         )
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            traceFieldMetadata(structure, fields)
+            android.util.Log.d("PalladinAutoFillFields", "CONTEXT count=${request.fillContexts.size} index=${request.fillContexts.size - 1}")
+            android.util.Log.d("PalladinAutoFillFields", "ROLES username=${fields.usernameIds.size} password=${fields.passwordIds.size} newPassword=${fields.newPasswordIds.size} confirmation=${fields.confirmationIds.size}")
+        }
         val domains = CredentialFieldIds.domainsFrom(structure)
         val schemes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             CredentialFieldIds.schemesFrom(structure)
@@ -149,6 +154,12 @@ class PalladinAutofillService : AutofillService() {
                 },
                 domains.isEmpty() && verifier.isBrowser(targetPackage),
                 schemes,
+                allowUnverifiedWeb = { host ->
+                    Build.VERSION.SDK_INT >= 31 && !verifier.isBrowser(targetPackage) &&
+                        fields.newPasswordIds.isEmpty() && fields.confirmationIds.isEmpty() &&
+                        !fields.requiresUsernameConfirmation &&
+                        verifier.credentialFillStatus(targetPackage, host) == OriginStatus.UNVERIFIED
+                },
             )
         }
         val domain = origin?.takeUnless { it.requiresSelection }?.domains?.singleOrNull()
@@ -167,6 +178,7 @@ class PalladinAutofillService : AutofillService() {
             return
         }
 
+        val fillSaveRequestId = saveRequestId.takeUnless { origin.mode == AutofillOriginMode.MANUAL_WEB }
         val datasetAuthentication = AutofillOriginPolicy.usesDatasetAuthentication(
             Build.VERSION.SDK_INT, verifier.isBrowser(requestingPackage), generate,
         )
@@ -174,7 +186,7 @@ class PalladinAutofillService : AutofillService() {
             else SourceAutofillAuthenticationActivity::class.java
         val launchIntent = Intent(this, authenticationActivity).apply {
             putExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION, datasetAuthentication)
-            putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, saveRequestId)
+            putExtra(AutofillSaveCoordinator.EXTRA_REQUEST, fillSaveRequestId)
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
             putExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME, schemes.firstOrNull())
             putExtra(AutofillAuthenticationActivity.EXTRA_ORIGIN_MODE, origin.mode.name)
@@ -214,7 +226,7 @@ class PalladinAutofillService : AutofillService() {
             this,
             getString(if (generate) R.string.autofill_generate_prompt else R.string.autofill_unlock_label),
         )
-        val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), saveRequestId)
+        val responseBuilder = AutofillSaveCoordinator.response(FillResponse.Builder(), fillSaveRequestId)
         val inlinePresentation = inlineAuthenticationPresentation(request, generate)
         if (datasetAuthentication) {
             val locked = Dataset.Builder(presentation).setAuthentication(pendingIntent.intentSender)
@@ -267,6 +279,36 @@ class PalladinAutofillService : AutofillService() {
 
     private fun availability(available: Boolean): CheckAvailability =
         if (available) CheckAvailability.AVAILABLE else CheckAvailability.UNAVAILABLE
+
+    // Diagnostic build only: bounded structural metadata, never text, IDs or domains.
+    private fun traceFieldMetadata(structure: AssistStructure, fields: CredentialFieldIds) {
+        var count = 0
+        fun visit(node: AssistStructure.ViewNode, depth: Int) {
+            if (count >= 128 || depth > 24) return
+            val ordinal = count++
+            if (node.isFocused || node.inputType != 0 || !node.autofillHints.isNullOrEmpty()) {
+                if (node.isFocused) {
+                    val role = when (node.autofillId) {
+                        in fields.passwordIds -> "PASSWORD"
+                        in fields.usernameIds -> "USERNAME"
+                        in fields.newPasswordIds -> "NEW_PASSWORD"
+                        in fields.confirmationIds -> "CONFIRMATION"
+                        else -> "UNKNOWN"
+                    }
+                    android.util.Log.d("PalladinAutoFillFields", "FOCUS node=$ordinal role=$role")
+                }
+                val html = node.htmlInfo
+                val attributes = html?.attributes.orEmpty()
+                val htmlType = attributes.firstOrNull { it.first.equals("type", true) }?.second
+                android.util.Log.d("PalladinAutoFillFields", "HTML node=$ordinal input=${html?.tag.equals("input", true)} password=${htmlType.equals("password", true)} text=${htmlType.equals("text", true)} email=${htmlType.equals("email", true)} typeMissing=${htmlType == null} readonly=${attributes.any { it.first.equals("readonly", true) }} disabled=${attributes.any { it.first.equals("disabled", true) }}")
+                val hints = node.autofillHints.orEmpty()
+                android.util.Log.d("PalladinAutoFillFields", "node=$ordinal depth=$depth input=${node.inputType} type=${node.autofillType} enabled=${node.isEnabled} focused=${node.isFocused} focusable=${node.isFocusable} visibility=${node.visibility} id=${node.autofillId != null} html=${node.htmlInfo != null} usernameHint=${hints.any { it == View.AUTOFILL_HINT_USERNAME }} passwordHint=${hints.any { it == View.AUTOFILL_HINT_PASSWORD }} hintCount=${hints.size}")
+            }
+            for (index in 0 until node.childCount) visit(node.getChildAt(index), depth + 1)
+        }
+        for (index in 0 until structure.windowNodeCount) visit(structure.getWindowNodeAt(index).rootViewNode, 0)
+        android.util.Log.d("PalladinAutoFillFields", "END nodes=$count")
+    }
 
     internal data class CredentialFieldIds(
         val usernameIds: List<AutofillId>,

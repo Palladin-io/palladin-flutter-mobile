@@ -247,9 +247,16 @@ void configureDependencies(EnvConfig config) {
         activeRequestUnlock: activeRequestUnlock,
       );
     }
+    // Unlock the app locally first. The host authorizes the verified app
+    // session for the exact AutoFill request before exposing any credentials.
     return BiometricStorageKeyStore(
       markerStorage: getIt<FlutterSecureStorage>(),
-      activeRequestUnlock: activeRequestUnlock,
+      guardRequestUnlock: (unlock) {
+        final requests = getIt<AutoFillRequestController>();
+        return requests.request == null
+            ? unlock()
+            : requests.guardLocalBiometricUnlock(unlock);
+      },
     );
   });
   getIt.registerLazySingleton<AutoFillMutationNotifier>(

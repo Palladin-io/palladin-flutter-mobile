@@ -51,9 +51,23 @@ lifecycle, biometric or deployed end-to-end evidence.
 
 ## Protected biometric unlock
 
-Biometrics are optional. Password login/unlock never enroll automatically; the
-Home setup card and Security settings provide explicit enable/disable. Not now
-stores only a per-account/device dismissal preference. Biometric cancellation
+Biometrics are optional. Once explicitly enrolled, entering the active unlock
+screen starts the OS biometric prompt once, after availability is known.
+Cancellation/resume does not re-prompt automatically; the fingerprint remains
+available for explicit retry. No automatic prompt runs while backgrounded,
+covered by another route, already loading, disposed, or after password input.
+Password login/unlock never enroll automatically; the
+Home setup card and Security settings provide explicit enable/disable. Home
+actions use a horizontal pair: active AccentButton for Not now on the left and
+PrimaryButton for enrollment on the right, both using compact card sizing
+(10px labels and compact padding), with equal flexible heights for
+scaled text. Both actions are disabled only while enrollment is in progress. Not now
+stores only a per-account/device explicit-dismissal preference; intentional
+disable does the same. Successful enrollment clears that preference and hides
+the Home card through the enabled status alone. The old handled preference was
+also written by enrollment, so it is not treated as evidence of a user dismissal:
+missing enrollment can show the optional card once again. This does not restore
+keys or enroll automatically. Biometric cancellation
 keeps the current auth state and never logs the user out.
 
 The approved model retains a local **encrypted** MK envelope. iOS
@@ -88,7 +102,13 @@ An AutoFill request captures its immutable OS destination and authorization
 context before asynchronous unlock. `UnlockCubit` awaits that binding before
 account lookup/KDF and invokes the captured one-operation authorization only
 after crypto verifies the private key. A canceled/replaced request cannot attach
-to a later successful unlock. Ordinary app unlock has no request to authorize.
+to a later successful unlock. Ordinary app unlock establishes only the app-owned in-memory unlocked session.
+Under the product-owner decision of 2026-11-05, an Android AutoFill request may
+reuse that verified session without another prompt. The host captures its exact
+private-key identity and principal, fences both sides of async request minting,
+and cancels immediately on lock/logout/account or key replacement. Native
+authorization remains one-request-only, bound to the source session/epoch;
+manual-native selection still requires its warning and separate confirmation.
 
 Account lookup coalesces concurrent in-flight reads within the same authenticated
 session. Only genuine connection/timeout failures may use the integrity-protected
@@ -113,3 +133,45 @@ Dart channel-contract and lifecycle tests plus JVM deletion tests cover these
 branches. Actual Face ID/fingerprint, changed enrollment, cancellation, restart,
 and device logout/re-enrollment require device QA before claiming release
 acceptance. The fixed deletion identifiers must be reviewed on plugin upgrades.
+
+
+## Android AutoFill launch latency (Debug39)
+
+Android app unlock always starts its ordinary OS-protected biometric-store read
+without waiting for AutoFill source configuration/account lookup. The request
+controller wraps that local read only to preserve prompt lifecycle and cancel,
+expiry or replacement fencing; late key bytes are wiped if the original request
+is no longer current. This wrapper does not bind a source or grant a fill
+capability. After account private-key verification, the existing host binds and
+authorizes the exact request from the active app session. Origin, source epoch,
+lease and one-use consent checks still run at handoff.
+
+The previous Android DI redirected app biometric reads into request-bound native
+unlock, which awaited network-dependent source initialization before displaying
+the OS prompt. S22 metadata trace on2026-11-09 showed binding17:22:26.597–31.178,
+with biometric unlock requested at27.577. The composition regression holds
+source initialization unresolved and verifies that the local prompt starts,
+lifecycle protection is active and no fill capability exists. Separate tests
+cover cancellation wiping a late key. iOS composition is unchanged.
+
+The unlock loading state identifies its initiating method. Automatic biometric
+unlock keeps the password button label visible; progress surrounds the
+fingerprint action instead. Both actions remain protected against concurrent
+unlock attempts, and cancellation restores manual retry. EN/PL widget tests
+cover progress ownership, the touch target and duplicate-prompt suppression.
+A local Profile build has a distinct Palladin (Profile) app/provider label for
+physical performance comparisons without debug JIT overhead. Profile does not
+enable verbose application logging.
+
+### Account lookup overlapping the biometric prompt
+
+The app UnlockCubit invokes the local biometric read before starting the fresh
+account lookup. The two waits overlap; unlock still requires both successful
+biometric recovery and current account authority before private-key decryption.
+Cancellation does not wait for the account request, and detached request errors
+are observed. The independent iOS provider runtime is unchanged.
+
+Deterministic regression: a simulated 5-second biometric response and 2-second
+account lookup complete at second 5 instead of second 7, with one prompt, one
+account request and one private-key decrypt. This is scheduling evidence, not
+S22/iPhone timing. A pending lookup or 401 cannot authorize unlock.

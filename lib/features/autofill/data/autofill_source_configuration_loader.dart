@@ -2,6 +2,7 @@ import '../../../config/env_config.dart';
 import '../../../core/crypto/biometric_profile_binding.dart';
 import '../../unlock/data/datasources/account_remote_datasource.dart';
 import '../../vault/data/services/member_sync_session_authority_provider.dart';
+import '../../vault/data/services/member_sync_service.dart';
 import 'autofill_source_access_service.dart';
 
 enum AutoFillSourceConfigurationFailure {
@@ -30,9 +31,47 @@ final class AutoFillSourceConfigurationLoader {
   final AccountRemoteDatasource _accountDatasource;
   final EnvConfig _config;
 
-  Future<AutoFillSourceConfiguration> load() async {
+  Future<AutoFillSourceConfiguration> load() => _load(allowRefresh: true);
+
+  Future<AutoFillSourceConfiguration> _load({
+    required bool allowRefresh,
+  }) async {
+    final lifecycle = _authorityProvider.lifecycleRevision;
     final captured = await _authorityProvider.captureForPreparation();
+    void validateLifecycle() {
+      if (_authorityProvider.lifecycleRevision != lifecycle) {
+        throw StateError('Source account lifecycle changed');
+      }
+    }
+
+    validateLifecycle();
     final account = await _accountDatasource.getUnlockAccount();
+    validateLifecycle();
+    if (captured.sessionRevision != _authorityProvider.sessionRevision &&
+        allowRefresh) {
+      final refreshed = await _authorityProvider.captureForPreparation();
+      validateLifecycle();
+      void validateScope(MemberSyncSessionAuthority after) {
+        final before = captured.claims;
+        if (before.principalId != after.principalId ||
+            before.organizationId != after.organizationId ||
+            before.organizationMembershipGeneration !=
+                after.organizationMembershipGeneration ||
+            before.offlinePolicy != after.offlinePolicy ||
+            before.offlinePolicyVersion != after.offlinePolicyVersion) {
+          throw StateError('Source account authority changed');
+        }
+      }
+
+      validateScope(refreshed.claims);
+      // The account request may itself refresh an expired token. Discard that
+      // response and fetch once under fresh authority; never retry OS consent.
+      final reloaded = await _load(allowRefresh: false);
+      validateLifecycle();
+      reloaded.validateCurrent();
+      validateScope(reloaded.authority);
+      return reloaded;
+    }
     captured.validateCurrent();
     if (account.userId != captured.claims.principalId) {
       throw const AutoFillSourceConfigurationException(
@@ -67,7 +106,10 @@ final class AutoFillSourceConfigurationLoader {
             'deviceWrapperMetadata': kdf.deviceWrapperMetadata,
         }),
       }),
-      validateCurrent: captured.validateCurrent,
+      validateCurrent: () {
+        validateLifecycle();
+        captured.validateCurrent();
+      },
     );
   }
 }

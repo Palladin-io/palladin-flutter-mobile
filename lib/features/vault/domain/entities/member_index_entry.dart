@@ -12,6 +12,7 @@ final class MemberIndexEntry {
     required this.state,
     this.autofillDomains = const [],
     this.iconReference,
+    this.username,
     this.corrupt = false,
   });
 
@@ -26,5 +27,6 @@ final class MemberIndexEntry {
   /// Member-authorized origins eligible for exact-host system AutoFill.
   final List<String> autofillDomains;
   final String? iconReference;
+  final String? username;
   final bool corrupt;
 }

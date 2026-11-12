@@ -22,6 +22,9 @@ class MemberSyncSessionAuthorityProvider {
   final Future<MemberSyncSessionAuthority> Function()? _readClaims;
   final int Function()? _readRevision;
 
+  int get lifecycleRevision =>
+      _readRevision?.call() ?? _tokenStorage!.lifecycleRevision;
+
   int get sessionRevision =>
       _readRevision?.call() ?? _tokenStorage!.authorityRevision;
 

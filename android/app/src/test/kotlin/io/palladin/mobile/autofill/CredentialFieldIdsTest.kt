@@ -15,6 +15,44 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 
 class CredentialFieldIdsTest {
+    @Test fun passwordOnlyStageDoesNotRequireUsernameOrInferItFromOpaqueText() {
+        for (password in listOf(
+            node(inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD),
+            node(html = mapOf("type" to "password")),
+            node(hints = arrayOf(View.AUTOFILL_HINT_PASSWORD)),
+        )) {
+            `when`(password.isFocused).thenReturn(true)
+            val fields = parse(password)
+            assertEquals(emptyList<AutofillId>(), fields.usernameIds)
+            assertEquals(listOf(password.autofillId), fields.passwordIds)
+            assertFalse(fields.requiresUsernameConfirmation)
+        }
+        val opaque = node(html = mapOf("type" to "text"))
+        `when`(opaque.isFocused).thenReturn(true)
+        assertTrue(parse(opaque).passwordIds.isEmpty())
+    }
+
+    @Test fun passwordStageExcludesHiddenUsernameFromPreviousStep() {
+        val previousUsername = node(hints = arrayOf(View.AUTOFILL_HINT_USERNAME))
+        `when`(previousUsername.visibility).thenReturn(View.GONE)
+        val password = node(html = mapOf("type" to "password"))
+        val fields = parse(previousUsername, password)
+        assertTrue(fields.usernameIds.isEmpty())
+        assertEquals(listOf(password.autofillId), fields.allIds)
+    }
+
+    @Test fun passwordOnlyStageRejectsOtpConfirmationReadonlyAndHiddenTargets() {
+        val excluded = listOf(
+            node(html = mapOf("type" to "password"), hints = arrayOf("smsOTPCode")),
+            node(html = mapOf("type" to "password"), hints = arrayOf("confirmPassword")),
+            node(html = mapOf("type" to "password", "readonly" to "")),
+            node(html = mapOf("type" to "password")).also { `when`(it.isEnabled).thenReturn(false) },
+            node(html = mapOf("type" to "password")).also { `when`(it.visibility).thenReturn(View.GONE) },
+            node(html = mapOf("type" to "password")).also { `when`(it.autofillType).thenReturn(View.AUTOFILL_TYPE_NONE) },
+        )
+        for (field in excluded) assertTrue(parse(field).passwordIds.isEmpty())
+    }
+
     @Test
     fun explicitManualRequestCanSelectOnlyFocusedUnknownNativeUsername() {
         val field = node(inputType = InputType.TYPE_CLASS_TEXT)

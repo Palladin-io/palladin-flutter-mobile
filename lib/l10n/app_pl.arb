@@ -1586,7 +1586,14 @@
   "autofillRequestAuthorize": "Potwierdź dostęp, aby wybrać zapisany login.",
   "autofillRequestEmpty": "Brak pasujących zapisanych loginów.",
   "autofillRequestFailed": "Nie udało się bezpiecznie uzupełnić loginu. Spróbuj ponownie lub anuluj.",
-  "autofillRequestManualWarning": "Ta aplikacja nie ma zweryfikowanego powiązania ze stroną. Potwierdź dokładnie, który login chcesz udostępnić.",
+  "autofillRequestManualWarning": "Nie możemy potwierdzić tej aplikacji. Wybierz wpis tylko, jeśli jej ufasz.",
   "autofillRequestUsernameOnly": "Zostanie uzupełniona tylko nazwa użytkownika.",
-  "autofillRequestConfirm": "Uzupełnij login"
+  "autofillRequestEmptyHint": "Brak zapisanego loginu dostępnego dla tego żądania. Możesz anulować i sprawdzić swoje wpisy w Palladinie.",
+  "autofillRequestSearchEmptyHint": "Wpisz inną nazwę lub wyczyść wyszukiwanie, aby zobaczyć dostępne loginy.",
+  "autofillRequestClearSearch": "Wyczyść wyszukiwanie",
+  "unlockFailed": "Nie udało się odblokować Palladina. Spróbuj ponownie.",
+"autofillRequestUnverifiedWebWarning": "Nie możemy potwierdzić aplikacji {app}. Wybierz wpis tylko, jeśli jej ufasz.",
+"@autofillRequestUnverifiedWebWarning": {"placeholders": {"app": {"type": "String"}}},
+"autofillDestinationWarningTitle": "NIEPOTWIERDZONA APLIKACJA",
+"autofillUsernameUnavailable": "Login niedostępny"
 }

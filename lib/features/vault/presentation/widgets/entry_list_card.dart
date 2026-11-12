@@ -7,6 +7,7 @@ import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/member_index_entry.dart';
 import 'entry_field_row.dart';
 import 'entry_list_icon.dart';
+import 'entry_username_label.dart';
 
 class EntryListCard extends StatelessWidget {
   const EntryListCard({
@@ -22,19 +23,57 @@ class EntryListCard extends StatelessWidget {
     this.onShare,
     this.vaultName,
     this.enabled = true,
-  });
+    this.loadUsername,
+  }) : selectionOnly = false,
+       selected = false;
+
+  const EntryListCard.selection({
+    super.key,
+    required this.entry,
+    required VoidCallback onSelect,
+    this.selected = false,
+    this.enabled = true,
+    this.loadUsername,
+  }) : selectionOnly = true,
+       onEdit = onSelect,
+       isExpanded = false,
+       payload = null,
+       revealedFields = const {},
+       onToggleReveal = null,
+       onToggleFieldReveal = null,
+       onCopy = null,
+       onShare = null,
+       vaultName = null;
 
   final EntryEntity entry;
   final bool isExpanded;
   final Map<String, dynamic>? payload;
   final Set<String> revealedFields;
-  final VoidCallback onToggleReveal;
-  final void Function(String entryId, String field) onToggleFieldReveal;
-  final ValueChanged<String> onCopy;
+  final VoidCallback? onToggleReveal;
+  final void Function(String entryId, String field)? onToggleFieldReveal;
+  final ValueChanged<String>? onCopy;
   final VoidCallback onEdit;
   final VoidCallback? onShare;
   final String? vaultName;
   final bool enabled;
+  final bool selectionOnly;
+  final bool selected;
+  final Future<String?> Function()? loadUsername;
+
+  bool _labelRepeatsDomain(String domain) {
+    final label = entry.label.trim().toLowerCase();
+    final host = domain.toLowerCase();
+    if (label == host) return true;
+    final url = Uri.tryParse(label);
+    return url != null &&
+        url.scheme == 'https' &&
+        url.host == host &&
+        url.userInfo.isEmpty &&
+        url.port == 443 &&
+        (url.path.isEmpty || url.path == '/') &&
+        !url.hasQuery &&
+        !url.hasFragment;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +87,10 @@ class EntryListCard extends StatelessWidget {
         ? l10n.entryCorruptProjection
         : switch (entry.lifecycleState) {
             MemberEntryState.active =>
-              vaultName ?? entry.urlDomain ?? entry.description ?? '',
+              (entry.type == EntryType.credential ? null : vaultName) ??
+                  entry.urlDomain ??
+                  entry.description ??
+                  '',
             MemberEntryState.archived => l10n.entryArchivedRecoverability,
             MemberEntryState.deleted => l10n.entryDeletedRecoverability,
             MemberEntryState.unknown => l10n.responseUnknownValue,
@@ -64,7 +106,9 @@ class EntryListCard extends StatelessWidget {
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.cardBorder(brightness),
+              color: selected
+                  ? AppColors.brandRed
+                  : AppColors.cardBorder(brightness),
               width: 1,
             ),
           ),
@@ -101,7 +145,29 @@ class EntryListCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (meta.isNotEmpty) ...[
+                          if (entry.type == EntryType.credential &&
+                              !entry.corrupt &&
+                              entry.lifecycleState ==
+                                  MemberEntryState.active) ...[
+                            const SizedBox(height: AppSpacing.xxs),
+                            EntryUsernameLabel(
+                              key: ValueKey((
+                                entry.vaultId,
+                                entry.id,
+                                entry.currentRevision,
+                                entry.currentKeyVersion,
+                                entry.username,
+                              )),
+                              username: entry.username,
+                              load: loadUsername,
+                            ),
+                          ],
+                          if (meta.isNotEmpty &&
+                              !(entry.type == EntryType.credential &&
+                                  entry.lifecycleState ==
+                                      MemberEntryState.active &&
+                                  !entry.corrupt &&
+                                  _labelRepeatsDomain(meta))) ...[
                             const SizedBox(height: AppSpacing.xxs),
                             Text(
                               meta,
@@ -118,13 +184,14 @@ class EntryListCard extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
                     if (interactive) ...[
-                      EntrySmallIconButton(
-                        icon: isExpanded
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        tooltip: l10n.vaultRevealEntry,
-                        onPressed: onToggleReveal,
-                      ),
+                      if (!selectionOnly)
+                        EntrySmallIconButton(
+                          icon: isExpanded
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          tooltip: l10n.vaultRevealEntry,
+                          onPressed: onToggleReveal!,
+                        ),
                       if (onShare != null) ...[
                         const SizedBox(width: AppSpacing.chipGap),
                         EntrySmallIconButton(
@@ -135,7 +202,9 @@ class EntryListCard extends StatelessWidget {
                       ],
                       const SizedBox(width: AppSpacing.chipGap),
                       EntrySmallIconButton(
-                        icon: Icons.arrow_forward,
+                        icon: selected
+                            ? Icons.check_circle
+                            : Icons.arrow_forward,
                         tooltip: l10n.vaultViewEntry,
                         onPressed: onEdit,
                       ),
@@ -174,8 +243,8 @@ class EntryListCard extends StatelessWidget {
                                   entry: entry,
                                   payload: payload!,
                                   revealedFields: revealedFields,
-                                  onToggleFieldReveal: onToggleFieldReveal,
-                                  onCopy: onCopy,
+                                  onToggleFieldReveal: onToggleFieldReveal!,
+                                  onCopy: onCopy!,
                                 ),
                         )
                       : const SizedBox.shrink(),

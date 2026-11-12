@@ -22,6 +22,8 @@ class SourceAutofillAuthenticationActivity : FragmentActivity() {
     private var usernames = emptyList<AutofillId>()
     private var passwords = emptyList<AutofillId>()
     private var datasetAuthentication = false
+    internal var destinationApp = ""
+        private set
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
@@ -39,13 +41,18 @@ class SourceAutofillAuthenticationActivity : FragmentActivity() {
             val verifier = AutofillOriginVerifier(this)
             datasetAuthentication = intent.getBooleanExtra(AutofillAuthenticationActivity.EXTRA_DATASET_AUTHENTICATION, false)
             require(datasetAuthentication == AutofillOriginPolicy.usesDatasetAuthentication(Build.VERSION.SDK_INT, verifier.isBrowser(target), false))
-            hosts = if (mode == AutofillOriginMode.WEB) {
+            hosts = if (mode == AutofillOriginMode.WEB || mode == AutofillOriginMode.MANUAL_WEB) {
                 setOf(requireNotNull(AutoFillCacheStore.normalizeDomain(intent.getStringExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN))))
             } else {
                 require(intent.getStringExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN) == null && intent.getStringExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME) == null)
                 intent.getStringArrayListExtra(AutofillAuthenticationActivity.EXTRA_NATIVE_DOMAINS).orEmpty().toSet().also {
                     require(it.all { host -> AutoFillCacheStore.normalizeDomain(host) == host })
                 }
+            }
+            if (mode == AutofillOriginMode.MANUAL_WEB) {
+                val label = packageManager.getApplicationInfo(target, 0).loadLabel(packageManager)
+                    .toString().filterNot { Character.isISOControl(it) || Character.getType(it) == Character.FORMAT.toInt() }.take(100)
+                destinationApp = "$label ($target)"
             }
             signatures = currentSignatures()
             require(signatures.isNotEmpty())
@@ -64,26 +71,20 @@ class SourceAutofillAuthenticationActivity : FragmentActivity() {
                 AutofillOriginPolicy.isSecureWebScheme(intent.getStringExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME)) &&
                 verifier.credentialFillStatus(target, host) == OriginStatus.VERIFIED
             AutofillOriginMode.VERIFIED_NATIVE -> host in hosts && verifier.nativeDomains(target)?.containsAll(hosts) == true
+            AutofillOriginMode.MANUAL_WEB -> Build.VERSION.SDK_INT >= 31 &&
+                hosts.size == 1 && host in hosts && !verifier.isBrowser(target) &&
+                AutofillOriginPolicy.isSecureWebScheme(intent.getStringExtra(AutofillAuthenticationActivity.EXTRA_WEB_SCHEME)) &&
+                verifier.credentialFillStatus(target, host) in setOf(OriginStatus.UNVERIFIED, OriginStatus.VERIFIED)
             AutofillOriginMode.MANUAL_NATIVE -> hosts.isEmpty() && !verifier.isBrowser(target)
         }
     }
 
     internal fun complete(username: String, password: String, host: String) {
-        val presentation = autofillCredentialPresentation(this, username, applicationInfo.loadLabel(packageManager).toString(), host)
-        val dataset = authenticatedAutofillDataset(this, intent, presentation, username, applicationInfo.loadLabel(packageManager).toString(), host)
-        usernames.forEach { dataset.setValue(it, AutofillValue.forText(username), presentation) }
-        passwords.forEach { dataset.setValue(it, AutofillValue.forText(password), presentation) }
-        val selected = dataset.build()
-        val result = if (datasetAuthentication) {
-            Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, selected)
-                .putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET, true)
-        } else {
-            val response = AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST))
-                .addDataset(selected).build()
-            Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response)
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            android.util.Log.d("PalladinAutoFillFields", "HANDOFF username=${usernames.size} password=${passwords.size} dataset=$datasetAuthentication")
         }
-        setResult(Activity.RESULT_OK, result)
-        finish()
+        val result = sourceAutofillResult(this, intent, usernames, passwords, datasetAuthentication, username, password, host)
+        completeAutoFillResult(this, result)
     }
     internal fun cancel() { setResult(Activity.RESULT_CANCELED); finish() }
     override fun onDestroy() { AutoFillRequestBroker.destroyed(this); super.onDestroy() }
@@ -95,4 +96,30 @@ class SourceAutofillAuthenticationActivity : FragmentActivity() {
         require(!raw.isNullOrEmpty() && raw.size <= 8)
         raw.map { Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256").digest(it.toByteArray())) }.toSet()
     }.getOrDefault(emptySet())
+}
+
+/** Builds the original field-bound result; authorization remains with the caller. */
+internal fun sourceAutofillResult(
+    context: android.content.Context,
+    intent: Intent,
+    usernames: List<AutofillId>,
+    passwords: List<AutofillId>,
+    datasetAuthentication: Boolean,
+    username: String,
+    password: String,
+    host: String,
+): Intent {
+        val presentation = autofillCredentialPresentation(context, username, context.applicationInfo.loadLabel(context.packageManager).toString(), host)
+        val dataset = authenticatedAutofillDataset(context, intent, presentation, username, context.applicationInfo.loadLabel(context.packageManager).toString(), host)
+        usernames.forEach { dataset.setValue(it, AutofillValue.forText(username), presentation) }
+        passwords.forEach { dataset.setValue(it, AutofillValue.forText(password), presentation) }
+        val selected = dataset.build()
+        return if (datasetAuthentication) {
+            Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, selected)
+                .putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET, true)
+        } else {
+            val response = AutofillSaveCoordinator.response(FillResponse.Builder(), intent.getStringExtra(AutofillSaveCoordinator.EXTRA_REQUEST))
+                .addDataset(selected).build()
+            Intent().putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, response)
+        }
 }

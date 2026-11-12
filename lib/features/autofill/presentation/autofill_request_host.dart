@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/storage/biometric_key_store.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -20,8 +22,12 @@ class AutoFillRequestHost extends StatefulWidget {
     required this.prepare,
     required this.child,
     this.requestPageBuilder,
+    this.router,
+    this.shellNavigatorKey,
   });
   final GlobalKey<NavigatorState> navigatorKey;
+  final GlobalKey<NavigatorState>? shellNavigatorKey;
+  final GoRouter? router;
   final Future<AutoFillRequestSession> Function() prepare;
   final Widget child;
   @visibleForTesting
@@ -32,13 +38,14 @@ class AutoFillRequestHost extends StatefulWidget {
 
 class _AutoFillRequestHostState extends State<AutoFillRequestHost>
     with WidgetsBindingObserver {
-  late final _auth = getIt<AuthBloc>();
+  late final _auth = context.read<AuthBloc>();
   late final _requests = getIt<AutoFillRequestController>();
   late final _source = getIt<AutoFillSourceAccessService>();
   StreamSubscription<AuthState>? _authSubscription;
   AuthState? _previous;
   bool _running = false, _again = false;
-  String? _opened, _failedNotice;
+  bool _routeSettled = false;
+  String? _opened, _failedNotice, _foregroundRequest;
   bool get _enabled =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   @override
@@ -46,6 +53,8 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
     super.initState();
     if (!_enabled) return;
     WidgetsBinding.instance.addObserver(this);
+    widget.router?.routerDelegate.addListener(_routeChanged);
+    _routeChanged();
     _previous = _auth.state;
     _authSubscription = _auth.stream.listen((state) {
       final previous = _previous;
@@ -53,7 +62,10 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
       if (previous is AuthAuthenticated &&
           (state is! AuthAuthenticated ||
               state.userId != previous.userId ||
-              (!previous.isVaultLocked && state.isVaultLocked))) {
+              (!previous.isVaultLocked &&
+                  (state.isVaultLocked ||
+                      !identical(previous.privateKey, state.privateKey))))) {
+        if (kDebugMode) debugPrint("AUTOFILL_HANDOFF HOST_AUTH_CANCEL");
         unawaited(_requests.cancel());
       }
       _schedule();
@@ -62,6 +74,27 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_poll());
     });
+  }
+
+  void _routeChanged() {
+    _routeSettled = false;
+    // Router delegates notify before Navigator has replaced its pages. The
+    // picker must attach to the destination, not the outgoing unlock page.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _routeSettled = true;
+      _schedule();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  bool get _canPresent {
+    final router = widget.router;
+    if (router == null) return true;
+    final configuration = router.routerDelegate.currentConfiguration;
+    return _routeSettled &&
+        configuration.isNotEmpty &&
+        configuration.uri.path != '/unlock';
   }
 
   Future<void> _poll() async {
@@ -98,8 +131,21 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
   Future<void> _advance() async {
     final request = _requests.request;
     final state = _auth.state;
-    if (request == null || state is! AuthAuthenticated) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (kDebugMode) {
+      debugPrint(
+        'AUTOFILL_HANDOFF HOST_CHECK request=${request != null} auth=${state is AuthAuthenticated} lifecycle=${lifecycle?.name}',
+      );
+    }
+    if (request == null ||
+        state is! AuthAuthenticated ||
+        (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+      return;
+    }
+    _foregroundRequest = request.id;
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF BIND_START');
     await _requests.ensureBound();
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF BIND_DONE');
     final ready = _auth.state;
     if (!mounted ||
         !identical(request, _requests.request) ||
@@ -108,12 +154,38 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
         _requests.boundPrincipalId != ready.userId ||
         ready.isVaultLocked ||
         ready.privateKey == null ||
+        !_canPresent ||
         _opened == request.id) {
       return;
     }
-    final navigator = widget.navigatorKey.currentState;
+    final unlockedKey = ready.privateKey;
+    void validateCurrentSession() {
+      final current = _auth.state;
+      if (!mounted ||
+          current is! AuthAuthenticated ||
+          current.isVaultLocked ||
+          current.userId != ready.userId ||
+          unlockedKey == null ||
+          !identical(current.privateKey, unlockedKey)) {
+        throw const AutoFillRequestInvalidated();
+      }
+    }
+
+    if (!_requests.isAuthorized) {
+      await _requests.authorizeUnlockedSession(
+        expectedPrincipalId: ready.userId,
+        validateCurrentSession: validateCurrentSession,
+      );
+    }
+    validateCurrentSession();
+    if (!identical(request, _requests.request) || !_canPresent) return;
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF PICKER_READY');
+    final navigator =
+        widget.shellNavigatorKey?.currentState ??
+        widget.navigatorKey.currentState;
     if (navigator == null) return;
     _opened = request.id;
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF PICKER_PUSH');
     unawaited(
       navigator
           .push<void>(
@@ -141,6 +213,7 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
   }
 
   void _noticeFailure() {
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF HOST_FAILURE');
     final request = _requests.request;
     final context = widget.navigatorKey.currentContext;
     if (!mounted ||
@@ -161,17 +234,26 @@ class _AutoFillRequestHostState extends State<AutoFillRequestHost>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_enabled) return;
+    if (kDebugMode) debugPrint('AUTOFILL_HANDOFF HOST_LIFECYCLE ${state.name}');
     if (state == AppLifecycleState.resumed) unawaited(_poll());
     if ((state == AppLifecycleState.paused ||
             state == AppLifecycleState.hidden) &&
         !_requests.isAuthenticating) {
-      unawaited(_requests.cancel());
+      final presented = _foregroundRequest;
+      _foregroundRequest = null;
+      // A late lifecycle event from the previous activity must not cancel a
+      // new request that has not reached this foreground yet.
+      if (presented != null && presented == _requests.request?.id) {
+        if (kDebugMode) debugPrint('AUTOFILL_HANDOFF HOST_BACKGROUND_CANCEL');
+        unawaited(_requests.cancel());
+      }
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.router?.routerDelegate.removeListener(_routeChanged);
     if (_enabled) _requests.removeListener(_schedule);
     unawaited(_authSubscription?.cancel());
     super.dispose();

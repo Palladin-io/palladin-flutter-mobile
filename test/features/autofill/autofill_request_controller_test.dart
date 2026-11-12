@@ -22,6 +22,7 @@ void main() {
   Completer<bool>? heldValidation;
   Map<dynamic, dynamic>? completion;
   var usernameOnly = false;
+  var manualWeb = false;
 
   setUpAll(() => registerFallbackValue(Uint8List(32)));
 
@@ -31,14 +32,17 @@ void main() {
     heldValidation = null;
     completion = null;
     usernameOnly = false;
+    manualWeb = false;
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call.method);
       if (call.method == 'complete') completion = call.arguments as Map;
       return switch (call.method) {
         'pending' => {
           'id': 'request-1',
-          'mode': 'WEB',
-          'verifiedHosts': ['example.com'],
+          'mode': manualWeb ? 'MANUAL_WEB' : 'WEB',
+          'verifiedHosts': manualWeb ? [] : ['example.com'],
+          if (manualWeb) 'reportedHost': 'example.com',
+          if (manualWeb) 'destinationApp': 'Test App (example.app)',
           'usernameOnly': usernameOnly,
           'remainingMs': 30000,
         },
@@ -47,7 +51,7 @@ void main() {
         'bind' => 'binding-1',
         'authorizePasswordUnlock' => 'password-authorization',
         'confirmSelection' => 'selection-consent',
-        'authenticatePresence' =>
+        'authenticatePresence' || 'authorizeUnlockedSession' =>
           heldAuthorization == null
               ? 'authorization-1'
               : await heldAuthorization!.future,
@@ -86,7 +90,112 @@ void main() {
     await controller.bind(
       principalId: 'principal',
       organizationId: 'org',
-      sessionId: 'session',
+      sessionId: (await access.ticket()).sessionId,
+    );
+  }
+
+  for (final cancel in [false, true]) {
+    test(
+      'local biometric guard grants no fill capability and wipes late key, cancel=$cancel',
+      () async {
+        await controller.poll();
+        final released = Completer<Uint8List?>();
+        final key = Uint8List.fromList(List.filled(32, 7));
+        final operation = controller.guardLocalBiometricUnlock(
+          () => released.future,
+        );
+        expect(controller.isAuthenticating, isTrue);
+        expect(controller.isAuthorized, isFalse);
+        if (cancel) await controller.cancel();
+        released.complete(key);
+        if (cancel) {
+          await expectLater(
+            operation,
+            throwsA(isA<AutoFillRequestInvalidated>()),
+          );
+          expect(key, everyElement(0));
+        } else {
+          expect(await operation, same(key));
+          expect(controller.isAuthorized, isFalse);
+          key.fillRange(0, key.length, 0);
+        }
+        expect(controller.isAuthenticating, isFalse);
+        expect(calls, isNot(contains('authorizeUnlockedSession')));
+      },
+    );
+  }
+
+  test(
+    'unlocked app authorizes exact request without another prompt or password',
+    () async {
+      await bind();
+      var validations = 0;
+      await controller.authorizeUnlockedSession(
+        expectedPrincipalId: 'principal',
+        validateCurrentSession: () {
+          validations++;
+        },
+      );
+      expect(controller.isAuthorized, isTrue);
+      expect(validations, greaterThanOrEqualTo(2));
+      expect(calls, contains('authorizeUnlockedSession'));
+      expect(calls, isNot(contains('authenticatePresence')));
+      expect(calls, isNot(contains('authorizePasswordUnlock')));
+    },
+  );
+
+  test(
+    'wrong principal or already locked app cannot authorize request',
+    () async {
+      await bind();
+      await expectLater(
+        controller.authorizeUnlockedSession(
+          expectedPrincipalId: 'other',
+          validateCurrentSession: () {},
+        ),
+        throwsA(isA<AutoFillRequestInvalidated>()),
+      );
+      await expectLater(
+        controller.authorizeUnlockedSession(
+          expectedPrincipalId: 'principal',
+          validateCurrentSession: () =>
+              throw const AutoFillRequestInvalidated(),
+        ),
+        throwsA(isA<AutoFillRequestInvalidated>()),
+      );
+      expect(calls, isNot(contains('authorizeUnlockedSession')));
+      expect(controller.isAuthorized, isFalse);
+    },
+  );
+
+  for (final change in ['lock', 'replacement', 'source']) {
+    test(
+      'unlocked authorization rejects $change during native handoff',
+      () async {
+        await bind();
+        heldAuthorization = Completer<Object?>();
+        var unlocked = true;
+        final operation = controller.authorizeUnlockedSession(
+          expectedPrincipalId: 'principal',
+          validateCurrentSession: () {
+            if (!unlocked) throw const AutoFillRequestInvalidated();
+          },
+        );
+        final rejected = expectLater(operation, throwsA(anything));
+        while (!calls.contains('authorizeUnlockedSession')) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(controller.isAuthenticating, isFalse);
+        if (change == 'lock') unlocked = false;
+        if (change == 'replacement') {
+          await controller.cancel();
+          await bind();
+        }
+        if (change == 'source') await access.invalidate();
+        heldAuthorization!.complete('late-authorization');
+        await rejected;
+        expect(controller.isAuthorized, isFalse);
+      },
     );
   }
 
@@ -144,6 +253,60 @@ void main() {
       );
       expect(controller.isAuthorized, isFalse);
       expect(calls.where((call) => call == 'complete'), hasLength(1));
+    },
+  );
+
+  for (final usernameStep in [false, true]) {
+    test(
+      'manual web usernameOnly=$usernameStep requires consent even in an unlocked session',
+      () async {
+        manualWeb = true;
+        usernameOnly = usernameStep;
+        await bind();
+        await controller.authenticatePresence();
+        await expectLater(fill(), throwsA(isA<AutoFillRequestInvalidated>()));
+        expect(completion, isNull);
+        expect(calls, isNot(contains('complete')));
+        await fill(consentToken: 'native-consent');
+        expect(completion?['consentToken'], 'native-consent');
+        expect(completion?.containsKey('password'), !usernameStep);
+      },
+    );
+  }
+
+  test(
+    'manual web bridge never labels reported hosts as verified or accepts ambiguous metadata',
+    () {
+      final raw = <String, Object?>{
+        'id': 'request',
+        'mode': 'MANUAL_WEB',
+        'verifiedHosts': <String>[],
+        'reportedHost': 'example.com',
+        'destinationApp': 'Test App (example.app)',
+        'usernameOnly': false,
+        'remainingMs': 1000,
+      };
+      final request = AutoFillRequest.parse(raw);
+      expect(request.verifiedHosts, isEmpty);
+      expect(request.requiresConfirmation, isTrue);
+      expect(request.matchingHosts, {'example.com'});
+      for (final invalid in <Map<String, Object?>>[
+        {'reportedHost': null},
+        {'reportedHost': 'http://example.com'},
+        {'reportedHost': 'example.com,evil.com'},
+        {'reportedHost': '*.example.com'},
+        {
+          'verifiedHosts': ['example.com'],
+        },
+        {'destinationApp': ''},
+        {'usernameOnly': 'invalid'},
+        {'mode': 'WEB'},
+      ]) {
+        expect(
+          () => AutoFillRequest.parse({...raw, ...invalid}),
+          throwsA(isA<AutoFillRequestInvalidated>()),
+        );
+      }
     },
   );
 
@@ -318,6 +481,12 @@ void main() {
     await nativeEvent('invalidated', 'request-1');
     expect(controller.request, isNull);
     expect(controller.isAuthorized, isFalse);
+    expect(
+      calls,
+      isNot(contains('cancel')),
+      reason:
+          'Native invalidation already ended the request; echoing cancellation can background a replacement request',
+    );
   });
 
   test(

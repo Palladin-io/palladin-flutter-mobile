@@ -3805,7 +3805,14 @@
   "autofillRequestAuthorize": "Authorize access to choose a saved login.",
   "autofillRequestEmpty": "No matching saved logins.",
   "autofillRequestFailed": "The login could not be filled safely. Try again or cancel.",
-  "autofillRequestManualWarning": "This app has no verified website association. Confirm the exact login you want to share.",
+  "autofillRequestManualWarning": "We can’t verify this app. Tap a login only if you trust it.",
   "autofillRequestUsernameOnly": "Only the username will be filled.",
-  "autofillRequestConfirm": "Fill login"
+  "autofillRequestEmptyHint": "No saved login is available for this request. You can cancel and check your entries in Palladin.",
+  "autofillRequestSearchEmptyHint": "Try another name or clear the search to see the available logins.",
+  "autofillRequestClearSearch": "Clear search",
+  "unlockFailed": "Could not unlock Palladin. Please try again.",
+"autofillRequestUnverifiedWebWarning": "We can’t verify {app}. Tap a login only if you trust this app.",
+"@autofillRequestUnverifiedWebWarning": {"placeholders": {"app": {"type": "String"}}},
+"autofillDestinationWarningTitle": "UNVERIFIED APP",
+"autofillUsernameUnavailable": "Login unavailable"
 }

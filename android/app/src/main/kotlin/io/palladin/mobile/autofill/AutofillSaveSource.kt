@@ -12,7 +12,7 @@ internal data class AutofillSaveSource(
             AutofillOriginMode.WEB -> domains.size == 1 && schemes.isNotEmpty() &&
                 schemes.all(AutofillOriginPolicy::isSecureWebScheme)
             AutofillOriginMode.VERIFIED_NATIVE -> schemes.isEmpty()
-            AutofillOriginMode.MANUAL_NATIVE -> false
+            AutofillOriginMode.MANUAL_NATIVE, AutofillOriginMode.MANUAL_WEB -> false
         }
 
     fun matches(current: AutofillSaveSource): Boolean = isEligible && current.isEligible && this == current

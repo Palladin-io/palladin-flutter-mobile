@@ -10,7 +10,7 @@ import '../../tool/member-preparation-benchmark/main.dart' as benchmark;
 
 void main() {
   test(
-    'real loopback, crypto and SQLite preserve batched request count',
+    'warm preparation counts work and offline selection opens only its body',
     () async {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -21,11 +21,23 @@ void main() {
       );
       try {
         final results = await benchmark.runBenchmark(repetitions: 1);
-        expect(results, hasLength(5));
+        expect(results, hasLength(7));
         expect(results.take(4).every((row) => row['entries'] == 160), isTrue);
         final selected = results.singleWhere(
           (row) => row['mode'] == 'shared-source',
         );
+        for (final mode in ['warm-repeat', 'warm-repeat-slow']) {
+          final warm = results.singleWhere((row) => row['mode'] == mode);
+          expect(warm['entries'], 160);
+          expect(warm['requests'], {'list': 1, 'delta': 8});
+          expect(warm['vaultKeyOpens'], 8);
+          expect(warm['indexOpens'], 0);
+          expect(warm['secretOpens'], 0);
+          expect(warm['requestDelayMillis'], mode.endsWith('slow') ? 25 : 0);
+        }
+        expect(selected['networkOffline'], isTrue);
+        expect(selected['candidateIndexOpens'], 0);
+        expect(selected['candidateVaultKeyOpens'], 0);
         expect(selected['candidates'], 160);
         expect(selected['candidateSecretReads'], 0);
         expect(selected['selectedSecretReads'], 1);

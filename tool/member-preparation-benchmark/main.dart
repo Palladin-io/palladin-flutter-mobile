@@ -57,7 +57,16 @@ Future<void> main() async {
 
 Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
   debugPrint(
-    'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false})}',
+    'MEMBER_BENCHMARK_ENV ${jsonEncode({
+      'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'),
+      'os': Platform.operatingSystem,
+      'osVersion': Platform.operatingSystemVersion,
+      'dart': Platform.version,
+      'buildMode': kDebugMode ? 'debug' : 'other',
+      'vaults': _vaultCount,
+      'entriesPerVault': _entriesPerVault,
+      'warmRepeatRequestDelaysMillis': [0, 25],
+    })}',
   );
   final sodium = await SodiumProvider.instance();
   final pair = sodium.crypto.box.keyPair();
@@ -67,7 +76,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
     pair.publicKey,
   );
   final crypto = _CountingEntryCrypto();
-  final vaultKeys = VaultRotationCryptoService();
+  final vaultKeys = _CountingVaultKeys();
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
   final heads = <String, List<Map<String, Object?>>>{};
@@ -229,9 +238,11 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
       }
     }
     final requests = <String, int>{};
+    var requestDelay = Duration.zero;
     var activeRequests = 0;
     var peakRequests = 0;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final loopbackServer = server;
     server.listen((request) async {
       activeRequests++;
       if (activeRequests > peakRequests) peakRequests = activeRequests;
@@ -239,6 +250,9 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
       final kind = segments.length == 2 ? 'list' : segments.last;
       requests[kind] = (requests[kind] ?? 0) + 1;
       await request.drain<void>();
+      if (requestDelay != Duration.zero) {
+        await Future<void>.delayed(requestDelay);
+      }
       Object body;
       if (kind == 'list') {
         body = [
@@ -284,7 +298,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
         requests.clear();
         peakRequests = 0;
         final dio = Dio(
-          BaseOptions(baseUrl: 'http://127.0.0.1:${server.port}'),
+          BaseOptions(baseUrl: 'http://127.0.0.1:${loopbackServer.port}'),
         );
         final keyContexts = MemberVaultKeyContextStore();
         final loader = _VaultList(dio, keyContexts);
@@ -351,6 +365,42 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           results.add(result);
           debugPrint('MEMBER_BENCHMARK ${jsonEncode(result)}');
           if (repetition == repetitions && mode == modes.last) {
+            // Baseline repeat of the real preparer after completion, not a
+            // native provider activation benchmark. Keep the same live indexes.
+            final preparer = MemberIndexPreparationService(
+              vaults: loader,
+              entries: entries,
+            );
+            for (final delayMillis in [0, 25]) {
+              requestDelay = Duration(milliseconds: delayMillis);
+              requests.clear();
+              crypto.indexReads = 0;
+              crypto.secretReads = 0;
+              vaultKeys.opens = 0;
+              final repeatTimer = Stopwatch()..start();
+              await preparer.prepare(privateKey);
+              repeatTimer.stop();
+              final repeat = <String, Object>{
+                'mode': delayMillis == 0 ? 'warm-repeat' : 'warm-repeat-slow',
+                'entries': wrappers.keys.fold<int>(
+                  0,
+                  (count, id) => count + sync.entries(id).length,
+                ),
+                'requests': Map<String, int>.from(requests),
+                'vaultKeyOpens': vaultKeys.opens,
+                'indexOpens': crypto.indexReads,
+                'secretOpens': crypto.secretReads,
+                'requestDelayMillis': delayMillis,
+                'elapsedMicros': repeatTimer.elapsedMicroseconds,
+              };
+              results.add(repeat);
+              debugPrint('MEMBER_BENCHMARK ${jsonEncode(repeat)}');
+            }
+            // Actual transport is unavailable; candidates and selected reads
+            // must use the original finite lease and canonical local source.
+            await loopbackServer.close(force: true);
+            server = null;
+
             final reader = _CountingCurrentEntries(
               reader: sync,
               authorityProvider: _Authority(),
@@ -375,6 +425,8 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
               (a, b) => a + b,
             );
             crypto.secretReads = 0;
+            crypto.indexReads = 0;
+            vaultKeys.opens = 0;
             final timer = Stopwatch()..start();
             final candidates = await source.candidates(
               vaultIds: wrappers.keys,
@@ -382,6 +434,8 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
               validateRequest: () {},
             );
             final candidateSecretReads = crypto.secretReads;
+            final candidateIndexOpens = crypto.indexReads;
+            final candidateVaultKeyOpens = vaultKeys.opens;
             final candidateMicros = timer.elapsedMicroseconds;
             final selected = candidates.last;
             var credentialVerified = false;
@@ -415,6 +469,9 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
             }
             final measurement = <String, Object>{
               'mode': 'shared-source',
+              'networkOffline': true,
+              'candidateIndexOpens': candidateIndexOpens,
+              'candidateVaultKeyOpens': candidateVaultKeyOpens,
               'candidates': candidates.length,
               'candidateSecretReads': candidateSecretReads,
               'selectedSecretReads': selectedSecretReads,
@@ -502,6 +559,16 @@ class _VaultList implements MemberVaultListLoader {
 // Counts the actual production body opener; no body values leave its caller.
 class _CountingEntryCrypto extends EntryV2CryptoService {
   int secretReads = 0;
+  int indexReads = 0;
+  @override
+  Future<Map<String, dynamic>> openMemberIndex({
+    required Map<String, dynamic> envelope,
+    required Uint8List vaultKey,
+  }) {
+    indexReads++;
+    return super.openMemberIndex(envelope: envelope, vaultKey: vaultKey);
+  }
+
   @override
   Future<Map<String, dynamic>> openMemberSecret({
     required Map<String, dynamic> entryKey,
@@ -537,6 +604,30 @@ class _CountingCurrentEntries extends LocalCurrentEntryService {
       vaultId: vaultId,
       entryId: entryId,
       memberPrivateKey: memberPrivateKey,
+    );
+  }
+}
+
+class _CountingVaultKeys extends VaultRotationCryptoService {
+  int opens = 0;
+
+  @override
+  Future<Uint8List> openMemberVaultKey(
+    Map<String, dynamic> envelope,
+    Uint8List memberPrivateKey, {
+    String? expectedOrganizationId,
+    String? expectedVaultId,
+    int? expectedVaultKeyVersion,
+    int? expectedMemberKeyGeneration,
+  }) {
+    opens++;
+    return super.openMemberVaultKey(
+      envelope,
+      memberPrivateKey,
+      expectedOrganizationId: expectedOrganizationId,
+      expectedVaultId: expectedVaultId,
+      expectedVaultKeyVersion: expectedVaultKeyVersion,
+      expectedMemberKeyGeneration: expectedMemberKeyGeneration,
     );
   }
 }

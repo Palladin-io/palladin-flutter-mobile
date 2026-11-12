@@ -17,6 +17,51 @@ class AutoFillRequestStateTest {
     private fun auth(binding: AutoFillRequestBinding): String = state.authenticated(state.beginAuthentication(binding.id, binding.token))
     private fun fill(binding: AutoFillRequestBinding, authorization: String, consent: String? = null, origin: () -> Boolean = { true }): Boolean =
         state.consume(binding.id, binding.token, authorization, selection, consent, now + 1000, epoch, origin) {}
+    @Test fun `unlocked session authorizes exact binding while manual mode still needs consent`() {
+        val binding = bind(AutofillOriginMode.MANUAL_NATIVE)
+        val authorization = state.authorizeUnlockedSession(binding.id, binding.token, "session", epoch)
+        assertFalse(fill(binding, authorization))
+        val consent = state.confirm(binding.id, binding.token, authorization, selection, epoch)
+        assertTrue(fill(binding, authorization, consent))
+        assertFalse(fill(binding, authorization, consent))
+    }
+    @Test fun `unlocked session rejects wrong source and revoked or replaced requests`() {
+        val binding = bind()
+        for ((session, revision) in listOf("other" to epoch, "session" to epoch + 1)) {
+            try { state.authorizeUnlockedSession(binding.id, binding.token, session, revision); fail("Accepted wrong source") } catch (_: AutoFillSourceException) {}
+        }
+        bind()
+        try { state.authorizeUnlockedSession(binding.id, binding.token, "session", epoch); fail("Accepted replacement") } catch (_: AutoFillSourceException) {}
+        val next = bind()
+        source.lock("session")
+        try { state.authorizeUnlockedSession(next.id, next.token, "session", epoch); fail("Accepted locked source") } catch (_: AutoFillSourceException) {}
+    }
+    @Test fun `unlocked authorization never bypasses origin or source revocation`() {
+        val binding = bind()
+        val authorization = state.authorizeUnlockedSession(binding.id, binding.token, "session", epoch)
+        assertFalse(fill(binding, authorization, origin = { false }))
+        source.invalidate("session", epoch)
+        assertFalse(fill(binding, authorization))
+    }
+    @Test fun `background before presentation preserves incoming request but presentation then leave cancels`() {
+        val incoming = bind()
+        assertFalse(state.background())
+        val authorization = auth(incoming)
+        assertTrue(state.validate(incoming.id, incoming.token, authorization, "example.test", epoch))
+        state.presented(incoming.id)
+        assertTrue(state.background())
+        assertFalse(fill(incoming, authorization))
+    }
+    @Test fun `replacement is not canceled by prior request presentation or stale cancellation`() {
+        val previous = bind()
+        state.presented(previous.id)
+        val next = bind()
+        assertFalse(state.background())
+        assertFalse(state.cancel(previous.id))
+        try { state.presented(previous.id); fail("Accepted stale presentation") } catch (_: AutoFillSourceException) {}
+        val authorization = auth(next)
+        assertTrue(fill(next, authorization))
+    }
     @Test fun `actual native authentication is required and single use`() {
         val binding = bind()
         assertFalse(fill(binding, "forged"))
@@ -25,7 +70,7 @@ class AutoFillRequestStateTest {
         assertFalse(fill(binding, authorization))
     }
     @Test fun `manual and username confirmation bind exact selection`() {
-        for ((mode, username) in listOf(AutofillOriginMode.MANUAL_NATIVE to false, AutofillOriginMode.WEB to true)) {
+        for ((mode, username) in listOf(AutofillOriginMode.MANUAL_NATIVE to false, AutofillOriginMode.MANUAL_WEB to false, AutofillOriginMode.WEB to true)) {
             val binding = bind(mode, username)
             val authorization = auth(binding)
             assertFalse(fill(binding, authorization))
@@ -35,6 +80,19 @@ class AutoFillRequestStateTest {
             assertTrue(fill(binding, authorization, consent))
         }
     }
+    @Test fun `manual web consent cannot change host survive mutation or replace request`() {
+        val binding = bind(AutofillOriginMode.MANUAL_WEB)
+        val authorization = auth(binding)
+        assertFalse(state.validate(binding.id, binding.token, authorization, "other.test", epoch))
+        val consent = state.confirm(binding.id, binding.token, authorization, selection, epoch)
+        state.sourceChanged()
+        assertFalse(fill(binding, authorization, consent))
+        val renewed = state.confirm(binding.id, binding.token, authorization, selection, epoch)
+        assertFalse(fill(binding, authorization, renewed, origin = { false }))
+        bind(AutofillOriginMode.MANUAL_WEB)
+        assertFalse(fill(binding, authorization, renewed))
+    }
+
     @Test fun `late biometric callback after new request cannot authorize`() {
         val old = bind()
         val attempt = state.beginAuthentication(old.id, old.token)

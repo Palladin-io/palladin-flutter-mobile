@@ -135,6 +135,7 @@ class EntryEntity {
     this.icon,
     required this.type,
     this.urlDomain,
+    this.username,
     required this.createdAt,
     required this.updatedAt,
     this.lastAccessedAt,
@@ -167,6 +168,7 @@ class EntryEntity {
   /// Plaintext URL domain (e.g. `stripe.com`) shown as meta line. The
   /// full URL lives inside the encrypted payload.
   final String? urlDomain;
+  final String? username;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -190,6 +192,7 @@ class EntryEntity {
     icon: icon ?? this.icon,
     type: type,
     urlDomain: urlDomain,
+    username: username,
     createdAt: createdAt,
     updatedAt: updatedAt,
     lastAccessedAt: lastAccessedAt,

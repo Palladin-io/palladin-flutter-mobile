@@ -5115,12 +5115,35 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get autofillRequestManualWarning =>
-      'Ta aplikacja nie ma zweryfikowanego powiązania ze stroną. Potwierdź dokładnie, który login chcesz udostępnić.';
+      'Nie możemy potwierdzić tej aplikacji. Wybierz wpis tylko, jeśli jej ufasz.';
 
   @override
   String get autofillRequestUsernameOnly =>
       'Zostanie uzupełniona tylko nazwa użytkownika.';
 
   @override
-  String get autofillRequestConfirm => 'Uzupełnij login';
+  String get autofillRequestEmptyHint =>
+      'Brak zapisanego loginu dostępnego dla tego żądania. Możesz anulować i sprawdzić swoje wpisy w Palladinie.';
+
+  @override
+  String get autofillRequestSearchEmptyHint =>
+      'Wpisz inną nazwę lub wyczyść wyszukiwanie, aby zobaczyć dostępne loginy.';
+
+  @override
+  String get autofillRequestClearSearch => 'Wyczyść wyszukiwanie';
+
+  @override
+  String get unlockFailed =>
+      'Nie udało się odblokować Palladina. Spróbuj ponownie.';
+
+  @override
+  String autofillRequestUnverifiedWebWarning(String app) {
+    return 'Nie możemy potwierdzić aplikacji $app. Wybierz wpis tylko, jeśli jej ufasz.';
+  }
+
+  @override
+  String get autofillDestinationWarningTitle => 'NIEPOTWIERDZONA APLIKACJA';
+
+  @override
+  String get autofillUsernameUnavailable => 'Login niedostępny';
 }

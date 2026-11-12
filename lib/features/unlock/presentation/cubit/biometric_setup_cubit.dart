@@ -34,7 +34,10 @@ class BiometricSetupCubit extends Cubit<BiometricSetupState> {
   final BiometricKeyStore _keys;
   final SharedPreferences _preferences;
   final AuthState Function() _currentAuth;
-  String _dismissKey(String userId) => 'biometric_setup_dismissed:$userId';
+  // The legacy flag was also written by successful enrollment, so it cannot
+  // prove that the user dismissed setup. Only explicit choices use this key.
+  String _dismissKey(String userId) =>
+      'biometric_setup_explicit_dismissed:$userId';
 
   Future<void> refresh() async {
     if (state.busy || isClosed) return;
@@ -106,7 +109,7 @@ class BiometricSetupCubit extends Cubit<BiometricSetupState> {
         if (_keys.generation == generation) await _keys.clear();
         return;
       }
-      await _preferences.setBool(_dismissKey(auth.userId), true);
+      await _preferences.remove(_dismissKey(auth.userId));
       if (!valid()) {
         if (_keys.generation == generation) await _keys.clear();
         return;
@@ -114,7 +117,7 @@ class BiometricSetupCubit extends Cubit<BiometricSetupState> {
       emit(
         const BiometricSetupState(
           status: BiometricSetupStatus.enabled,
-          dismissed: true,
+          dismissed: false,
         ),
       );
     } catch (error) {

@@ -329,6 +329,11 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    override fun onPostResume() {
+        super.onPostResume()
+        autoFillRequestBridge?.foreground()
+    }
+
     override fun onStop() {
         autoFillRequestBridge?.background()
         super.onStop()

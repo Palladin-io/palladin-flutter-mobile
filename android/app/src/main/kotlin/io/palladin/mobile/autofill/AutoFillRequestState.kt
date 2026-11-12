@@ -10,6 +10,7 @@ internal data class AutoFillSelection(val vaultId: String, val entryId: String, 
 internal class AutoFillRequestState(private val source: AutoFillSourceAuthority, private val now: () -> Long, private val wallTime: () -> Long = now) {
     private data class Request(val id: String, val created: Long, val createdWall: Long, val mode: AutofillOriginMode, val hosts: Set<String>, val usernameOnly: Boolean)
     private var request: Request? = null
+    private var presentedRequest: String? = null
     private var binding: AutoFillRequestBinding? = null
     private var attempt: AutoFillAuthenticationAttempt? = null
     private var authorization: String? = null
@@ -19,6 +20,7 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
     fun open(mode: AutofillOriginMode, hosts: Set<String>, usernameOnly: Boolean): String = synchronized(AutoFillMutationLock.monitor) {
         cancel()
         require(mode == AutofillOriginMode.MANUAL_NATIVE || hosts.isNotEmpty())
+        require(mode != AutofillOriginMode.MANUAL_WEB || hosts.size == 1)
         val value = Request(token(), now(), wallTime(), mode, hosts.toSet(), usernameOnly)
         request = value
         value.id
@@ -50,6 +52,14 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         authenticated(beginAuthentication(id, binding))
     }
 
+    // Only the app's verified, still-unlocked session path may call this.
+    // It grants this request, never a reusable session capability.
+    fun authorizeUnlockedSession(id: String, binding: String, session: String, epoch: Long): String = synchronized(AutoFillMutationLock.monitor) {
+        val bound = requireBinding(id, binding)
+        if (bound.session != session || !source.matches(bound.profile, session, epoch)) rejected()
+        authenticated(beginAuthentication(id, binding))
+    }
+
     fun confirm(id: String, binding: String, authorization: String, selection: AutoFillSelection, sourceEpoch: Long): String = synchronized(AutoFillMutationLock.monitor) {
         if (!validate(id, binding, authorization, selection.host, sourceEpoch)) rejected()
         require(selection.vaultId.isNotBlank() && selection.entryId.isNotBlank())
@@ -71,7 +81,7 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         val current = requireRequest(id)
         val effectiveNow = maxOf(wallTime(), current.createdWall + (now() - current.created))
         if (effectiveNow >= notAfter) return@synchronized false
-        if ((current.mode == AutofillOriginMode.MANUAL_NATIVE || current.usernameOnly) &&
+        if ((current.mode == AutofillOriginMode.MANUAL_NATIVE || current.mode == AutofillOriginMode.MANUAL_WEB || current.usernameOnly) &&
             (this.consent?.selection != selection || this.consent?.token != consent || this.consent?.epoch != sourceEpoch)) return@synchronized false
         if (!origin()) return@synchronized false
         // Origin verification may block on system services; recheck at consumption.
@@ -88,9 +98,19 @@ internal class AutoFillRequestState(private val source: AutoFillSourceAuthority,
         if (binding != null) cancel()
     }
 
-    fun cancel(id: String? = null) = synchronized(AutoFillMutationLock.monitor) {
-        if (id != null && request?.id != id) return@synchronized
-        request = null; binding = null; attempt = null; authorization = null; consent = null
+    fun presented(id: String) = synchronized(AutoFillMutationLock.monitor) {
+        requireRequest(id)
+        presentedRequest = id
+    }
+    fun background(): Boolean = synchronized(AutoFillMutationLock.monitor) {
+        val presented = presentedRequest ?: return@synchronized false
+        cancel(presented)
+    }
+
+    fun cancel(id: String? = null): Boolean = synchronized(AutoFillMutationLock.monitor) {
+        if (request == null || (id != null && request?.id != id)) return@synchronized false
+        request = null; binding = null; attempt = null; authorization = null; consent = null; presentedRequest = null
+        true
     }
 
     private fun requireBinding(id: String, token: String): AutoFillRequestBinding {

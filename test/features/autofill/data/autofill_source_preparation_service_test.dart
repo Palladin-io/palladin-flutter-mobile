@@ -22,6 +22,7 @@ void main() {
     publicationRevision: 1,
     vaults: {},
   );
+  setUpAll(() => registerFallbackValue(metadata));
   const channel = MethodChannel('test/source-preparation');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -29,8 +30,10 @@ void main() {
   late AutoFillSourceAccessService access;
   late AutoFillSourcePreparationService service;
   late List<String> calls;
+  late int authorityRevision;
   setUp(() async {
     calls = [];
+    authorityRevision = 0;
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call.method);
       return call.method == 'invalidateSource' ? 2 : 1;
@@ -47,7 +50,7 @@ void main() {
       metadata: reader,
       authority: MemberSyncSessionAuthorityProvider.independent(
         readClaims: () async => claims,
-        sessionRevision: () => 0,
+        sessionRevision: () => authorityRevision,
       ),
     );
     when(
@@ -59,7 +62,7 @@ void main() {
     when(
       () => reader.revalidateAutoFillMetadata(metadata, authority: claims),
     ).thenAnswer((_) async {});
-    when(() => reader.validateAutoFillPublication(metadata)).thenReturn(null);
+    when(() => reader.validateAutoFillPublication(any())).thenReturn(null);
   });
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
@@ -76,6 +79,86 @@ void main() {
       ).called(1);
     },
   );
+
+  test('warm preparation reuses only an activated current index', () async {
+    expect(service.preparedVaultIds(), isNull);
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: const [],
+    );
+    expect(service.preparedVaultIds(), isEmpty);
+    expect(service.preparedVaultIds(), isEmpty);
+    verify(
+      () => reader.readAutoFillMetadata(
+        vaultIds: any(named: 'vaultIds'),
+        authority: claims,
+      ),
+    ).called(1);
+    expect(calls, ['beginSourceSession', 'activateSource']);
+  });
+
+  test('source invalidation immediately forbids warm reuse', () async {
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: const [],
+    );
+    final pending = access.invalidate();
+    expect(service.preparedVaultIds(), isNull);
+    await pending;
+    expect(service.preparedVaultIds(), isNull);
+  });
+
+  test('changed metadata or expired lease forbids warm reuse', () async {
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: const [],
+    );
+    when(
+      () => reader.validateAutoFillPublication(any()),
+    ).thenThrow(const LocalMemberEntryReadInvalidatedException());
+    expect(service.preparedVaultIds(), isNull);
+  });
+
+  test('account or authority replacement prevents reuse', () async {
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: const [],
+    );
+    authorityRevision++;
+    expect(service.preparedVaultIds(), isNull);
+  });
+
+  test('new source session cannot inherit ready indexes', () async {
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: const [],
+    );
+    await access.begin(
+      authority: claims,
+      profileBinding: 'b' * 64,
+      accountUnlock: const {},
+    );
+    expect(service.preparedVaultIds(), isNull);
+  });
+
+  test('native rejection removes previous ready state', () async {
+    await service.synchronizePrepared(
+      privateKey: Uint8List(32),
+      vaultIds: const [],
+    );
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'activateSource') return 99;
+      return 2;
+    });
+    await expectLater(
+      service.synchronizePrepared(
+        privateKey: Uint8List(32),
+        vaultIds: const [],
+      ),
+      throwsStateError,
+    );
+    expect(service.preparedVaultIds(), isNull);
+  });
 
   test(
     'failed metadata authority cannot activate and keeps native denied',

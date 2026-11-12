@@ -74,6 +74,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             finishCanceled()
             return
         }
+        if (mode == AutofillOriginMode.MANUAL_WEB) { finishCanceled(); return }
         if (mode != AutofillOriginMode.WEB) {
             if (intent.getStringExtra(EXTRA_DOMAIN) != null ||
                 intent.getStringExtra(EXTRA_WEB_SCHEME) != null || packageName == null ||
@@ -587,7 +588,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             usernames: List<AutofillId>,
             passwords: List<AutofillId>,
             newPasswords: List<AutofillId>,
-        ): Boolean = mode != AutofillOriginMode.WEB && usernames.size == 1 &&
+        ): Boolean = mode != AutofillOriginMode.WEB && mode != AutofillOriginMode.MANUAL_WEB && usernames.size == 1 &&
             passwords.isEmpty() && newPasswords.isEmpty()
 
         const val EXTRA_DATASET_AUTHENTICATION = "palladin.autofill.dataset_authentication"

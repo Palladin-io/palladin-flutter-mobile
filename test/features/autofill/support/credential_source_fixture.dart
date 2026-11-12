@@ -23,10 +23,12 @@ MemberIndexEntry syntheticAutoFillEntry(
   bool corrupt = false,
   int type = 1,
   String revision = '1',
+  String? username,
 }) => MemberIndexEntry(
   entryId: id,
   entryType: type,
   memberLabel: id,
+  username: username ?? 'account-$id',
   searchFields: const [],
   revision: revision,
   state: state,
@@ -34,37 +36,38 @@ MemberIndexEntry syntheticAutoFillEntry(
   autofillDomains: [domain],
 );
 
-LocalCurrentEntryReveal syntheticAutoFillReveal({bool expired = false}) =>
-    LocalCurrentEntryReveal(
-      snapshot: CanonicalEntrySnapshot(
-        entry: {
-          'id': 'chosen',
-          'vaultId': 'vault',
-          'organizationId': 'org',
-          'state': 'active',
-          'currentRevision': '1',
-          'currentKeyVersion': 1,
-        },
-        payload: {
-          'username': 'synthetic-user',
-          'password': 'synthetic-password',
-        },
-        secret: {'type': 'CREDENTIAL'},
-      ),
-      accessContext: MemberOfflineAccessContext(
-        contextVersion: 1,
-        principalId: 'user',
-        organizationId: 'org',
-        organizationMembershipGeneration: '1',
-        vaultId: 'vault',
-        memberId: 'member',
-        memberKeyGeneration: 1,
-        vaultKeyVersion: 1,
-        memberRecipientKeyVersion: 1,
-        memberRecipientKeyFingerprint: 'synthetic',
-        offlinePolicy: '24h',
-        offlinePolicyVersion: 1,
-        issuedAt: DateTime.utc(2026),
-        notAfter: expired ? DateTime.utc(2026, 1, 2) : DateTime.utc(2100),
-      ),
-    );
+LocalCurrentEntryReveal syntheticAutoFillReveal({
+  bool expired = false,
+  DateTime? issuedAt,
+  DateTime? notAfter,
+}) => LocalCurrentEntryReveal(
+  snapshot: CanonicalEntrySnapshot(
+    entry: {
+      'id': 'chosen',
+      'vaultId': 'vault',
+      'organizationId': 'org',
+      'state': 'active',
+      'currentRevision': '1',
+      'currentKeyVersion': 1,
+    },
+    payload: {'username': 'synthetic-user', 'password': 'synthetic-password'},
+    secret: {'type': 'CREDENTIAL'},
+  ),
+  accessContext: MemberOfflineAccessContext(
+    contextVersion: 1,
+    principalId: 'user',
+    organizationId: 'org',
+    organizationMembershipGeneration: '1',
+    vaultId: 'vault',
+    memberId: 'member',
+    memberKeyGeneration: 1,
+    vaultKeyVersion: 1,
+    memberRecipientKeyVersion: 1,
+    memberRecipientKeyFingerprint: 'synthetic',
+    offlinePolicy: '24h',
+    offlinePolicyVersion: 1,
+    issuedAt: issuedAt ?? DateTime.utc(2026),
+    notAfter:
+        notAfter ?? (expired ? DateTime.utc(2026, 1, 2) : DateTime.utc(2100)),
+  ),
+);

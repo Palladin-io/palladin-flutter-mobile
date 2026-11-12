@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_source_access_service.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_source_preparation_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/member_sync_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
@@ -227,6 +230,7 @@ final class _MemoryCache implements MemberSyncCache {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late MemberSnapshotPage snapshot;
   late _FakeRemote remote;
   late _MemoryCache cache;
@@ -301,6 +305,106 @@ void main() {
       now: () => now,
     );
   });
+
+  test(
+    'canonical index preserves account username without a secret read',
+    () async {
+      when(
+        () => entryCrypto.openMemberIndex(
+          envelope: any(named: 'envelope'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      ).thenAnswer(
+        (_) async => {
+          'schema': 'palladin.member-index.v1',
+          'entryType': 'credential',
+          'memberLabel': 'Broker',
+          'description': null,
+          'icon': null,
+          'color': null,
+          'username': 'account-one',
+          'urlDomain': 'example.com',
+          'customIndex': [],
+        },
+      );
+      final vaultId = snapshot.accessContext.vaultId;
+      await service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      final metadata = await service.readAutoFillMetadata(
+        vaultIds: [vaultId],
+        authority: authority,
+      );
+      final dynamic entry = metadata.vaults[vaultId]!.entries.single;
+      expect(entry.username, 'account-one');
+      verifyNever(
+        () => entryCrypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  for (final invalidation in ['lock', 'expiry']) {
+    test(
+      'warm source reuse performs no crypto and rejects real $invalidation',
+      () async {
+        final vaultId = snapshot.accessContext.vaultId;
+        await service.synchronize(
+          vaultId: vaultId,
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration:
+              snapshot.accessContext.memberKeyGeneration,
+          authority: authority,
+          authoritativeMemberVaultKey: snapshot.memberVaultKey,
+        );
+        const channel = MethodChannel('test/warm-member-source');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(channel, (_) async => 1);
+        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+        final access = AutoFillSourceAccessService(channel: channel);
+        await access.begin(
+          authority: authority,
+          profileBinding: 'a' * 64,
+          accountUnlock: const {},
+        );
+        final preparation = AutoFillSourcePreparationService(
+          source: access,
+          metadata: service,
+          authority: MemberSyncSessionAuthorityProvider.independent(
+            readClaims: () async => authority,
+            sessionRevision: () => 0,
+          ),
+        );
+        await preparation.synchronizePrepared(
+          privateKey: Uint8List(32),
+          vaultIds: [vaultId],
+        );
+        clearInteractions(entryCrypto);
+        clearInteractions(vaultKeys);
+        for (var i = 0; i < 20; i++) {
+          expect(preparation.preparedVaultIds(), [vaultId]);
+        }
+        expect(remote.snapshotRequests, 1);
+        expect(remote.deltaRequests, 1);
+        verifyZeroInteractions(entryCrypto);
+        verifyZeroInteractions(vaultKeys);
+        if (invalidation == 'lock') {
+          service.lock();
+        } else {
+          now = snapshot.accessContext.notAfter.add(const Duration(seconds: 1));
+        }
+        expect(preparation.preparedVaultIds(), isNull);
+      },
+    );
+  }
 
   test(
     'AutoFill metadata snapshot is current and requires no secret reveal',

@@ -86,6 +86,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   // Stable across rebuilds so the push deep-link can navigate via
   // GoRouter regardless of which subtree currently has focus.
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _shellNavigatorKey =
+      GlobalKey<NavigatorState>();
 
   late final ConsentCubit _consents = ConsentCubit(
     ConsentRemoteDataSource(getIt<Dio>()),
@@ -97,6 +99,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   late final GoRouter _router = createRouter(
     _authBloc,
     navigatorKey: _navigatorKey,
+    shellNavigatorKey: _shellNavigatorKey,
     sharingIngress: _sharingIngress,
     sharingAccount: _sharingAccount,
   );
@@ -698,7 +701,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 return PrivacyRuntime(
                   router: _router,
                   child: AutoFillRequestHost(
+                    router: _router,
                     navigatorKey: _navigatorKey,
+                    shellNavigatorKey: _shellNavigatorKey,
                     prepare: _prepareAutoFillRequest,
                     child: Stack(
                       children: [?child, if (_obscured) const PrivacyCover()],
@@ -740,28 +745,40 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     _validateUnlockedKey(privateKey, identity);
     if (_supportsAutoFill) await _autoFillSource.ensureSession();
     _validateUnlockedKey(privateKey, identity);
+    final reusable =
+        _supportsAutoFill &&
+            !ensureFresh &&
+            !_mutationSourceRepair.needsReconciliation &&
+            !_invalidationSourceRepair.needsReconciliation
+        ? getIt<AutoFillSourcePreparationService>().preparedVaultIds()
+        : null;
     List<String> vaultIds;
     try {
-      final prepared = !_supportsAutoFill
-          ? await _memberIndexPreparation.prepare(
-              privateKey,
-              ensureFresh: ensureFresh,
-            )
-          : await _mutationSourceRepair.prepare(
-              () => _invalidationSourceRepair.prepare(
-                () => _memberIndexPreparation.prepare(
-                  privateKey,
-                  ensureFresh:
-                      ensureFresh ||
-                      _mutationSourceRepair.needsReconciliation ||
-                      _invalidationSourceRepair.needsReconciliation,
+      if (reusable != null) {
+        vaultIds = reusable;
+      } else {
+        final prepared = !_supportsAutoFill
+            ? await _memberIndexPreparation.prepare(
+                privateKey,
+                ensureFresh: ensureFresh,
+              )
+            : await _mutationSourceRepair.prepare(
+                () => _invalidationSourceRepair.prepare(
+                  () => _memberIndexPreparation.prepare(
+                    privateKey,
+                    ensureFresh:
+                        ensureFresh ||
+                        _mutationSourceRepair.needsReconciliation ||
+                        _invalidationSourceRepair.needsReconciliation,
+                  ),
+                  validateCurrent: () =>
+                      _validateUnlockedKey(privateKey, identity),
                 ),
                 validateCurrent: () =>
                     _validateUnlockedKey(privateKey, identity),
-              ),
-              validateCurrent: () => _validateUnlockedKey(privateKey, identity),
-            );
-      vaultIds = prepared.map((vault) => vault.id).toList();
+              );
+        vaultIds = prepared.map((vault) => vault.id).toList();
+      }
     } on VaultException catch (error) {
       if (error.kind != VaultErrorKind.networkError) rethrow;
       _validateUnlockedKey(privateKey, identity);

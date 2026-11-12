@@ -16,6 +16,7 @@ class PrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.leading,
     this.height = AppSpacing.controlHeight,
+    this.compact = false,
   });
 
   final String label;
@@ -23,6 +24,7 @@ class PrimaryButton extends StatelessWidget {
   final bool isLoading;
   final Widget? leading;
   final double? height;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,14 @@ class PrimaryButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: enabled ? onPressed : null,
           style: ElevatedButton.styleFrom(
-            minimumSize: const Size(0, AppSpacing.controlHeight),
+            minimumSize: Size(0, compact ? 0 : AppSpacing.controlHeight),
+            padding: compact
+                ? const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.cardPadding,
+                    vertical: AppSpacing.chipGap,
+                  )
+                : null,
+            tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
             backgroundColor: AppColors.brandRed,
             disabledBackgroundColor: AppColors.brandRed,
             foregroundColor: AppColors.onBrandRed,
@@ -44,7 +53,7 @@ class PrimaryButton extends StatelessWidget {
             ),
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(compact ? 8 : 10),
             ),
           ),
           child: height == null && leading == null
@@ -96,7 +105,10 @@ class PrimaryButton extends StatelessWidget {
     return Text(
       label,
       textAlign: TextAlign.center,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      style: TextStyle(
+        fontSize: compact ? 10 : 13,
+        fontWeight: compact ? FontWeight.w700 : FontWeight.w600,
+      ),
     );
   }
 }

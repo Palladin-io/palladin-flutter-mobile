@@ -8,6 +8,7 @@ import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
+import '../../data/models/account_response.dart';
 import '../../data/services/identity_kdf_service.dart';
 import '../../data/services/unlock_crypto_service.dart';
 import '../../domain/unlock_exceptions.dart';
@@ -135,15 +136,21 @@ class UnlockCubit extends Cubit<UnlockState> {
     final generation = keyStore.generation;
     bool canceled() => isClosed || generation != keyStore.generation;
     AppLogger.d('Unlock', 'Biometric unlock requested');
-    emit(const UnlockLoading());
+    emit(const UnlockLoading(viaBiometrics: true));
 
     UnlockResult? result;
     Uint8List? recoveredKey;
     var keysHandedOff = false;
     try {
+      late final Future<AccountResponse> accountRead;
       try {
-        recoveredKey = await keyStore.unlockKey(copy);
+        final keyRead = keyStore.unlockKey(copy);
+        // Overlap fresh account I/O with OS authentication without delaying the
+        // local prompt. Cancellation must not leave an unobserved HTTP error.
+        accountRead = Future.sync(datasource.getUnlockAccount)..ignore();
+        recoveredKey = await keyRead;
         if (canceled()) return;
+        AppLogger.d('Unlock', 'Biometric key read completed');
       } on BiometricAuthException catch (e) {
         AppLogger.w('Unlock', 'Biometric auth failed: ${e.reason.name}');
         if (!canceled()) emit(UnlockFailed(_mapBiometricFailure(e.reason)));
@@ -156,8 +163,9 @@ class UnlockCubit extends Cubit<UnlockState> {
         return;
       }
 
-      final account = await datasource.getUnlockAccount();
+      final account = await accountRead;
       if (canceled()) return;
+      AppLogger.d('Unlock', 'Biometric account lookup completed');
       final encryptedPrivateKey = account.encryptedPrivateKey;
       if (encryptedPrivateKey == null) {
         throw UnsupportedIdentityKdfException('missing-account-key-material');

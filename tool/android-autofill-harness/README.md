@@ -383,3 +383,95 @@ same-session WebView repeat authentication, picker cancellation, proof expiry
 after authentication, revoke before selection, and browser-source legacy
 FillResponse results (using the installed system Chrome identity only in the
 response inspector; no live browser page or network).
+
+## Original task return regression
+
+`verify_task_return.py` uses two isolated APKs and the production
+`completeAutoFillResult` helper. A synthetic requester starts a result owner in
+its own task; that owner opens an existing provider picker task. The script
+asserts exactly one successful result and the original requester foreground.
+It never reads credentials or changes the selected AutoFill service, and rejects
+physical-device serials.
+
+After building both debug APKs, run on a disposable emulator:
+
+```sh
+python3 tool/android-autofill-harness/verify_task_return.py --serial emulator-5556
+python3 tool/android-autofill-harness/verify_task_return.py --serial emulator-5556 --home-behind-picker
+```
+
+The second layout explicitly places Home behind the picker using a harness-only
+flag. This reproduces the task ordering observed on Samsung: backgrounding the
+picker returns to Home instead of the original requester. The unmodified API 35
+layout did not reproduce that OEM ordering. Production uses only the live
+original result owner's task ID and `moveTaskToFront(taskId, 0)`, followed by the
+original `setResult`/`finish`; it never launches a guessed target package.
+
+Add `--password-only` to inspect the production SourceAuth result builder with
+one original password field and no username target. It asserts an ephemeral
+Dataset containing exactly that original field and the synthetic password, then
+checks the original receiver/task return. Like the existing response inspector,
+this temporarily enables hidden API inspection only on the disposable emulator
+and restores its prior policy in `finally`; production uses no hidden APIs.
+
+### Two-step virtual-field authentication session
+
+`python3 tool/android-autofill-harness/verify_virtual_session.py --serial emulator-5556`
+uses an isolated dropdown-only synthetic AutofillService and the production field
+parser, `sourceAutofillResult`, and task-return helper. It starts a username
+partition, switches to a new password virtual ID in the same Activity, and asserts
+two contexts, password-only result targeting, and actual Android `View.autofill`
+application of exactly one synthetic value. Both direct authentication and a
+separate opaque picker task must pass after an eight-second selection delay.
+The test asserts that the requester stays visible under direct translucent
+authentication and actually stops under the separate opaque picker. This probes the public virtual-view contract;
+it is not a Binance-specific fixture or proof of Samsung/WebView compatibility.
+The service never connects to Palladin or reads a credential store.
+
+The initial fast, translucent probes passed on API 35. The stronger delayed
+probe also passes on API 36: direct authentication records zero stops, while
+the opaque picker records a stopped requester with one stop before selection;
+both receive exactly one correct password fill. This rules out an ordinary
+stop and delayed cross-task return alone as sufficient causes. A real WebView attempt
+on this emulator supplied only its container, without virtual input children,
+so it did not reach authentication and is not a regression result. On the S22
+(API 36), the independently observed Binance process reported
+`onAuthenticationResult` with an inactive/no-session state after the result
+handoff. Android 16 AOSP checks this state before reading the returned dataset:
+[AutofillManager.java](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/core/java/android/view/autofill/AutofillManager.java).
+The reset trigger remains unproven; passing virtual-view tests do not establish
+that the physical failure is fixed. No field-classification or origin-policy
+change follows from this evidence.
+
+`--application-context-manager` deliberately tests an invalid requester integration:
+the form requests through `applicationContext.getSystemService(AutofillManager)`
+instead of its Activity's manager. The test asserts the managers differ, the
+field is not filled, and the Activity's result callback reports `NO_SESSION`
+while the server session survives. The normal invocation uses the Activity
+context and must fill. Both use the same parser, IDs and result builder; this
+negative is not an origin bypass or a Binance-specific workaround.
+
+Android 16 source at `99b01a65cc4c104933788b3143285ab6bae65827` explains the split:
+[SystemServiceRegistry](https://android.googlesource.com/platform/frameworks/base/+/99b01a65cc4c104933788b3143285ab6bae65827/core/java/android/app/SystemServiceRegistry.java)
+caches the manager per ContextImpl;
+[Application](https://android.googlesource.com/platform/frameworks/base/+/99b01a65cc4c104933788b3143285ab6bae65827/core/java/android/app/Application.java)
+can supply the current Activity as its AutoFill client;
+[AutofillClientController](https://android.googlesource.com/platform/frameworks/base/+/99b01a65cc4c104933788b3143285ab6bae65827/core/java/android/view/autofill/AutofillClientController.java)
+dispatches the authentication result to the Activity's manager. This establishes
+a generic reproduction, not proof of the construction context inside Binance.
+
+
+### Package visibility from the provider UID
+
+`verify_package_visibility.py --adb /path/to/adb --serial DEVICE --provider DEBUG_PACKAGE --target TARGET_PACKAGE`
+checks that a target installed for Android user0 is visible from the debuggable
+provider UID, with the provider's own package as a positive run-as control.
+It records only booleans, never APK paths, installed-app lists or app data.
+On S22 Android16, Debug35 saw itself and Chrome but not `nl.degiro.trader`;
+DEGIRO's first fresh request parsed username1/password1 but was rejected with
+QUERY_UNAVAILABLE. The production manifest now also queries MAIN/LAUNCHER apps,
+so applications without HTTP(S) intent filters can be inspected. No package-specific
+allowlist or QUERY_ALL_PACKAGES is introduced; origin/consent/signature checks
+remain separate. This regression tests real Package Manager behavior, not XML text.
+The command requires an installed target and debug provider; it is not an
+end-to-end fill assertion. DEGIRO APK and user data are not copied or inspected.

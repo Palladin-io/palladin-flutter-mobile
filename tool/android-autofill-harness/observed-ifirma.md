@@ -33,3 +33,19 @@ This evidence proves neither that the release service received the same request
 nor that its cache, origin resolution, authentication or IME presentation succeeded.
 It does not establish the cause of the missing production prompt. A current
 release-provider diagnosis is still needed to separate those later boundaries.
+
+## Follow-up on 2026-11-05
+
+S22 with iFirma 3.1.17 (5098) and Palladin Debug18 reproduced no visible
+suggestion on username focus, followed by a suggestion on password focus. The
+value-free password-focus trace again contained 27 nodes: an enabled text
+username (inputType33, explicit username hint, not focused), an enabled current
+password (inputType129, explicit password hint, focused), and a disabled extra
+text field (inputType16385). No field values were collected.
+
+This does not establish the structure delivered on username focus. Earlier
+bounded diagnostic snapshots reaching 128 nodes cannot be attributed to that
+login field from their value-free content alone. Do not replace the first-focus
+unknown with the password-focus fixture or weaken field eligibility heuristics.
+The separate request-handoff failure was reproduced by delayed `hidden` lifecycle
+notifications canceling a newly opened request before presentation.

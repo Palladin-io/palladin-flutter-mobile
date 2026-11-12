@@ -16,6 +16,9 @@ class SecureTokenStorage {
   /// In-memory fence for operation-scoped claims; never stores token material.
   int get authorityRevision => _authorityRevision;
 
+  /// Login/logout fence; a silent token refresh stays in the same lifecycle.
+  int get lifecycleRevision => _tokenGeneration;
+
   Future<void> _mutateTokens(Future<void> Function() operation) {
     final next = _tokenMutation.then((_) => operation());
     _tokenMutation = next.then<void>((_) {}, onError: (Object _) {});

@@ -27,6 +27,7 @@ final class GlobalEntryRow {
       id: entry.entryId,
       vaultId: vault.id,
       label: entry.memberLabel,
+      username: entry.username,
       type: EntryType.values.elementAtOrNull(entry.entryType) ?? EntryType.key,
       icon: entry.iconReference,
       createdAt: epoch,
@@ -200,6 +201,29 @@ final class GlobalEntriesCubit extends Cubit<GlobalEntriesState> {
     _failed = {};
     _wipeKey();
     if (!isClosed) emit(const GlobalEntriesState());
+  }
+
+  Future<String?> readUsername(GlobalEntryRow row, Uint8List privateKey) async {
+    final generation = _generation;
+    bool current() =>
+        _current(generation) &&
+        state.rows.any(
+          (value) =>
+              value.identity == row.identity &&
+              value.entry.revision == row.entry.revision &&
+              value.entry.currentKeyVersion == row.entry.currentKeyVersion,
+        );
+    if (!current()) return null;
+    CanonicalEntrySnapshot? snapshot;
+    try {
+      snapshot = await _localEntries.reveal(
+        expected: row.toEntryEntity(),
+        memberPrivateKey: privateKey,
+      );
+      return current() ? snapshot.payload['username'] as String? : null;
+    } finally {
+      snapshot?.clear();
+    }
   }
 
   Future<bool> toggleReveal(GlobalEntryRow row, Uint8List privateKey) async {

@@ -52,15 +52,15 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
                     "authenticatePresence", "readBiometricMasterKey" -> authenticate(string("id"), string("bindingToken"),
                         call.method == "readBiometricMasterKey", args["promptTitle"] as? String, args["cancelLabel"] as? String, result)
                     "authorizePasswordUnlock" -> result.success(AutoFillRequestBroker.authorizePasswordUnlock(string("id"), string("bindingToken")))
+                    "authorizeUnlockedSession" -> result.success(AutoFillRequestBroker.authorizeUnlockedSession(string("id"), string("bindingToken"), string("principalId"), string("sessionId"), number("sourceEpoch")))
                     "confirmSelection" -> result.success(AutoFillRequestBroker.confirm(string("id"), string("bindingToken"), string("authorizationToken"), selection(), number("sourceEpoch")))
                     "validate" -> result.success(AutoFillRequestBroker.validate(string("id"), string("bindingToken"), string("authorizationToken"), string("selectedHost"), number("sourceEpoch")))
                     "complete" -> {
                         val completed = AutoFillRequestBroker.complete(string("id"), string("bindingToken"), string("authorizationToken"), selection(),
                             args["consentToken"] as? String, number("effectiveNotAfterMillis"), number("sourceEpoch"), args["username"] as? String ?: "", args["password"] as? String ?: "")
                         result.success(completed)
-                        if (completed) activity.moveTaskToBack(true)
                     }
-                    "cancel" -> { AutoFillRequestBroker.cancel(string("id")); result.success(null); activity.moveTaskToBack(true) }
+                    "cancel" -> { val canceled = AutoFillRequestBroker.cancel(string("id")); result.success(null); if (canceled) activity.moveTaskToBack(true) }
                     else -> result.notImplemented()
                 }
             } catch (error: Exception) { result.error((error as? AutoFillSourceException)?.code ?: "AUTOFILL_REQUEST_UNAVAILABLE", "AutoFill request unavailable", null) }
@@ -133,9 +133,11 @@ internal class AutoFillRequestBridge(private val activity: FragmentActivity, mes
         fail(operation, "AUTOFILL_AUTHENTICATION_CANCELED")
         operation.prompt?.cancelAuthentication()
     }
-    fun background() { AutoFillRequestBroker.cancel(null); cancelPrompt() }
+    fun foreground() { AutoFillRequestBroker.foreground() }
+    fun background() { AutoFillRequestBroker.background(); cancelPrompt() }
     fun close() {
-        background()
+        AutoFillRequestBroker.cancel(null)
+        cancelPrompt()
         channel.setMethodCallHandler(null)
         AutoFillRequestBroker.onSourceChanged = null
         AutoFillRequestBroker.onPending = null

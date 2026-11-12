@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
+import 'package:mobile_palladin/core/widgets/accent_button.dart';
+import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/unlock/presentation/widgets/biometric_setup_card.dart';
@@ -53,6 +55,12 @@ void main() {
         BlocProvider<AuthBloc>.value(
           value: auth,
           child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const Scaffold(
@@ -63,6 +71,16 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Enable biometric unlock'), findsOneWidget);
+      final secondary = find.byType(AccentButton);
+      final primary = find.byType(PrimaryButton);
+      expect(tester.widget<AccentButton>(secondary).onPressed, isNotNull);
+      expect(
+        tester.getRect(secondary).right,
+        lessThan(tester.getRect(primary).left),
+      );
+      expect(tester.getRect(secondary).top, tester.getRect(primary).top);
+      expect(tester.getRect(secondary).height, tester.getRect(primary).height);
+      expect(tester.takeException(), isNull);
       verifyNever(() => keys.enroll(any(), any(), expectedGeneration: 0));
       await tester.tap(find.text('Enable biometric unlock'));
       await tester.pumpAndSettle();
@@ -80,7 +98,9 @@ void main() {
     testWidgets(
       'return after password change ($passwordChangeSucceeded) refreshes cleared enrollment',
       (tester) async {
-        SharedPreferences.setMockInitialValues({});
+        SharedPreferences.setMockInitialValues({
+          'biometric_setup_dismissed:dummy': true,
+        });
         await getIt.reset();
         final keys = _Keys();
         final auth = _Auth();
@@ -104,12 +124,15 @@ void main() {
               navigatorKey: navigator,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              home: const Scaffold(body: BiometricSetupCard()),
+              home: const Scaffold(
+                body: BiometricSetupCard(hideWhenHandled: true),
+              ),
             ),
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Disable biometric unlock'), findsOneWidget);
+        expect(find.text('Enable biometric unlock'), findsNothing);
+        expect(find.text('Disable biometric unlock'), findsNothing);
         navigator.currentState!.push(
           MaterialPageRoute<bool>(
             builder: (_) => const Scaffold(body: Text('Password change')),

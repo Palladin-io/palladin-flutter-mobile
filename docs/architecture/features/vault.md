@@ -381,3 +381,21 @@ A populated edit form retains its local fields and TOTP after an optimistic conf
 Entry Details Edit/Save and Add Entry Save use the shared `AppActionFooter`.
 The band paints to the screen edge while its action stays above the remaining
 system navigation inset, including Android three-button navigation.
+
+
+### Shared Entries selection surface
+
+`EntriesListView` owns the common Entries header, search, scrolling surface and
+optional pinned footer. Global Entries supplies its library switch, refresh,
+scroll preferences and Add FAB. AutoFill supplies prefilled search, scoped
+candidates, selection actions and its single warning/footer, with no Add FAB.
+Both use `EntryListCard`: credential rows display account username and exact
+domain; Vault-name context remains available for other Entry types.
+Canonical index usernames stay in memory. Legacy compact entries resolve a
+username only for mounted rows through a guarded local read and immediately
+clear the temporary body. No plaintext is added to durable caches or APIs.
+
+Credential rows omit the redundant domain subtitle when the Entry label itself
+is that exact host or its HTTPS root URL. Custom names, other hosts and URLs
+with paths/query/fragment remain distinct. This is display-only; matching and
+native origin verification are unchanged.

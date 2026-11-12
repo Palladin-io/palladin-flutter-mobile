@@ -34,7 +34,7 @@ class PresentationPreviewActivity : Activity() {
    setPadding(24, 120, 24, 24)
    setBackgroundColor(context.getColor(R.color.autofill_prompt_background))
   }
-  val expectedUnlock = if (language == "pl") "Odblokuj Palladin, aby uzupełnić dane" else "Unlock Palladin to autofill"
+  val expectedUnlock = if (language == "pl") "Uzupełnij z Palladin.io" else "Fill with Palladin.io"
   val expectedGenerate = if (language == "pl") "Wygeneruj silne hasło w Palladin" else "Generate a strong password with Palladin"
   val attribution = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
   for ((generate, expected) in listOf(false to expectedUnlock, true to expectedGenerate)) {

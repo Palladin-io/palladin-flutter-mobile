@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -46,14 +50,16 @@ class _UnlockView extends StatefulWidget {
   State<_UnlockView> createState() => _UnlockViewState();
 }
 
-class _UnlockViewState extends State<_UnlockView> {
+class _UnlockViewState extends State<_UnlockView> with WidgetsBindingObserver {
   final _passwordController = TextEditingController();
   bool _passwordVisible = false;
   bool _biometricAvailable = false;
+  bool _autoBiometricAttempted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AnalyticsService.instance.capture('unlock', 'page-viewed');
     _passwordController.addListener(_onTextChanged);
     _checkBiometricAvailability();
@@ -61,12 +67,14 @@ class _UnlockViewState extends State<_UnlockView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _passwordController.removeListener(_onTextChanged);
     _passwordController.dispose();
     super.dispose();
   }
 
   void _onTextChanged() {
+    if (_passwordController.text.isNotEmpty) _autoBiometricAttempted = true;
     // Re-render the "Unlock" button enabled/disabled state.
     setState(() {});
   }
@@ -76,6 +84,33 @@ class _UnlockViewState extends State<_UnlockView> {
     final available = await cubit.isBiometricAvailable();
     if (!mounted) return;
     setState(() => _biometricAvailable = available);
+    _scheduleAutoBiometric();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scheduleAutoBiometric();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _scheduleAutoBiometric();
+  }
+
+  void _scheduleAutoBiometric() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_biometricAvailable || _autoBiometricAttempted) return;
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if ((lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
+          !(ModalRoute.isCurrentOf(context) ?? true) ||
+          context.read<UnlockCubit>().state is! UnlockInitial ||
+          _passwordController.text.isNotEmpty) {
+        return;
+      }
+      _autoBiometricAttempted = true;
+      unawaited(_tryBiometrics());
+    });
   }
 
   @override
@@ -175,7 +210,7 @@ class _UnlockViewState extends State<_UnlockView> {
             const SizedBox(height: AppSpacing.section),
             PrimaryButton(
               label: l10n.unlockButton,
-              isLoading: isLoading,
+              isLoading: state is UnlockLoading && !state.viaBiometrics,
               onPressed: canSubmit ? _submit : null,
             ),
           ],
@@ -198,10 +233,28 @@ class _UnlockViewState extends State<_UnlockView> {
           constraints: const BoxConstraints(minWidth: 72, minHeight: 72),
           padding: const EdgeInsets.all(AppSpacing.lg),
           tooltip: l10n.unlockBiometricHint,
-          icon: const Icon(
-            Icons.fingerprint,
-            color: AppColors.brandRed,
-            size: 40,
+          icon: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              const Icon(
+                Icons.fingerprint,
+                color: AppColors.brandRed,
+                size: 40,
+              ),
+              if (state is UnlockLoading && state.viaBiometrics)
+                Positioned(
+                  top: -AppSpacing.sm,
+                  bottom: -AppSpacing.sm,
+                  left: -AppSpacing.sm,
+                  right: -AppSpacing.sm,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.brandRed,
+                    semanticsLabel: l10n.unlockBiometricHint,
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -246,6 +299,7 @@ class _UnlockViewState extends State<_UnlockView> {
       );
 
   Future<void> _submit() async {
+    _autoBiometricAttempted = true;
     FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlock(
@@ -255,6 +309,7 @@ class _UnlockViewState extends State<_UnlockView> {
   }
 
   Future<void> _tryBiometrics() async {
+    _autoBiometricAttempted = true;
     FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlockWithBiometrics(
@@ -322,6 +377,7 @@ class _UnlockViewState extends State<_UnlockView> {
           l10n.errorInvalidServerResponse,
       };
     }
-    return l10n.errorConnectionFailed;
+    if (error is DioException) return l10n.errorConnectionFailed;
+    return l10n.unlockFailed;
   }
 }

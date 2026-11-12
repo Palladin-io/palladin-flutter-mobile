@@ -8945,7 +8945,7 @@ abstract class AppLocalizations {
   /// No description provided for @autofillRequestManualWarning.
   ///
   /// In en, this message translates to:
-  /// **'This app has no verified website association. Confirm the exact login you want to share.'**
+  /// **'We can’t verify this app. Tap a login only if you trust it.'**
   String get autofillRequestManualWarning;
 
   /// No description provided for @autofillRequestUsernameOnly.
@@ -8954,11 +8954,47 @@ abstract class AppLocalizations {
   /// **'Only the username will be filled.'**
   String get autofillRequestUsernameOnly;
 
-  /// No description provided for @autofillRequestConfirm.
+  /// No description provided for @autofillRequestEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'Fill login'**
-  String get autofillRequestConfirm;
+  /// **'No saved login is available for this request. You can cancel and check your entries in Palladin.'**
+  String get autofillRequestEmptyHint;
+
+  /// No description provided for @autofillRequestSearchEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another name or clear the search to see the available logins.'**
+  String get autofillRequestSearchEmptyHint;
+
+  /// No description provided for @autofillRequestClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get autofillRequestClearSearch;
+
+  /// No description provided for @unlockFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not unlock Palladin. Please try again.'**
+  String get unlockFailed;
+
+  /// No description provided for @autofillRequestUnverifiedWebWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'We can’t verify {app}. Tap a login only if you trust this app.'**
+  String autofillRequestUnverifiedWebWarning(String app);
+
+  /// No description provided for @autofillDestinationWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'UNVERIFIED APP'**
+  String get autofillDestinationWarningTitle;
+
+  /// No description provided for @autofillUsernameUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Login unavailable'**
+  String get autofillUsernameUnavailable;
 }
 
 class _AppLocalizationsDelegate
