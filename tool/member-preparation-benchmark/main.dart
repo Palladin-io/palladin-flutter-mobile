@@ -23,6 +23,7 @@ import 'package:mobile_palladin/features/vault/data/services/member_vault_key_co
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_performance_budget.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -37,7 +38,6 @@ import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_d
 const _organization = '11111111-1111-4111-8111-111111111111';
 const _principal = '44444444-4444-4444-8444-444444444444';
 const _vaultCount = 8;
-const _entriesPerVault = 20;
 String _id(int n) => '22222222-2222-4222-8222-${n.toString().padLeft(12, '0')}';
 String _b64(List<int> bytes) => base64UrlEncode(bytes).replaceAll('=', '');
 
@@ -55,7 +55,13 @@ Future<void> main() async {
   }
 }
 
-Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
+Future<List<Map<String, Object>>> runBenchmark({
+  int repetitions = 5,
+  int entriesPerVault = 20,
+}) async {
+  if (entriesPerVault < 1) throw ArgumentError.value(entriesPerVault);
+  final snapshotPagesPerVault =
+      (entriesPerVault / VaultPerformanceBudget.memberSyncPageItems).ceil();
   debugPrint(
     'MEMBER_BENCHMARK_ENV ${jsonEncode({
       'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'),
@@ -64,7 +70,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
       'dart': Platform.version,
       'buildMode': kDebugMode ? 'debug' : 'other',
       'vaults': _vaultCount,
-      'entriesPerVault': _entriesPerVault,
+      'entriesPerVault': entriesPerVault,
       'warmRepeatRequestDelaysMillis': [0, 25],
     })}',
   );
@@ -170,8 +176,8 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           'notAfter': issued.add(const Duration(hours: 24)).toIso8601String(),
         };
         heads[vaultId] = [];
-        for (var e = 0; e < _entriesPerVault; e++) {
-          final entryId = _id(1000 + v * _entriesPerVault + e);
+        for (var e = 0; e < entriesPerVault; e++) {
+          final entryId = _id(1000 + v * entriesPerVault + e);
           final bundle = await crypto.seal(
             organizationId: _organization,
             vaultId: vaultId,
@@ -249,7 +255,10 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
       final segments = request.uri.pathSegments;
       final kind = segments.length == 2 ? 'list' : segments.last;
       requests[kind] = (requests[kind] ?? 0) + 1;
-      await request.drain<void>();
+      final requestBody = await utf8.decoder.bind(request).join();
+      final parameters = requestBody.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(requestBody) as Map<String, dynamic>;
       if (requestDelay != Duration.zero) {
         await Future<void>.delayed(requestDelay);
       }
@@ -266,12 +275,18 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           await request.response.close();
           return;
         }
+        final offset = int.parse(parameters['cursor'] as String? ?? '0');
+        final pageSize = parameters['pageSize'] as int;
+        final pageHeads = heads[id]!.skip(offset).take(pageSize).toList();
         body = {
           'accessContext': contexts[id],
           'memberVaultKey': wrappers[id],
-          'items': kind == 'snapshot' ? heads[id] : [],
+          'items': kind == 'snapshot' ? pageHeads : [],
           if (kind == 'snapshot') 'snapshotBaseSequence': '1',
-          if (kind == 'snapshot') 'nextCursor': null,
+          if (kind == 'snapshot')
+            'nextCursor': offset + pageHeads.length < heads[id]!.length
+                ? '${offset + pageHeads.length}'
+                : null,
           if (kind == 'delta') 'deltaUpperBound': '1',
           if (kind == 'delta') 'appliedThroughSequence': '1',
           if (kind == 'delta') 'continuationCursor': null,
@@ -301,7 +316,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           BaseOptions(baseUrl: 'http://127.0.0.1:${loopbackServer.port}'),
         );
         final keyContexts = MemberVaultKeyContextStore();
-        final loader = _VaultList(dio, keyContexts);
+        final loader = _VaultList(dio, keyContexts, entriesPerVault);
         final sync = MemberSyncService(
           remote: MemberSyncRemoteDatasource(dio),
           cache: cache,
@@ -346,11 +361,12 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
                 ),
           );
           if (invalidIndexes ||
-              count != _vaultCount * _entriesPerVault ||
+              count != _vaultCount * entriesPerVault ||
               requests['list'] != 1 ||
-              requests['snapshot'] != _vaultCount ||
+              requests['snapshot'] != _vaultCount * snapshotPagesPerVault ||
               requests['delta'] != _vaultCount ||
-              requests.values.fold<int>(0, (a, b) => a + b) != 17) {
+              requests.values.fold<int>(0, (a, b) => a + b) !=
+                  1 + _vaultCount * (snapshotPagesPerVault + 1)) {
             throw StateError('Benchmark request/result invariant failed');
           }
           final result = <String, Object>{
@@ -459,7 +475,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
                 reader.reads.single == (selected.vaultId, selected.entryId);
             final selectedSecretReads =
                 crypto.secretReads - candidateSecretReads;
-            if (candidates.length != 160 ||
+            if (candidates.length != _vaultCount * entriesPerVault ||
                 candidateSecretReads != 0 ||
                 selectedSecretReads != 1 ||
                 !onlySelectedEntryRead ||
@@ -521,7 +537,8 @@ class _Authority extends MemberSyncSessionAuthorityProvider {
 }
 
 class _VaultList implements MemberVaultListLoader {
-  _VaultList(this.dio, this.contexts);
+  _VaultList(this.dio, this.contexts, this.entriesPerVault);
+  final int entriesPerVault;
   final Dio dio;
   final MemberVaultKeyContextStore contexts;
   @override
@@ -549,7 +566,7 @@ class _VaultList implements MemberVaultListLoader {
       grantMode: GrantMode.granular,
       createdAt: DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
-      entryCount: _entriesPerVault,
+      entryCount: entriesPerVault,
       activeGrantCount: 0,
       memberCount: 1,
     );
