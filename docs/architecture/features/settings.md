@@ -72,8 +72,11 @@ cutover state is explained; unrelated HTTP 409 responses stay generic.
 
 `SecurityPage` groups the existing password-change and TOTP surfaces. It also
 shows the OS-confirmed AutoFill provider status and user-initiated setup action
-shared with Home; see [AutoFill activation](autofill.md#provider-activation-and-status). OAuth-only
-accounts receive an explanatory read-only state. `DataImportPage` hands off to
+shared with Home; see [AutoFill activation](autofill.md#provider-activation-and-status). The TOTP
+entry follows `GET /api/account`, as on the web: it is shown only when `kdf` is
+present with `credentialRevision > 0` (accounts that signed in with Google have
+one after setup), and the enroll endpoint's 404 remains the fallback. Without a
+password credential, OAuth sign-ins receive an explanatory read-only state. `DataImportPage` hands off to
 the existing `ImportVaultPickerPage`; file parsing, validation, encryption, and
 upload stay in the established import flow and no plaintext is persisted by
 Settings.

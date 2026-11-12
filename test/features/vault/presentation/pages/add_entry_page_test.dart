@@ -114,4 +114,93 @@ void main() {
     await tester.pump();
     expect(isObscured(l10n.entryCvvLabel), isFalse);
   });
+  testWidgets(
+    'OAuth-only creation adds distinct accounts and last removal restores validation',
+    (tester) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      await tester.pumpWidget(
+        const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AddEntryPage(vaultId: 'vault'),
+        ),
+      );
+      final label = find.byWidgetPredicate(
+        (widget) =>
+            widget is OnboardingTextField &&
+            widget.hintText == l10n.entryLabelHint,
+      );
+      await tester.enterText(
+        find.descendant(of: label, matching: find.byType(TextField)),
+        'Synthetic service',
+      );
+      Future<void> add(String account) async {
+        final add = find.byKey(const ValueKey('sign-in-method-add'));
+        await tester.ensureVisible(add);
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.signInProviderGoogle).last);
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.descendant(
+            of: find.byKey(const ValueKey('sign-in-method-account')),
+            matching: find.byType(TextField),
+          ),
+          account,
+        );
+        await tester.tap(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text(l10n.entrySaveAction),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await add('first@example.test');
+      expect(
+        tester.widget<EntrySaveButton>(find.byType(EntrySaveButton)).onPressed,
+        isNotNull,
+      );
+      await add('second@example.test');
+      expect(find.text('first@example.test'), findsOneWidget);
+      expect(find.text('second@example.test'), findsOneWidget);
+      for (var remaining = 2; remaining > 0; remaining--) {
+        final edit = find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is IconButton &&
+                  widget.key.toString().contains('sign-in-method-edit-'),
+            )
+            .first;
+        await tester.ensureVisible(edit);
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('sign-in-method-remove')),
+        );
+        await tester.tap(find.byKey(const ValueKey('sign-in-method-remove')));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        tester.widget<EntrySaveButton>(find.byType(EntrySaveButton)).onPressed,
+        isNull,
+      );
+      expect(find.text(l10n.entrySignInMethodNotSet), findsNothing);
+      await add('third@example.test');
+      final type = find.text(l10n.entryTypeCredential);
+      await tester.ensureVisible(type);
+      await tester.tap(type);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.entryTypeKey).last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('sign-in-method-add')), findsNothing);
+      expect(
+        tester.widget<EntrySaveButton>(find.byType(EntrySaveButton)).onPressed,
+        isNull,
+      );
+    },
+  );
 }

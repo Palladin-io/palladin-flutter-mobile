@@ -142,10 +142,54 @@ the library route and are cleared on lock even while the Vaults segment is activ
   Inbox View Access selects Agents immediately; ordinary Entry/Vault navigation
   still starts on Details/Entries. Vault links encode this as `?tab=agents`.
 
-- The canonical-to-form adapter maps `customFields` to the form's `fields` shape once, including stable ids, kind/type and index-visibility flags. Detail, local-cache reveal and grant projection share that adapter. Edits remove policy entries for fields absent from the new schema while preserving access modes for surviving fields; this does not change the retained owner selection on a grant.
+- The canonical-to-form adapter maps `customFields` to the form's `fields` shape once, including stable ids, type and the legacy index-visibility flag. Detail, local-cache reveal and grant projection share that adapter. Edits remove policy entries for fields absent from the new schema while preserving access modes for surviving fields; this does not change the retained owner selection on a grant.
+- Canonical custom fields follow the shared `@palladin/crypto` MemberSecret schema exactly: `{id: "custom:<uuid>", label, type, value}`, with the same `custom:<uuid>` key in `agentFieldAccess`. Readers (adapter, byte-level grant projection, wire grant projection) also accept the legacy mobile shape (bare id, `kind`, `includeInMemberIndex`), so older mobile-written entries still open; every write emits only the canonical shape. Unknown/non-standard types parse, are preserved unchanged across edits and accept only `never` Agent access, so they never reach Discovery, grants or MemberIndex. The exceptions are valid `palladin.signin.v1` / `palladin.signin.v2` bindings, which may also be `discovery` (see below). MemberIndex custom entries are still selected only by the legacy local `includeInMemberIndex` flag; canonical fields without it are never added. This is intentionally narrower than the canonical TS projection, which indexes every text/multiline field.
 - Entry Detail renders the already-decrypted in-memory MemberIndex first and automatically authenticates and decrypts MemberSecret on entry. Sensitive values remain masked and are revealed per field. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
 - A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.
 - HTTP `409` is a dedicated edit-conflict state rather than a generic validation error. Lock, background and widget disposal drop decrypted Cubit state, controller values, reveal flags and TOTP state; keys and temporary plaintext byte buffers are wiped in `finally` paths.
+
+### Federated sign-in methods
+
+A Credential supports independent methods, including multiple accounts at the
+same provider (`google | apple | microsoft | github | facebook`). Each new
+method is one `palladin.signin.v2` custom field with stable `custom:<uuid>` ID.
+The value is exactly `{provider, account, entry}`; account is NFC/trimmed,
+1..256 UTF-16 units or null, and the explicitly chosen provider Credential
+reference is `{vaultId, entryId}` with lowercase UUIDs or null.
+
+- `SignInMethodField.methods/update` reads recognized v1/v2 methods and mutates
+  only the selected ID. Editing a recognized v1 upgrades only that field to v2;
+  untouched v1 and opaque fields, order, ID case and existing policies survive.
+  Forms use bare UUIDs internally; canonical encode/adapt prefixes and removes
+  only literal `custom:` without normalizing UUID case. Form sections do not
+  reorder serialized fields: surviving IDs keep their saved positions, new
+  methods append, and explicit ordinary-field reordering (including fields added
+  in the current draft) preserves opaque and method slots. Discarding/restarting
+  an edit restores both fields and Agent policy/label from the authenticated
+  saved snapshot.
+- A valid binding admits `never`/`discovery` only, on Credentials only. New
+  methods default private; the editor owns an explicit visibility switch.
+  No binding receives `onGrant*` access or enters MemberIndex.
+- Any v2 field presence suppresses legacy singleton discovery, even if hidden
+  or invalid. The redacted `signInMethods` string is canonical sorted-key JSON
+  `{methods:[{entry,id,provider}],schema:"palladin.signin.v2"}` with case-sensitive
+  ID sorting. It includes visible recognized v1 neighbors. Malformed visible
+  values or duplicate IDs suppress the whole collection. Accounts never leave
+  MemberSecret. Legacy v1-only singleton ambiguity stays fail-closed.
+- Add/Edit/Details reuse `SignInMethodsSection`: heading and plus when empty,
+  compact provider-logo/name/account/pencil rows otherwise. It is the last
+  form section after Notes, above the pinned footer. Methods are Login-only;
+  newly added methods are omitted when creation switches to another type.
+  OAuth-only Credentials may have empty username/password; removing the last
+  method restores normal username/password validation.
+- `SignInMethodSheet` uses existing dropdown, input and pinned footer controls.
+  `SignInCandidateService` finds active agent-discoverable provider Credentials
+  across unlocked Vaults and opens at most 20 local encrypted candidates. Links
+  require an explicit user choice. List rendering remains MemberIndex-only;
+  this feature adds no secret decryption or OAuth marks to Entry lists.
+- Vendored public v2 fixtures are pinned under
+  `test/fixtures/federated_signin_v2/`; collection, canonical identity/policy,
+  redaction, creation and widget-flow regressions run without sibling repos.
 
 ### Entry Agent policy and exact-revision grants
 
@@ -399,3 +443,5 @@ Credential rows omit the redundant domain subtitle when the Entry label itself
 is that exact host or its HTTPS root URL. Custom names, other hosts and URLs
 with paths/query/fragment remain distinct. This is display-only; matching and
 native origin verification are unchanged.
+
+The Login-only sign-in method sheet uses a horizontally scrollable provider-logo rail with native focusable buttons and previous/next actions. Scrolling never selects a provider; saved-method rows, exact field IDs, manual accounts and candidate linking retain their behavior. Candidate controls resize with reduced-motion-aware `AnimatedSize` above the pinned sheet footer. The generic localized suggestion mail uses only `ContactConfig` (`PALLADIN_CONTACT_EMAIL`) and subject; it never includes account or Entry values. Generic builds leave the contact unset. Store artifact workflows require the public `CONTACT_EMAIL` repository variable and pass it as the Dart define to both Android and iOS. Copy `config/contact.example.json` to ignored `config/contact.local.json` for an empty generic starting point. For local previews supply `--dart-define=PALLADIN_CONTACT_EMAIL=<contact-address>` or put that key in an ignored `config/*.local.json` define file.

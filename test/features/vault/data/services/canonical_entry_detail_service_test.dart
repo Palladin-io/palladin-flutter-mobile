@@ -766,4 +766,60 @@ void main() {
       });
     },
   );
+  test(
+    'canonical encoding preserves uppercase method policy identity and opaque neighbors',
+    () {
+      const id = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
+      const opaqueId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      final base = snapshot();
+      base.entry['vaultId'] = vaultId;
+      base.secret['entryType'] = 1;
+      base.secret['memberLabel'] = 'Synthetic';
+      base.payload['fields'] = [
+        {
+          'id': id,
+          'label': 'Google',
+          'type': 'palladin.signin.v1',
+          'value': {
+            'provider': 'google',
+            'account': 'synthetic@example.test',
+            'entry': null,
+          },
+        },
+        {
+          'id': opaqueId,
+          'label': 'Opaque',
+          'type': 'future.v9',
+          'value': {'unchanged': true},
+        },
+      ];
+      final policy =
+          (base.secret['agentVisibilityPolicy'] as Map)['fields'] as Map;
+      policy[id] = 'discovery';
+      policy[opaqueId] = 'never';
+      final bytes = service.encodeCanonicalMemberSecret(base);
+      try {
+        final decoded = jsonDecode(utf8.decode(bytes)) as Map;
+        final fields = (decoded['content'] as Map)['customFields'] as List;
+        expect(fields.first['id'], 'custom:$id');
+        expect(fields.first['type'], 'palladin.signin.v1');
+        expect(fields.last['value'], {'unchanged': true});
+        final adapted = service.adaptCanonicalSecret(
+          Map<String, dynamic>.from(decoded),
+        );
+        expect(((adapted['content'] as Map)['fields'] as List).first['id'], id);
+        expect(
+          ((adapted['agentVisibilityPolicy'] as Map)['fields'] as Map)[id],
+          'discovery',
+        );
+        expect((decoded['agentFieldAccess'] as Map)['custom:$id'], 'discovery');
+        expect(
+          (decoded['agentFieldAccess'] as Map)['custom:$opaqueId'],
+          'never',
+        );
+      } finally {
+        bytes.fillRange(0, bytes.length, 0);
+      }
+    },
+  );
 }

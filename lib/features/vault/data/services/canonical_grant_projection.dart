@@ -171,27 +171,36 @@ final class _CanonicalGrantProjectionParser {
     if (_consume(0x5d)) return;
     while (true) {
       String? id;
-      String? kind;
+      String? type;
+      String? legacyKind;
       Uint8List? value;
       _readObject((key) {
         switch (key) {
           case 'id':
             id = _readString();
+          // Canonical `type`; legacy mobile MemberSecrets used `kind`.
+          case 'type':
+            type = _readString();
           case 'kind':
-            kind = _readString();
+            legacyKind = _readString();
           case 'value':
             value = _readRawValue();
           default:
             _skipValue();
         }
       });
-      final fieldId = id == null ? null : 'custom:$id';
+      final kind = type ?? legacyKind;
+      final fieldId = switch (id) {
+        null => null,
+        final String raw when raw.startsWith('custom:') => raw,
+        final String raw => 'custom:$raw',
+      };
       if (fieldId != null && _fieldIds.contains(fieldId)) {
         if (kind == null || value == null) {
           value?.fillRange(0, value!.length, 0);
           throw const FormatException('Malformed custom grant field');
         }
-        _customKinds[fieldId] = kind!;
+        _customKinds[fieldId] = kind;
         _values[fieldId] = value!;
       } else {
         value?.fillRange(0, value!.length, 0);

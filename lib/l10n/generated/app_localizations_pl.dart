@@ -976,6 +976,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Odzyskiwanie nie powiodło się. Spróbuj ponownie.';
 
   @override
+  String get recoveryProofInvalid =>
+      'Weryfikacja odzyskiwania wygasła lub nie powiodła się. Spróbuj ponownie.';
+
+  @override
   String get vaultTitle => 'Sejfy';
 
   @override
@@ -4118,6 +4122,17 @@ class AppLocalizationsPl extends AppLocalizations {
   String get authTotpEnrollDone => 'Gotowe';
 
   @override
+  String get authTotpEnrollPasswordSubtitle =>
+      'Potwierdź bieżące hasło główne, aby skonfigurować uwierzytelnianie dwuskładnikowe.';
+
+  @override
+  String get authTotpEnrollPasswordButton => 'Dalej';
+
+  @override
+  String get authTotpEnrollUnavailable =>
+      'Uwierzytelnianie dwuskładnikowe jest dostępne tylko dla kont logujących się hasłem.';
+
+  @override
   String get authChangePwTitle => 'Zmień hasło główne';
 
   @override
@@ -5146,4 +5161,115 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get autofillUsernameUnavailable => 'Login niedostępny';
+
+  @override
+  String get entrySignInMethodLabel => 'Metoda logowania';
+
+  @override
+  String get entrySignInMethodNotSet => 'Nie ustawiono';
+
+  @override
+  String entrySignInMethodWithAccount(String provider, String account) {
+    return '$provider · $account';
+  }
+
+  @override
+  String entrySignInMethodNoAccount(String provider) {
+    return '$provider · Nie podano konta';
+  }
+
+  @override
+  String get entrySignInMethodUnrecognized =>
+      'Zapisano w formacie nierozpoznawanym przez tę aplikację';
+
+  @override
+  String get entrySignInMethodAmbiguous =>
+      'Zapisano więcej niż jedną metodę logowania';
+
+  @override
+  String get entrySignInMethodEdit => 'Edytuj metodę logowania';
+
+  @override
+  String get entrySignInMethodHint =>
+      'Zapamiętaj, przez którego dostawcę logujesz się do tego serwisu. Palladin nie loguje się za Ciebie i nie wykrywa logowań przez dostawców w innych aplikacjach ani przeglądarkach.';
+
+  @override
+  String get entrySignInMethodPreviousProviders => 'Poprzedni dostawcy';
+
+  @override
+  String get entrySignInMethodNextProviders => 'Następni dostawcy';
+
+  @override
+  String get entrySignInMethodMissingProvider =>
+      'Brakuje dostawcy? Napisz do nas';
+
+  @override
+  String get entrySignInMethodMissingProviderSubject =>
+      'Propozycja dostawcy logowania';
+
+  @override
+  String get entrySignInMethodProvider => 'Dostawca';
+
+  @override
+  String get entrySignInMethodChooseProvider => 'Wybierz dostawcę';
+
+  @override
+  String get entrySignInMethodAccount => 'Konto u dostawcy (opcjonalnie)';
+
+  @override
+  String get entrySignInMethodAccountHint => 'nazwa@example.com';
+
+  @override
+  String get entrySignInMethodAccountTooLong => 'Użyj maksymalnie 256 znaków.';
+
+  @override
+  String get entrySignInMethodRemove => 'Usuń metodę logowania';
+
+  @override
+  String get entrySignInMethodSaved => 'Zapisano metodę logowania';
+
+  @override
+  String get entrySignInMethodRemoved => 'Usunięto metodę logowania';
+
+  @override
+  String get signInProviderGoogle => 'Google';
+
+  @override
+  String get signInProviderApple => 'Apple';
+
+  @override
+  String get signInProviderMicrosoft => 'Microsoft';
+
+  @override
+  String get signInProviderGithub => 'GitHub';
+
+  @override
+  String get signInProviderFacebook => 'Facebook';
+
+  @override
+  String get entrySignInMethodLinkedEntry =>
+      'Wpis Palladin dla tego dostawcy (opcjonalnie)';
+
+  @override
+  String get entrySignInMethodLinkedEntryNone => 'Brak';
+
+  @override
+  String get entrySignInMethodLinkedEntryLoading => 'Szukam pasujących wpisów…';
+
+  @override
+  String get entrySignInMethodLinkedEntryEmpty =>
+      'Brak wpisu tego dostawcy widocznego dla agentów';
+
+  @override
+  String get entrySignInMethodAgentHint =>
+      'Agenci widzą dostawcę i powiązany wpis, nigdy konto.';
+
+  @override
+  String get entrySignInMethodsLabel => 'Metody logowania';
+
+  @override
+  String get entrySignInMethodAdd => 'Dodaj metodę logowania';
+
+  @override
+  String get entrySignInMethodVisibility => 'Widoczna dla agentów';
 }

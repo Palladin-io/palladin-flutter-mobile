@@ -138,17 +138,20 @@ jobs:
         BACKEND_ENVIRONMENT: "${{ steps.runtime_config.outputs.backend_environment
           }}"
         TARGET: "${{ steps.runtime_config.outputs.target }}"
+        CONTACT_EMAIL: "${{ vars.CONTACT_EMAIL }}"
         API_BASE_URL: "${{ steps.runtime_config.outputs.api_base_url }}"
         BUILD_NAME: "${{ steps.app_version.outputs.build_name }}"
         BUILD_NUMBER: "${{ steps.app_version.outputs.build_number }}"
       run: |
         set -euo pipefail
+        test -n "$CONTACT_EMAIL" || { echo "CONTACT_EMAIL is required for store artifacts" >&2; exit 1; }
         flutter build appbundle \
           --release \
           --flavor "${FLAVOR}" \
           -t "${TARGET}" \
           --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
           --dart-define="PALLADIN_API_BASE_URL=${API_BASE_URL}" \
+          --dart-define="PALLADIN_CONTACT_EMAIL=${CONTACT_EMAIL}" \
           --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
           --build-name "${BUILD_NAME}" \
           --build-number "${BUILD_NUMBER}"
@@ -513,17 +516,20 @@ jobs:
         BACKEND_ENVIRONMENT: "${{ steps.runtime_config.outputs.backend_environment
           }}"
         TARGET: "${{ steps.runtime_config.outputs.target }}"
+        CONTACT_EMAIL: "${{ vars.CONTACT_EMAIL }}"
         API_BASE_URL: "${{ steps.runtime_config.outputs.api_base_url }}"
         BUILD_NAME: "${{ steps.app_version.outputs.build_name }}"
         BUILD_NUMBER: "${{ steps.app_version.outputs.build_number }}"
       run: |
         set -euo pipefail
+        test -n "$CONTACT_EMAIL" || { echo "CONTACT_EMAIL is required for store artifacts" >&2; exit 1; }
         flutter build ipa \
           --release \
           --flavor "${FLAVOR}" \
           -t "${TARGET}" \
           --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
           --dart-define="PALLADIN_API_BASE_URL=${API_BASE_URL}" \
+          --dart-define="PALLADIN_CONTACT_EMAIL=${CONTACT_EMAIL}" \
           --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
           --build-name "${BUILD_NAME}" \
           --build-number "${BUILD_NUMBER}" \

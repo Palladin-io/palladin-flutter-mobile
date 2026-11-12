@@ -16,6 +16,7 @@ class RecoverAccountRequest {
     required this.newEncryptedPrivateKey,
     required this.newRecoverySalt,
     required this.newEncryptedPrivateKeyByRecovery,
+    required this.recoveryProof,
   });
 
   /// 16-byte Argon2id salt for the new master-password key derivation.
@@ -35,6 +36,17 @@ class RecoverAccountRequest {
   /// (`nonce || ciphertext` from `crypto_secretbox_easy`).
   final Uint8List newEncryptedPrivateKeyByRecovery;
 
+  /// 32-byte secret from the one-time recovery challenge, proving the client
+  /// holds the account private key. Wipe with [wipeSecrets] after upload.
+  final Uint8List recoveryProof;
+
+  void wipeSecrets() {
+    recoveryProof.fillRange(0, recoveryProof.length, 0);
+    if (newAuthCredential case final credential?) {
+      credential.fillRange(0, credential.length, 0);
+    }
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'securityVersion': 1,
@@ -49,6 +61,7 @@ class RecoverAccountRequest {
       'newEncryptedPrivateKeyByRecovery': _encode(
         newEncryptedPrivateKeyByRecovery,
       ),
+      'recoveryProof': _encode(recoveryProof),
     };
   }
 

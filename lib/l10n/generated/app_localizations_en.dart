@@ -972,6 +972,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recoveryServerError => 'Recovery failed. Please try again.';
 
   @override
+  String get recoveryProofInvalid =>
+      'The recovery check expired or could not be verified. Please try again.';
+
+  @override
   String get vaultTitle => 'Vaults';
 
   @override
@@ -4080,6 +4084,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authTotpEnrollDone => 'Done';
 
   @override
+  String get authTotpEnrollPasswordSubtitle =>
+      'Confirm your current master password to set up two-factor authentication.';
+
+  @override
+  String get authTotpEnrollPasswordButton => 'Continue';
+
+  @override
+  String get authTotpEnrollUnavailable =>
+      'Two-factor authentication is available only for accounts that sign in with a password.';
+
+  @override
   String get authChangePwTitle => 'Change master password';
 
   @override
@@ -5093,4 +5108,116 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autofillUsernameUnavailable => 'Login unavailable';
+
+  @override
+  String get entrySignInMethodLabel => 'Sign-in method';
+
+  @override
+  String get entrySignInMethodNotSet => 'Not set';
+
+  @override
+  String entrySignInMethodWithAccount(String provider, String account) {
+    return '$provider · $account';
+  }
+
+  @override
+  String entrySignInMethodNoAccount(String provider) {
+    return '$provider · Account not specified';
+  }
+
+  @override
+  String get entrySignInMethodUnrecognized =>
+      'Saved in a format this app does not recognize';
+
+  @override
+  String get entrySignInMethodAmbiguous =>
+      'More than one sign-in method is saved';
+
+  @override
+  String get entrySignInMethodEdit => 'Edit sign-in method';
+
+  @override
+  String get entrySignInMethodHint =>
+      'Remember which provider you use to sign in to this service. Palladin does not sign in for you and cannot detect provider sign-ins in other apps or browsers.';
+
+  @override
+  String get entrySignInMethodPreviousProviders => 'Previous providers';
+
+  @override
+  String get entrySignInMethodNextProviders => 'Next providers';
+
+  @override
+  String get entrySignInMethodMissingProvider =>
+      'Missing a provider? Let us know';
+
+  @override
+  String get entrySignInMethodMissingProviderSubject =>
+      'Sign-in provider suggestion';
+
+  @override
+  String get entrySignInMethodProvider => 'Provider';
+
+  @override
+  String get entrySignInMethodChooseProvider => 'Choose a provider';
+
+  @override
+  String get entrySignInMethodAccount => 'Provider account (optional)';
+
+  @override
+  String get entrySignInMethodAccountHint => 'name@example.com';
+
+  @override
+  String get entrySignInMethodAccountTooLong => 'Use at most 256 characters.';
+
+  @override
+  String get entrySignInMethodRemove => 'Remove sign-in method';
+
+  @override
+  String get entrySignInMethodSaved => 'Sign-in method saved';
+
+  @override
+  String get entrySignInMethodRemoved => 'Sign-in method removed';
+
+  @override
+  String get signInProviderGoogle => 'Google';
+
+  @override
+  String get signInProviderApple => 'Apple';
+
+  @override
+  String get signInProviderMicrosoft => 'Microsoft';
+
+  @override
+  String get signInProviderGithub => 'GitHub';
+
+  @override
+  String get signInProviderFacebook => 'Facebook';
+
+  @override
+  String get entrySignInMethodLinkedEntry =>
+      'Palladin entry for this provider (optional)';
+
+  @override
+  String get entrySignInMethodLinkedEntryNone => 'None';
+
+  @override
+  String get entrySignInMethodLinkedEntryLoading =>
+      'Looking for matching entries…';
+
+  @override
+  String get entrySignInMethodLinkedEntryEmpty =>
+      'No agent-discoverable entry for this provider';
+
+  @override
+  String get entrySignInMethodAgentHint =>
+      'Agents can see the provider and the linked entry, never the account.';
+
+  @override
+  String get entrySignInMethodsLabel => 'Sign-in methods';
+
+  @override
+  String get entrySignInMethodAdd => 'Add sign-in method';
+
+  @override
+  String get entrySignInMethodVisibility => 'Visible to agents';
 }

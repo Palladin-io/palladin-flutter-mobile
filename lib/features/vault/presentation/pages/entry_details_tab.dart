@@ -24,12 +24,15 @@ import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_s
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../data/services/script_access_impact_service.dart';
+import '../../data/services/sign_in_candidate_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/sign_in_method.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../cubit/edit_entry_cubit.dart';
+import '../cubit/vault_list_cubit.dart';
 import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_field_row.dart';
 import '../widgets/entry_form_utils.dart';
@@ -39,6 +42,8 @@ import '../widgets/entry_notes_section.dart';
 import '../widgets/script_editor_field.dart';
 import '../widgets/script_parameters_editor.dart';
 import '../widgets/script_refs_editor.dart';
+import '../widgets/sign_in_method_sheet.dart';
+import '../widgets/sign_in_methods_section.dart';
 import '../widgets/totp_display.dart';
 import '../widgets/totp_section.dart';
 import '../widgets/vault_visuals.dart';
@@ -107,6 +112,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _uploadingIcon = false;
   bool _reservingIcon = false;
   bool _submitInFlight = false;
+  bool _savingSignInMethod = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
@@ -121,8 +127,88 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   List<ScriptParameterDefinition> _scriptParameters = const [];
   bool _returnResultToAgent = false;
 
-  /// Every custom field in display order — 2FA first, then the rest.
-  List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
+  List<CustomField> _methodFields = const [];
+  Set<String> _originalMethodIds = const {};
+  List<String> _fieldOrder = const [];
+  List<CustomField> get _allCustomFields {
+    final current = <String, CustomField>{
+      for (final field in [
+        ..._totpFields,
+        ..._customFields,
+        ..._methodFields.where(
+          (field) =>
+              _type == EntryType.credential ||
+              _originalMethodIds.contains(field.id),
+        ),
+      ])
+        field.id: field,
+    };
+    return [
+      for (final id in _fieldOrder) ?current.remove(id),
+      ...current.values,
+    ];
+  }
+
+  void _updateCustomFields(List<CustomField> fields, bool valid) {
+    // New editable IDs receive appended slots before applying the editor order.
+    // Opaque fields stay anchored when the editor emits them after its drafts.
+    final orderedIds = fields
+        .where((field) => field.type != CustomFieldType.unknown)
+        .map((field) => field.id)
+        .toList();
+    final existing = _fieldOrder.toSet();
+    final slots = [
+      ..._fieldOrder,
+      for (final id in orderedIds)
+        if (!existing.contains(id)) id,
+    ];
+    final reordered = orderedIds.toSet();
+    var index = 0;
+    setState(() {
+      _fieldOrder = [
+        for (final id in slots)
+          reordered.contains(id) ? orderedIds[index++] : id,
+      ];
+      _customFields = fields;
+      _customFieldsValid = valid;
+    });
+  }
+
+  Future<void> _editDraftMethod(SignInMethodRecognized? current) async {
+    final choice = await SignInMethodSheet.show(
+      context,
+      initial: current?.binding,
+      canRemove: current != null,
+      discovery:
+          _agentPolicy?.fields[current?.fieldId] == AgentFieldAccess.discovery,
+      loadCandidates: getIt.isRegistered<SignInCandidateService>()
+          ? (provider) => _signInCandidates(widget.entry, provider)
+          : null,
+    );
+    if (choice == null || !mounted || !_editMode) return;
+    final id = current?.fieldId ?? CustomField.newId();
+    setState(() {
+      _methodFields = SignInMethodField.update(
+        _methodFields,
+        fieldId: current?.fieldId,
+        binding: choice.binding,
+        label: AppLocalizations.of(context)!.entrySignInMethodLabel,
+        newId: id,
+      );
+      final policy = _agentPolicy;
+      if (policy != null) {
+        final fields = Map<String, AgentFieldAccess>.from(policy.fields);
+        if (choice.binding == null) {
+          fields.remove(id);
+        } else {
+          fields[id] = choice.discovery && policy.discoverable
+              ? AgentFieldAccess.discovery
+              : AgentFieldAccess.never;
+        }
+        _agentPolicy = policy.copyWith(fields: fields);
+      }
+    });
+  }
 
   /// Legacy flat `otpauth://` TOTP string on an imported credential — kept
   /// so an edit does not drop it (v2 moves TOTP into a custom field).
@@ -293,6 +379,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _expiryYearController.clear();
     _billingAddressController.clear();
     _customFields = const [];
+    _methodFields = const [];
+    _originalMethodIds = const {};
+    _fieldOrder = const [];
     _totpFields = const [];
     _refs = const [];
     _scriptParameters = const [];
@@ -308,9 +397,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _populated = true;
     _revealedEntry = entry;
     _payload = payload;
-    final cubit = context.read<EditEntryCubit>();
-    _agentPolicy = cubit.agentVisibilityPolicy(entry.type);
-    _agentLabel = cubit.agentLabel;
     _syncControllersFromSnapshot();
   }
 
@@ -321,6 +407,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final entry = _revealedEntry;
     final payload = _payload;
     if (entry == null || payload == null) return;
+    final cubit = context.read<EditEntryCubit>();
+    _agentPolicy = cubit.agentVisibilityPolicy(entry.type);
+    _agentLabel = cubit.agentLabel;
     _labelController.text = entry.label;
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
@@ -333,12 +422,21 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
     final allFields = CustomField.listFromPayload(payload);
+    _fieldOrder = allFields.map((field) => field.id).toList();
     _totpFields = allFields
         .where((f) => f.type == CustomFieldType.totp)
         .toList();
     _customFields = allFields
-        .where((f) => f.type != CustomFieldType.totp)
+        .where(
+          (f) =>
+              f.type != CustomFieldType.totp &&
+              !SignInMethodField.isMethodType(f.rawType),
+        )
         .toList();
+    _methodFields = allFields
+        .where((f) => SignInMethodField.isMethodType(f.rawType))
+        .toList();
+    _originalMethodIds = _methodFields.map((field) => field.id).toSet();
     _customFieldsValid = true;
     switch (entry.type) {
       case EntryType.key:
@@ -508,6 +606,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         value: _valueController.text,
         username: _usernameController.text,
         password: _passwordController.text,
+        fields: _allCustomFields,
         script: _scriptController.text,
         description: _descriptionController.text,
         refs: _refs,
@@ -1105,6 +1204,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             ),
           );
         }
+
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
       case EntryType.creditCard:
@@ -1173,6 +1273,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       );
     }
 
+    if (entry.type == EntryType.credential) {
+      addField(_signInMethodField(entry, payload, l10n));
+    }
+
     return Column(
       children: [
         Expanded(
@@ -1234,6 +1338,116 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         ),
       ],
     );
+  }
+
+  /// Read-only "Sign-in method" row. Unrecognized or ambiguous bindings are
+  /// shown neutrally and never offered as a usable value.
+  Widget _signInMethodField(
+    EntryEntity entry,
+    Map<String, dynamic> payload,
+    AppLocalizations l10n,
+  ) {
+    return SignInMethodsSection(
+      key: const ValueKey('entry-sign-in-method'),
+      fields: CustomField.listFromPayload(payload),
+      onEdit: (method) =>
+          _editSignInMethod(entry, method ?? const SignInMethodAbsent()),
+    );
+  }
+
+  Future<void> _editSignInMethod(
+    EntryEntity entry,
+    SignInMethodState current,
+  ) async {
+    if (_savingSignInMethod) return;
+    final l10n = AppLocalizations.of(context)!;
+    final choice = await SignInMethodSheet.show(
+      context,
+      initial: current is SignInMethodRecognized ? current.binding : null,
+      canRemove: current is SignInMethodRecognized,
+      discovery:
+          current is SignInMethodRecognized &&
+          _agentPolicy?.fields[current.fieldId] == AgentFieldAccess.discovery,
+      loadCandidates: getIt.isRegistered<SignInCandidateService>()
+          ? (provider) => _signInCandidates(entry, provider)
+          : null,
+    );
+    if (choice == null || !mounted || _editMode) return;
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+      _showSnackBar(l10n.entryErrorCrypto);
+      return;
+    }
+    final cubit = context.read<EditEntryCubit>();
+    final epoch = _plaintextEpoch;
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    setState(() => _savingSignInMethod = true);
+    try {
+      await cubit.saveSignInMethod(
+        entry: entry,
+        privateKey: keyCopy,
+        binding: choice.binding,
+        fieldId: current is SignInMethodRecognized ? current.fieldId : null,
+        discovery: choice.discovery,
+        fieldLabel: l10n.entrySignInMethodLabel,
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+      if (mounted) setState(() => _savingSignInMethod = false);
+    }
+    if (!mounted || epoch != _plaintextEpoch) return;
+    switch (cubit.state) {
+      case EditEntrySuccess(entry: final updated):
+        widget.onUpdated(updated);
+        _showSnackBar(
+          choice.binding == null
+              ? l10n.entrySignInMethodRemoved
+              : l10n.entrySignInMethodSaved,
+        );
+        await _requestReveal(expected: updated, forceRemote: true);
+        if (!mounted) return;
+        if (cubit.state case EditEntryReady(:final entry, :final payload)) {
+          setState(() => _adoptRevealed(entry, payload));
+        }
+      case EditEntryConflict():
+        _showSnackBar(l10n.entryErrorConflict);
+        await _requestReveal(forceRemote: true);
+      case EditEntryError(:final kind):
+        _showSnackBar(EntryFormUtils.errorMessage(l10n, kind));
+      default:
+        break;
+    }
+  }
+
+  /// Discoverable Credentials of [provider] across the unlocked Vaults.
+  Future<List<SignInProviderCandidate>> _signInCandidates(
+    EntryEntity entry,
+    SignInProvider provider,
+  ) async {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) return const [];
+    final vaults = getIt.isRegistered<VaultListCubit>()
+        ? switch (getIt<VaultListCubit>().state) {
+            VaultListLoaded(:final vaults) => [
+              for (final vault in vaults) vault.id,
+            ],
+            _ => [entry.vaultId],
+          }
+        : [entry.vaultId];
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    try {
+      return await getIt<SignInCandidateService>().candidates(
+        provider: provider,
+        vaultIds: vaults,
+        exclude: SignInEntryReference(
+          vaultId: entry.vaultId,
+          entryId: entry.id,
+        ),
+        memberPrivateKey: keyCopy,
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+    }
   }
 
   void _toggleCustomReveal(String id) {
@@ -1629,16 +1843,20 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                 ],
                 CustomFieldsEditor(
                   initial: _customFields,
-                  onChanged: (fields, valid) => setState(() {
-                    _customFields = fields;
-                    _customFieldsValid = valid;
-                  }),
+                  onChanged: _updateCustomFields,
                 ),
                 const SizedBox(height: AppSpacing.section),
                 EntryNotesSection(
                   controller: _notesController,
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
+                if (_type == EntryType.credential) ...[
+                  const SizedBox(height: AppSpacing.section),
+                  SignInMethodsSection(
+                    fields: _methodFields,
+                    onEdit: _editDraftMethod,
+                  ),
+                ],
                 if (state is EditEntryConflict) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(

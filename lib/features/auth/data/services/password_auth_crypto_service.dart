@@ -123,6 +123,29 @@ class PasswordAuthCryptoService {
     }
   }
 
+  /// Derives the current login auth credential from [password], exactly as
+  /// [buildChangePasswordMaterial] does for `currentAuthCredential`. The
+  /// server verifies it before accepting a sensitive account change; the
+  /// caller owns the returned buffer and must wipe it.
+  Future<Uint8List> deriveCurrentAuthCredential({
+    required String password,
+    required String accountId,
+    required String kdfSaltBase64,
+  }) async {
+    final salt = _decodeWireBytes(kdfSaltBase64);
+    final outputs = await _identityKdfService.derive(
+      password: password,
+      accountId: accountId,
+      kdfSalt: salt,
+    );
+    try {
+      return Uint8List.fromList(outputs.authCredential);
+    } finally {
+      outputs.dispose();
+      salt.fillRange(0, salt.length, 0);
+    }
+  }
+
   /// Re-derives the auth credential and master key for a master-password
   /// change and re-wraps the private key under the new master
   /// key.

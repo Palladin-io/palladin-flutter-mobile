@@ -34,6 +34,7 @@ import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/vault/data/services/key_entry_creation_service.dart';
 import '../../features/vault/data/services/canonical_entry_detail_service.dart';
 import '../../features/vault/data/services/local_current_entry_service.dart';
+import '../../features/vault/data/services/sign_in_candidate_service.dart';
 import '../../features/vault/data/services/script_access_impact_service.dart';
 import '../../features/approval/data/services/script_execution_package_service.dart';
 import '../../features/vault/data/services/canonical_import_projection_service.dart';
@@ -356,7 +357,11 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<TotpEnrollCubit>(
-    () => TotpEnrollCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+    () => TotpEnrollCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      cryptoService: getIt<PasswordAuthCryptoService>(),
+    ),
   );
 
   // Custom-scheme deep links. Singleton — owns the link stream
@@ -450,6 +455,7 @@ void configureDependencies(EnvConfig config) {
     () => RecoveryCubit(
       datasource: getIt<RecoveryRemoteDatasource>(),
       cryptoService: getIt<RecoveryCryptoService>(),
+      sessionUserId: () => getIt<SecureTokenStorage>().userId,
     ),
   );
 
@@ -678,6 +684,12 @@ void configureDependencies(EnvConfig config) {
       vaultKeys: getIt<VaultRotationCryptoService>(),
       entryCrypto: getIt<EntryV2CryptoService>(),
       canonicalAdapter: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
+  getIt.registerLazySingleton<SignInCandidateService>(
+    () => SignInCandidateService(
+      index: getIt<MemberSyncService>(),
+      entries: getIt<LocalCurrentEntryService>(),
     ),
   );
   getIt.registerLazySingleton<EntryRepository>(

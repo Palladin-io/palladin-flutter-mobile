@@ -621,6 +621,10 @@
   "@recoveryServerError": {
     "description": "Generic fallback error for the recovery flow"
   },
+  "recoveryProofInvalid": "The recovery check expired or could not be verified. Please try again.",
+  "@recoveryProofInvalid": {
+    "description": "Recovery was rejected because the one-time key-possession challenge was invalid, expired or already used"
+  },
   "vaultTitle": "Vaults",
   "@vaultTitle": {
     "description": "Vaults section title shown in the app bar of the vault list"
@@ -3483,6 +3487,12 @@
   "@authTotpEnrollCodesCopied": { "description": "Snackbar after copying recovery codes" },
   "authTotpEnrollDone": "Done",
   "@authTotpEnrollDone": { "description": "Finish TOTP enrollment" },
+  "authTotpEnrollPasswordSubtitle": "Confirm your current master password to set up two-factor authentication.",
+  "@authTotpEnrollPasswordSubtitle": { "description": "TOTP enrollment step asking for the current login password" },
+  "authTotpEnrollPasswordButton": "Continue",
+  "@authTotpEnrollPasswordButton": { "description": "Button that verifies the current password before TOTP enrollment" },
+  "authTotpEnrollUnavailable": "Two-factor authentication is available only for accounts that sign in with a password.",
+  "@authTotpEnrollUnavailable": { "description": "Shown when the backend reports the account has no password login credential" },
 
   "authChangePwTitle": "Change master password",
   "@authChangePwTitle": { "description": "Change-password screen title" },
@@ -3814,5 +3824,40 @@
 "autofillRequestUnverifiedWebWarning": "We can’t verify {app}. Tap a login only if you trust this app.",
 "@autofillRequestUnverifiedWebWarning": {"placeholders": {"app": {"type": "String"}}},
 "autofillDestinationWarningTitle": "UNVERIFIED APP",
-"autofillUsernameUnavailable": "Login unavailable"
+"autofillUsernameUnavailable": "Login unavailable",
+  "entrySignInMethodLabel": "Sign-in method",
+  "entrySignInMethodNotSet": "Not set",
+  "entrySignInMethodWithAccount": "{provider} · {account}",
+  "@entrySignInMethodWithAccount": {"placeholders": {"provider": {"type": "String"}, "account": {"type": "String"}}},
+  "entrySignInMethodNoAccount": "{provider} · Account not specified",
+  "@entrySignInMethodNoAccount": {"placeholders": {"provider": {"type": "String"}}},
+  "entrySignInMethodUnrecognized": "Saved in a format this app does not recognize",
+  "entrySignInMethodAmbiguous": "More than one sign-in method is saved",
+  "entrySignInMethodEdit": "Edit sign-in method",
+  "entrySignInMethodHint": "Remember which provider you use to sign in to this service. Palladin does not sign in for you and cannot detect provider sign-ins in other apps or browsers.",
+  "entrySignInMethodPreviousProviders": "Previous providers",
+  "entrySignInMethodNextProviders": "Next providers",
+  "entrySignInMethodMissingProvider": "Missing a provider? Let us know",
+  "entrySignInMethodMissingProviderSubject": "Sign-in provider suggestion",
+  "entrySignInMethodProvider": "Provider",
+  "entrySignInMethodChooseProvider": "Choose a provider",
+  "entrySignInMethodAccount": "Provider account (optional)",
+  "entrySignInMethodAccountHint": "name@example.com",
+  "entrySignInMethodAccountTooLong": "Use at most 256 characters.",
+  "entrySignInMethodRemove": "Remove sign-in method",
+  "entrySignInMethodSaved": "Sign-in method saved",
+  "entrySignInMethodRemoved": "Sign-in method removed",
+  "signInProviderGoogle": "Google",
+  "signInProviderApple": "Apple",
+  "signInProviderMicrosoft": "Microsoft",
+  "signInProviderGithub": "GitHub",
+  "signInProviderFacebook": "Facebook",
+  "entrySignInMethodLinkedEntry": "Palladin entry for this provider (optional)",
+  "entrySignInMethodLinkedEntryNone": "None",
+  "entrySignInMethodLinkedEntryLoading": "Looking for matching entries…",
+  "entrySignInMethodLinkedEntryEmpty": "No agent-discoverable entry for this provider",
+  "entrySignInMethodAgentHint": "Agents can see the provider and the linked entry, never the account.",
+  "entrySignInMethodsLabel": "Sign-in methods",
+  "entrySignInMethodAdd": "Add sign-in method",
+  "entrySignInMethodVisibility": "Visible to agents"
 }

@@ -61,6 +61,9 @@ abstract final class AgentVisibilityProjector {
     for (final entry in policy.fields.entries) {
       if (entry.value != AgentFieldAccess.discovery) continue;
       final value = values[entry.key];
+      // Structured values (e.g. a sign-in binding with its provider account)
+      // are never copied into Discovery.
+      if (value is Map || value is List) continue;
       if (value != null && value.toString().isNotEmpty) {
         fields[entry.key] = value;
       }

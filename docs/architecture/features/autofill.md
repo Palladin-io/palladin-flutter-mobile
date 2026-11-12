@@ -962,3 +962,24 @@ gate, current metadata revalidation and native source acknowledgement. Lock,
 account/source replacement, content changes, active synchronization and expired
 leases reject the stamp; final selection/handoff guards remain unchanged.
 The independent iOS Credential Provider runtime does not share this app RAM cache.
+
+## Federated sign-in methods
+
+A Credential may remember the external OAuth/social provider (Google, Apple,
+Microsoft, GitHub, Facebook) and provider account the user signs in with,
+stored as independent `palladin.signin.v2` custom fields inside the encrypted
+MemberSecret, with untouched v1 values retained (see
+[vault](vault.md#federated-sign-in-methods)). Mobile supports explicit management
+in Add, Edit and Entry Details: choose, change, remember and remove a method. It syncs with Web and the browser extension
+through the ordinary encrypted Entry.
+
+System AutoFill does not read, suggest or fill this binding. iOS and Android
+credential providers run sandboxed and receive only the OS-reported service
+identifiers and form fields; they cannot observe OAuth redirects, provider
+buttons, sign-in flows or provider sessions in other apps, Safari, Chrome or
+other browsers, and Palladin does not try to. No native AutoFill code, cache
+record or provider-session data is involved. Credentials with an empty
+password (for example OAuth-only accounts) remain excluded from the native
+AutoFill cache exactly as before (`AutofillCacheService` skips them and
+`AutofillRecord` rejects them), and AutoFill saving still requires a non-empty
+password.

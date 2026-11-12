@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/custom_field.dart';
+import '../../domain/entities/sign_in_method.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 
@@ -133,6 +134,7 @@ class EntryFormUtils {
     String value = '',
     String username = '',
     String password = '',
+    List<CustomField> fields = const [],
     String script = '',
     String description = '',
     List<ScriptRef> refs = const [],
@@ -147,7 +149,11 @@ class EntryFormUtils {
     return switch (type) {
       EntryType.key => value.trim().isNotEmpty,
       EntryType.credential =>
-        username.trim().isNotEmpty && password.trim().isNotEmpty,
+        (username.trim().isNotEmpty && password.trim().isNotEmpty) ||
+            SignInMethodField.methods(
+              entryType: type,
+              fields: fields,
+            ).isNotEmpty,
       EntryType.script =>
         script.trim().isNotEmpty &&
             description.trim().isNotEmpty &&
