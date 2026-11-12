@@ -8,6 +8,7 @@ void main() {
   const channel = MethodChannel('io.palladin.mobile/autofill');
   var status = 'disabled';
   var opens = 0;
+  var openFails = false;
   var chromeStatus = 'unavailable';
   var chromeOpens = 0;
   var chromeChecks = 0;
@@ -15,6 +16,7 @@ void main() {
   setUp(() {
     status = 'disabled';
     opens = 0;
+    openFails = false;
     chromeStatus = 'unavailable';
     chromeOpens = 0;
     chromeChecks = 0;
@@ -38,6 +40,9 @@ void main() {
           }
           if (call.method == 'openProviderSettings') {
             opens++;
+            if (openFails) {
+              throw PlatformException(code: 'settings_unavailable');
+            }
             return null;
           }
           throw MissingPluginException();
@@ -48,9 +53,14 @@ void main() {
         .setMockMethodCallHandler(channel, null),
   );
 
-  Future<void> pump(WidgetTester tester, {bool hideWhenEnabled = false}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool hideWhenEnabled = false,
+    String locale = 'en',
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: Locale(locale),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
@@ -59,6 +69,62 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final locale in ['en', 'pl']) {
+      testWidgets(
+        '$platform $locale: setup works without a credential cache and recovers from settings failure',
+        (tester) async {
+          openFails = true;
+          await pump(tester, hideWhenEnabled: true, locale: locale);
+          final openLabel = locale == 'en'
+              ? 'Open AutoFill settings'
+              : 'Ustawienia autouzupełniania';
+          await tester.tap(find.text(openLabel));
+          await tester.pumpAndSettle();
+          expect(opens, 1);
+          expect(
+            find.textContaining(
+              locale == 'en'
+                  ? 'Could not open system settings'
+                  : 'Nie udało się otworzyć ustawień systemowych',
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.textContaining(
+              platform == TargetPlatform.iOS
+                  ? (locale == 'en'
+                        ? 'AutoFill & Passwords'
+                        : 'Autowypełnianie i hasła')
+                  : (locale == 'en'
+                        ? 'preferred service'
+                        : 'preferowaną usługę'),
+            ),
+            findsOneWidget,
+          );
+          expect(find.text(openLabel), findsOneWidget);
+          openFails = false;
+          await tester.tap(find.text(openLabel));
+          await tester.pumpAndSettle();
+          expect(opens, 2);
+          // Opening settings alone never selects this provider.
+          expect(find.text(openLabel), findsOneWidget);
+          status = 'enabled';
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text(openLabel), findsNothing);
+          expect(chromeOpens, 0);
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+    }
   }
 
   testWidgets('Home guides Chrome setup after OS provider selection', (
@@ -164,6 +230,22 @@ void main() {
       expect(find.text('Set up AutoFill'), findsNothing);
     },
   );
+
+  testWidgets('settings launch failure retains confirmed provider selection', (
+    tester,
+  ) async {
+    status = 'enabled';
+    openFails = true;
+    await pump(tester);
+    await tester.tap(find.text('Open AutoFill settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Palladin is enabled for AutoFill'), findsOneWidget);
+    expect(
+      find.textContaining('Could not open system settings'),
+      findsOneWidget,
+    );
+    expect(find.text('Could not check AutoFill. Try again.'), findsNothing);
+  });
 
   testWidgets('settings keeps confirmed enabled status visible', (
     tester,

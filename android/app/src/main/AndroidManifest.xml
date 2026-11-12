@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- image_picker: read media images on Android 13+; storage on older versions -->
+    <!-- Restore only the live original OS AutoFill request task after selection. -->
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- firebase_messaging: runtime notification permission on Android 13+ (API 33) -->
@@ -77,6 +79,9 @@
             android:exported="false"
             android:noHistory="true"
             android:theme="@style/AutofillAuthenticationTheme" />
+        <activity android:name=".autofill.SourceAutofillAuthenticationActivity"
+            android:exported="false" android:excludeFromRecents="true"
+            android:theme="@style/AutofillAuthenticationTheme" />
         <!-- firebase_messaging: default channel for background/terminated
              notifications. Must match the channel id created in
              PushNotificationService (palladin_default). -->
@@ -98,6 +103,12 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Read requesting app identity/signatures even when it has no web links.
+             Visibility is not origin authority or permission to fill. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <!-- An explicit wildcard host includes host-specific App Link handlers;
              a scheme-only query sees browsers but misses those native apps.
              This grants visibility only; origin authorization remains exact-host. -->

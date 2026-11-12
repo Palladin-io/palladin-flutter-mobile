@@ -9,8 +9,7 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
-import '../../../../core/widgets/app_screen.dart';
-import '../../../../core/widgets/app_search_field.dart';
+import '../widgets/entries_list_view.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -265,9 +264,13 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage>
         builder: (context, state) {
           final rows = state.filter(query: ui.search.text);
           final vaultState = _vaults.state;
-          return AppScreen.titled(
-            title: l10n.vaultTabEntries,
-            subtitle: l10n.vaultEntryCount(state.rows.length),
+          return EntriesListView(
+            key: const PageStorageKey('global-entries-scroll'),
+            count: state.rows.length,
+            search: ui.search,
+            scrollController: ui.scroll,
+            onSearchChanged: (_) => setState(() {}),
+            onRefresh: _refresh,
             actions: const [VaultLibrarySwitch(entries: true)],
             floatingActionButton: FabRegistrar(
               fab: _fab ??= AppFab.shell(
@@ -275,107 +278,91 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage>
                 tooltip: l10n.entryAddTitle,
               ),
             ),
-            body: RefreshIndicator(
-              onRefresh: _refresh,
-              child: CustomScrollView(
-                key: const PageStorageKey('global-entries-scroll'),
-                controller: ui.scroll,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenH,
+            leading:
+                state.failedVaultIds.isNotEmpty ||
+                    vaultState is VaultListError ||
+                    vaultState is VaultListResetRequired
+                ? TextButton(
+                    onPressed: _refresh,
+                    child: Text(
+                      '${l10n.vaultErrorUnknown} · ${l10n.vaultRetry}',
                     ),
-                    sliver: SliverToBoxAdapter(
-                      child: Column(
-                        children: [
-                          AppSearchField(
-                            controller: ui.search,
-                            hint: l10n.entrySearchHint,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          const SizedBox(height: AppSpacing.fieldGap),
-                          if (state.failedVaultIds.isNotEmpty ||
-                              vaultState is VaultListError ||
-                              vaultState is VaultListResetRequired)
-                            TextButton(
-                              onPressed: _refresh,
-                              child: Text(
-                                '${l10n.vaultErrorUnknown} · ${l10n.vaultRetry}',
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                  )
+                : null,
+            slivers: [
+              if ((state.loading ||
+                      vaultState is VaultListInitial ||
+                      vaultState is VaultListLoading) &&
+                  rows.isEmpty)
+                const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+                  sliver: SliverToBoxAdapter(child: SkeletonBox(height: 80)),
+                )
+              else if (rows.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: Text(l10n.globalEntriesEmpty)),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    0,
+                    AppSpacing.screenH,
+                    AppSpacing.listBottom,
                   ),
-                  if ((state.loading ||
-                          vaultState is VaultListInitial ||
-                          vaultState is VaultListLoading) &&
-                      rows.isEmpty)
-                    const SliverPadding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppSpacing.screenH,
-                      ),
-                      sliver: SliverToBoxAdapter(
-                        child: SkeletonBox(height: 80),
-                      ),
-                    )
-                  else if (rows.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text(l10n.globalEntriesEmpty)),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.screenH,
-                        0,
-                        AppSpacing.screenH,
-                        AppSpacing.listBottom,
-                      ),
-                      sliver: SliverList.separated(
-                        itemCount: rows.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: AppSpacing.cardGap),
-                        itemBuilder: (_, index) {
-                          final row = rows[index];
-                          final entry = row.toEntryEntity();
-                          return EntryListCard(
-                            enabled:
-                                EntryType.values.elementAtOrNull(
-                                  row.entry.entryType,
-                                ) !=
-                                null,
-                            key: ValueKey(row.identity),
-                            entry: entry,
-                            vaultName: row.vault.name,
-                            isExpanded: state.expandedEntries.contains(
-                              row.identity,
-                            ),
-                            payload:
-                                state.revealedEntries[row.identity]?.payload,
-                            revealedFields:
-                                _revealedFields[row.identity] ?? const {},
-                            onToggleReveal: () => _toggleReveal(row),
-                            onToggleFieldReveal: (entryId, field) =>
-                                setState(() {
-                                  final fields = _revealedFields.putIfAbsent(
-                                    row.identity,
-                                    () => {},
-                                  );
-                                  final id = '$entryId:$field';
-                                  if (!fields.remove(id)) fields.add(id);
-                                }),
-                            onCopy: _copy,
-                            onEdit: () => _open(row),
-                            onShare: _canShare ? () => _share(row) : null,
-                          );
+                  sliver: SliverList.separated(
+                    itemCount: rows.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.cardGap),
+                    itemBuilder: (_, index) {
+                      final row = rows[index];
+                      final entry = row.toEntryEntity();
+                      return EntryListCard(
+                        enabled:
+                            EntryType.values.elementAtOrNull(
+                              row.entry.entryType,
+                            ) !=
+                            null,
+                        key: ValueKey((
+                          row.identity,
+                          row.entry.revision,
+                          row.entry.currentKeyVersion,
+                        )),
+                        entry: entry,
+                        vaultName: row.vault.name,
+                        loadUsername: () async {
+                          final auth = context.read<AuthBloc>().state;
+                          if (auth is! AuthAuthenticated ||
+                              auth.isVaultLocked ||
+                              auth.privateKey == null) {
+                            return null;
+                          }
+                          return _entries.readUsername(row, auth.privateKey!);
                         },
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                        isExpanded: state.expandedEntries.contains(
+                          row.identity,
+                        ),
+                        payload: state.revealedEntries[row.identity]?.payload,
+                        revealedFields:
+                            _revealedFields[row.identity] ?? const {},
+                        onToggleReveal: () => _toggleReveal(row),
+                        onToggleFieldReveal: (entryId, field) => setState(() {
+                          final fields = _revealedFields.putIfAbsent(
+                            row.identity,
+                            () => {},
+                          );
+                          final id = '$entryId:$field';
+                          if (!fields.remove(id)) fields.add(id);
+                        }),
+                        onCopy: _copy,
+                        onEdit: () => _open(row),
+                        onShare: _canShare ? () => _share(row) : null,
+                      );
+                    },
+                  ),
+                ),
+            ],
           );
         },
       ),

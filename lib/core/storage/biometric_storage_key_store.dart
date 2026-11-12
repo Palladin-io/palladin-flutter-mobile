@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
 import 'package:biometric_storage/biometric_storage.dart';
@@ -15,11 +16,14 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
   BiometricStorageKeyStore({
     required FlutterSecureStorage markerStorage,
     BiometricStorage? biometric,
+    this.guardRequestUnlock,
   }) : _markerStorage = markerStorage,
        _biometric = biometric ?? BiometricStorage();
 
   final FlutterSecureStorage _markerStorage;
   final BiometricStorage _biometric;
+  final Future<Uint8List?> Function(Future<Uint8List?> Function())?
+  guardRequestUnlock;
   @override
   int get generation => _generation;
   int _generation = 0;
@@ -65,6 +69,7 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
   Future<bool> canStore() async {
     try {
       final response = await _biometric.canAuthenticate();
+      if (kDebugMode) debugPrint('BIOMETRIC_STATUS support=${response.name}');
       return response == CanAuthenticateResponse.success;
     } catch (e) {
       AppLogger.w('BiometricKey', 'canAuthenticate failed: ${e.runtimeType}');
@@ -80,6 +85,7 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
         iOptions: BiometricKeyStorage.iosOptions,
         aOptions: BiometricKeyStorage.androidOptions,
       );
+      if (kDebugMode) debugPrint('BIOMETRIC_STATUS enrolled=${marker == '1'}');
       return marker == '1';
     } catch (e) {
       AppLogger.w('BiometricKey', 'isEnrolled read failed: ${e.runtimeType}');
@@ -126,8 +132,23 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
   }
 
   @override
-  Future<Uint8List?> unlockKey(BiometricPromptCopy copy) =>
-      _serialize(() => _unlockKey(copy));
+  Future<Uint8List?> unlockKey(BiometricPromptCopy copy) {
+    final generation = _generation;
+    return _serialize(() async {
+      if (generation != _generation) {
+        throw const BiometricAuthException(BiometricAuthFailureReason.canceled);
+      }
+      final guard = guardRequestUnlock;
+      final key = await (guard == null
+          ? _unlockKey(copy)
+          : guard(() => _unlockKey(copy)));
+      if (generation != _generation) {
+        key?.fillRange(0, key.length, 0);
+        throw const BiometricAuthException(BiometricAuthFailureReason.canceled);
+      }
+      return key;
+    });
+  }
 
   Future<Uint8List?> _unlockKey(BiometricPromptCopy copy) async {
     if (!await isEnrolled()) return null;

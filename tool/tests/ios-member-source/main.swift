@@ -1,0 +1,272 @@
+import Foundation
+
+func expect(_ value: @autoclosure () -> Bool, _ message: String) {
+    if !value() { fatalError(message) }
+}
+func rejects(_ operation: () throws -> Void) {
+    do { try operation(); fatalError("expected rejection") } catch {}
+}
+let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+defer { try? FileManager.default.removeItem(at: directory) }
+var durable: Data?
+var failWrite = false
+let fence = SharedMemberSourceFence(
+    containerURL: directory,
+    readState: { durable },
+    writeState: { value in
+        if failWrite { throw CocoaError(.fileWriteNoPermission) }
+        durable = value
+    }
+)
+let claims = try SharedMemberSourceClaims(arguments: [
+    "principalId":"member", "organizationId":"org",
+    "organizationMembershipGeneration":"1", "offlinePolicy":"24h", "offlinePolicyVersion":1
+])
+let unlock: [String:Any] = [
+    "accountId":"member", "encryptedPrivateKey":"synthetic-ciphertext",
+    "kdf":["securityVersion":1,"minimumSecurityVersion":1,
+           "profileId":"identity-argon2id-password-v1", "kdfSalt":"synthetic-salt",
+           "credentialRevision":1,"privateKeyWrapRevision":1]
+]
+let profile = String(repeating:"a",count:64)
+let first = try fence.beginSession(sessionID:"one", profileBinding:profile, claims:claims, accountUnlock:unlock)
+expect(first.state == .quarantined, "initial generation must deny")
+rejects { _ = try fence.withCurrentSource(first, requireActive:true) {} }
+try fence.activate(first)
+rejects { try fence.withCurrentSource(first, requireActive:false, requireQuarantined:true) {} }
+let active = try fence.current()
+try fence.withCurrentSource(active, requireActive:true) {}
+fence.invalidateSession("one")
+// App process RAM cancellation cannot erase provider source after fresh auth.
+try fence.withCurrentSource(active, requireActive:true) {}
+rejects { try fence.requireAppSession("one") }
+let invalidated = try fence.invalidate(active)
+expect(invalidated.epoch > active.epoch, "invalidation must advance epoch")
+rejects { try fence.withCurrentSource(active, requireActive:true) {} }
+rejects { try fence.activate(first) }
+// A new live app owner begins its own source session after ordinary lock.
+let live = try fence.beginSession(sessionID:"live", profileBinding:profile, claims:claims, accountUnlock:unlock)
+try fence.activate(live)
+let replacement = try fence.current()
+failWrite = true
+rejects { _ = try fence.invalidate(replacement) }
+try fence.withCurrentSource(replacement, requireActive:true) {}
+failWrite = false
+try fence.revoke(replacement)
+rejects { try fence.withCurrentSource(replacement, requireActive:true) {} }
+let other = try fence.beginSession(sessionID:"two", profileBinding:String(repeating:"b",count:64), claims:claims, accountUnlock:unlock)
+rejects { try fence.activate(invalidated) }
+rejects { try fence.revoke(replacement) }
+try fence.activate(other)
+// Corrupt protected state never becomes an empty, usable generation.
+durable = Data("{}".utf8)
+rejects { _ = try fence.current() }
+rejects { _ = try fence.beginSession(sessionID:"three", profileBinding:profile, claims:claims, accountUnlock:unlock) }
+print("PASS shared Member source lifecycle and persistence failures")
+
+// Separate store instances must share handoff/invalidation ordering.
+durable = nil
+let secondFence = SharedMemberSourceFence(containerURL: directory, readState: { durable }, writeState: { durable = $0 })
+let ordered = try fence.beginSession(sessionID:"ordered", profileBinding:profile, claims:claims, accountUnlock:unlock)
+try fence.activate(ordered)
+let handoffEntered = DispatchSemaphore(value:0)
+let releaseHandoff = DispatchSemaphore(value:0)
+let handoffEnded = DispatchSemaphore(value:0)
+let invalidationEnded = DispatchSemaphore(value:0)
+DispatchQueue.global().async {
+    try! fence.withCurrentSource(ordered, requireActive:true) {
+        handoffEntered.signal(); releaseHandoff.wait()
+    }
+    handoffEnded.signal()
+}
+expect(handoffEntered.wait(timeout:.now()+2) == .success,"handoff must enter")
+DispatchQueue.global().async { _ = try! secondFence.invalidate(ordered); invalidationEnded.signal() }
+expect(invalidationEnded.wait(timeout:.now()+0.05) == .timedOut,"invalidation cannot overtake admitted handoff")
+releaseHandoff.signal()
+expect(handoffEnded.wait(timeout:.now()+2) == .success,"handoff must finish")
+expect(invalidationEnded.wait(timeout:.now()+2) == .success,"invalidation must finish")
+rejects { try fence.withCurrentSource(ordered, requireActive:true) {} }
+let currentDenied = try fence.current()
+try fence.revoke(currentDenied)
+rejects { try fence.activate(currentDenied) }
+// A structurally valid JSON envelope with mismatched account binding is denied.
+let newSource = try fence.beginSession(sessionID:"latest", profileBinding:profile, claims:claims, accountUnlock:unlock)
+var decoded = try JSONSerialization.jsonObject(with: durable!) as! [String:Any]
+var wrongClaims = decoded["claims"] as! [String:Any]; wrongClaims["principalId"] = "different"
+decoded["claims"] = wrongClaims
+durable = try JSONSerialization.data(withJSONObject:decoded)
+rejects { try fence.withCurrentSource(newSource, requireActive:false) {} }
+print("PASS cross-instance handoff linearization and protected-account binding")
+
+// Cold logout has no process-local session capability and uses protected CAS.
+durable = nil
+let coldSource = try fence.beginSession(sessionID:"cold", profileBinding:profile, claims:claims, accountUnlock:unlock)
+try fence.activate(coldSource)
+rejects { try secondFence.requireAppSession("cold") }
+try secondFence.withCurrentSource(coldSource, requireActive:true) {}
+let coldSnapshot = try secondFence.sourceSnapshot()!
+let nextAccount = try fence.beginSession(sessionID:"new-account", profileBinding:String(repeating:"c",count:64), claims:claims, accountUnlock:unlock)
+rejects { _ = try secondFence.revokeSource(sourceEpoch:coldSnapshot.sourceEpoch, profileDigest:coldSnapshot.profileDigest) }
+let currentSnapshot = try secondFence.sourceSnapshot()!
+let deniedEpoch = try secondFence.revokeSource(sourceEpoch:currentSnapshot.sourceEpoch, profileDigest:currentSnapshot.profileDigest)
+expect(deniedEpoch > nextAccount.epoch,"cold revoke must advance")
+let coldDenied = try fence.current()
+expect(coldDenied.state == .quarantined,"cold revoke must persist deny")
+rejects { try fence.withCurrentSource(nextAccount,requireActive:true) {} }
+durable = Data("{}".utf8)
+rejects { _ = try secondFence.sourceSnapshot() }
+print("PASS cold protected snapshot CAS without app-session restoration")
+
+// Exercise the real method-channel dispatch owner, including cold CAS and RAM lock.
+durable = nil
+let bridge = SharedMemberSourceBridge(source:fence, containerURL:directory, accessGroup:"synthetic")
+var beginArguments = claims.arguments
+beginArguments["sessionId"] = "bridge-owner"
+beginArguments["profileBinding"] = profile
+beginArguments["accountUnlock"] = unlock
+let bridgeEpoch = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+let control: [String:Any] = ["sessionId":"bridge-owner", "sourceEpoch":bridgeEpoch]
+let acknowledgedEpoch = try bridge.handle("activateSource", arguments:control) as? Int
+expect(acknowledgedEpoch == bridgeEpoch,"bridge activation must acknowledge captured epoch")
+let bridgeActive = try fence.current()
+_ = try bridge.handle("invalidateSession", arguments:["sessionId":"bridge-owner"])
+rejects { _ = try bridge.handle("invalidateSource", arguments:control) }
+try fence.withCurrentSource(bridgeActive, requireActive:true) {}
+let bridgeSnapshot = try bridge.handle("sourceSnapshot", arguments:[:]) as! [String:Any]
+_ = try bridge.handle("revokeSource", arguments:bridgeSnapshot)
+rejects { try fence.withCurrentSource(bridgeActive, requireActive:true) {} }
+rejects { _ = try bridge.handle("revokeSource", arguments:bridgeSnapshot) }
+print("PASS source bridge dispatch, ordinary lock and exact cold revoke")
+
+// Explicit live hard revoke invalidates the captured request epoch, while the
+// authenticated app may still repair its canonical source under the new ticket.
+durable = nil
+let hardEpoch = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+let hardControl: [String:Any] = ["sessionId":"bridge-owner", "sourceEpoch":hardEpoch]
+_ = try bridge.handle("activateSource", arguments:hardControl)
+let beforeHard = try fence.current()
+let afterHard = try bridge.handle("revokeSourceSession", arguments:hardControl) as! Int
+expect(afterHard > hardEpoch,"hard revoke must advance epoch")
+rejects { try fence.withCurrentSource(beforeHard, requireActive:true) {} }
+rejects { _ = try bridge.handle("revokeSourceSession", arguments:hardControl) }
+print("PASS current-session hard revoke and stale-ticket rejection")
+
+// Protected offline configuration is not reconstructed from the SQLite DB.
+rejects { _ = try bridge.handle("sourceConfiguration", arguments:[:]) }
+let configEpoch = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+let configControl:[String:Any] = ["sessionId":"bridge-owner","sourceEpoch":configEpoch,"profileBinding":profile]
+_ = try bridge.handle("activateSource", arguments:configControl)
+var expectedConfiguration = claims.arguments; expectedConfiguration["profileBinding"] = profile
+var wrongConfiguration = expectedConfiguration; wrongConfiguration["organizationId"] = "other"
+rejects { _ = try bridge.handle("sourceConfiguration", arguments:wrongConfiguration) }
+let configuration = try bridge.handle("sourceConfiguration", arguments:expectedConfiguration) as! [String:Any]
+expect(configuration["profileBinding"] as? String == profile,"protected profile binding")
+expect(configuration["principalId"] as? String == claims.principalId,"independent principal")
+expect((configuration["accountUnlock"] as? [String:Any])?["encryptedPrivateKey"] as? String == unlock["encryptedPrivateKey"] as? String,"encrypted account material")
+rejects { _ = try bridge.handle("commitMemberSourceMigration",arguments:configControl) }
+let migrationEpoch = try bridge.handle("invalidateSource",arguments:configControl) as! Int
+let migrationDirectory = directory.appendingPathComponent("member-source")
+try FileManager.default.createDirectory(at:migrationDirectory,withIntermediateDirectories:true)
+try Data("synthetic-encrypted-sqlite".utf8).write(to:migrationDirectory.appendingPathComponent("vault_member_sync.db.migrating"))
+rejects { _ = try bridge.handle("sourceConfiguration",arguments:[:]) }
+rejects { _ = try bridge.handle("commitMemberSourceMigration",arguments:configControl) }
+var migrationControl = configControl; migrationControl["sourceEpoch"] = migrationEpoch
+var wrongMigration = migrationControl; wrongMigration["profileBinding"] = String(repeating:"e",count:64)
+rejects { _ = try bridge.handle("commitMemberSourceMigration",arguments:wrongMigration) }
+_ = try bridge.handle("commitMemberSourceMigration",arguments:migrationControl)
+expect(FileManager.default.fileExists(atPath:migrationDirectory.appendingPathComponent("vault_member_sync.db").path),"canonical ciphertext migration committed")
+let afterMigration = try fence.current()
+expect(afterMigration.state == .quarantined,"migration must not activate source")
+print("PASS active-only configuration and captured quarantined migration ticket")
+
+// Opt-in adoption is an authenticated bootstrap operation, never a repair of a
+// quarantined source. Epoch rotation still rejects an old extension request.
+durable = nil
+let adoptInitial = try bridge.handle("beginSourceSession", arguments:beginArguments) as! Int
+_ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":adoptInitial])
+let priorActive = try fence.current()
+var adoption = beginArguments
+adoption["sessionId"] = "adopting-owner"
+adoption["forceQuarantine"] = false
+let adoptEpoch = try bridge.handle("beginSourceSession",arguments:adoption) as! Int
+let adoptedActive = try fence.current()
+expect(adoptedActive.state == .active,"explicit identical bootstrap must preserve ACTIVE source")
+expect(adoptEpoch > priorActive.epoch,"adoption must rotate source epoch")
+rejects { try fence.withCurrentSource(priorActive,requireActive:true) {} }
+try fence.withCurrentSource(adoptedActive,requireActive:true) {}
+let beforeIdempotentActivation = durable
+_ = try bridge.handle("activateSource",arguments:["sessionId":"adopting-owner","sourceEpoch":adoptEpoch])
+expect(durable == beforeIdempotentActivation,"already active exact activation must not rewrite authority")
+rejects { _ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":adoptInitial]) }
+
+// Omitting the opt-in must retain the existing quarantine behavior.
+_ = try bridge.handle("beginSourceSession",arguments:beginArguments)
+let adoptionState1 = try fence.current().state
+expect(adoptionState1 == .quarantined,"omitted forceQuarantine must default true")
+_ = try bridge.handle("beginSourceSession",arguments:adoption)
+let adoptionState2 = try fence.current().state
+expect(adoptionState2 == .quarantined,"identical denied source cannot be adopted")
+let beforeChange = try fence.current()
+try fence.activate(beforeChange)
+var differentAccount = unlock; differentAccount["encryptedPrivateKey"] = "different-synthetic-ciphertext"
+var changedAdoption = adoption; changedAdoption["accountUnlock"] = differentAccount
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState3 = try fence.current().state
+expect(adoptionState3 == .quarantined,"changed encrypted account material must quarantine")
+try fence.activate(try fence.current())
+changedAdoption["organizationMembershipGeneration"] = "2"
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState4 = try fence.current().state
+expect(adoptionState4 == .quarantined,"changed independent claims must quarantine")
+try fence.activate(try fence.current())
+changedAdoption["profileBinding"] = String(repeating:"e",count:64)
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState5 = try fence.current().state
+expect(adoptionState5 == .quarantined,"changed account/environment binding must quarantine")
+try fence.activate(try fence.current())
+changedAdoption["forceQuarantine"] = true
+_ = try bridge.handle("beginSourceSession",arguments:changedAdoption)
+let adoptionState6 = try fence.current().state
+expect(adoptionState6 == .quarantined,"explicit quarantine must always win")
+print("PASS opt-in exact ACTIVE adoption, conservative default and idempotent activation")
+
+for (field, replacement) in [("principalId", "another-member" as Any),
+                            ("organizationId", "another-org" as Any),
+                            ("organizationMembershipGeneration", "3" as Any),
+                            ("offlinePolicy", "1h" as Any),
+                            ("offlinePolicyVersion", 2 as Any)] {
+    let originalEpoch = try bridge.handle("beginSourceSession",arguments:beginArguments) as! Int
+    _ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":originalEpoch])
+    var changed = adoption; changed[field] = replacement
+    if field == "principalId" {
+        var account = unlock; account["accountId"] = replacement; changed["accountUnlock"] = account
+    }
+    _ = try bridge.handle("beginSourceSession",arguments:changed)
+    let state = try fence.current().state
+    expect(state == .quarantined,"every independent claim change must quarantine")
+}
+for invalidFlag: Any in [0, 1, "false", NSNull()] {
+    var invalid = adoption; invalid["forceQuarantine"] = invalidFlag
+    let before = durable
+    rejects { _ = try bridge.handle("beginSourceSession",arguments:invalid) }
+    expect(durable == before,"malformed opt-in must not mutate authority")
+}
+let forcedEpoch = try bridge.handle("beginSourceSession",arguments:beginArguments) as! Int
+_ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":forcedEpoch])
+let originalForRevoke = try fence.current()
+try fence.revoke(originalForRevoke)
+_ = try bridge.handle("beginSourceSession",arguments:adoption)
+let afterRevokedAdoption = try fence.current().state
+expect(afterRevokedAdoption == .quarantined,"revoked source cannot be adopted")
+print("PASS each changed claim, malformed opt-in and revoked adoption negatives")
+let coldEpoch = try bridge.handle("beginSourceSession",arguments:beginArguments) as! Int
+_ = try bridge.handle("activateSource",arguments:["sessionId":"bridge-owner","sourceEpoch":coldEpoch])
+let coldFence = SharedMemberSourceFence(containerURL:directory,readState:{durable},writeState:{durable = $0})
+rejects { try coldFence.requireAppSession("bridge-owner") }
+let coldBridge = SharedMemberSourceBridge(source:coldFence,containerURL:directory,accessGroup:"synthetic")
+_ = try coldBridge.handle("beginSourceSession",arguments:adoption)
+let coldAdopted = try coldFence.current()
+try coldFence.withCurrentSource(coldAdopted,requireActive:true) {}
+try coldFence.requireAppSession("adopting-owner")
+print("PASS cold process adopts only after independent authenticated begin")

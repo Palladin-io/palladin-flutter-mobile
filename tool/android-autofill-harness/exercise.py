@@ -78,7 +78,7 @@ def tap_text(pattern):
                    for key in ('text', 'content-desc')) and tap_node(node):
                 return True
         time.sleep(.3)
-    if pattern in ('Unlock Palladin to autofill', '^synthetic-user$'):
+    if pattern in ('Fill with Palladin.io', '^synthetic-user$'):
         ime = command('shell', 'settings', 'get', 'secure', 'default_input_method').strip().split('/')[0]
         candidates = []
         for container in nodes():
@@ -295,7 +295,7 @@ def record_failure():
         pass  # Diagnostic failure must not replace the original assertion.
     try:
         roles = {
-            'Unlock Palladin to autofill': 'unlock-suggestion',
+            'Fill with Palladin.io': 'unlock-suggestion',
             'Unlock Palladin': 'biometric-title',
             'Synthetic fixture': 'synthetic-picker',
             'Fill once': 'manual-confirmation',
@@ -402,11 +402,11 @@ try:
             if args.mode.startswith('web'):
                 assert_web_origin(diagnosis)
                 print(args.mode + ': reported single verified web domain PASS')
-            if not tap_text('Unlock Palladin to autofill'):
+            if not tap_text('Fill with Palladin.io'):
                 # The public fixture button issues AutofillManager.requestAutofill,
                 # which can expose the dropdown when the IME ignores inline UI.
                 assert tap_text('Request Autofill'), 'Manual request control missing'
-                assert tap_text('Unlock Palladin to autofill'), 'Accessible unlock suggestion missing'
+                assert tap_text('Fill with Palladin.io'), 'Accessible unlock suggestion missing'
             authenticate()
             direct_native = direct_credential_flow()
             if args.handoff_check and args.handoff_check != 'repeat':
@@ -433,7 +433,7 @@ try:
                     else:
                         assert tap_text('Clear fields'), 'Clear control missing'
                     focus_field()
-                    assert tap_text('Unlock Palladin to autofill'), 'Cached dataset skipped authentication'
+                    assert tap_text('Fill with Palladin.io'), 'Cached dataset skipped authentication'
                     authenticate()
                     assert active_fixture_response() == original_response, 'Repeat replaced the original OS session'
                     assert tap_text('Verify fill'), 'Fixture verification control missing'

@@ -1,0 +1,2 @@
+// The aggregate builds Dart artifacts only, without the Runner plugin link graph.
+#include "Generated.xcconfig"

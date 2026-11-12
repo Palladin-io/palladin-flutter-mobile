@@ -35,17 +35,24 @@ internal data class CachedCredential(
     val password: String,
     val domains: List<String>,
     val notAfterMillis: Long,
+    val catalogRevision: Long = 0,
 )
 
 internal data class AutoFillUnwrapOperation(
     val generation: Long,
     val cipher: Cipher,
+    val catalogRevision: Long = 0,
 )
 
 internal data class AutoFillFence(
     val generation: Long,
     val state: String,
     val maximumObservedWallTimeMillis: Long,
+    val catalogRevision: Long = 0,
+    val catalogFile: String? = null,
+    val catalogDigest: String? = null,
+    val wrappedKey: String? = null,
+    val availableRecords: Int = 0,
 )
 
 internal object AutoFillClockPolicy {
@@ -197,6 +204,7 @@ internal object AutoFillFenceCodec {
         "maximumObservedWallTimeMillis",
         "mac",
     )
+    private val incrementalFields = setOf("catalogRevision", "catalogFile", "catalogDigest", "wrappedKey", "availableRecords")
     private val states = setOf("active", "revoked", "quarantined")
 
     fun encode(
@@ -206,11 +214,20 @@ internal object AutoFillFenceCodec {
         val mac = signer(fence)
         return try {
             JSONObject()
-                .put("version", 2)
+                .put("version", if (fence.catalogRevision > 0) 3 else 2)
                 .put("generation", fence.generation)
                 .put("state", fence.state)
                 .put("maximumObservedWallTimeMillis", fence.maximumObservedWallTimeMillis)
                 .put("mac", JavaBase64.getEncoder().encodeToString(mac))
+                .apply {
+                    if (fence.catalogRevision > 0) {
+                        put("catalogRevision", fence.catalogRevision)
+                        put("catalogFile", fence.catalogFile)
+                        put("catalogDigest", fence.catalogDigest)
+                        put("wrappedKey", fence.wrappedKey)
+                        put("availableRecords", fence.availableRecords)
+                    }
+                }
                 .toString()
                 .toByteArray(Charsets.UTF_8)
         } finally {
@@ -223,13 +240,28 @@ internal object AutoFillFenceCodec {
         signer: (AutoFillFence) -> ByteArray,
     ): AutoFillFence {
         val raw = JSONObject(encoded)
-        require(raw.keys().asSequence().toSet() == fields)
-        require(raw.getInt("version") == 2)
+        val incremental = raw.getInt("version") == 3
+        require(raw.getInt("version") in setOf(2, 3))
+        require(raw.keys().asSequence().toSet() == if (incremental) fields + incrementalFields else fields)
         val fence = AutoFillFence(
             generation = raw.getLong("generation"),
             state = raw.getString("state"),
             maximumObservedWallTimeMillis = raw.getLong("maximumObservedWallTimeMillis"),
+            catalogRevision = if (incremental) raw.getLong("catalogRevision") else 0,
+            catalogFile = if (incremental) raw.getString("catalogFile") else null,
+            catalogDigest = if (incremental) raw.getString("catalogDigest") else null,
+            wrappedKey = if (incremental) raw.getString("wrappedKey") else null,
+            availableRecords = if (incremental) raw.getInt("availableRecords") else 0,
         )
+        if (incremental) {
+            require(fence.catalogRevision > 0 && fence.availableRecords in 0..2_000)
+            if (fence.catalogFile.isNullOrEmpty()) {
+                require(fence.catalogDigest.isNullOrEmpty() && fence.wrappedKey.isNullOrEmpty() && fence.availableRecords == 0)
+            } else {
+                require(fence.catalogFile.matches(Regex("palladin_autofill_v3_catalog_[a-f0-9-]{36}")))
+                require(!fence.catalogDigest.isNullOrEmpty() && !fence.wrappedKey.isNullOrEmpty())
+            }
+        }
         require(
             fence.generation > 0 &&
                 fence.state in states &&
@@ -258,9 +290,9 @@ private data class VaultAuthority(
 )
 
 internal object AutoFillCachePayloadValidator {
-    fun validate(payload: JSONObject, nowMillis: Long): MutableList<CachedCredential> {
+    fun validate(payload: JSONObject, nowMillis: Long, incremental: Boolean = false, partial: Boolean = false): MutableList<CachedCredential> {
         require(payload.fieldNames() == setOf("version", "manifest", "records"))
-        require(payload.getInt("version") == CACHE_VERSION)
+        require(payload.getInt("version") == if (incremental) 3 else CACHE_VERSION)
         val manifest = payload.getJSONObject("manifest")
         require(manifest.fieldNames() == MANIFEST_FIELDS)
         val principalId = manifest.requiredString("principalId")
@@ -274,9 +306,10 @@ internal object AutoFillCachePayloadValidator {
             principalId = principalId,
             offlinePolicy = offlinePolicy,
             nowMillis = nowMillis,
+            allowEmpty = incremental,
         )
         val recordsJson = payload.getJSONArray("records")
-        require(recordsJson.length() in 1..MAX_RECORDS)
+        require(recordsJson.length() in (if (incremental) 0 else 1)..MAX_RECORDS)
         val expectedIdentities = vaults.flatMap { (vaultId, authority) ->
             authority.entries.keys.map { entryId -> "$vaultId:$entryId" }
         }.toSet()
@@ -315,7 +348,7 @@ internal object AutoFillCachePayloadValidator {
                 notAfterMillis = vaultAuthority.notAfterMillis,
             )
         }
-        require(identities == expectedIdentities)
+        if (!partial) require(identities == expectedIdentities)
         return records
     }
 
@@ -324,8 +357,9 @@ internal object AutoFillCachePayloadValidator {
         principalId: String,
         offlinePolicy: String,
         nowMillis: Long,
+        allowEmpty: Boolean,
     ): Map<String, VaultAuthority> {
-        require(rawVaults.length() in 1..MAX_RECORDS)
+        require(rawVaults.length() in (if (allowEmpty) 0 else 1)..MAX_RECORDS)
         val vaults = mutableMapOf<String, VaultAuthority>()
         for (index in 0 until rawVaults.length()) {
             val raw = rawVaults.getJSONObject(index)
@@ -343,7 +377,7 @@ internal object AutoFillCachePayloadValidator {
             require(issuedAt.toEpochMilli() <= nowMillis + FUTURE_CLOCK_TOLERANCE_MILLIS)
             require(nowMillis < notAfter.toEpochMilli())
             val entriesJson = raw.getJSONArray("entries")
-            require(entriesJson.length() in 1..MAX_RECORDS)
+            require(entriesJson.length() in (if (allowEmpty) 0 else 1)..MAX_RECORDS)
             val entries = mutableMapOf<String, EntryAuthority>()
             for (entryIndex in 0 until entriesJson.length()) {
                 val entry = entriesJson.getJSONObject(entryIndex)
@@ -429,6 +463,56 @@ internal class AutoFillCacheStore(
     private val elapsedRealtimeMillis: () -> Long = SystemClock::elapsedRealtime,
     private val processClockGuard: AutoFillProcessClockGuard = AutoFillProcessClockGuard.shared,
 ) {
+    private val incremental by lazy {
+        AutoFillIncrementalCache(
+            context.noBackupFilesDir,
+            readFence = {
+                val fence = readFenceLocked()
+                if (fence != null && fence.state == FENCE_ACTIVE) observeWallTimeLocked(fence.generation)
+                readFenceLocked()
+            },
+            commitFence = ::writeFenceLocked,
+            wrapKey = { generation, key ->
+                rsaCipher().run {
+                    init(Cipher.ENCRYPT_MODE, getOrCreateKeyPair(generation).certificate.publicKey, OAEP_PARAMETERS)
+                    doFinal(key)
+                }
+            },
+            now = nowMillis,
+        )
+    }
+
+    fun beginWriterSession(sessionToken: Long): Long = synchronized(AutoFillMutationLock.monitor) {
+        requireActiveFenceLocked(sessionToken)
+        incremental.beginWriterSession(sessionToken)
+    }
+
+    fun endWriterSession(writerEpoch: Long) = incremental.endWriterSession(writerEpoch)
+
+    fun invalidateWriter(sessionToken: Long? = null) = incremental.invalidateWriter(sessionToken)
+
+    fun replaceV3(arguments: Map<*, *>): Map<String, Any> {
+        val raw = JSONObject(arguments)
+        return incremental.replace(raw.getJSONObject("payload"), raw.positiveNativeLong("sessionToken"), raw.positiveNativeLong("writerEpoch"), raw.optJSONObject("base"), raw.optJSONArray("releasingDenies") ?: JSONArray()).platformMap()
+    }
+
+    fun denyEntries(arguments: Map<*, *>): Map<String, Any> = incremental.deny(JSONObject(arguments)).platformMap()
+
+    fun applyDelta(arguments: Map<*, *>): Map<String, Any> = incremental.applyDelta(JSONObject(arguments)).platformMap()
+
+    private fun JSONObject.positiveNativeLong(key: String): Long {
+        val value = get(key)
+        require(value is Int || value is Long)
+        return (value as Number).toLong().also { require(it > 0) }
+    }
+
+    private fun JSONObject.platformMap(): Map<String, Any> = keys().asSequence().associateWith { key ->
+        when (val value = get(key)) {
+            is JSONObject -> value.platformMap()
+            else -> value
+        }
+    }
+
     fun hasCache(): Boolean = synchronized(AutoFillMutationLock.monitor) {
         try {
             requireCompleteClockAuthorityLocked()
@@ -445,7 +529,16 @@ internal class AutoFillCacheStore(
             }
             require(fence.state == FENCE_ACTIVE)
             observeWallTimeLocked(fence.generation)
-            cacheFile(fence.generation).isFile
+            if (fence.catalogRevision > 0) {
+                if (fence.catalogFile.isNullOrEmpty()) return@synchronized false
+                val file = File(context.noBackupFilesDir, fence.catalogFile)
+                require(file.isFile && file.length() in 1..MAX_CACHE_BYTES)
+                val bytes = file.readBytes()
+                try {
+                    require(JavaBase64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256").digest(bytes)) == fence.catalogDigest)
+                } finally { bytes.fill(0) }
+                fence.availableRecords > 0
+            } else cacheFile(fence.generation).isFile
         } catch (_: AutoFillClockAuthorityException) {
             denyIncompleteClockAuthorityLocked()
             false
@@ -456,6 +549,7 @@ internal class AutoFillCacheStore(
     }
 
     fun beginSession(): Long = synchronized(AutoFillMutationLock.monitor) {
+        incremental.invalidateWriter()
         purgeLegacyLocked()
         try {
             requireCompleteClockAuthorityLocked()
@@ -488,6 +582,8 @@ internal class AutoFillCacheStore(
 
     fun replace(rawPayload: Map<*, *>?, sessionToken: Long) {
         synchronized(AutoFillMutationLock.monitor) {
+            incremental.invalidateWriter()
+            require(readFenceLocked()?.catalogRevision == 0L)
             requireActiveFenceLocked(sessionToken)
             observeWallTimeLocked(sessionToken)
             val payload = JSONObject(rawPayload ?: throw IllegalArgumentException("Missing payload"))
@@ -540,6 +636,7 @@ internal class AutoFillCacheStore(
 
     fun clear(sessionToken: Long) {
         synchronized(AutoFillMutationLock.monitor) {
+            incremental.invalidateWriter(sessionToken)
             val fence = readFenceLocked() ?: return@synchronized
             if (fence.generation != sessionToken || fence.state != FENCE_ACTIVE) {
                 throw IllegalStateException("Stale AutoFill cache session")
@@ -548,12 +645,13 @@ internal class AutoFillCacheStore(
             clearGenerationArtifactsLocked(sessionToken)
             val current = readFenceLocked()
             if (current?.generation == sessionToken && current.state == FENCE_QUARANTINED) {
-                writeFenceLocked(current.copy(state = FENCE_ACTIVE))
+                writeFenceLocked(current.copy(state = FENCE_ACTIVE, catalogRevision = if (current.catalogRevision > 0) Math.addExact(current.catalogRevision, 1) else 0, catalogFile = if (current.catalogRevision > 0) "" else null, catalogDigest = if (current.catalogRevision > 0) "" else null, wrappedKey = if (current.catalogRevision > 0) "" else null, availableRecords = 0))
             }
         }
     }
 
     fun revokeAccess(): Long = synchronized(AutoFillMutationLock.monitor) {
+        incremental.invalidateWriter()
         try {
             requireCompleteClockAuthorityLocked()
         } catch (error: IllegalArgumentException) {
@@ -601,6 +699,7 @@ internal class AutoFillCacheStore(
             ?: throw IllegalStateException("AutoFill key is unavailable")
         AutoFillUnwrapOperation(
             generation = fence.generation,
+            catalogRevision = fence.catalogRevision,
             cipher = rsaCipher().apply {
                 init(Cipher.DECRYPT_MODE, privateKey, OAEP_PARAMETERS)
             },
@@ -624,6 +723,8 @@ internal class AutoFillCacheStore(
         validate = {
             requireActiveFenceLocked(generation)
             observeWallTimeLocked(generation)
+            val revision = readFenceLocked()?.catalogRevision ?: throw IllegalStateException("Missing AutoFill fence")
+            require(credentials.all { it.catalogRevision == revision })
         },
         handoff = handoff,
     )
@@ -632,6 +733,19 @@ internal class AutoFillCacheStore(
         synchronized(AutoFillMutationLock.monitor) {
             requireActiveFenceLocked(operation.generation)
             observeWallTimeLocked(operation.generation)
+            val fence = requireNotNull(readFenceLocked())
+            require(fence.catalogRevision == operation.catalogRevision)
+            if (fence.catalogRevision > 0) {
+                val wrapped = JavaBase64.getDecoder().decode(requireNotNull(fence.wrappedKey))
+                val key = try { operation.cipher.doFinal(wrapped) } finally { wrapped.fill(0) }
+                try {
+                    return@synchronized incremental.readWithAuthenticatedKey(fence, key).also {
+                        requireActiveFenceLocked(operation.generation)
+                        observeWallTimeLocked(operation.generation)
+                        incremental.requireCurrentRevision(operation.generation, operation.catalogRevision)
+                    }
+                } finally { key.fill(0) }
+            }
             val file = cacheFile(operation.generation)
             require(file.length() in 1..MAX_CACHE_BYTES)
             val envelope = JSONObject(file.readText(Charsets.UTF_8))
@@ -705,12 +819,7 @@ internal class AutoFillCacheStore(
             ?: throw IllegalStateException("AutoFill integrity key unavailable")
         return try {
             AutoFillFenceCodec.decode(fenceFile.readText(Charsets.UTF_8)) { fence ->
-                fenceMac(
-                    fence.generation,
-                    fence.state,
-                    fence.maximumObservedWallTimeMillis,
-                    integrityKey,
-                )
+                fenceMac(fence, integrityKey)
             }
         } catch (error: Exception) {
             throw AutoFillClockAuthorityException(error)
@@ -720,11 +829,7 @@ internal class AutoFillCacheStore(
     private fun writeFenceLocked(fence: AutoFillFence) {
         requireCompleteClockAuthorityLocked()
         val encoded = AutoFillFenceCodec.encode(fence) { value ->
-            fenceMac(
-                value.generation,
-                value.state,
-                value.maximumObservedWallTimeMillis,
-            )
+            fenceMac(value)
         }
         try {
             writeAtomically(fenceFile, encoded)
@@ -793,17 +898,23 @@ internal class AutoFillCacheStore(
         runCatching { purgeLegacyLocked() }
     }
 
+    internal fun sourceControlMac(payload: ByteArray): ByteArray = Mac.getInstance(HMAC_ALGORITHM).run {
+        init(getOrCreateIntegrityKey())
+        update("palladin-autofill-source-fence-v1:".toByteArray(Charsets.UTF_8))
+        doFinal(payload)
+    }
+
     private fun fenceMac(
-        generation: Long,
-        state: String,
-        maximumObservedWallTimeMillis: Long,
+        fence: AutoFillFence,
         integrityKey: java.security.Key = getOrCreateIntegrityKey(),
     ): ByteArray = Mac.getInstance(HMAC_ALGORITHM).run {
         init(integrityKey)
-        doFinal(
-            "palladin-autofill-fence-v2:$generation:$state:$maximumObservedWallTimeMillis"
-                .toByteArray(Charsets.UTF_8),
-        )
+        val message = if (fence.catalogRevision == 0L) {
+            "palladin-autofill-fence-v2:${fence.generation}:${fence.state}:${fence.maximumObservedWallTimeMillis}"
+        } else {
+            "palladin-autofill-fence-v3:${fence.generation}:${fence.state}:${fence.maximumObservedWallTimeMillis}:${fence.catalogRevision}:${fence.catalogFile}:${fence.catalogDigest}:${fence.wrappedKey}:${fence.availableRecords}"
+        }
+        doFinal(message.toByteArray(Charsets.UTF_8))
     }
 
     private fun purgeLegacyLocked() {
@@ -818,6 +929,7 @@ internal class AutoFillCacheStore(
     }
 
     private fun clearGenerationArtifactsLocked(generation: Long) {
+        deleteFiles(context.noBackupFilesDir.listFiles().orEmpty().filter { it.name.startsWith("palladin_autofill_v3_") })
         deleteFiles(
             listOf(
                 cacheFile(generation),
@@ -848,7 +960,7 @@ internal class AutoFillCacheStore(
 
     private fun generationFiles(): List<File> =
         context.noBackupFilesDir.listFiles().orEmpty()
-            .filter { it.name.startsWith(CACHE_FILE_PREFIX) }
+            .filter { it.name.startsWith(CACHE_FILE_PREFIX) || it.name.startsWith("palladin_autofill_v3_") }
 
     private fun deleteFiles(files: Iterable<File>) {
         val failed = files.firstOrNull { it.exists() && !it.delete() }

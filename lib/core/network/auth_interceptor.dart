@@ -9,6 +9,7 @@ class AuthInterceptor extends QueuedInterceptor {
 
   static const sessionGuardKey = 'palladinSessionGuard';
   static const dispatchGuardKey = 'palladinDispatchGuard';
+  static const _lifecycleKey = 'palladinTokenLifecycle';
 
   final SecureTokenStorage tokenStorage;
   final Dio _dio;
@@ -18,15 +19,13 @@ class AuthInterceptor extends QueuedInterceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    options.extra.putIfAbsent(
+      _lifecycleKey,
+      () => tokenStorage.lifecycleRevision,
+    );
     final token = await tokenStorage.accessToken;
-    final isSessionCurrent = options.extra[sessionGuardKey] as bool Function()?;
-    if (isSessionCurrent != null && !isSessionCurrent()) {
-      handler.reject(
-        DioException.requestCancelled(
-          requestOptions: options,
-          reason: 'Unlock session changed',
-        ),
-      );
+    if (!_sessionCurrent(options)) {
+      handler.reject(_cancelled(options));
       return;
     }
     final canDispatch =
@@ -59,6 +58,11 @@ class AuthInterceptor extends QueuedInterceptor {
       return;
     }
 
+    if (!_sessionCurrent(err.requestOptions)) {
+      handler.next(_cancelled(err.requestOptions));
+      return;
+    }
+
     // Never run the 401→refresh flow for the auth endpoints themselves, and
     // never a second time for an already-retried request — otherwise a 401 on
     // the refresh (dead session) would re-enter this handler and recurse.
@@ -79,23 +83,31 @@ class AuthInterceptor extends QueuedInterceptor {
       return;
     }
 
-    if (!_sessionCurrent(err.requestOptions)) {
-      handler.next(_cancelled(err.requestOptions));
-      return;
-    }
-    final refresh = await tokenStorage.refreshToken;
-    if (!_sessionCurrent(err.requestOptions)) {
-      handler.next(_cancelled(err.requestOptions));
-      return;
-    }
-    if (refresh == null || refresh.isEmpty) {
-      await tokenStorage.clearAll();
-      handler.next(err);
-      return;
-    }
-
     try {
-      final newAccessToken = await _refreshTokens(refresh, err.requestOptions);
+      final currentToken = await tokenStorage.accessToken;
+      if (!_sessionCurrent(err.requestOptions)) {
+        throw _cancelled(err.requestOptions);
+      }
+      // Queued old-token failures may arrive after an earlier request refreshed.
+      // Replay once with the current token instead of rotating it again.
+      final failedBearer = err.requestOptions.headers['Authorization'];
+      String newAccessToken;
+      if (currentToken != null &&
+          currentToken.isNotEmpty &&
+          failedBearer != 'Bearer $currentToken') {
+        newAccessToken = currentToken;
+      } else {
+        final refresh = await tokenStorage.refreshToken;
+        if (!_sessionCurrent(err.requestOptions)) {
+          throw _cancelled(err.requestOptions);
+        }
+        if (refresh == null || refresh.isEmpty) {
+          await tokenStorage.clearAll();
+          handler.next(err);
+          return;
+        }
+        newAccessToken = await _refreshTokens(refresh, err.requestOptions);
+      }
 
       // The retry has request guards but cannot start another refresh.
       final options = err.requestOptions;
@@ -116,6 +128,7 @@ class AuthInterceptor extends QueuedInterceptor {
           ),
       );
       final retryResponse = await retryDio.fetch(options);
+      if (!_sessionCurrent(options)) throw _cancelled(options);
       handler.resolve(retryResponse);
     } on DioException catch (error) {
       if (!_sessionCurrent(err.requestOptions)) {
@@ -133,7 +146,9 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 
   bool _sessionCurrent(RequestOptions options) =>
-      (options.extra[sessionGuardKey] as bool Function()?)?.call() ?? true;
+      (options.extra[_lifecycleKey] == null ||
+          options.extra[_lifecycleKey] == tokenStorage.lifecycleRevision) &&
+      ((options.extra[sessionGuardKey] as bool Function()?)?.call() ?? true);
 
   DioException _cancelled(RequestOptions options) =>
       DioException.requestCancelled(

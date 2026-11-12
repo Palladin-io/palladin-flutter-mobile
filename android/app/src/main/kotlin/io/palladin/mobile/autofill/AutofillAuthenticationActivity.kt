@@ -44,6 +44,11 @@ class AutofillAuthenticationActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        // PendingIntents issued before migration must not reopen the retired credential cache.
+        if (!intent.getBooleanExtra(EXTRA_GENERATE, false)) {
+            finishCanceled()
+            return
+        }
         cacheStore = AutoFillCacheStore(this)
 
         val domain = AutoFillCacheStore.normalizeDomain(
@@ -69,6 +74,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             finishCanceled()
             return
         }
+        if (mode == AutofillOriginMode.MANUAL_WEB) { finishCanceled(); return }
         if (mode != AutofillOriginMode.WEB) {
             if (intent.getStringExtra(EXTRA_DOMAIN) != null ||
                 intent.getStringExtra(EXTRA_WEB_SCHEME) != null || packageName == null ||
@@ -213,7 +219,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                         finishCanceled()
                         return
                     }
-                    val authenticated = AutoFillUnwrapOperation(operation.generation, authenticatedCipher)
+                    val authenticated = AutoFillUnwrapOperation(operation.generation, authenticatedCipher, operation.catalogRevision)
                     if (domain == null) {
                         showCredentialChooser(authenticated, requestingPackage, nativeDomains, mode)
                     } else if (datasetAuthentication) {
@@ -582,7 +588,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             usernames: List<AutofillId>,
             passwords: List<AutofillId>,
             newPasswords: List<AutofillId>,
-        ): Boolean = mode != AutofillOriginMode.WEB && usernames.size == 1 &&
+        ): Boolean = mode != AutofillOriginMode.WEB && mode != AutofillOriginMode.MANUAL_WEB && usernames.size == 1 &&
             passwords.isEmpty() && newPasswords.isEmpty()
 
         const val EXTRA_DATASET_AUTHENTICATION = "palladin.autofill.dataset_authentication"

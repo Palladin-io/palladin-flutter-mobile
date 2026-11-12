@@ -142,7 +142,7 @@ internal object AutofillSaveCoordinator {
         return when (source.mode) {
             AutofillOriginMode.WEB -> source.domains.all { verifier.isVerified(source.packageName, it) }
             AutofillOriginMode.VERIFIED_NATIVE -> verifier.nativeDomains(source.packageName) == source.domains
-            AutofillOriginMode.MANUAL_NATIVE -> false
+            AutofillOriginMode.MANUAL_NATIVE, AutofillOriginMode.MANUAL_WEB -> false
         }
     }
 

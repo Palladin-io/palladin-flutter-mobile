@@ -10,10 +10,11 @@ final class UnlockInitial extends UnlockState {
   const UnlockInitial();
 }
 
-/// An unlock operation is running (Argon2id + decrypt + secure-storage
-/// write). Typically 300ms – 2s on mobile.
+/// An unlock operation is running; only its initiating action shows progress.
 final class UnlockLoading extends UnlockState {
-  const UnlockLoading();
+  const UnlockLoading({this.viaBiometrics = false});
+
+  final bool viaBiometrics;
 }
 
 /// Unlock succeeded — carries the derived key material so the page

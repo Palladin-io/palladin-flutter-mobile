@@ -65,6 +65,7 @@ class EntryListCubit extends Cubit<EntryListState> {
                   icon: entry.iconReference,
                   type: EntryTypeExtension.fromWire(entry.entryType),
                   urlDomain: _hostname(entry.autofillDomains.firstOrNull),
+                  username: entry.username,
                   createdAt: epoch,
                   updatedAt: epoch,
                   lifecycleState: entry.state,

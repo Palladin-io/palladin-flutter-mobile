@@ -426,4 +426,22 @@ Entry Details Edit/Save and Add Entry Save use the shared `AppActionFooter`.
 The band paints to the screen edge while its action stays above the remaining
 system navigation inset, including Android three-button navigation.
 
+
+### Shared Entries selection surface
+
+`EntriesListView` owns the common Entries header, search, scrolling surface and
+optional pinned footer. Global Entries supplies its library switch, refresh,
+scroll preferences and Add FAB. AutoFill supplies prefilled search, scoped
+candidates, selection actions and its single warning/footer, with no Add FAB.
+Both use `EntryListCard`: credential rows display account username and exact
+domain; Vault-name context remains available for other Entry types.
+Canonical index usernames stay in memory. Legacy compact entries resolve a
+username only for mounted rows through a guarded local read and immediately
+clear the temporary body. No plaintext is added to durable caches or APIs.
+
+Credential rows omit the redundant domain subtitle when the Entry label itself
+is that exact host or its HTTPS root URL. Custom names, other hosts and URLs
+with paths/query/fragment remain distinct. This is display-only; matching and
+native origin verification are unchanged.
+
 The Login-only sign-in method sheet uses a horizontally scrollable provider-logo rail with native focusable buttons and previous/next actions. Scrolling never selects a provider; saved-method rows, exact field IDs, manual accounts and candidate linking retain their behavior. Candidate controls resize with reduced-motion-aware `AnimatedSize` above the pinned sheet footer. The generic localized suggestion mail uses only `ContactConfig` (`PALLADIN_CONTACT_EMAIL`) and subject; it never includes account or Entry values. Generic builds leave the contact unset. Store artifact workflows require the public `CONTACT_EMAIL` repository variable and pass it as the Dart define to both Android and iOS. Copy `config/contact.example.json` to ignored `config/contact.local.json` for an empty generic starting point. For local previews supply `--dart-define=PALLADIN_CONTACT_EMAIL=<contact-address>` or put that key in an ignored `config/*.local.json` define file.

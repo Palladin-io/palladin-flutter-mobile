@@ -32,42 +32,47 @@ void main() {
     ).thenAnswer((_) async => const []);
   });
 
-  test(
-    'concurrent dashboard and AutoFill preparation shares all work',
-    () async {
-      final pending = Completer<void>();
-      when(
-        () => vaults.loadForMemberIndex(any(), ensureFresh: false),
-      ).thenAnswer((_) async {
-        await pending.future;
-        return [_vault('first'), _vault('second')];
-      });
+  for (final foregroundFresh in [false, true]) {
+    test(
+      'concurrent foreground fresh=$foregroundFresh and AutoFill share all work',
+      () async {
+        final pending = Completer<void>();
+        when(
+          () => vaults.loadForMemberIndex(any(), ensureFresh: foregroundFresh),
+        ).thenAnswer((_) async {
+          await pending.future;
+          return [_vault('first'), _vault('second')];
+        });
 
-      final first = service.prepare(Uint8List(32));
-      final second = service.prepare(Uint8List(32));
+        final first = service.prepare(
+          Uint8List(32),
+          ensureFresh: foregroundFresh,
+        );
+        final second = service.prepare(Uint8List(32));
 
-      expect(identical(first, second), isTrue);
-      pending.complete();
-      final results = await Future.wait([first, second]);
+        expect(identical(first, second), isTrue);
+        pending.complete();
+        final results = await Future.wait([first, second]);
 
-      expect(results.first.map((vault) => vault.id), ['first', 'second']);
-      verify(
-        () => vaults.loadForMemberIndex(any(), ensureFresh: false),
-      ).called(1);
-      verify(
-        () => entries.load(
-          vaultId: 'first',
-          memberPrivateKey: any(named: 'memberPrivateKey'),
-        ),
-      ).called(1);
-      verify(
-        () => entries.load(
-          vaultId: 'second',
-          memberPrivateKey: any(named: 'memberPrivateKey'),
-        ),
-      ).called(1);
-    },
-  );
+        expect(results.first.map((vault) => vault.id), ['first', 'second']);
+        verify(
+          () => vaults.loadForMemberIndex(any(), ensureFresh: foregroundFresh),
+        ).called(1);
+        verify(
+          () => entries.load(
+            vaultId: 'first',
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).called(1);
+        verify(
+          () => entries.load(
+            vaultId: 'second',
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).called(1);
+      },
+    );
+  }
 
   test('prepares eight Vaults with bounded overlapping sync', () async {
     final items = List.generate(8, (i) => _vault('vault-$i'));

@@ -70,39 +70,84 @@ abstract interface class MemberSyncCache {
   Future<void> clearAll();
 }
 
+typedef MemberSyncMutationGuard =
+    Future<T> Function<T>(Future<T> Function() write);
+
 /// SQLite implementation of the policy-2 ciphertext cache.
 final class SqliteMemberSyncCache implements MemberSyncCache {
   SqliteMemberSyncCache({
     Future<Database> Function()? databaseLoader,
+    MemberSyncMutationGuard? mutationGuard,
+    void Function() Function()? captureMutationSession,
     this.maximumProfileCacheBytes =
         VaultPerformanceBudget.maximumMemberSyncProfileCacheBytes,
-  }) : _databaseLoader = databaseLoader ?? _openDatabase;
+  }) : _databaseLoader = databaseLoader ?? _openDatabase,
+       _mutationGuard = mutationGuard,
+       _captureMutationSession = captureMutationSession;
 
   static const _active = 'active';
   static const _staging = 'staging';
 
   final Future<Database> Function() _databaseLoader;
+  final MemberSyncMutationGuard? _mutationGuard;
+
+  final void Function() Function()? _captureMutationSession;
+
+  Future<T> _writeTransaction<T>(Future<T> Function(Transaction) write) async {
+    // Capture caller ownership before the loader can await migration/bootstrap.
+    // The native writer queue must not enclose that loader (migration uses it).
+    final validate = _captureMutationSession?.call();
+    final db = await _db;
+    validate?.call();
+    final guard = _mutationGuard;
+    Future<T> commit() {
+      validate?.call();
+      return db.transaction(write);
+    }
+
+    return guard == null ? commit() : guard(commit);
+  }
+
   final int maximumProfileCacheBytes;
   Database? _database;
+  Future<Database>? _opening;
 
-  Future<Database> get _db async => _database ??= await _databaseLoader();
+  Future<Database> get _db {
+    final database = _database;
+    if (database != null) return Future.value(database);
+    return _opening ??= _loadDatabase();
+  }
+
+  Future<Database> _loadDatabase() async {
+    try {
+      return _database = await Future<Database>.sync(_databaseLoader);
+    } finally {
+      _opening = null;
+    }
+  }
 
   static Future<Database> _openDatabase() async {
     final support = await getApplicationSupportDirectory();
-    return openDatabase(
-      p.join(support.path, 'vault_member_sync.db'),
-      version: 2,
-      onConfigure: configureMemberSyncDatabase,
-      onCreate: (db, _) => _createSchema(db),
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) {
-          // Policy 1 never contained MemberSecret or a finite access context;
-          // it cannot be upgraded into a policy-2 generation safely.
-          await db.execute('DROP TABLE IF EXISTS member_sync_heads');
-          await db.execute('DROP TABLE IF EXISTS member_sync_state');
-          await _createSchema(db);
-        }
-      },
+    return openAt(p.join(support.path, 'vault_member_sync.db'));
+  }
+
+  static Future<Database> openAt(String path, {DatabaseFactory? factory}) {
+    return (factory ?? databaseFactory).openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onConfigure: configureMemberSyncDatabase,
+        onCreate: (db, _) => _createSchema(db),
+        onUpgrade: (db, oldVersion, _) async {
+          if (oldVersion < 2) {
+            // Policy 1 never contained MemberSecret or a finite access context;
+            // it cannot be upgraded into a policy-2 generation safely.
+            await db.execute('DROP TABLE IF EXISTS member_sync_heads');
+            await db.execute('DROP TABLE IF EXISTS member_sync_state');
+            await _createSchema(db);
+          }
+        },
+      ),
     );
   }
 
@@ -135,8 +180,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<int> quarantineProfile() async {
-    final db = await _db;
-    return db.transaction((transaction) async {
+    return _writeTransaction((transaction) async {
       final rows = await transaction.query(
         'member_sync_profile_fence',
         columns: ['generation'],
@@ -156,8 +200,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<bool> clearQuarantinedProfile(int quarantineGeneration) async {
-    final db = await _db;
-    return db.transaction((transaction) async {
+    return _writeTransaction((transaction) async {
       final rows = await transaction.query(
         'member_sync_profile_fence',
         columns: ['generation'],
@@ -230,8 +273,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     String vaultId, {
     required bool invalidateActive,
   }) async {
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await transaction.delete(
         'member_sync_heads',
@@ -261,8 +303,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     if (items.any((item) => item.isTombstone)) {
       throw const FormatException('Snapshot contains a tombstone');
     }
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await _applyItemsWith(transaction, vaultId, _staging, items);
       await _requireProfileWithinQuota(executor: transaction);
@@ -274,8 +315,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     String vaultId,
     List<MemberSyncItemModel> items,
   ) async {
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await _applyItemsWith(transaction, vaultId, _staging, items);
       await _requireProfileWithinQuota(executor: transaction);
@@ -290,8 +330,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     required Map<String, dynamic> memberVaultKey,
     required DateTime maximumObservedWallTime,
   }) async {
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await transaction.delete(
         'member_sync_heads',
@@ -317,13 +356,14 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<void> discardSnapshot(String vaultId) async {
-    final db = await _db;
-    await _requireProfileAvailable(db);
-    await db.delete(
-      'member_sync_heads',
-      where: 'vault_id = ? AND generation = ?',
-      whereArgs: [vaultId, _staging],
-    );
+    await _writeTransaction((transaction) async {
+      await _requireProfileAvailable(transaction);
+      await transaction.delete(
+        'member_sync_heads',
+        where: 'vault_id = ? AND generation = ?',
+        whereArgs: [vaultId, _staging],
+      );
+    });
   }
 
   @override
@@ -335,8 +375,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     required Map<String, dynamic> memberVaultKey,
     required DateTime maximumObservedWallTime,
   }) async {
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       final current = await transaction.query(
         'member_sync_state',
@@ -489,8 +528,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<void> clearVault(String vaultId) async {
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await transaction.delete(
         'member_sync_heads',
@@ -507,8 +545,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<void> clearAll() async {
-    final db = await _db;
-    await db.transaction((transaction) async {
+    await _writeTransaction((transaction) async {
       await transaction.delete('member_sync_heads');
       await transaction.delete('member_sync_state');
       await transaction.delete('member_sync_profile_fence');

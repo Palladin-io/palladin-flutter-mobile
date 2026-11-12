@@ -5,6 +5,94 @@ import 'package:mobile_palladin/features/vault/presentation/widgets/entry_list_c
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 void main() {
+  for (final label in [
+    'example.test',
+    'https://example.test/',
+    'Named account',
+    'https://other.test/',
+    'https://example.test/path',
+  ]) {
+    testWidgets('domain duplication for $label', (tester) async {
+      final entry = EntryEntity(
+        id: 'entry',
+        vaultId: 'vault',
+        label: label,
+        username: 'account',
+        urlDomain: 'example.test',
+        type: EntryType.credential,
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: EntryListCard.selection(entry: entry, onSelect: () {}),
+          ),
+        ),
+      );
+      final duplicate =
+          label == 'example.test' || label == 'https://example.test/';
+      expect(
+        find.text('example.test'),
+        label == 'example.test' || !duplicate ? findsOneWidget : findsNothing,
+      );
+      expect(find.text(label), findsOneWidget);
+      expect(find.text('account'), findsOneWidget);
+    });
+  }
+
+  testWidgets('same-name accounts show usernames and domain, not vault name', (
+    tester,
+  ) async {
+    String? selected;
+    EntryEntity account(String id) => EntryEntity(
+      id: id,
+      vaultId: 'vault',
+      label: 'Broker',
+      username: '$id@example.test',
+      urlDomain: 'example.test',
+      type: EntryType.credential,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Column(
+            children: [
+              EntryListCard.selection(
+                entry: account('first'),
+                onSelect: () => selected = 'first',
+              ),
+              EntryListCard(
+                entry: account('second'),
+                vaultName: 'Private Vault',
+                isExpanded: false,
+                payload: null,
+                revealedFields: const {},
+                onToggleReveal: () {},
+                onToggleFieldReveal: (_, _) {},
+                onCopy: (_) {},
+                onEdit: () => selected = 'second',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Broker'), findsNWidgets(2));
+    expect(find.text('example.test'), findsNWidgets(2));
+    expect(find.text('Private Vault'), findsNothing);
+    await tester.tap(find.text('second@example.test'));
+    expect(selected, 'second');
+    await tester.tap(find.text('first@example.test'));
+    expect(selected, 'first');
+  });
+
   for (final global in [false, true]) {
     testWidgets('shared card actions fit 320px, global=$global', (
       tester,

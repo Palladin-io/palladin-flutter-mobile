@@ -15,6 +15,7 @@ internal class AutofillOriginVerifier(
     private val credentialProof: (String, String) -> Boolean = { packageName, host ->
         CredentialAssociationIdentity.isVerified(context, packageName, host)
     },
+    private val apiLevel: Int = Build.VERSION.SDK_INT,
 ) {
     fun isVerified(packageName: String, domain: String): Boolean {
         return status(packageName, domain) == OriginStatus.VERIFIED
@@ -22,12 +23,15 @@ internal class AutofillOriginVerifier(
 
     fun status(packageName: String, domain: String): OriginStatus {
         if (isTrustedSystemBrowser(packageName)) return OriginStatus.VERIFIED
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return OriginStatus.QUERY_UNAVAILABLE
+        if (apiLevel < Build.VERSION_CODES.S) return OriginStatus.QUERY_UNAVAILABLE
 
-        val manager = context.getSystemService(DomainVerificationManager::class.java)
-        val state = runCatching {
+        val state = try {
+            val manager = context.getSystemService(DomainVerificationManager::class.java)
+                ?: return OriginStatus.QUERY_UNAVAILABLE
             manager.getDomainVerificationUserState(packageName)
-        }.getOrNull() ?: return OriginStatus.QUERY_UNAVAILABLE
+        } catch (_: Exception) {
+            return OriginStatus.QUERY_UNAVAILABLE
+        } ?: return OriginStatus.UNVERIFIED
         if (!state.isLinkHandlingAllowed) return OriginStatus.LINK_HANDLING_DISABLED
         return if (state.hostToStateMap[domain] == DomainVerificationUserState.DOMAIN_STATE_VERIFIED) {
             OriginStatus.VERIFIED
@@ -52,7 +56,7 @@ internal class AutofillOriginVerifier(
             reportStatus(status)
             return null
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return reject(OriginStatus.QUERY_UNAVAILABLE)
+        if (apiLevel < Build.VERSION_CODES.S) return reject(OriginStatus.QUERY_UNAVAILABLE)
         if (isBrowser(packageName)) return reject(OriginStatus.UNVERIFIED)
         val state = runCatching {
             context.getSystemService(DomainVerificationManager::class.java)

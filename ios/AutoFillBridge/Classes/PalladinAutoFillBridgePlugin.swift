@@ -15,6 +15,8 @@ final class AutoFillBridgeMutationQueue {
 
 public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     private let mutationQueue = AutoFillBridgeMutationQueue()
+    private let memberSource = try? SharedMemberSourceBridge()
+    private let incrementalWriter = AutoFillV3Writer()
     private let historyQueue = DispatchQueue(
         label: "io.palladin.mobile.autofill.generated-history",
         qos: .userInitiated
@@ -27,13 +29,34 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
         )
         PendingPasswordSavePlugin.register(with: registrar)
         let instance = PalladinAutoFillBridgePlugin()
+        if let bridge = instance.memberSource {
+            SharedBiometricUnlockPlugin.register(with: registrar, source: bridge.source,
+                containerURL: bridge.containerURL, accessGroup: bridge.accessGroup, allowLegacyMigration: true)
+        }
         instance.historyQueue.async {
             try? GeneratedPasswordHistory().revokeAll()
         }
         registrar.addMethodCallDelegate(instance, channel: channel)
+        // The app source controller uses the request channel on both platforms.
+        // Share the same fence and RAM capability owner with the legacy bridge.
+        let requestChannel = FlutterMethodChannel(
+            name: "io.palladin.mobile/autofill-request",
+            binaryMessenger: registrar.messenger()
+        )
+        registrar.addMethodCallDelegate(instance, channel: requestChannel)
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        if SharedMemberSourceBridge.methods.contains(call.method) {
+            do {
+                guard let bridge = memberSource else { throw SharedMemberSourceError.unavailable }
+                // Source denial must not sit behind legacy publication/identity work.
+                result(try bridge.handle(call.method, arguments: call.arguments as? [String: Any] ?? [:]))
+            } catch {
+                result(FlutterError(code: "AUTOFILL_SOURCE_UNAVAILABLE", message: nil, details: nil))
+            }
+            return
+        }
         if call.method == "getProviderStatus" {
             ASCredentialIdentityStore.shared.getState { state in
                 DispatchQueue.main.async {
@@ -64,6 +87,23 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             }
             return
         }
+        if call.method == "endWriterSession" {
+            guard let arguments = call.arguments as? [String: Any],
+                  let epoch = AutoFillV3JSON.positive(arguments["writerEpoch"]) else {
+                result(FlutterError(code: "AUTOFILL_CACHE_ERROR", message: "Invalid writer epoch", details: nil)); return
+            }
+            // Bypass queued crypto/identity work; pending commits recheck epoch.
+            incrementalWriter.end(epoch: epoch)
+            result(nil)
+            return
+        }
+        if ["beginCacheSession", "revokeCacheAccess"].contains(call.method) {
+            incrementalWriter.invalidate()
+        } else if call.method == "clearCache",
+                  let arguments = call.arguments as? [String: Any],
+                  let token = AutoFillV3JSON.positive(arguments["sessionToken"]) {
+            incrementalWriter.invalidate(generation: token)
+        }
         let action = {
             do {
                 let store = try AutoFillCacheStore()
@@ -84,6 +124,36 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                         store: store,
                         onlyIf: { !store.hasActiveCache() }
                     ) { _ in }
+                case "beginWriterSession":
+                    guard let arguments = call.arguments as? [String: Any],
+                          let token = AutoFillV3JSON.positive(arguments["sessionToken"]) else { throw AutoFillV3Error.invalid }
+                    let epoch = try store.beginWriterSession(sessionToken: token, writer: self.incrementalWriter)
+                    DispatchQueue.main.async { result(epoch) }
+                case "replaceCacheV3", "denyEntries", "applyCacheDelta":
+                    guard let arguments = call.arguments as? [String: Any] else { throw AutoFillV3Error.invalid }
+                    let publication: AutoFillV3Publication
+                    if call.method == "replaceCacheV3" {
+                        guard let payload = arguments["payload"] as? [String: Any],
+                              let token = AutoFillV3JSON.positive(arguments["sessionToken"]),
+                              let epoch = AutoFillV3JSON.positive(arguments["writerEpoch"]) else { throw AutoFillV3Error.invalid }
+                        let base = try (arguments["base"] as? [String: Any]).map(AutoFillV3Base.init)
+                        let releasing = arguments["releasingDenies"] as? [String] ?? []
+                        publication = try store.replaceV3(payload: payload, sessionToken: token, epoch: epoch,
+                                                          writer: self.incrementalWriter, expectedBase: base, releasingDenies: releasing)
+                    } else {
+                        publication = try store.mutateV3(arguments: arguments, writer: self.incrementalWriter, deny: call.method == "denyEntries")
+                    }
+                    if !publication.updatesIdentities {
+                        DispatchQueue.main.async { result(publication.response) }
+                        return
+                    }
+                    AutoFillCacheStore.publishV3Identities(publication, store: store) { error in
+                        DispatchQueue.main.async {
+                            if let error {
+                                result(FlutterError(code: (error as? AutoFillV3Error)?.code ?? "AUTOFILL_IDENTITY_ERROR", message: "Unable to update credential identities", details: nil))
+                            } else { result(publication.response) }
+                        }
+                    }
                 case "replaceCache":
                     guard let arguments = call.arguments as? [String: Any],
                           let payload = arguments["payload"] as? [String: Any],
@@ -212,7 +282,7 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             } catch {
                 DispatchQueue.main.async {
                     result(FlutterError(
-                        code: "AUTOFILL_CACHE_ERROR",
+                        code: (error as? AutoFillV3Error)?.code ?? "AUTOFILL_CACHE_ERROR",
                         message: "Native cache operation failed",
                         details: nil
                     ))

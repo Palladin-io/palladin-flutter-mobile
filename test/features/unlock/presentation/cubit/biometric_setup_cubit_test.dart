@@ -102,6 +102,39 @@ void main() {
   );
 
   test(
+    'lost enrollment after enabling offers setup without a dismissal',
+    () async {
+      final cubit = build();
+      await cubit.refresh();
+      await cubit.enable(copy);
+      await cubit.close();
+      // A later protected enrollment loss must not count as the user's Not now.
+      final reopened = build();
+      await reopened.refresh();
+      expect(reopened.state.status, BiometricSetupStatus.available);
+      expect(reopened.state.dismissed, isFalse);
+      await reopened.close();
+    },
+  );
+
+  test(
+    'ambiguous legacy handled flag cannot suppress missing enrollment',
+    () async {
+      await prefs.setBool('biometric_setup_dismissed:account-a', true);
+      final cubit = build();
+      await cubit.refresh();
+      expect(cubit.state.status, BiometricSetupStatus.available);
+      expect(cubit.state.dismissed, isFalse);
+      await cubit.dismiss();
+      await cubit.close();
+      final reopened = build();
+      await reopened.refresh();
+      expect(reopened.state.dismissed, isTrue);
+      await reopened.close();
+    },
+  );
+
+  test(
     'declined biometric does not fail or clear the authenticated session',
     () async {
       when(() => keys.enroll(any(), any(), expectedGeneration: 0)).thenThrow(

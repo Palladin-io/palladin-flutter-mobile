@@ -19,6 +19,7 @@ class AutofillSaveSourceTest {
         val native = web.copy(mode = AutofillOriginMode.VERIFIED_NATIVE, schemes = emptySet())
         assertTrue(native.isEligible)
         assertFalse(native.copy(mode = AutofillOriginMode.MANUAL_NATIVE).isEligible)
+        assertFalse(web.copy(mode = AutofillOriginMode.MANUAL_WEB).isEligible)
         assertFalse(native.copy(domains = emptySet()).isEligible)
         assertFalse(native.copy(schemes = setOf("https")).isEligible)
         assertFalse(web.copy(signatures = emptySet()).isEligible)

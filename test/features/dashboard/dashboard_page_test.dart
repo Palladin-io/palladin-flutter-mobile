@@ -260,8 +260,8 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider<AuthBloc>.value(
-          value: authBloc,
+        home: MultiBlocProvider(
+          providers: [BlocProvider<AuthBloc>.value(value: authBloc)],
           child: AppShellScope(
             openSettingsDrawer: () {},
             setBottomNavHidden: (_) {},

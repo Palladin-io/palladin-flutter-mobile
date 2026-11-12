@@ -1,5 +1,17 @@
+import '../../features/autofill/data/autofill_token_authority_guard.dart';
+import '../../features/autofill/data/shared_member_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../storage/device_secure_storage.dart';
+import '../storage/ios_biometric_key_store.dart';
+import '../storage/protected_account_unlock_reader.dart';
+import '../../features/autofill/data/autofill_request_controller.dart';
+import '../../features/autofill/data/autofill_password_verifier.dart';
+import '../../features/autofill/data/autofill_credential_source.dart';
+import '../../features/autofill/data/autofill_source_access_service.dart';
+import '../../features/autofill/data/autofill_source_invalidator.dart';
+import '../../features/autofill/data/autofill_source_preparation_service.dart';
+import '../../features/autofill/data/autofill_source_configuration_loader.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
@@ -35,7 +47,6 @@ import '../../features/auth/presentation/cubit/register_cubit.dart';
 import '../../features/auth/presentation/cubit/totp_enroll_cubit.dart';
 import '../../features/auth/presentation/cubit/verify_email_cubit.dart';
 import '../../features/autofill/data/autofill_cache_bridge.dart';
-import '../../features/autofill/data/autofill_cache_service.dart';
 import '../../features/autofill/data/autofill_mutation_notifier.dart';
 import '../../features/autofill/domain/autofill_cache_invalidator.dart';
 import '../../features/onboarding/data/datasources/onboarding_remote_datasource.dart';
@@ -167,21 +178,88 @@ final getIt = GetIt.instance;
 ///
 /// Must be called once during app startup, before `runApp()`.
 void configureDependencies(EnvConfig config) {
+  final nativeAutoFill =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   // Config
   getIt.registerSingleton<EnvConfig>(config);
 
   // Storage
   getIt.registerLazySingleton<FlutterSecureStorage>(() => deviceSecureStorage);
   getIt.registerLazySingleton<SecureTokenStorage>(
-    () => SecureTokenStorage(getIt<FlutterSecureStorage>()),
+    () => SecureTokenStorage(
+      getIt<FlutterSecureStorage>(),
+      beforeAccessTokenWrite: nativeAutoFill
+          ? (previous, next) => guardAutoFillTokenReplacement(
+              previous: previous,
+              next: next,
+              source: getIt<AutoFillSourceAccessService>(),
+            )
+          : null,
+    ),
   );
   // Enclave-bound, biometric-gated store for the master key (biometric
   // unlock). Never holds the raw MK in a form readable without a fresh
   // biometric authentication — see BiometricStorageKeyStore.
-  getIt.registerLazySingleton<BiometricKeyStore>(
-    () =>
-        BiometricStorageKeyStore(markerStorage: getIt<FlutterSecureStorage>()),
+  getIt.registerLazySingleton<AutoFillRequestController>(
+    () => AutoFillRequestController(
+      source: getIt<AutoFillSourceAccessService>(),
+      authority: getIt<MemberSyncSessionAuthorityProvider>(),
+    ),
   );
+  getIt.registerLazySingleton<AutoFillPasswordVerifier>(
+    () => AutoFillPasswordVerifier(
+      account: getIt<AccountRemoteDatasource>(),
+      crypto: getIt<UnlockCryptoService>(),
+      authority: getIt<MemberSyncSessionAuthorityProvider>(),
+      captureAuthorization:
+          getIt<AutoFillRequestController>().capturePasswordAuthorization,
+    ),
+  );
+  getIt.registerLazySingleton<AutoFillSourceConfigurationLoader>(
+    () => AutoFillSourceConfigurationLoader(
+      authorityProvider: getIt<MemberSyncSessionAuthorityProvider>(),
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      config: config,
+    ),
+  );
+  getIt.registerLazySingleton<AutoFillSourceAccessService>(
+    () => AutoFillSourceAccessService(
+      loadConfiguration: getIt<AutoFillSourceConfigurationLoader>().load,
+    ),
+  );
+  BiometricRequestUnlock? activeRequestUnlock() {
+    final requests = getIt<AutoFillRequestController>();
+    if (requests.request == null) return null;
+    return (copy) => requests.readBiometricMasterKey(
+      promptTitle: copy.promptTitle,
+      cancelLabel: copy.cancelLabel,
+    );
+  }
+
+  getIt.registerLazySingleton<BiometricKeyStore>(() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      final source = getIt<AutoFillSourceAccessService>();
+      return IOSBiometricKeyStore(
+        markerStorage: getIt<FlutterSecureStorage>(),
+        sourceTicket: source.biometricSourceTicket,
+        withMutation: source.withBiometricMutation,
+        activeRequestUnlock: activeRequestUnlock,
+      );
+    }
+    // Unlock the app locally first. The host authorizes the verified app
+    // session for the exact AutoFill request before exposing any credentials.
+    return BiometricStorageKeyStore(
+      markerStorage: getIt<FlutterSecureStorage>(),
+      guardRequestUnlock: (unlock) {
+        final requests = getIt<AutoFillRequestController>();
+        return requests.request == null
+            ? unlock()
+            : requests.guardLocalBiometricUnlock(unlock);
+      },
+    );
+  });
   getIt.registerLazySingleton<AutoFillMutationNotifier>(
     AutoFillMutationNotifier.new,
   );
@@ -326,8 +404,18 @@ void configureDependencies(EnvConfig config) {
   );
 
   // Unlock — data layer
+  getIt.registerLazySingleton<ProtectedAccountUnlockReader>(
+    () => ProtectedAccountUnlockReader(
+      authority: getIt<MemberSyncSessionAuthorityProvider>(),
+      config: config,
+    ),
+  );
   getIt.registerLazySingleton<AccountRemoteDatasource>(
-    () => AccountRemoteDatasource(getIt<Dio>()),
+    () => AccountRemoteDatasource(
+      getIt<Dio>(),
+      sessionRevision: () => getIt<SecureTokenStorage>().authorityRevision,
+      readProtectedUnlock: getIt<ProtectedAccountUnlockReader>().read,
+    ),
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
   getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
@@ -340,6 +428,12 @@ void configureDependencies(EnvConfig config) {
       cryptoService: getIt<UnlockCryptoService>(),
       keyStore: getIt<BiometricKeyStore>(),
       defaultVaultProvisioner: getIt<DefaultVaultProvisioner>(),
+      captureRequestAuthorization: () {
+        final requests = getIt<AutoFillRequestController>();
+        return requests.request != null
+            ? requests.preparePasswordAuthorization()
+            : null;
+      },
     ),
   );
 
@@ -385,7 +479,22 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<MemberSyncRemoteDatasource>(
     () => MemberSyncRemoteDatasource(getIt<Dio>()),
   );
-  getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
+  getIt.registerLazySingleton<SharedMemberDatabase>(
+    () => SharedMemberDatabase(source: getIt<AutoFillSourceAccessService>()),
+  );
+  getIt.registerLazySingleton<MemberSyncCache>(
+    () => SqliteMemberSyncCache(
+      databaseLoader: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+          ? getIt<SharedMemberDatabase>().open
+          : null,
+      captureMutationSession: nativeAutoFill
+          ? getIt<AutoFillSourceAccessService>().captureSessionGuard
+          : null,
+      mutationGuard: nativeAutoFill
+          ? getIt<AutoFillSourceAccessService>().withCiphertextMutation
+          : null,
+    ),
+  );
   getIt.registerLazySingleton<MemberSyncSessionAuthorityProvider>(
     () => MemberSyncSessionAuthorityProvider(getIt<SecureTokenStorage>()),
   );
@@ -596,16 +705,28 @@ void configureDependencies(EnvConfig config) {
       memberIndex: getIt<MemberSyncService>(),
     ),
   );
-  getIt.registerLazySingleton<AutoFillCacheService>(
-    () => AutoFillCacheService(
-      indexPreparation: getIt<MemberIndexPreparationService>(),
-      localEntries: getIt<LocalCurrentEntryService>(),
-      bridge: getIt<AutoFillCacheBridge>(),
+  getIt.registerLazySingleton<AutoFillCredentialSource>(
+    () => AutoFillCredentialSource(
       memberIndex: getIt<MemberSyncService>(),
+      localEntries: getIt<LocalCurrentEntryService>(),
+    ),
+  );
+  getIt.registerLazySingleton<AutoFillSourcePreparationService>(
+    () => AutoFillSourcePreparationService(
+      source: getIt<AutoFillSourceAccessService>(),
+      metadata: getIt<MemberSyncService>(),
+      authority: getIt<MemberSyncSessionAuthorityProvider>(),
+    ),
+  );
+  getIt.registerLazySingleton<AutoFillSourceInvalidator>(
+    () => AutoFillSourceInvalidator(
+      source: getIt<AutoFillSourceAccessService>(),
+      legacy: getIt<AutoFillCacheBridge>(),
+      supported: nativeAutoFill,
     ),
   );
   getIt.registerLazySingleton<AutoFillCacheInvalidator>(
-    () => getIt<AutoFillCacheService>(),
+    () => getIt<AutoFillSourceInvalidator>(),
   );
 
   // Entry — presentation layer (factory: fresh cubit per page mount so

@@ -6,20 +6,16 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mobile_palladin/features/autofill/data/autofill_cache_bridge.dart';
-import 'package:mobile_palladin/features/autofill/data/autofill_cache_service.dart';
-import 'package:mobile_palladin/features/autofill/domain/autofill_record.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_credential_source.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/member_sync_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/member_index_preparation_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_session_authority_provider.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
-import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:path/path.dart' as p;
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
@@ -69,54 +65,6 @@ final class _FixtureRemote implements MemberSyncRemote {
       ),
     );
   }
-}
-
-final class _ForbiddenPreparation implements MemberIndexPreparer {
-  int calls = 0;
-
-  @override
-  void lock() {}
-
-  @override
-  Future<List<VaultEntity>> prepare(
-    Uint8List memberPrivateKey, {
-    bool ensureFresh = false,
-  }) async {
-    calls += 1;
-    throw StateError('Offline AutoFill must not start Member synchronization');
-  }
-}
-
-final class _CapturingBridge implements AutoFillCacheBridge {
-  AutoFillCachePayload? replacement;
-  int beginCalls = 0;
-  int clearCalls = 0;
-  int replaceCalls = 0;
-
-  @override
-  Future<int> beginCacheSession() async {
-    beginCalls += 1;
-    return 77;
-  }
-
-  @override
-  Future<void> clearCache({required int sessionToken}) async {
-    expect(sessionToken, 77);
-    clearCalls += 1;
-  }
-
-  @override
-  Future<void> replaceCache(
-    AutoFillCachePayload payload, {
-    required int sessionToken,
-  }) async {
-    expect(sessionToken, 77);
-    replaceCalls += 1;
-    replacement = payload;
-  }
-
-  @override
-  Future<int> revokeCacheAccess() async => 78;
 }
 
 Future<SodiumSumo?> _loadSodium() async {
@@ -192,7 +140,7 @@ void main() {
   });
 
   test(
-    'offline restart rebuilds exact native payload from persisted policy-2 material with zero HTTP',
+    'offline restart lists without secrets and decrypts only selected persisted credential with zero HTTP',
     () async {
       final sodium = await _loadSodium();
       if (sodium == null) {
@@ -285,9 +233,17 @@ void main() {
         'memberIndex': bundle.memberIndex,
         'memberSecret': bundle.memberSecret,
       });
+      final now = DateTime.now().toUtc();
+      final currentLease = MemberOfflineAccessContext.fromJson({
+        ...frozenSnapshot.accessContext.toJson(),
+        'issuedAt': now.toIso8601String(),
+        'notAfter': now
+            .add(frozenSnapshot.accessContext.leaseDuration)
+            .toIso8601String(),
+      });
       final snapshot = MemberSnapshotPage(
         snapshotBaseSequence: frozenSnapshot.snapshotBaseSequence,
-        accessContext: frozenSnapshot.accessContext,
+        accessContext: currentLease,
         memberVaultKey: frozenSnapshot.memberVaultKey,
         items: [completeItem],
       );
@@ -314,7 +270,7 @@ void main() {
         cache: SqliteMemberSyncCache(databaseLoader: () async => database),
         entryCrypto: entryCrypto,
         vaultKeys: _MockVaultKeys(),
-        now: () => DateTime.utc(2026, 8, 29, 8, 30),
+        now: () => now,
       );
       await writer.synchronize(
         vaultId: snapshot.accessContext.vaultId,
@@ -365,7 +321,7 @@ void main() {
         cache: SqliteMemberSyncCache(databaseLoader: () async => database),
         entryCrypto: entryCrypto,
         vaultKeys: vaultKeys,
-        now: () => DateTime.utc(2026, 8, 29, 8, 45),
+        now: () => now,
       );
       final cachedVaultIds = await restarted.unlockAllCached(
         memberPrivateKey: Uint8List(32),
@@ -392,76 +348,42 @@ void main() {
         entryCrypto: entryCrypto,
         canonicalAdapter: canonicalAdapter,
       );
-      final forbiddenPreparation = _ForbiddenPreparation();
-      final bridge = _CapturingBridge();
-      final autoFill = AutoFillCacheService(
-        indexPreparation: forbiddenPreparation,
+      final autoFill = AutoFillCredentialSource(
         localEntries: localEntries,
-        bridge: bridge,
         memberIndex: restarted,
       );
-      await autoFill.beginSession();
-      await autoFill.synchronizePrepared(
-        privateKey: Uint8List(32),
+      final candidates = await autoFill.candidates(
         vaultIds: cachedVaultIds,
+        verifiedHosts: const {'fixture.invalid'},
+        validateRequest: () {},
       );
-
+      expect(candidates, hasLength(1));
+      expect(candidates.single.entryId, frozenItem.entryId);
+      expect(candidates.single.label, expectedIndex['memberLabel']);
+      expect(memberSecretDecryptions, 0);
       expect(offlineHttpRequests, 0);
-      expect(forbiddenPreparation.calls, 0);
-      expect(memberSecretDecryptions, 1);
-      expect(bridge.beginCalls, 1);
-      expect(bridge.clearCalls, 1);
-      expect(bridge.replaceCalls, 1);
-      expect(bridge.replacement!.toPlatformMap(), {
-        'version': 2,
-        'manifest': {
-          'principalId': snapshot.accessContext.principalId,
-          'organizationId': snapshot.accessContext.organizationId,
-          'organizationMembershipGeneration':
-              snapshot.accessContext.organizationMembershipGeneration,
-          'offlinePolicy': '24h',
-          'offlinePolicyVersion': snapshot.accessContext.offlinePolicyVersion,
-          'vaults': [
-            {
-              'vaultId': snapshot.accessContext.vaultId,
-              'contextVersion': 1,
-              'memberId': snapshot.accessContext.memberId,
-              'memberKeyGeneration': snapshot.accessContext.memberKeyGeneration,
-              'vaultKeyVersion': snapshot.accessContext.vaultKeyVersion,
-              'memberRecipientKeyVersion':
-                  snapshot.accessContext.memberRecipientKeyVersion,
-              'memberRecipientKeyFingerprint':
-                  snapshot.accessContext.memberRecipientKeyFingerprint,
-              'issuedAt': snapshot.accessContext.issuedAt
-                  .toUtc()
-                  .toIso8601String(),
-              'notAfter': snapshot.accessContext.notAfter
-                  .toUtc()
-                  .toIso8601String(),
-              'entries': [
-                {
-                  'entryId': frozenItem.entryId,
-                  'revision': frozenItem.currentRevision,
-                  'keyVersion': frozenItem.currentKeyVersion,
-                },
-              ],
-            },
-          ],
+      AutoFillSelectedCredential? completed;
+      await autoFill.withCredential(
+        candidate: candidates.single,
+        selectedHost: 'fixture.invalid',
+        memberPrivateKey: Uint8List(32),
+        validateRequest: () {},
+        complete: (credential) async {
+          completed = credential;
+          expect(credential.username, expectedContent['username']);
+          expect(credential.password, expectedContent['password']);
+          expect(
+            credential.accessContext.vaultId,
+            snapshot.accessContext.vaultId,
+          );
         },
-        'records': [
-          {
-            'id': frozenItem.entryId,
-            'organizationId': snapshot.accessContext.organizationId,
-            'vaultId': snapshot.accessContext.vaultId,
-            'revision': frozenItem.currentRevision,
-            'keyVersion': frozenItem.currentKeyVersion,
-            'label': expectedIndex['memberLabel'],
-            'username': expectedContent['username'],
-            'password': expectedContent['password'],
-            'domains': ['fixture.invalid'],
-          },
-        ],
-      });
+      );
+      expect(memberSecretDecryptions, 1);
+      expect(offlineHttpRequests, 0);
+      expect(
+        () => completed!.password,
+        throwsA(isA<AutoFillCredentialException>()),
+      );
 
       entryDek.fillRange(0, entryDek.length, 0);
       vaultKey.fillRange(0, vaultKey.length, 0);

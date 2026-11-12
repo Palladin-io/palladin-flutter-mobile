@@ -23,13 +23,21 @@ import 'package:mobile_palladin/features/vault/data/services/member_vault_key_co
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_performance_budget.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_credential_source.dart';
+import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
+import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
 
 const _organization = '11111111-1111-4111-8111-111111111111';
 const _principal = '44444444-4444-4444-8444-444444444444';
 const _vaultCount = 8;
-const _entriesPerVault = 20;
 String _id(int n) => '22222222-2222-4222-8222-${n.toString().padLeft(12, '0')}';
 String _b64(List<int> bytes) => base64UrlEncode(bytes).replaceAll('=', '');
 
@@ -47,9 +55,24 @@ Future<void> main() async {
   }
 }
 
-Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
+Future<List<Map<String, Object>>> runBenchmark({
+  int repetitions = 5,
+  int entriesPerVault = 20,
+}) async {
+  if (entriesPerVault < 1) throw ArgumentError.value(entriesPerVault);
+  final snapshotPagesPerVault =
+      (entriesPerVault / VaultPerformanceBudget.memberSyncPageItems).ceil();
   debugPrint(
-    'MEMBER_BENCHMARK_ENV ${jsonEncode({'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'), 'os': Platform.operatingSystem, 'osVersion': Platform.operatingSystemVersion, 'dart': Platform.version, 'buildMode': kDebugMode ? 'debug' : 'other', 'vaults': _vaultCount, 'entriesPerVault': _entriesPerVault, 'injectedDelay': false})}',
+    'MEMBER_BENCHMARK_ENV ${jsonEncode({
+      'revision': const String.fromEnvironment('BENCHMARK_REVISION', defaultValue: 'unspecified'),
+      'os': Platform.operatingSystem,
+      'osVersion': Platform.operatingSystemVersion,
+      'dart': Platform.version,
+      'buildMode': kDebugMode ? 'debug' : 'other',
+      'vaults': _vaultCount,
+      'entriesPerVault': entriesPerVault,
+      'warmRepeatRequestDelaysMillis': [0, 25],
+    })}',
   );
   final sodium = await SodiumProvider.instance();
   final pair = sodium.crypto.box.keyPair();
@@ -58,8 +81,8 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
     VaultPublicKeyKind.memberX25519,
     pair.publicKey,
   );
-  final crypto = EntryV2CryptoService();
-  final vaultKeys = VaultRotationCryptoService();
+  final crypto = _CountingEntryCrypto();
+  final vaultKeys = _CountingVaultKeys();
   final contexts = <String, Map<String, dynamic>>{};
   final wrappers = <String, Map<String, dynamic>>{};
   final heads = <String, List<Map<String, Object?>>>{};
@@ -153,8 +176,8 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           'notAfter': issued.add(const Duration(hours: 24)).toIso8601String(),
         };
         heads[vaultId] = [];
-        for (var e = 0; e < _entriesPerVault; e++) {
-          final entryId = _id(1000 + v * _entriesPerVault + e);
+        for (var e = 0; e < entriesPerVault; e++) {
+          final entryId = _id(1000 + v * entriesPerVault + e);
           final bundle = await crypto.seal(
             organizationId: _organization,
             vaultId: vaultId,
@@ -202,7 +225,7 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
             vaultKey: vaultKey,
             vaultDiscoveryKey: vaultKey,
           );
-          heads[vaultId]!.add({
+          final head = <String, Object?>{
             'entryId': entryId,
             'kind': 'head',
             'state': 'active',
@@ -213,23 +236,32 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
             'entryKey': bundle.entryKey,
             'memberIndex': bundle.memberIndex,
             'memberSecret': bundle.memberSecret,
-          });
+          };
+          heads[vaultId]!.add(head);
         }
       } finally {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
     }
     final requests = <String, int>{};
+    var requestDelay = Duration.zero;
     var activeRequests = 0;
     var peakRequests = 0;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final loopbackServer = server;
     server.listen((request) async {
       activeRequests++;
       if (activeRequests > peakRequests) peakRequests = activeRequests;
       final segments = request.uri.pathSegments;
       final kind = segments.length == 2 ? 'list' : segments.last;
       requests[kind] = (requests[kind] ?? 0) + 1;
-      await request.drain<void>();
+      final requestBody = await utf8.decoder.bind(request).join();
+      final parameters = requestBody.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(requestBody) as Map<String, dynamic>;
+      if (requestDelay != Duration.zero) {
+        await Future<void>.delayed(requestDelay);
+      }
       Object body;
       if (kind == 'list') {
         body = [
@@ -243,12 +275,18 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           await request.response.close();
           return;
         }
+        final offset = int.parse(parameters['cursor'] as String? ?? '0');
+        final pageSize = parameters['pageSize'] as int;
+        final pageHeads = heads[id]!.skip(offset).take(pageSize).toList();
         body = {
           'accessContext': contexts[id],
           'memberVaultKey': wrappers[id],
-          'items': kind == 'snapshot' ? heads[id] : [],
+          'items': kind == 'snapshot' ? pageHeads : [],
           if (kind == 'snapshot') 'snapshotBaseSequence': '1',
-          if (kind == 'snapshot') 'nextCursor': null,
+          if (kind == 'snapshot')
+            'nextCursor': offset + pageHeads.length < heads[id]!.length
+                ? '${offset + pageHeads.length}'
+                : null,
           if (kind == 'delta') 'deltaUpperBound': '1',
           if (kind == 'delta') 'appliedThroughSequence': '1',
           if (kind == 'delta') 'continuationCursor': null,
@@ -275,10 +313,10 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
         requests.clear();
         peakRequests = 0;
         final dio = Dio(
-          BaseOptions(baseUrl: 'http://127.0.0.1:${server.port}'),
+          BaseOptions(baseUrl: 'http://127.0.0.1:${loopbackServer.port}'),
         );
         final keyContexts = MemberVaultKeyContextStore();
-        final loader = _VaultList(dio, keyContexts);
+        final loader = _VaultList(dio, keyContexts, entriesPerVault);
         final sync = MemberSyncService(
           remote: MemberSyncRemoteDatasource(dio),
           cache: cache,
@@ -323,11 +361,12 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
                 ),
           );
           if (invalidIndexes ||
-              count != _vaultCount * _entriesPerVault ||
+              count != _vaultCount * entriesPerVault ||
               requests['list'] != 1 ||
-              requests['snapshot'] != _vaultCount ||
+              requests['snapshot'] != _vaultCount * snapshotPagesPerVault ||
               requests['delta'] != _vaultCount ||
-              requests.values.fold<int>(0, (a, b) => a + b) != 17) {
+              requests.values.fold<int>(0, (a, b) => a + b) !=
+                  1 + _vaultCount * (snapshotPagesPerVault + 1)) {
             throw StateError('Benchmark request/result invariant failed');
           }
           final result = <String, Object>{
@@ -341,6 +380,127 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
           };
           results.add(result);
           debugPrint('MEMBER_BENCHMARK ${jsonEncode(result)}');
+          if (repetition == repetitions && mode == modes.last) {
+            // Baseline repeat of the real preparer after completion, not a
+            // native provider activation benchmark. Keep the same live indexes.
+            final preparer = MemberIndexPreparationService(
+              vaults: loader,
+              entries: entries,
+            );
+            for (final delayMillis in [0, 25]) {
+              requestDelay = Duration(milliseconds: delayMillis);
+              requests.clear();
+              crypto.indexReads = 0;
+              crypto.secretReads = 0;
+              vaultKeys.opens = 0;
+              final repeatTimer = Stopwatch()..start();
+              await preparer.prepare(privateKey);
+              repeatTimer.stop();
+              final repeat = <String, Object>{
+                'mode': delayMillis == 0 ? 'warm-repeat' : 'warm-repeat-slow',
+                'entries': wrappers.keys.fold<int>(
+                  0,
+                  (count, id) => count + sync.entries(id).length,
+                ),
+                'requests': Map<String, int>.from(requests),
+                'vaultKeyOpens': vaultKeys.opens,
+                'indexOpens': crypto.indexReads,
+                'secretOpens': crypto.secretReads,
+                'requestDelayMillis': delayMillis,
+                'elapsedMicros': repeatTimer.elapsedMicroseconds,
+              };
+              results.add(repeat);
+              debugPrint('MEMBER_BENCHMARK ${jsonEncode(repeat)}');
+            }
+            // Actual transport is unavailable; candidates and selected reads
+            // must use the original finite lease and canonical local source.
+            await loopbackServer.close(force: true);
+            server = null;
+
+            final reader = _CountingCurrentEntries(
+              reader: sync,
+              authorityProvider: _Authority(),
+              vaultKeys: vaultKeys,
+              entryCrypto: crypto,
+              canonicalAdapter: CanonicalEntryDetailService(
+                entries: EntryRemoteDatasource(dio),
+                vaults: VaultRemoteDatasource(dio),
+                keys: vaultKeys,
+                envelopes: VaultProtocolEnvelopeService(),
+                grants: GrantsRemoteDatasource(dio),
+                entryV2: crypto,
+                autoFillMutationNotifier: AutoFillMutationNotifier(),
+              ),
+            );
+            final source = AutoFillCredentialSource(
+              memberIndex: sync,
+              localEntries: reader,
+            );
+            final beforeRequests = requests.values.fold<int>(
+              0,
+              (a, b) => a + b,
+            );
+            crypto.secretReads = 0;
+            crypto.indexReads = 0;
+            vaultKeys.opens = 0;
+            final timer = Stopwatch()..start();
+            final candidates = await source.candidates(
+              vaultIds: wrappers.keys,
+              verifiedHosts: {'example.invalid'},
+              validateRequest: () {},
+            );
+            final candidateSecretReads = crypto.secretReads;
+            final candidateIndexOpens = crypto.indexReads;
+            final candidateVaultKeyOpens = vaultKeys.opens;
+            final candidateMicros = timer.elapsedMicroseconds;
+            final selected = candidates.last;
+            var credentialVerified = false;
+            timer.reset();
+            await source.withCredential(
+              candidate: selected,
+              selectedHost: 'example.invalid',
+              memberPrivateKey: privateKey,
+              validateRequest: () {},
+              complete: (credential) async {
+                credentialVerified =
+                    credential.username == 'synthetic' &&
+                    credential.password == 'synthetic-only';
+              },
+            );
+            timer.stop();
+            final httpRequests =
+                requests.values.fold<int>(0, (a, b) => a + b) - beforeRequests;
+            final onlySelectedEntryRead =
+                reader.reads.length == 1 &&
+                reader.reads.single == (selected.vaultId, selected.entryId);
+            final selectedSecretReads =
+                crypto.secretReads - candidateSecretReads;
+            if (candidates.length != _vaultCount * entriesPerVault ||
+                candidateSecretReads != 0 ||
+                selectedSecretReads != 1 ||
+                !onlySelectedEntryRead ||
+                !credentialVerified ||
+                httpRequests != 0) {
+              throw StateError('Shared source selected-only invariant failed');
+            }
+            final measurement = <String, Object>{
+              'mode': 'shared-source',
+              'networkOffline': true,
+              'candidateIndexOpens': candidateIndexOpens,
+              'candidateVaultKeyOpens': candidateVaultKeyOpens,
+              'candidates': candidates.length,
+              'candidateSecretReads': candidateSecretReads,
+              'selectedSecretReads': selectedSecretReads,
+              'selectedEntryReads': reader.reads.length,
+              'onlySelectedEntryRead': onlySelectedEntryRead,
+              'credentialVerified': credentialVerified,
+              'httpRequests': httpRequests,
+              'candidateElapsedMicros': candidateMicros,
+              'selectedElapsedMicros': timer.elapsedMicroseconds,
+            };
+            results.add(measurement);
+            debugPrint('MEMBER_BENCHMARK ${jsonEncode(measurement)}');
+          }
         } finally {
           entries.lock();
           dio.close(force: true);
@@ -362,19 +522,23 @@ Future<List<Map<String, Object>>> runBenchmark({int repetitions = 5}) async {
 // still validate each server context against these independent fixed claims.
 class _Authority extends MemberSyncSessionAuthorityProvider {
   _Authority() : super(SecureTokenStorage(const FlutterSecureStorage()));
+  int reads = 0;
   @override
-  Future<MemberSyncSessionAuthority> current() async =>
-      const MemberSyncSessionAuthority(
-        principalId: _principal,
-        organizationId: _organization,
-        organizationMembershipGeneration: '1',
-        offlinePolicy: '24h',
-        offlinePolicyVersion: 1,
-      );
+  Future<MemberSyncSessionAuthority> current() async {
+    reads++;
+    return const MemberSyncSessionAuthority(
+      principalId: _principal,
+      organizationId: _organization,
+      organizationMembershipGeneration: '1',
+      offlinePolicy: '24h',
+      offlinePolicyVersion: 1,
+    );
+  }
 }
 
 class _VaultList implements MemberVaultListLoader {
-  _VaultList(this.dio, this.contexts);
+  _VaultList(this.dio, this.contexts, this.entriesPerVault);
+  final int entriesPerVault;
   final Dio dio;
   final MemberVaultKeyContextStore contexts;
   @override
@@ -402,9 +566,85 @@ class _VaultList implements MemberVaultListLoader {
       grantMode: GrantMode.granular,
       createdAt: DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
-      entryCount: _entriesPerVault,
+      entryCount: entriesPerVault,
       activeGrantCount: 0,
       memberCount: 1,
+    );
+  }
+}
+
+// Counts the actual production body opener; no body values leave its caller.
+class _CountingEntryCrypto extends EntryV2CryptoService {
+  int secretReads = 0;
+  int indexReads = 0;
+  @override
+  Future<Map<String, dynamic>> openMemberIndex({
+    required Map<String, dynamic> envelope,
+    required Uint8List vaultKey,
+  }) {
+    indexReads++;
+    return super.openMemberIndex(envelope: envelope, vaultKey: vaultKey);
+  }
+
+  @override
+  Future<Map<String, dynamic>> openMemberSecret({
+    required Map<String, dynamic> entryKey,
+    required Map<String, dynamic> memberSecret,
+    required Uint8List vaultKey,
+  }) {
+    secretReads++;
+    return super.openMemberSecret(
+      entryKey: entryKey,
+      memberSecret: memberSecret,
+      vaultKey: vaultKey,
+    );
+  }
+}
+
+class _CountingCurrentEntries extends LocalCurrentEntryService {
+  _CountingCurrentEntries({
+    required super.reader,
+    required super.authorityProvider,
+    required super.vaultKeys,
+    required super.entryCrypto,
+    required super.canonicalAdapter,
+  });
+  final reads = <(String, String)>[];
+  @override
+  Future<LocalCurrentEntryReveal> revealCurrentWithAuthority({
+    required String vaultId,
+    required String entryId,
+    required Uint8List memberPrivateKey,
+  }) {
+    reads.add((vaultId, entryId));
+    return super.revealCurrentWithAuthority(
+      vaultId: vaultId,
+      entryId: entryId,
+      memberPrivateKey: memberPrivateKey,
+    );
+  }
+}
+
+class _CountingVaultKeys extends VaultRotationCryptoService {
+  int opens = 0;
+
+  @override
+  Future<Uint8List> openMemberVaultKey(
+    Map<String, dynamic> envelope,
+    Uint8List memberPrivateKey, {
+    String? expectedOrganizationId,
+    String? expectedVaultId,
+    int? expectedVaultKeyVersion,
+    int? expectedMemberKeyGeneration,
+  }) {
+    opens++;
+    return super.openMemberVaultKey(
+      envelope,
+      memberPrivateKey,
+      expectedOrganizationId: expectedOrganizationId,
+      expectedVaultId: expectedVaultId,
+      expectedVaultKeyVersion: expectedVaultKeyVersion,
+      expectedMemberKeyGeneration: expectedMemberKeyGeneration,
     );
   }
 }

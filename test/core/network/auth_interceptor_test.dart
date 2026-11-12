@@ -45,6 +45,7 @@ void main() {
 
   setUp(() {
     storage = _MockTokenStorage();
+    when(() => storage.lifecycleRevision).thenReturn(0);
     when(() => storage.accessToken).thenAnswer((_) async => 'stale');
     when(() => storage.clearAll()).thenAnswer((_) async {});
   });

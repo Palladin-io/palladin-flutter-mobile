@@ -97,6 +97,34 @@ void main() {
     await updates.close();
   });
 
+  for (final lockDuringRead in [false, true]) {
+    test('legacy username read clears body, lock=$lockDuringRead', () async {
+      index.values['A'] = [entry('a', 'Broker', type: 1)];
+      await cubit.load([vault('A')], Uint8List(32));
+      final row = cubit.state.rows.single;
+      final snapshot = CanonicalEntrySnapshot(
+        entry: {},
+        secret: {},
+        payload: {'username': 'legacy-user', 'password': 'synthetic'},
+      );
+      when(
+        () => localEntries.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async {
+        if (lockDuringRead) cubit.lock();
+        return snapshot;
+      });
+      expect(
+        await cubit.readUsername(row, Uint8List(32)),
+        lockDuringRead ? null : 'legacy-user',
+      );
+      expect(snapshot.payload, isEmpty);
+      expect(cubit.state.revealedEntries, isEmpty);
+    });
+  }
+
   for (final invalidation in [
     'collapse',
     'background',

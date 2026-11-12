@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.Settings
 import android.view.autofill.AutofillManager
 import androidx.biometric.BiometricManager
+import io.palladin.mobile.autofill.AutoFillIncrementalException
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
@@ -26,6 +27,8 @@ import java.security.KeyStore
 import io.palladin.mobile.security.BiometricKeyCleanup
 
 class MainActivity : FlutterFragmentActivity() {
+    private var autoFillRequestBridge: AutoFillRequestBridge? = null
+    private var autoFillWriterStore: AutoFillCacheStore? = null
     private val cacheExecutor = Executors.newSingleThreadExecutor()
     private val historyExecutor = Executors.newSingleThreadExecutor()
     private val exportExecutor = Executors.newSingleThreadExecutor()
@@ -42,6 +45,7 @@ class MainActivity : FlutterFragmentActivity() {
         val sanitized = sanitizeDirectIntent(intent)
         super.onNewIntent(sanitized)
         acceptAutoFillSave(sanitized)
+        io.palladin.mobile.autofill.AutoFillRequestBroker.onPending?.invoke()
     }
 
     private fun acceptAutoFillSave(source: Intent) {
@@ -65,6 +69,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        autoFillRequestBridge = AutoFillRequestBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "io.palladin.mobile/biometric-key-cleanup").setMethodCallHandler { call, result ->
             if (call.method != "deleteKey") {
@@ -109,6 +114,7 @@ class MainActivity : FlutterFragmentActivity() {
 
         sharingAttachment = EntryShareIngressBridge.attach(flutterEngine.dartExecutor.binaryMessenger)
         val cacheStore = AutoFillCacheStore(applicationContext)
+        autoFillWriterStore = cacheStore
         val generatedHistory = GeneratedPasswordHistory(applicationContext)
         cacheExecutor.execute { runCatching { generatedHistory.revokeAll() } }
         MethodChannel(
@@ -156,9 +162,32 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 return@setMethodCallHandler
             }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && call.method in setOf(
+                    "beginWriterSession", "replaceCacheV3", "denyEntries", "applyCacheDelta")) {
+                result.error("AUTOFILL_UNSUPPORTED", "AutoFill is unavailable", null)
+                return@setMethodCallHandler
+            }
+            if (call.method == "endWriterSession") {
+                try {
+                    val epoch = ((call.arguments as? Map<*, *>)?.get("writerEpoch") as? Number)?.toLong()
+                        ?: throw IllegalArgumentException("Missing writer epoch")
+                    cacheStore.endWriterSession(epoch)
+                    result.success(null)
+                } catch (_: Exception) {
+                    result.error("AUTOFILL_WRITER_INVALIDATED", "Native writer unavailable", null)
+                }
+                return@setMethodCallHandler
+            }
             if (call.method in AUTHENTICATED_HISTORY_METHODS) {
                 authenticateGeneratedHistory(call, result, generatedHistory)
                 return@setMethodCallHandler
+            }
+            if (call.method in setOf("revokeCacheAccess", "beginCacheSession")) {
+                // Cancel in-flight v3 writers immediately; durable fences remain ordered below.
+                cacheStore.invalidateWriter()
+            } else if (call.method == "clearCache") {
+                val token = ((call.arguments as? Map<*, *>)?.get("sessionToken") as? Number)?.toLong()
+                if (token != null) cacheStore.invalidateWriter(token)
             }
             // Every fence/session mutation shares one ordered executor. The
             // Android path has no identity-store callback in this queue, so a
@@ -167,6 +196,14 @@ class MainActivity : FlutterFragmentActivity() {
             cacheExecutor.execute {
                 val outcome = runCatching {
                     when (call.method) {
+                        "beginWriterSession" -> {
+                            val token = ((call.arguments as? Map<*, *>)?.get("sessionToken") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing session token")
+                            cacheStore.beginWriterSession(token)
+                        }
+                        "replaceCacheV3" -> cacheStore.replaceV3(call.arguments as? Map<*, *> ?: throw IllegalArgumentException("Missing arguments"))
+                        "denyEntries" -> cacheStore.denyEntries(call.arguments as? Map<*, *> ?: throw IllegalArgumentException("Missing arguments"))
+                        "applyCacheDelta" -> cacheStore.applyDelta(call.arguments as? Map<*, *> ?: throw IllegalArgumentException("Missing arguments"))
                         "beginCacheSession" -> {
                             cacheStore.beginSession()
                         }
@@ -222,7 +259,7 @@ class MainActivity : FlutterFragmentActivity() {
                             if (error is UnsupportedOperationException) {
                                 result.notImplemented()
                             } else {
-                                result.error("AUTOFILL_CACHE_ERROR", "Native cache operation failed", null)
+                                result.error((error as? AutoFillIncrementalException)?.code ?: "AUTOFILL_CACHE_ERROR", "Native cache operation failed", null)
                             }
                         },
                     )
@@ -292,7 +329,21 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    override fun onPostResume() {
+        super.onPostResume()
+        autoFillRequestBridge?.foreground()
+    }
+
+    override fun onStop() {
+        autoFillRequestBridge?.background()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        autoFillRequestBridge?.close()
+        autoFillRequestBridge = null
+        autoFillWriterStore?.invalidateWriter()
+        autoFillWriterStore = null
         EntryShareIngressBridge.detach(sharingAttachment)
         cacheExecutor.shutdownNow()
         historyExecutor.shutdownNow()

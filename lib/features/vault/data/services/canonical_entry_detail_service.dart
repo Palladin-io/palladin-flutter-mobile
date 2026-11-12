@@ -7,6 +7,7 @@ import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../approval/data/services/script_execution_package_service.dart';
 
 import '../../../autofill/data/autofill_mutation_notifier.dart';
+import '../../../autofill/domain/autofill_entry_coordinate.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'
@@ -1326,6 +1327,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'deliveryPolicy': type.deliveryPolicyWire(),
           'grantEnvelopes': grantEnvelopes,
         }),
+        coordinate: AutoFillEntryCoordinate(
+          vaultId: expected.vaultId,
+          entryId: expected.id,
+        ),
       );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
@@ -1517,6 +1522,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'scriptGrantPackages': scriptGrantRefresh.packages,
           'revokedScriptGrantIds': scriptGrantRefresh.revokedGrantIds,
         }),
+        coordinate: AutoFillEntryCoordinate(
+          vaultId: expected.vaultId,
+          entryId: expected.id,
+        ),
       );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
@@ -1635,20 +1644,27 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'memberSecret': bundle.memberSecret,
         'memberIndex': bundle.memberIndex,
       };
-      final response = await _commitAutoFillAwareMutation(() {
-        // Check after native cache invalidation and before every transport retry.
-        if (!isSessionCurrent()) {
-          throw const CanonicalEntryDetailException(
-            CanonicalEntryDetailError.forbidden,
+      final response = await _commitAutoFillAwareMutation(
+        () {
+          // Check after native cache invalidation and before every transport retry.
+          if (!isSessionCurrent()) {
+            throw const CanonicalEntryDetailException(
+              CanonicalEntryDetailError.forbidden,
+            );
+          }
+          return _entries.deleteEntry(
+            expected.vaultId,
+            expected.id,
+            request,
+            isSessionCurrent: isSessionCurrent,
           );
-        }
-        return _entries.deleteEntry(
-          expected.vaultId,
-          expected.id,
-          request,
-          isSessionCurrent: isSessionCurrent,
-        );
-      }, attempts: 2);
+        },
+        attempts: 2,
+        coordinate: AutoFillEntryCoordinate(
+          vaultId: expected.vaultId,
+          entryId: expected.id,
+        ),
+      );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.conflict,
@@ -1962,6 +1978,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         () =>
             _entries.restoreCanonicalEntry(vaultId, archived.entryId, request),
         attempts: 2,
+        coordinate: AutoFillEntryCoordinate(
+          vaultId: vaultId,
+          entryId: archived.entryId,
+        ),
       );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
@@ -2086,6 +2106,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         () =>
             _entries.restoreCanonicalEntry(vaultId, archived.entryId, request),
         attempts: 2,
+        coordinate: AutoFillEntryCoordinate(
+          vaultId: vaultId,
+          entryId: archived.entryId,
+        ),
       );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
@@ -2111,6 +2135,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final response = await _commitAutoFillAwareMutation(
         () => _entries.destroyEntry(vaultId, entryId),
         attempts: 2,
+        coordinate: AutoFillEntryCoordinate(vaultId: vaultId, entryId: entryId),
       );
       if (response.statusCode == 204 || response.statusCode == 404) return;
       if (response.statusCode == 409) {
@@ -3194,6 +3219,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   Future<Response<T>> _commitAutoFillAwareMutation<T>(
     Future<Response<T>> Function() operation, {
     int attempts = 1,
+    required AutoFillEntryCoordinate coordinate,
   }) async {
     // An AutoFill provider must never retain a pre-mutation password while a
     // canonical transition may already have committed. A concrete HTTP
@@ -3201,7 +3227,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     // transport failure is ambiguous and intentionally leaves the cache empty.
     late final AutoFillMutationLease mutation;
     try {
-      mutation = await _autoFillMutationNotifier.beginMutation();
+      mutation = await _autoFillMutationNotifier.beginMutation(
+        scope: {coordinate},
+      );
     } catch (_) {
       // Native cache invalidation is a retryable local infrastructure
       // failure. The remote transition has not started, but callers still

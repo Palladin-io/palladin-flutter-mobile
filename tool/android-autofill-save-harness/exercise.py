@@ -12,7 +12,7 @@ import time
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from android_harness_ui import launcher_anr_close
+from android_harness_ui import launcher_anr_close, sdk_setup_anr_close
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -98,6 +98,7 @@ def main():
         return subprocess.check_output([adb, '-s', args.serial, *parts], text=True, timeout=15).strip()
 
     dismissed_launcher_anr = False
+    dismissed_sdk_setup_anr = False
 
     def tap_node(node):
         bounds = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
@@ -108,8 +109,8 @@ def main():
             raise RuntimeError('UI target has empty bounds')
         android('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
 
-    def wait_text(pattern, tap=False, allow_launcher_dismiss=False):
-        nonlocal dismissed_launcher_anr
+    def wait_text(pattern, tap=False, allow_launcher_dismiss=False, allow_setup_dismiss=False):
+        nonlocal dismissed_launcher_anr, dismissed_sdk_setup_anr
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             nodes = read_nodes(android)
@@ -118,6 +119,12 @@ def main():
                 if close is not None:
                     tap_node(close)
                     dismissed_launcher_anr = True
+                    continue
+            if allow_setup_dismiss and not dismissed_sdk_setup_anr:
+                close = sdk_setup_anr_close(nodes)
+                if close is not None:
+                    tap_node(close)
+                    dismissed_sdk_setup_anr = True
                     continue
             for node in nodes:
                 if matches_label(node, pattern):
@@ -168,7 +175,7 @@ def main():
         android('shell', 'settings', 'put', 'secure', 'autofill_service', SERVICE)
         android('shell', 'pm', 'set-app-links', '--package', FORM, '2', 'fixture.invalid')
         android('shell', 'am', 'start', '-n', MAIN)
-        wait_text('saveColdStartEmpty=true', allow_launcher_dismiss=True)
+        wait_text('saveColdStartEmpty=true', allow_launcher_dismiss=True, allow_setup_dismiss=True)
         tap('Arm save')
         wait_text('saveHarnessReady=true')
         stage = 'positive-save'
@@ -204,12 +211,14 @@ def main():
                 subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip() != commit):
             raise RuntimeError('Checkout changed during runtime validation')
         report['dismissedLauncherAnr'] = dismissed_launcher_anr
+        report['dismissedSdkSetupAnr'] = dismissed_sdk_setup_anr
         destination = HERE / 'build/validation.json'
         destination.write_text(json.dumps(report, indent=2) + '\n')
         for case in report['cases']:
             print(case['case'] + ': PASS')
     except Exception:
         failure = {'commit': commit, 'stage': stage, 'dismissedLauncherAnr': dismissed_launcher_anr,
+                   'dismissedSdkSetupAnr': dismissed_sdk_setup_anr,
                    **failure_state(android)}
         try:
             failure['hierarchy'] = hierarchy_metadata(read_nodes(android))

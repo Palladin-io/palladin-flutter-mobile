@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
+import '../../data/models/account_response.dart';
 import '../../data/services/identity_kdf_service.dart';
 import '../../data/services/unlock_crypto_service.dart';
 import '../../domain/unlock_exceptions.dart';
@@ -36,18 +38,21 @@ class UnlockCubit extends Cubit<UnlockState> {
     required this.cryptoService,
     required this.keyStore,
     required this.defaultVaultProvisioner,
+    this.captureRequestAuthorization,
   }) : super(const UnlockInitial());
 
   final AccountRemoteDatasource datasource;
   final UnlockCryptoService cryptoService;
   final BiometricKeyStore keyStore;
   final DefaultVaultProvisioner defaultVaultProvisioner;
+  final FutureOr<Future<void> Function()?> Function()?
+  captureRequestAuthorization;
 
   /// Runs the master-password unlock pipeline.
   ///
   /// Biometric enrollment is a separate explicit action after unlock.
   Future<void> unlock(String password, {String? defaultVaultName}) async {
-    if (password.isEmpty || isClosed) return;
+    if (password.isEmpty || isClosed || state is UnlockLoading) return;
     final generation = keyStore.generation;
     bool canceled() => isClosed || generation != keyStore.generation;
     AppLogger.d('Unlock', 'Password unlock requested');
@@ -56,7 +61,9 @@ class UnlockCubit extends Cubit<UnlockState> {
     UnlockResult? result;
     var keysHandedOff = false;
     try {
-      final account = await datasource.getAccount();
+      final authorizeRequest = await captureRequestAuthorization?.call();
+      if (canceled()) return;
+      final account = await datasource.getUnlockAccount();
       if (canceled()) return;
       final kdf = account.kdf;
       final encryptedPrivateKey = account.encryptedPrivateKey;
@@ -79,6 +86,8 @@ class UnlockCubit extends Cubit<UnlockState> {
         name: defaultVaultName,
       );
 
+      if (canceled()) return;
+      await authorizeRequest?.call();
       if (canceled()) return;
       AppLogger.i('Unlock', 'Password unlock succeeded');
       emit(
@@ -123,42 +132,63 @@ class UnlockCubit extends Cubit<UnlockState> {
     required BiometricPromptCopy copy,
     String? defaultVaultName,
   }) async {
+    if (isClosed || state is UnlockLoading) return;
+    final generation = keyStore.generation;
+    bool canceled() => isClosed || generation != keyStore.generation;
     AppLogger.d('Unlock', 'Biometric unlock requested');
-    emit(const UnlockLoading());
+    emit(const UnlockLoading(viaBiometrics: true));
 
     UnlockResult? result;
+    Uint8List? recoveredKey;
     var keysHandedOff = false;
     try {
-      final Uint8List? masterKey;
+      late final Future<AccountResponse> accountRead;
       try {
-        masterKey = await keyStore.unlockKey(copy);
+        final keyRead = keyStore.unlockKey(copy);
+        // Overlap fresh account I/O with OS authentication without delaying the
+        // local prompt. Cancellation must not leave an unobserved HTTP error.
+        accountRead = Future.sync(datasource.getUnlockAccount)..ignore();
+        recoveredKey = await keyRead;
+        if (canceled()) return;
+        AppLogger.d('Unlock', 'Biometric key read completed');
       } on BiometricAuthException catch (e) {
         AppLogger.w('Unlock', 'Biometric auth failed: ${e.reason.name}');
-        emit(UnlockFailed(_mapBiometricFailure(e.reason)));
+        if (!canceled()) emit(UnlockFailed(_mapBiometricFailure(e.reason)));
         return;
       }
 
-      if (masterKey == null) {
+      if (recoveredKey == null) {
         AppLogger.w('Unlock', 'No enrolled MK — biometric unavailable');
         emit(const UnlockFailed(BiometricKeyMissingException()));
         return;
       }
 
-      final account = await datasource.getAccount();
+      final account = await accountRead;
+      if (canceled()) return;
+      AppLogger.d('Unlock', 'Biometric account lookup completed');
       final encryptedPrivateKey = account.encryptedPrivateKey;
       if (encryptedPrivateKey == null) {
         throw UnsupportedIdentityKdfException('missing-account-key-material');
       }
       result = await cryptoService.decryptWithMasterKey(
-        masterKey: masterKey,
+        masterKey: recoveredKey,
         encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
+      if (canceled()) return;
+      if (keyStore case final VerifiedBiometricKeyMigration migration) {
+        await migration.commitVerifiedKey(
+          result.masterKey,
+          expectedGeneration: generation,
+        );
+        if (canceled()) return;
+      }
       await _provisionDefaultVault(
         privateKey: result.privateKey,
         name: defaultVaultName,
       );
 
+      if (canceled()) return;
       AppLogger.i('Unlock', 'Biometric unlock succeeded');
       emit(
         UnlockSuccess(
@@ -171,18 +201,32 @@ class UnlockCubit extends Cubit<UnlockState> {
     } on DioException catch (e, s) {
       if (e.response?.statusCode == 401) {
         AppLogger.w('Unlock', 'Session expired — routing to sign-in');
-        emit(const UnlockFailed(SessionExpiredException()));
+        if (!canceled()) emit(const UnlockFailed(SessionExpiredException()));
         return;
       }
       AppLogger.e('Unlock', 'Biometric unlock failed', error: e, stackTrace: s);
-      if (!isClosed) emit(UnlockFailed(e));
+      if (!canceled()) emit(UnlockFailed(e));
     } catch (e, s) {
       AppLogger.e('Unlock', 'Biometric unlock failed', error: e, stackTrace: s);
-      if (!isClosed) emit(UnlockFailed(e));
+      if (!canceled()) emit(UnlockFailed(e));
     } finally {
+      if (recoveredKey != null &&
+          (!keysHandedOff || !identical(recoveredKey, result?.masterKey))) {
+        recoveredKey.fillRange(0, recoveredKey.length, 0);
+      }
       if (!keysHandedOff && result != null) {
         result.masterKey.fillRange(0, result.masterKey.length, 0);
         result.privateKey.fillRange(0, result.privateKey.length, 0);
+      }
+      if (keyStore case final VerifiedBiometricKeyMigration migration) {
+        try {
+          await migration.discardPendingMigration();
+        } catch (error) {
+          AppLogger.w(
+            'Unlock',
+            'Migration cancellation failed: ${error.runtimeType}',
+          );
+        }
       }
     }
   }

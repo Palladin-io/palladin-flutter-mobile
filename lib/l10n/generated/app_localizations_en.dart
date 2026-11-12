@@ -4974,6 +4974,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autofillCheckAgain => 'Check again';
 
   @override
+  String get autofillSettingsError =>
+      'Could not open system settings. Open them manually or try the button again.';
+
+  @override
+  String get autofillManualIosCurrent =>
+      'In Settings, search for AutoFill & Passwords (Password Options on older iOS). Turn on AutoFill Passwords and Passkeys, then enable Palladin. This also enables Password AutoFill in Safari and supported apps.';
+
+  @override
+  String get autofillManualAndroid =>
+      'In system Settings, find the preferred service for passwords or AutoFill and select Palladin. Names vary by device.';
+
+  @override
   String get autofillStatusError => 'Could not check AutoFill. Try again.';
 
   @override
@@ -5013,6 +5025,89 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autoFillSaveUnavailable =>
       'The login could not be saved safely. Try again or cancel.';
+
+  @override
+  String get autofillPreparationTitle => 'AutoFill passwords';
+
+  @override
+  String get autofillPreparationWaiting => 'Preparing saved passwords…';
+
+  @override
+  String autofillPreparationProgress(int examined, int total) {
+    return 'Preparing $examined of $total entries';
+  }
+
+  @override
+  String get autofillPreparationPublishing => 'Applying AutoFill updates…';
+
+  @override
+  String get autofillPreparationReady =>
+      'Passwords updated. AutoFill requires authorization and Palladin enabled in system settings.';
+
+  @override
+  String get autofillPreparationEmpty =>
+      'No eligible saved passwords to prepare. Add a login with a website address to a Vault that allows offline access.';
+
+  @override
+  String get autofillPreparationFailed =>
+      'Could not prepare passwords. Try again while Palladin is unlocked.';
+
+  @override
+  String get autofillPreparationUnknown =>
+      'AutoFill status has not been confirmed yet.';
+
+  @override
+  String get autofillPreparationChecking => 'Checking AutoFill…';
+
+  @override
+  String get autofillPreparationKeepOpen =>
+      'Keep Palladin open until preparation finishes. Work may pause in the background.';
+
+  @override
+  String get autofillRequestTitle => 'Fill login';
+
+  @override
+  String get autofillRequestAuthorize =>
+      'Authorize access to choose a saved login.';
+
+  @override
+  String get autofillRequestEmpty => 'No matching saved logins.';
+
+  @override
+  String get autofillRequestFailed =>
+      'The login could not be filled safely. Try again or cancel.';
+
+  @override
+  String get autofillRequestManualWarning =>
+      'We can’t verify this app. Tap a login only if you trust it.';
+
+  @override
+  String get autofillRequestUsernameOnly => 'Only the username will be filled.';
+
+  @override
+  String get autofillRequestEmptyHint =>
+      'No saved login is available for this request. You can cancel and check your entries in Palladin.';
+
+  @override
+  String get autofillRequestSearchEmptyHint =>
+      'Try another name or clear the search to see the available logins.';
+
+  @override
+  String get autofillRequestClearSearch => 'Clear search';
+
+  @override
+  String get unlockFailed => 'Could not unlock Palladin. Please try again.';
+
+  @override
+  String autofillRequestUnverifiedWebWarning(String app) {
+    return 'We can’t verify $app. Tap a login only if you trust this app.';
+  }
+
+  @override
+  String get autofillDestinationWarningTitle => 'UNVERIFIED APP';
+
+  @override
+  String get autofillUsernameUnavailable => 'Login unavailable';
 
   @override
   String get entrySignInMethodLabel => 'Sign-in method';

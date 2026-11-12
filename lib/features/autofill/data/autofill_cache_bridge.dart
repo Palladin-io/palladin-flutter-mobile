@@ -3,18 +3,8 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/services.dart';
 
-import '../domain/autofill_record.dart';
-
 abstract interface class AutoFillCacheBridge {
-  Future<int> beginCacheSession();
-
-  Future<void> replaceCache(
-    AutoFillCachePayload payload, {
-    required int sessionToken,
-  });
-
   Future<int> revokeCacheAccess();
-
   Future<void> clearCache({required int sessionToken});
 }
 
@@ -29,24 +19,6 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
   final MethodChannel _channel;
   final Future<bool> Function() _availabilityProbe;
   Future<bool>? _availability;
-
-  @override
-  Future<int> beginCacheSession() async {
-    final token = await _invokeMethod<int>('beginCacheSession');
-    if (token == null) throw const FormatException('Missing session token');
-    return token;
-  }
-
-  @override
-  Future<void> replaceCache(
-    AutoFillCachePayload payload, {
-    required int sessionToken,
-  }) async {
-    await _invokeMethod<void>('replaceCache', {
-      'sessionToken': sessionToken,
-      'payload': payload.toPlatformMap(),
-    });
-  }
 
   @override
   Future<int> revokeCacheAccess() async {
@@ -92,6 +64,9 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
   }
 
   static Future<bool> _isSupportedDevice() async {
+    if (Platform.isAndroid) {
+      return (await DeviceInfoPlugin().androidInfo).version.sdkInt >= 26;
+    }
     if (!Platform.isIOS) return true;
     final iosInfo = await DeviceInfoPlugin().iosInfo;
     return iosInfo.isPhysicalDevice;

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_app_name">Palladin (Profile)</string>
+    <string name="autofill_service_label">Palladin (Profile)</string>
+    <string name="autofill_biometric_title">Odblokuj Palladin (Profile)</string>
+    <string name="autofill_generate_prompt">Wygeneruj silne hasło w Palladin (Profile)</string>
+</resources>

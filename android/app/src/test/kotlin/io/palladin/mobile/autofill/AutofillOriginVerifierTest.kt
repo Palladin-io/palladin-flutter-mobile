@@ -6,6 +6,46 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutofillOriginVerifierTest {
+    @Test fun absentAppLinksStillRequireAnIndependentExactCredentialProof() {
+        val context = org.mockito.Mockito.mock(android.content.Context::class.java)
+        val manager = org.mockito.Mockito.mock(android.content.pm.verify.domain.DomainVerificationManager::class.java)
+        org.mockito.Mockito.`when`(context.getSystemService(android.content.pm.verify.domain.DomainVerificationManager::class.java)).thenReturn(manager)
+        val verifier = org.mockito.Mockito.spy(AutofillOriginVerifier(
+            context, { pkg, host -> pkg == "example.app" && host == "login.example.com" }, apiLevel = 31,
+        ))
+        org.mockito.Mockito.doReturn(false).`when`(verifier).isBrowser("example.app")
+        // Android returns null when the installed package declares no HTTP(S) domains.
+        org.junit.Assert.assertEquals(OriginStatus.UNVERIFIED, verifier.status("example.app", "login.example.com"))
+        org.junit.Assert.assertEquals(OriginStatus.VERIFIED, verifier.credentialFillStatus("example.app", "login.example.com"))
+        org.junit.Assert.assertEquals(OriginStatus.UNVERIFIED, verifier.credentialFillStatus("example.app", "other.example.com"))
+        org.mockito.Mockito.doReturn(false).`when`(verifier).isBrowser("other.app")
+        org.junit.Assert.assertEquals(OriginStatus.UNVERIFIED, verifier.credentialFillStatus("other.app", "login.example.com"))
+        assertFalse(verifier.isVerified("example.app", "login.example.com"))
+    }
+
+    @Test fun platformFailureDoesNotBecomeAbsentAppLinksEvenWithCredentialProof() {
+        val context = org.mockito.Mockito.mock(android.content.Context::class.java)
+        val manager = org.mockito.Mockito.mock(android.content.pm.verify.domain.DomainVerificationManager::class.java)
+        org.mockito.Mockito.`when`(context.getSystemService(android.content.pm.verify.domain.DomainVerificationManager::class.java)).thenReturn(manager)
+        org.mockito.Mockito.`when`(manager.getDomainVerificationUserState("example.app")).thenThrow(SecurityException())
+        val verifier = org.mockito.Mockito.spy(AutofillOriginVerifier(context, { _, _ -> true }, apiLevel = 31))
+        org.mockito.Mockito.doReturn(false).`when`(verifier).isBrowser("example.app")
+        org.junit.Assert.assertEquals(OriginStatus.QUERY_UNAVAILABLE, verifier.credentialFillStatus("example.app", "login.example.com"))
+    }
+
+    @Test fun absentPlatformServiceOrDisabledLinksCannotUseCredentialProof() {
+        val context = org.mockito.Mockito.mock(android.content.Context::class.java)
+        val verifier = org.mockito.Mockito.spy(AutofillOriginVerifier(context, { _, _ -> true }, apiLevel = 31))
+        org.mockito.Mockito.doReturn(false).`when`(verifier).isBrowser("example.app")
+        org.junit.Assert.assertEquals(OriginStatus.QUERY_UNAVAILABLE, verifier.credentialFillStatus("example.app", "login.example.com"))
+        val manager = org.mockito.Mockito.mock(android.content.pm.verify.domain.DomainVerificationManager::class.java)
+        org.mockito.Mockito.`when`(context.getSystemService(android.content.pm.verify.domain.DomainVerificationManager::class.java)).thenReturn(manager)
+        val state = org.mockito.Mockito.mock(android.content.pm.verify.domain.DomainVerificationUserState::class.java)
+        org.mockito.Mockito.`when`(manager.getDomainVerificationUserState("example.app")).thenReturn(state)
+        org.mockito.Mockito.`when`(state.isLinkHandlingAllowed).thenReturn(false)
+        org.junit.Assert.assertEquals(OriginStatus.LINK_HANDLING_DISABLED, verifier.credentialFillStatus("example.app", "login.example.com"))
+    }
+
     @Test fun credentialProofCannotOverrideDisabledUnavailableOrBrowserOrigins() {
         var proofChecks = 0
         val verifier = org.mockito.Mockito.spy(AutofillOriginVerifier(

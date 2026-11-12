@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dio/dio.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -20,6 +21,9 @@ class _MockAccountDatasource extends Mock implements AccountRemoteDatasource {}
 class _MockCryptoService extends Mock implements UnlockCryptoService {}
 
 class _MockKeyStore extends Mock implements BiometricKeyStore {}
+
+class _MigratingKeyStore extends _MockKeyStore
+    implements VerifiedBiometricKeyMigration {}
 
 class _MockDefaultVaultProvisioner extends Mock
     implements DefaultVaultProvisioner {}
@@ -60,6 +64,9 @@ void main() {
 
   setUp(() {
     datasource = _MockAccountDatasource();
+    when(
+      () => datasource.getUnlockAccount(),
+    ).thenAnswer((_) async => accountResponse);
     crypto = _MockCryptoService();
     keyStore = _MockKeyStore();
     when(() => keyStore.generation).thenReturn(0);
@@ -84,7 +91,7 @@ void main() {
 
   void stubPasswordUnlockSuccess() {
     when(
-      () => datasource.getAccount(),
+      () => datasource.getUnlockAccount(),
     ).thenAnswer((_) async => accountResponse);
     when(
       () => crypto.deriveAndDecrypt(
@@ -104,6 +111,144 @@ void main() {
     keyStore: keyStore,
     defaultVaultProvisioner: defaultVaultProvisioner,
   );
+
+  test(
+    'biometric prompt overlaps fresh account latency without early unlock',
+    () {
+      fakeAsync((clock) {
+        final events = <String>[];
+        when(() => keyStore.unlockKey(any())).thenAnswer((_) async {
+          events.add('prompt');
+          await Future<void>.delayed(const Duration(seconds: 5));
+          return Uint8List(32);
+        });
+        when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
+          events.add('account');
+          await Future<void>.delayed(const Duration(seconds: 2));
+          return accountResponse;
+        });
+        when(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('decrypt');
+          return UnlockResult(
+            masterKey: Uint8List(32),
+            privateKey: Uint8List(32),
+          );
+        });
+        final cubit = buildCubit();
+        unawaited(cubit.unlockWithBiometrics(copy: copy));
+        clock.elapse(const Duration(seconds: 2));
+        expect(cubit.state, isA<UnlockLoading>());
+        expect(events.where((event) => event == 'decrypt'), isEmpty);
+        clock.elapse(const Duration(seconds: 3));
+        expect(
+          cubit.state,
+          isA<UnlockSuccess>(),
+          reason: '5s prompt and 2s account must overlap, not take 7s',
+        );
+        expect(events, ['prompt', 'account', 'decrypt']);
+        unawaited(cubit.close());
+        clock.flushMicrotasks();
+      });
+    },
+  );
+
+  test(
+    'successful biometric still waits for account authority and rejects 401',
+    () async {
+      final account = Completer<AccountResponse>();
+      final recovered = Uint8List.fromList(List.filled(32, 41));
+      when(() => keyStore.unlockKey(any())).thenAnswer((_) async => recovered);
+      when(
+        () => datasource.getUnlockAccount(),
+      ).thenAnswer((_) => account.future);
+      final cubit = buildCubit();
+      final unlock = cubit.unlockWithBiometrics(copy: copy);
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state, isA<UnlockLoading>());
+      verify(() => keyStore.unlockKey(any())).called(1);
+      verify(() => datasource.getUnlockAccount()).called(1);
+      verifyNever(
+        () => crypto.decryptWithMasterKey(
+          masterKey: any(named: 'masterKey'),
+          encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+        ),
+      );
+      final request = RequestOptions(path: '/api/account');
+      account.completeError(
+        DioException(
+          requestOptions: request,
+          response: Response<dynamic>(requestOptions: request, statusCode: 401),
+          type: DioExceptionType.badResponse,
+        ),
+      );
+      await unlock;
+      expect(
+        cubit.state,
+        isA<UnlockFailed>().having(
+          (state) => state.error,
+          'error',
+          isA<SessionExpiredException>(),
+        ),
+      );
+      expect(recovered, everyElement(0));
+      await cubit.close();
+    },
+  );
+
+  for (final accountFailsFirst in [true, false]) {
+    test(
+      'biometric cancellation does not await or leak pending account failure: $accountFailsFirst',
+      () async {
+        final prompt = Completer<Uint8List?>();
+        final account = Completer<AccountResponse>();
+        when(() => keyStore.unlockKey(any())).thenAnswer((_) => prompt.future);
+        when(
+          () => datasource.getUnlockAccount(),
+        ).thenAnswer((_) => account.future);
+        final cubit = buildCubit();
+        final unlock = cubit.unlockWithBiometrics(copy: copy);
+        await Future<void>.delayed(Duration.zero);
+        verify(() => datasource.getUnlockAccount()).called(1);
+        void failAccount() => account.completeError(
+          DioException(
+            requestOptions: RequestOptions(path: '/api/account'),
+            type: DioExceptionType.connectionTimeout,
+          ),
+        );
+        if (accountFailsFirst) {
+          failAccount();
+          await Future<void>.delayed(Duration.zero);
+          expect(cubit.state, isA<UnlockLoading>());
+        }
+        prompt.completeError(
+          const BiometricAuthException(BiometricAuthFailureReason.canceled),
+        );
+        await unlock.timeout(const Duration(seconds: 1));
+        expect(
+          cubit.state,
+          isA<UnlockFailed>().having(
+            (state) => state.error,
+            'error',
+            isA<BiometricAuthFailedException>(),
+          ),
+        );
+        if (!accountFailsFirst) failAccount();
+        await Future<void>.delayed(Duration.zero);
+        verifyNever(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        );
+        await cubit.close();
+      },
+    );
+  }
 
   for (final closeCubit in [true, false]) {
     test(
@@ -150,6 +295,184 @@ void main() {
       },
     );
   }
+  for (final phase in ['read', 'account', 'decrypt']) {
+    test(
+      'biometric cleanup during $phase denies late success and wipes keys',
+      () async {
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        final recovered = Uint8List.fromList(List.filled(32, 41));
+        final resultMK = Uint8List.fromList(List.filled(32, 42));
+        final resultPK = Uint8List.fromList(List.filled(32, 43));
+        Future<void> pause(String stage) async {
+          if (stage == phase) {
+            entered.complete();
+            await release.future;
+          }
+        }
+
+        when(() => keyStore.unlockKey(any())).thenAnswer((_) async {
+          await pause('read');
+          return recovered;
+        });
+        when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
+          await pause('account');
+          return accountResponse;
+        });
+        when(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          await pause('decrypt');
+          return UnlockResult(masterKey: resultMK, privateKey: resultPK);
+        });
+        final cubit = buildCubit();
+        final operation = cubit.unlockWithBiometrics(copy: copy);
+        await entered.future;
+        when(() => keyStore.generation).thenReturn(1);
+        release.complete();
+        await operation;
+        expect(cubit.state, isNot(isA<UnlockSuccess>()));
+        expect(recovered, everyElement(0));
+        if (phase == 'decrypt') {
+          expect(resultMK, everyElement(0));
+          expect(resultPK, everyElement(0));
+        }
+        await cubit.close();
+      },
+    );
+  }
+  for (final failure in ['none', 'unwrap', 'migration']) {
+    test(
+      'legacy biometric migration is committed only after verified unwrap: $failure',
+      () async {
+        final migrating = _MigratingKeyStore();
+        keyStore = migrating;
+        final events = <String>[];
+        final recovered = Uint8List.fromList(List.filled(32, 21));
+        final resultMK = Uint8List.fromList(List.filled(32, 22));
+        final resultPK = Uint8List.fromList(List.filled(32, 23));
+        when(() => migrating.generation).thenReturn(0);
+        when(
+          () => migrating.unlockKey(any()),
+        ).thenAnswer((_) async => recovered);
+        when(() => migrating.discardPendingMigration()).thenAnswer((_) async {
+          events.add('discard');
+        });
+        when(
+          () => migrating.commitVerifiedKey(
+            any(),
+            expectedGeneration: any(named: 'expectedGeneration'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('migrate');
+          if (failure == 'migration') {
+            throw const BiometricKeyCleanupException();
+          }
+        });
+        when(
+          () => datasource.getUnlockAccount(),
+        ).thenAnswer((_) async => accountResponse);
+        when(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('unwrap');
+          if (failure == 'unwrap') throw const WrongMasterPasswordException();
+          return UnlockResult(masterKey: resultMK, privateKey: resultPK);
+        });
+        final cubit = buildCubit();
+        await cubit.unlockWithBiometrics(copy: copy);
+        expect(
+          events,
+          failure == 'unwrap'
+              ? ['unwrap', 'discard']
+              : ['unwrap', 'migrate', 'discard'],
+        );
+        expect(
+          cubit.state,
+          failure == 'none' ? isA<UnlockSuccess>() : isA<UnlockFailed>(),
+        );
+        expect(recovered, everyElement(0));
+        if (failure == 'migration') {
+          expect(resultMK, everyElement(0));
+          expect(resultPK, everyElement(0));
+        }
+        await cubit.close();
+      },
+    );
+  }
+  for (final outcome in [
+    'success',
+    'wrong-password',
+    'stale-request',
+    'capture-invalid',
+  ]) {
+    test(
+      'password request authorization follows successful crypto only: $outcome',
+      () async {
+        final events = <String>[];
+        final mk = Uint8List.fromList(List.filled(32, 31));
+        final pk = Uint8List.fromList(List.filled(32, 32));
+        when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
+          events.add('account');
+          return accountResponse;
+        });
+        when(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer((_) async {
+          events.add('crypto');
+          if (outcome == 'wrong-password') {
+            throw const WrongMasterPasswordException();
+          }
+          return UnlockResult(masterKey: mk, privateKey: pk);
+        });
+        final cubit = UnlockCubit(
+          datasource: datasource,
+          cryptoService: crypto,
+          keyStore: keyStore,
+          defaultVaultProvisioner: defaultVaultProvisioner,
+          captureRequestAuthorization: () {
+            events.add('capture');
+            if (outcome == 'capture-invalid') {
+              throw StateError('Request ended');
+            }
+            return () async {
+              events.add('authorize');
+              if (outcome == 'stale-request') throw StateError('Request ended');
+            };
+          },
+        );
+        await cubit.unlock('synthetic');
+        expect(
+          events,
+          outcome == 'capture-invalid'
+              ? ['capture']
+              : outcome == 'wrong-password'
+              ? ['capture', 'account', 'crypto']
+              : ['capture', 'account', 'crypto', 'authorize'],
+        );
+        expect(
+          cubit.state,
+          outcome == 'success' ? isA<UnlockSuccess>() : isA<UnlockFailed>(),
+        );
+        if (outcome == 'stale-request') {
+          expect(mk, everyElement(0));
+          expect(pk, everyElement(0));
+        }
+        await cubit.close();
+      },
+    );
+  }
   group('UnlockCubit', () {
     test('initial state is UnlockInitial', () {
       final cubit = buildCubit();
@@ -161,7 +484,7 @@ void main() {
       'password unlock fails before crypto when account setup is incomplete',
       build: () {
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => const AccountResponse(userId: 'account-id'));
         return buildCubit();
       },
@@ -195,7 +518,11 @@ void main() {
       },
       act: (cubit) => cubit.unlock('Correct Horse Battery 9!'),
       expect: () => [
-        isA<UnlockLoading>(),
+        isA<UnlockLoading>().having(
+          (s) => s.viaBiometrics,
+          'biometric progress',
+          false,
+        ),
         isA<UnlockSuccess>()
             .having((s) => s.viaBiometrics, 'viaBiometrics', false)
             .having((s) => s.masterKey, 'masterKey', masterKey)
@@ -245,7 +572,7 @@ void main() {
         final droppedMasterKey = Uint8List.fromList(List.filled(32, 0xCC));
         final droppedPrivateKey = Uint8List.fromList(List.filled(32, 0xDD));
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.deriveAndDecrypt(
@@ -307,7 +634,7 @@ void main() {
       'unlock emits [Loading, Failed] on wrong master password',
       build: () {
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.deriveAndDecrypt(
@@ -342,7 +669,7 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlock emits Failed(SessionExpiredException) on a 401 from getAccount',
       build: () {
-        when(() => datasource.getAccount()).thenThrow(
+        when(() => datasource.getUnlockAccount()).thenThrow(
           DioException(
             requestOptions: RequestOptions(path: '/api/account'),
             response: Response<dynamic>(
@@ -379,7 +706,7 @@ void main() {
       act: (cubit) => cubit.unlock(''),
       expect: () => const <UnlockState>[],
       verify: (_) {
-        verifyNever(() => datasource.getAccount());
+        verifyNever(() => datasource.getUnlockAccount());
       },
     );
 
@@ -445,7 +772,7 @@ void main() {
           () => keyStore.unlockKey(any()),
         ).thenAnswer((_) async => masterKey);
         when(
-          () => datasource.getAccount(),
+          () => datasource.getUnlockAccount(),
         ).thenAnswer((_) async => accountResponse);
         when(
           () => crypto.decryptWithMasterKey(
@@ -460,11 +787,64 @@ void main() {
       },
       act: (cubit) => cubit.unlockWithBiometrics(copy: copy),
       expect: () => [
-        isA<UnlockLoading>(),
+        isA<UnlockLoading>().having(
+          (s) => s.viaBiometrics,
+          'biometric progress',
+          true,
+        ),
         isA<UnlockSuccess>()
             .having((s) => s.viaBiometrics, 'viaBiometrics', true)
             .having((s) => s.privateKey, 'privateKey', privateKey),
       ],
     );
   });
+  for (final outcome in ['success', 'request-ended', 'locked', 'disposed']) {
+    test('async request binding precedes account crypto: $outcome', () async {
+      final binding = Completer<Future<void> Function()?>();
+      final events = <String>[];
+      when(() => datasource.getUnlockAccount()).thenAnswer((_) async {
+        events.add('account');
+        return accountResponse;
+      });
+      when(
+        () => crypto.deriveAndDecrypt(
+          masterPassword: any(named: 'masterPassword'),
+          accountId: any(named: 'accountId'),
+          kdf: any(named: 'kdf'),
+          encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+        ),
+      ).thenAnswer((_) async {
+        events.add('crypto');
+        return UnlockResult(
+          masterKey: Uint8List(32),
+          privateKey: Uint8List(32),
+        );
+      });
+      final cubit = UnlockCubit(
+        datasource: datasource,
+        cryptoService: crypto,
+        keyStore: keyStore,
+        defaultVaultProvisioner: defaultVaultProvisioner,
+        captureRequestAuthorization: () => binding.future,
+      );
+      final unlocking = cubit.unlock('synthetic');
+      await Future<void>.delayed(Duration.zero);
+      expect(events, isEmpty);
+      if (outcome == 'locked') when(() => keyStore.generation).thenReturn(1);
+      if (outcome == 'disposed') await cubit.close();
+      if (outcome == 'request-ended') {
+        binding.completeError(StateError('Request ended'));
+      } else {
+        binding.complete(() async => events.add('authorize'));
+      }
+      await unlocking;
+      expect(
+        events,
+        outcome == 'success' ? ['account', 'crypto', 'authorize'] : isEmpty,
+      );
+      if (outcome == 'success') expect(cubit.state, isA<UnlockSuccess>());
+      if (outcome == 'request-ended') expect(cubit.state, isA<UnlockFailed>());
+      if (!cubit.isClosed) await cubit.close();
+    });
+  }
 }

@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/storage/biometric_key_store.dart';
-import '../../../../core/widgets/compact_primary_button.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/accent_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/setup_card.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -89,28 +91,46 @@ class _BiometricSetupCardState extends State<BiometricSetupCard> {
             : l10n.biometricSetupHint,
       ],
       actions: [
-        CompactPrimaryButton(
-          label: enabled
-              ? l10n.biometricSetupDisable
-              : l10n.biometricSetupEnable,
-          onPressed: state.busy
-              ? null
-              : () => enabled
-                    ? cubit.disable()
-                    : cubit.enable(
-                        BiometricPromptCopy(
-                          promptTitle: l10n.unlockBiometricPromptTitle,
-                          enrollTitle: l10n.unlockBiometricEnrollPrompt,
-                          accessTitle: l10n.unlockBiometricPrompt,
-                          cancelLabel: l10n.vaultCancel,
-                        ),
-                      ),
-        ),
-        if (widget.hideWhenHandled && !enabled)
-          TextButton(
-            onPressed: state.busy ? null : cubit.dismiss,
-            child: Text(l10n.biometricSetupNotNow),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.hideWhenHandled && !enabled) ...[
+                Expanded(
+                  child: AccentButton(
+                    label: l10n.biometricSetupNotNow,
+                    height: null,
+                    compact: true,
+                    onPressed: state.busy ? null : cubit.dismiss,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+              ],
+              Expanded(
+                child: PrimaryButton(
+                  label: enabled
+                      ? l10n.biometricSetupDisable
+                      : l10n.biometricSetupEnable,
+                  height: null,
+                  compact: true,
+                  isLoading: state.busy,
+                  onPressed: state.busy
+                      ? null
+                      : () => enabled
+                            ? cubit.disable()
+                            : cubit.enable(
+                                BiometricPromptCopy(
+                                  promptTitle: l10n.unlockBiometricPromptTitle,
+                                  enrollTitle: l10n.unlockBiometricEnrollPrompt,
+                                  accessTitle: l10n.unlockBiometricPrompt,
+                                  cancelLabel: l10n.vaultCancel,
+                                ),
+                              ),
+                ),
+              ),
+            ],
           ),
+        ),
       ],
     );
   }

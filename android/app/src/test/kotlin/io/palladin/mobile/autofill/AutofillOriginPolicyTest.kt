@@ -80,6 +80,30 @@ class AutofillOriginPolicyTest {
         }
     }
 
+    @Test fun unverifiedWebViewUsesOnlyExplicitExactHostConsent() {
+        val origin = AutofillOriginPolicy.resolve(listOf("shop.pl"), normalize,
+            { false }, { error("Must not use native domains") }, false, setOf("https"),
+            allowUnverifiedWeb = { it == "shop.pl" })
+        assertEquals("MANUAL_WEB", origin?.mode?.name)
+        assertEquals(setOf("shop.pl"), origin?.domains)
+        assertFalse(origin!!.requiresSelection)
+    }
+
+    @Test fun manualWebConsentCannotOverrideInvalidTransportBrowserOrFailedAuthority() {
+        for ((domains, schemes, browser) in listOf(
+            Triple(listOf("shop.pl"), setOf("http"), false),
+            Triple(listOf("shop.pl"), emptySet(), false),
+            Triple(listOf("shop.pl", "evil.pl"), setOf("https"), false),
+            Triple(listOf("invalid"), setOf("https"), false),
+            Triple(listOf("shop.pl"), setOf("https"), true),
+        )) {
+            assertNull(AutofillOriginPolicy.resolve(domains, normalize, { false },
+                { error("No native fallback") }, browser, schemes, allowUnverifiedWeb = { true }))
+        }
+        assertNull(AutofillOriginPolicy.resolve(listOf("shop.pl"), normalize,
+            { false }, { emptySet() }, false, setOf("https"), allowUnverifiedWeb = { false }))
+    }
+
     private fun resolve(
         domains: List<String>,
         native: Set<String>? = setOf("shop.pl"),

@@ -1,9 +1,9 @@
 package io.palladin.mobile.autofill
 
-internal enum class AutofillOriginMode { WEB, VERIFIED_NATIVE, MANUAL_NATIVE }
+internal enum class AutofillOriginMode { WEB, VERIFIED_NATIVE, MANUAL_NATIVE, MANUAL_WEB }
 
 internal data class AutofillOrigin(val domains: Set<String>, val mode: AutofillOriginMode) {
-    val requiresSelection: Boolean get() = mode != AutofillOriginMode.WEB
+    val requiresSelection: Boolean get() = mode == AutofillOriginMode.VERIFIED_NATIVE || mode == AutofillOriginMode.MANUAL_NATIVE
 }
 
 internal object AutofillOriginPolicy {
@@ -27,6 +27,7 @@ internal object AutofillOriginPolicy {
         verifiedNativeDomains: () -> Set<String>?,
         isBrowser: Boolean,
         reportedSchemes: Collection<String> = emptySet(),
+        allowUnverifiedWeb: (String) -> Boolean = { false },
     ): AutofillOrigin? {
         if (reportedDomains.isEmpty()) {
             if (isBrowser || reportedSchemes.isNotEmpty()) return null
@@ -39,6 +40,10 @@ internal object AutofillOriginPolicy {
         if (reportedSchemes.isEmpty() || !reportedSchemes.all(::isSecureWebScheme)) return null
         val domains = reportedDomains.map { normalize(it) ?: return null }.toSet()
         val domain = domains.singleOrNull() ?: return null
-        return if (verifyWebDomain(domain)) AutofillOrigin(setOf(domain), AutofillOriginMode.WEB) else null
+        return when {
+            verifyWebDomain(domain) -> AutofillOrigin(setOf(domain), AutofillOriginMode.WEB)
+            !isBrowser && allowUnverifiedWeb(domain) -> AutofillOrigin(setOf(domain), AutofillOriginMode.MANUAL_WEB)
+            else -> null
+        }
     }
 }

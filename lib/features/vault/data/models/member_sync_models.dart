@@ -1,3 +1,7 @@
+/// Existing Member lease allowance for issuance/rollback admission only.
+/// Expiry remains the original absolute deadline, with no grace period.
+const memberLeaseClockTolerance = Duration(minutes: 5);
+
 /// Authenticated finite authority attached to every policy-2 sync page.
 final class MemberOfflineAccessContext {
   const MemberOfflineAccessContext({

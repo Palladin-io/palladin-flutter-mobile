@@ -5022,6 +5022,18 @@ class AppLocalizationsPl extends AppLocalizations {
   String get autofillCheckAgain => 'Sprawdź ponownie';
 
   @override
+  String get autofillSettingsError =>
+      'Nie udało się otworzyć ustawień systemowych. Otwórz je ręcznie lub ponownie użyj przycisku.';
+
+  @override
+  String get autofillManualIosCurrent =>
+      'W Ustawieniach wyszukaj Autowypełnianie i hasła (Opcje haseł w starszym iOS). Włącz autowypełnianie haseł i kluczy, a następnie Palladin. Umożliwi to też autowypełnianie haseł w Safari i obsługiwanych aplikacjach.';
+
+  @override
+  String get autofillManualAndroid =>
+      'W ustawieniach systemowych znajdź preferowaną usługę haseł lub autouzupełniania i wybierz Palladin. Nazwy zależą od urządzenia.';
+
+  @override
   String get autofillStatusError =>
       'Nie udało się sprawdzić autouzupełniania. Spróbuj ponownie.';
 
@@ -5063,6 +5075,92 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get autoFillSaveUnavailable =>
       'Nie udało się bezpiecznie zapisać danych logowania. Spróbuj ponownie lub anuluj.';
+
+  @override
+  String get autofillPreparationTitle => 'Hasła do autouzupełniania';
+
+  @override
+  String get autofillPreparationWaiting => 'Przygotowujemy zapisane hasła…';
+
+  @override
+  String autofillPreparationProgress(int examined, int total) {
+    return 'Przygotowywanie wpisów: $examined z $total';
+  }
+
+  @override
+  String get autofillPreparationPublishing =>
+      'Zapisujemy zmiany autouzupełniania…';
+
+  @override
+  String get autofillPreparationReady =>
+      'Hasła zaktualizowane. Autouzupełnianie wymaga autoryzacji i włączonej usługi Palladin w ustawieniach systemowych.';
+
+  @override
+  String get autofillPreparationEmpty =>
+      'Brak zapisanych haseł do przygotowania. Dodaj login z adresem strony do Vaultu, który zezwala na dostęp offline.';
+
+  @override
+  String get autofillPreparationFailed =>
+      'Nie udało się przygotować haseł. Spróbuj ponownie, gdy Palladin jest odblokowany.';
+
+  @override
+  String get autofillPreparationUnknown =>
+      'Stan autouzupełniania nie został jeszcze potwierdzony.';
+
+  @override
+  String get autofillPreparationChecking => 'Sprawdzamy autouzupełnianie…';
+
+  @override
+  String get autofillPreparationKeepOpen =>
+      'Pozostaw Palladina otwartego do zakończenia przygotowania. Praca w tle może zostać wstrzymana.';
+
+  @override
+  String get autofillRequestTitle => 'Uzupełnij login';
+
+  @override
+  String get autofillRequestAuthorize =>
+      'Potwierdź dostęp, aby wybrać zapisany login.';
+
+  @override
+  String get autofillRequestEmpty => 'Brak pasujących zapisanych loginów.';
+
+  @override
+  String get autofillRequestFailed =>
+      'Nie udało się bezpiecznie uzupełnić loginu. Spróbuj ponownie lub anuluj.';
+
+  @override
+  String get autofillRequestManualWarning =>
+      'Nie możemy potwierdzić tej aplikacji. Wybierz wpis tylko, jeśli jej ufasz.';
+
+  @override
+  String get autofillRequestUsernameOnly =>
+      'Zostanie uzupełniona tylko nazwa użytkownika.';
+
+  @override
+  String get autofillRequestEmptyHint =>
+      'Brak zapisanego loginu dostępnego dla tego żądania. Możesz anulować i sprawdzić swoje wpisy w Palladinie.';
+
+  @override
+  String get autofillRequestSearchEmptyHint =>
+      'Wpisz inną nazwę lub wyczyść wyszukiwanie, aby zobaczyć dostępne loginy.';
+
+  @override
+  String get autofillRequestClearSearch => 'Wyczyść wyszukiwanie';
+
+  @override
+  String get unlockFailed =>
+      'Nie udało się odblokować Palladina. Spróbuj ponownie.';
+
+  @override
+  String autofillRequestUnverifiedWebWarning(String app) {
+    return 'Nie możemy potwierdzić aplikacji $app. Wybierz wpis tylko, jeśli jej ufasz.';
+  }
+
+  @override
+  String get autofillDestinationWarningTitle => 'NIEPOTWIERDZONA APLIKACJA';
+
+  @override
+  String get autofillUsernameUnavailable => 'Login niedostępny';
 
   @override
   String get entrySignInMethodLabel => 'Metoda logowania';

@@ -26,12 +26,12 @@ final class AutoFillRepairDeny {
   AutoFillRepairDeny._();
 }
 
-/// Coalesces committed Member sync updates into local-only native rebuilds.
+/// Coalesces committed Member sync updates into local source authorization.
 ///
 /// This coordinator deliberately has no Member sync/preparation dependency:
 /// a durable update may only wait for its already-running publication tail and
-/// rebuild from installed indexes. It therefore cannot create HTTP or
-/// per-Entry requests while repairing the native derivative.
+/// authorize installed indexes. It therefore cannot create HTTP or
+/// per-Entry requests while checking provider access.
 final class DurableAutoFillRepairCoordinator {
   DurableAutoFillRepairCoordinator({
     required DurableMemberIndexUpdates memberIndexes,
@@ -54,10 +54,13 @@ final class DurableAutoFillRepairCoordinator {
   StreamSubscription<String>? _subscription;
   Future<void>? _running;
   Timer? _retry;
+  Timer? _foregroundRetry;
   Object? _readySessionIdentity;
   int? _readyEpoch;
   int _epoch = 0;
   int _sequence = 0;
+  int _publicationAdmission = 0;
+  int? _retriedSequence;
   final Set<AutoFillRepairDeny> _repairDenies = {};
   bool _disposed = false;
   _AutoFillPublication? _publication;
@@ -87,7 +90,9 @@ final class DurableAutoFillRepairCoordinator {
   /// Holds committed-index repairs after a native deny until the mutation or
   /// invalidation batch has installed its authoritative replacement.
   AutoFillRepairDeny suspendRepairs() {
-    _publication = null;
+    ++_publicationAdmission;
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     final deny = AutoFillRepairDeny._();
     _repairDenies.add(deny);
     _retry?.cancel();
@@ -128,15 +133,28 @@ final class DurableAutoFillRepairCoordinator {
       }
       return false;
     }
+    _retriedSequence = null;
+    _retry?.cancel();
+    _retry = null;
+    final epoch = _epoch;
     final completeVaultIds = Set<String>.unmodifiable(vaultIds);
     _installKnownVaults(completeVaultIds);
     final covered = Map<String, int>.from(_pending);
     try {
       await _publishPrepared(session, completeVaultIds);
     } catch (_) {
-      // Keep the deny owned by the caller so its retry remains fail-closed.
+      // A foreground-only repair has no durable commit to drive _drain.
+      // Caller-owned denies retain their separate authoritative retry path.
+      if (!_disposed &&
+          _epoch == epoch &&
+          releasingDenies.isEmpty &&
+          _repairDenies.isEmpty) {
+        _scheduleForegroundRetry(session.principalId, session.identity, epoch);
+      }
       rethrow;
     }
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     for (final update in covered.entries) {
       if (_pending[update.key] == update.value) {
         _pending.remove(update.key);
@@ -148,10 +166,46 @@ final class DurableAutoFillRepairCoordinator {
     return true;
   }
 
+  void _scheduleForegroundRetry(
+    String principalId,
+    Object identity,
+    int epoch,
+  ) {
+    _foregroundRetry ??= Timer(retryDelay, () {
+      _foregroundRetry = null;
+      final current = _currentSession();
+      if (_disposed ||
+          _epoch != epoch ||
+          _readyEpoch != epoch ||
+          _repairDenies.isNotEmpty ||
+          _pending.isNotEmpty ||
+          current == null ||
+          current.privateKey.isEmpty ||
+          current.principalId != principalId ||
+          !identical(current.identity, identity) ||
+          !identical(_readySessionIdentity, identity)) {
+        return;
+      }
+      // Resolve the current session only when retrying; the timer retains no key.
+      // One automatic attempt, then wait for an actual lifecycle/commit event.
+      unawaited(
+        _publishPrepared(
+          current,
+          Set<String>.unmodifiable(_knownVaultIds),
+        ).catchError((Object error) {
+          onFailure?.call(error);
+        }),
+      );
+    });
+  }
+
   /// Drops all profile-scoped state on lock, logout, or session replacement.
   void clearSession() {
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     _epoch += 1;
-    _publication = null;
+    _retriedSequence = null;
+    ++_publicationAdmission;
     _knownVaultIds.clear();
     _pending.clear();
     _readySessionIdentity = null;
@@ -177,6 +231,7 @@ final class DurableAutoFillRepairCoordinator {
       if (identical(_running, operation)) _running = null;
       if (_pending.isNotEmpty &&
           _retry == null &&
+          _retriedSequence != _sequence &&
           _repairDenies.isEmpty &&
           !_disposed &&
           _readyEpoch == _epoch &&
@@ -190,6 +245,8 @@ final class DurableAutoFillRepairCoordinator {
 
   Future<void> dispose() async {
     _disposed = true;
+    _foregroundRetry?.cancel();
+    _foregroundRetry = null;
     _retry?.cancel();
     _retry = null;
     await _subscription?.cancel();
@@ -223,13 +280,21 @@ final class DurableAutoFillRepairCoordinator {
           !identical(_readySessionIdentity, initialSession.identity)) {
         return;
       }
+      var attemptedSequence = _sequence;
       try {
         var covered = Map<String, int>.from(_pending);
         while (true) {
-          await Future.wait(covered.keys.map(_memberIndexes.waitForCurrent));
+          // A publication covers the complete known Vault set, including a
+          // Vault whose running sync has not emitted its first commit yet.
+          final waitingVaults = Set<String>.from(_knownVaultIds);
+          await Future.wait(waitingVaults.map(_memberIndexes.waitForCurrent));
           if (_epoch != initialEpoch || _repairDenies.isNotEmpty) return;
           final latest = Map<String, int>.from(_pending);
-          if (_sameUpdates(covered, latest)) break;
+          if (_sameUpdates(covered, latest) &&
+              waitingVaults.length == _knownVaultIds.length &&
+              waitingVaults.containsAll(_knownVaultIds)) {
+            break;
+          }
           covered = latest;
         }
         // Foreground repair may have consumed this commit while we awaited
@@ -246,6 +311,7 @@ final class DurableAutoFillRepairCoordinator {
           if (_epoch == initialEpoch) _pending.clear();
           return;
         }
+        attemptedSequence = _sequence;
         await _publishPrepared(
           currentSession,
           Set<String>.from(_knownVaultIds),
@@ -260,9 +326,21 @@ final class DurableAutoFillRepairCoordinator {
       } catch (error) {
         if (_epoch != initialEpoch) return;
         onFailure?.call(error);
+        // Keep the committed work pending, but do not rebuild forever for a
+        // permanent native failure. New commits/lifecycle attempts can retry.
+        if (_retriedSequence == attemptedSequence) return;
+        _retriedSequence = attemptedSequence;
+        final principalId = initialSession.principalId;
+        final identity = initialSession.identity;
         _retry ??= Timer(retryDelay, () {
           _retry = null;
-          if (!_disposed) unawaited(drainPending());
+          final current = _currentSession();
+          if (!_disposed &&
+              _epoch == initialEpoch &&
+              current?.principalId == principalId &&
+              identical(current?.identity, identity)) {
+            unawaited(drainPending());
+          }
         });
         return;
       }
@@ -275,11 +353,21 @@ final class DurableAutoFillRepairCoordinator {
   ) {
     final previous = _publication;
     if (previous != null &&
+        previous.admission == _publicationAdmission &&
         previous.sequence == _sequence &&
         identical(previous.sessionIdentity, session.identity) &&
         previous.vaultIds.length == vaultIds.length &&
         previous.vaultIds.containsAll(vaultIds)) {
       return previous.completion;
+    }
+    if (previous != null) {
+      return _publishAfter(
+        previous,
+        session,
+        vaultIds,
+        _epoch,
+        _publicationAdmission,
+      );
     }
     // Share only concurrent consumers of this commit. Native quarantine can
     // invalidate a completed cache without a Dart event, so later foreground
@@ -287,6 +375,7 @@ final class DurableAutoFillRepairCoordinator {
     // The record contains no key; its Future is detached on every completion.
     final publication = _AutoFillPublication(
       sequence: _sequence,
+      admission: _publicationAdmission,
       sessionIdentity: session.identity,
       vaultIds: Set<String>.unmodifiable(vaultIds),
     );
@@ -303,6 +392,37 @@ final class DurableAutoFillRepairCoordinator {
     return publication.completion;
   }
 
+  Future<void> _publishAfter(
+    _AutoFillPublication previous,
+    AutoFillRepairSession admitted,
+    Set<String> vaultIds,
+    int epoch,
+    int admission,
+  ) async {
+    try {
+      await previous.completion;
+    } catch (_) {
+      // The original caller owns its failure; a later admitted request still
+      // needs its own publication from current authoritative state.
+    }
+    final current = _currentSession();
+    if (_disposed ||
+        _epoch != epoch ||
+        _publicationAdmission != admission ||
+        current == null ||
+        current.principalId != admitted.principalId ||
+        !identical(current.identity, admitted.identity) ||
+        !identical(current.privateKey, admitted.privateKey) ||
+        current.privateKey.isEmpty ||
+        _readyEpoch != epoch ||
+        !identical(_readySessionIdentity, current.identity) ||
+        vaultIds.length != _knownVaultIds.length ||
+        !vaultIds.containsAll(_knownVaultIds)) {
+      throw StateError('Queued AutoFill publication invalidated');
+    }
+    await _publishPrepared(current, Set<String>.from(_knownVaultIds));
+  }
+
   bool _sameUpdates(Map<String, int> left, Map<String, int> right) {
     if (left.length != right.length) return false;
     for (final entry in left.entries) {
@@ -315,11 +435,13 @@ final class DurableAutoFillRepairCoordinator {
 final class _AutoFillPublication {
   _AutoFillPublication({
     required this.sequence,
+    required this.admission,
     required this.sessionIdentity,
     required this.vaultIds,
   });
 
   final int sequence;
+  final int admission;
   final Object sessionIdentity;
   final Set<String> vaultIds;
   late final Future<void> completion;

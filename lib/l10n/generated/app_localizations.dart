@@ -8792,6 +8792,24 @@ abstract class AppLocalizations {
   /// **'Check again'**
   String get autofillCheckAgain;
 
+  /// No description provided for @autofillSettingsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open system settings. Open them manually or try the button again.'**
+  String get autofillSettingsError;
+
+  /// No description provided for @autofillManualIosCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'In Settings, search for AutoFill & Passwords (Password Options on older iOS). Turn on AutoFill Passwords and Passkeys, then enable Palladin. This also enables Password AutoFill in Safari and supported apps.'**
+  String get autofillManualIosCurrent;
+
+  /// No description provided for @autofillManualAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'In system Settings, find the preferred service for passwords or AutoFill and select Palladin. Names vary by device.'**
+  String get autofillManualAndroid;
+
   /// No description provided for @autofillStatusError.
   ///
   /// In en, this message translates to:
@@ -8863,6 +8881,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The login could not be saved safely. Try again or cancel.'**
   String get autoFillSaveUnavailable;
+
+  /// No description provided for @autofillPreparationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoFill passwords'**
+  String get autofillPreparationTitle;
+
+  /// No description provided for @autofillPreparationWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing saved passwords…'**
+  String get autofillPreparationWaiting;
+
+  /// No description provided for @autofillPreparationProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing {examined} of {total} entries'**
+  String autofillPreparationProgress(int examined, int total);
+
+  /// No description provided for @autofillPreparationPublishing.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying AutoFill updates…'**
+  String get autofillPreparationPublishing;
+
+  /// No description provided for @autofillPreparationReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords updated. AutoFill requires authorization and Palladin enabled in system settings.'**
+  String get autofillPreparationReady;
+
+  /// No description provided for @autofillPreparationEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No eligible saved passwords to prepare. Add a login with a website address to a Vault that allows offline access.'**
+  String get autofillPreparationEmpty;
+
+  /// No description provided for @autofillPreparationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not prepare passwords. Try again while Palladin is unlocked.'**
+  String get autofillPreparationFailed;
+
+  /// No description provided for @autofillPreparationUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoFill status has not been confirmed yet.'**
+  String get autofillPreparationUnknown;
+
+  /// No description provided for @autofillPreparationChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking AutoFill…'**
+  String get autofillPreparationChecking;
+
+  /// No description provided for @autofillPreparationKeepOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep Palladin open until preparation finishes. Work may pause in the background.'**
+  String get autofillPreparationKeepOpen;
+
+  /// No description provided for @autofillRequestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill login'**
+  String get autofillRequestTitle;
+
+  /// No description provided for @autofillRequestAuthorize.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorize access to choose a saved login.'**
+  String get autofillRequestAuthorize;
+
+  /// No description provided for @autofillRequestEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching saved logins.'**
+  String get autofillRequestEmpty;
+
+  /// No description provided for @autofillRequestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The login could not be filled safely. Try again or cancel.'**
+  String get autofillRequestFailed;
+
+  /// No description provided for @autofillRequestManualWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'We can’t verify this app. Tap a login only if you trust it.'**
+  String get autofillRequestManualWarning;
+
+  /// No description provided for @autofillRequestUsernameOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the username will be filled.'**
+  String get autofillRequestUsernameOnly;
+
+  /// No description provided for @autofillRequestEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved login is available for this request. You can cancel and check your entries in Palladin.'**
+  String get autofillRequestEmptyHint;
+
+  /// No description provided for @autofillRequestSearchEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another name or clear the search to see the available logins.'**
+  String get autofillRequestSearchEmptyHint;
+
+  /// No description provided for @autofillRequestClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get autofillRequestClearSearch;
+
+  /// No description provided for @unlockFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not unlock Palladin. Please try again.'**
+  String get unlockFailed;
+
+  /// No description provided for @autofillRequestUnverifiedWebWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'We can’t verify {app}. Tap a login only if you trust this app.'**
+  String autofillRequestUnverifiedWebWarning(String app);
+
+  /// No description provided for @autofillDestinationWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'UNVERIFIED APP'**
+  String get autofillDestinationWarningTitle;
+
+  /// No description provided for @autofillUsernameUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Login unavailable'**
+  String get autofillUsernameUnavailable;
 
   /// No description provided for @entrySignInMethodLabel.
   ///
