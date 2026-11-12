@@ -285,7 +285,8 @@ class AutoFillCredentialSource {
           snapshot.entry['currentKeyVersion'] != candidate.keyVersion ||
           snapshot.entry['state'] != 'active' ||
           snapshot.payload['username'] is! String ||
-          snapshot.payload['password'] is! String) {
+          snapshot.payload['password'] is! String ||
+          (snapshot.payload['password'] as String).isEmpty) {
         if (kDebugMode) {
           debugPrint(
             'AUTOFILL_CREDENTIAL BINDING '

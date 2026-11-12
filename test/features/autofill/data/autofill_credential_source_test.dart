@@ -222,6 +222,55 @@ void main() {
     },
   );
 
+  for (final password in ['', ' ']) {
+    test(
+      'handoff rejects empty passwords without trimming valid passwords: ${password.isEmpty}',
+      () async {
+        final selected = (await candidates()).first;
+        final reveal = syntheticAutoFillReveal();
+        reveal.snapshot.payload['password'] = password;
+        when(
+          () => entries.revealCurrentWithAuthority(
+            vaultId: 'vault',
+            entryId: 'chosen',
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) async => reveal);
+        var completed = false;
+        final operation = source.withCredential(
+          candidate: selected,
+          selectedHost: 'login.example.com',
+          memberPrivateKey: Uint8List(32),
+          validateRequest: guard,
+          complete: (value) async {
+            completed = true;
+            expect(value.password, password);
+          },
+        );
+        if (password.isEmpty) {
+          await expectLater(
+            operation,
+            throwsA(isA<AutoFillCredentialException>()),
+          );
+          expect(completed, isFalse);
+        } else {
+          await operation;
+          expect(completed, isTrue);
+        }
+        expect(reveal.snapshot.payload, isEmpty);
+        expect(reveal.snapshot.secret, isEmpty);
+        verify(
+          () => entries.revealCurrentWithAuthority(
+            vaultId: 'vault',
+            entryId: 'chosen',
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).called(1);
+        verifyNoMoreInteractions(entries);
+      },
+    );
+  }
+
   test('opens only selected body and clears it after completion', () async {
     final selected = (await candidates()).first;
     final reveal = syntheticAutoFillReveal();
