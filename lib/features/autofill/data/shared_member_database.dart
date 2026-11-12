@@ -56,20 +56,26 @@ final class SharedMemberDatabase {
           options: OpenDatabaseOptions(readOnly: true, singleInstance: false),
         );
         try {
-          if (await input.getVersion() != 2) {
+          final version = await input.getVersion();
+          if (version != 1 && version != 2) {
             throw StateError('Unsupported legacy Member source');
           }
           await input.execute('VACUUM INTO ?', [staged]);
         } finally {
           await input.close();
         }
-      } else {
-        final empty = await SqliteMemberSyncCache.openAt(
-          staged,
-          factory: _factory,
-        );
-        await empty.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
-        await empty.close();
+      }
+      // Upgrade only the staged snapshot. Policy-1 ciphertext cannot supply
+      // finite authority; the canonical upgrader discards it and rebuilds empty.
+      // The legacy source stays intact until native installation succeeds.
+      final prepared = await SqliteMemberSyncCache.openAt(
+        staged,
+        factory: _factory,
+      );
+      try {
+        await prepared.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+      } finally {
+        await prepared.close();
       }
       _source.validateTicket(ticket);
       await _channel.invokeMethod<void>(

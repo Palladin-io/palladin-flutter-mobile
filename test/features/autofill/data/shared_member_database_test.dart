@@ -118,6 +118,103 @@ void main() {
       );
     },
   );
+  for (final failCommit in [false, true]) {
+    test(
+      'schema-v1 cache rebuild is staged before native commit: failure=$failCommit',
+      () async {
+        final old = await databaseFactoryFfi.openDatabase(
+          legacy,
+          options: OpenDatabaseOptions(
+            version: 1,
+            onCreate: (db, _) async {
+              await db.execute(
+                'CREATE TABLE member_sync_heads (legacy_ciphertext TEXT)',
+              );
+              await db.execute(
+                'CREATE TABLE member_sync_state (legacy_sequence TEXT)',
+              );
+              await db.insert('member_sync_heads', {
+                'legacy_ciphertext': 'synthetic-policy-one',
+              });
+            },
+          ),
+        );
+        await old.close();
+        commitFails = failCommit;
+        final loader = SharedMemberDatabase(
+          source: source,
+          channel: channel,
+          supportDirectory: () async => root.path,
+          factory: databaseFactoryFfi,
+        );
+        if (failCommit) {
+          await expectLater(loader.open(), throwsA(isA<PlatformException>()));
+          final retained = await databaseFactoryFfi.openDatabase(
+            legacy,
+            options: OpenDatabaseOptions(readOnly: true),
+          );
+          expect(await retained.getVersion(), 1);
+          expect(
+            (await retained.query(
+              'member_sync_heads',
+            )).single['legacy_ciphertext'],
+            'synthetic-policy-one',
+          );
+          await retained.close();
+          expect(
+            await File(p.join(shared.path, 'vault_member_sync.db')).exists(),
+            isFalse,
+          );
+          expect(
+            await File(
+              p.join(shared.path, 'vault_member_sync.db.migrating'),
+            ).exists(),
+            isFalse,
+          );
+          await expectLater(
+            source.activate(
+              expected: await source.ticket(),
+              validateSource: () {},
+            ),
+            throwsStateError,
+          );
+        } else {
+          final canonical = await loader.open();
+          expect(await canonical.getVersion(), 2);
+          expect(await canonical.query('member_sync_heads'), isEmpty);
+          expect(await canonical.query('member_sync_state'), isEmpty);
+          expect(await File(legacy).exists(), isFalse);
+          await canonical.close();
+        }
+        expect(commits, 1);
+      },
+    );
+  }
+
+  test(
+    'unknown schema cannot be installed or delete the legacy source',
+    () async {
+      final old = await databaseFactoryFfi.openDatabase(
+        legacy,
+        options: OpenDatabaseOptions(version: 3, onCreate: (db, _) async {}),
+      );
+      await old.close();
+      final loader = SharedMemberDatabase(
+        source: source,
+        channel: channel,
+        supportDirectory: () async => root.path,
+        factory: databaseFactoryFfi,
+      );
+      await expectLater(loader.open(), throwsStateError);
+      expect(commits, 0);
+      expect(await File(legacy).exists(), isTrue);
+      expect(
+        await File(p.join(shared.path, 'vault_member_sync.db')).exists(),
+        isFalse,
+      );
+    },
+  );
+
   test(
     'rejects a shared path alias without deleting the canonical database',
     () async {
