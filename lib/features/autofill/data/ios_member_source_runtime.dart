@@ -124,6 +124,7 @@ final class IosMemberSourceRuntime {
       final crypto = entryCrypto ?? EntryV2CryptoService();
       final vaultKeys = VaultRotationCryptoService();
       final cache = SqliteMemberSyncCache(
+        readOnly: true,
         databaseLoader: () async => database!,
       );
       final sync = MemberSyncService(

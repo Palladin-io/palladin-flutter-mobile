@@ -10,6 +10,8 @@ import '../datasources/member_sync_remote_datasource.dart';
 import '../models/member_sync_models.dart';
 import 'entry_v2_crypto_service.dart';
 import 'member_sync_cache.dart';
+import 'member_search_index_cache.dart';
+import 'member_search_index_codec.dart';
 import 'vault_rotation_crypto_service.dart';
 
 /// Authenticated session claims used as independent authority for cached
@@ -192,6 +194,7 @@ final class MemberSyncService
     required MemberSyncCache cache,
     required EntryV2CryptoService entryCrypto,
     required VaultRotationCryptoService vaultKeys,
+    MemberSearchIndexCodec? searchIndexCodec,
     DateTime Function()? now,
     this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
     this.decryptConcurrency =
@@ -201,6 +204,7 @@ final class MemberSyncService
        _cache = cache,
        _entryCrypto = entryCrypto,
        _vaultKeys = vaultKeys,
+       _searchIndexCodec = searchIndexCodec ?? MemberSearchIndexCodec(),
        _now = now ?? DateTime.now {
     if (maximumIndexedEntries < 1 ||
         decryptConcurrency < 1 ||
@@ -209,6 +213,8 @@ final class MemberSyncService
     }
   }
 
+  final MemberSearchIndexCodec _searchIndexCodec;
+  final Map<String, MemberSearchIndexBundle> _searchBundles = {};
   final MemberSyncRemote _remote;
   final MemberSyncCache _cache;
   final EntryV2CryptoService _entryCrypto;
@@ -326,6 +332,7 @@ final class MemberSyncService
         if (error.afterSnapshot) {
           if (snapshotRestarts >= maximumSnapshotRestarts) {
             _indexes.remove(vaultId);
+            _searchBundles.remove(vaultId);
             _runtimeAccessContexts.remove(vaultId);
             _publishIndexUpdate(vaultId);
             throw StateError('Member snapshot restart limit exceeded');
@@ -432,6 +439,7 @@ final class MemberSyncService
           minimumMemberKeyGeneration: state.accessContext.memberKeyGeneration,
           expectedVaultKeyVersion: state.accessContext.vaultKeyVersion,
           generation: generation,
+          storedState: state,
         );
         _scheduleLeaseExpiry(
           vaultId,
@@ -500,7 +508,51 @@ final class MemberSyncService
     required int minimumMemberKeyGeneration,
     required int expectedVaultKeyVersion,
     required int generation,
+    required MemberSyncCacheState storedState,
   }) async {
+    _requireCurrent(generation);
+    if (storedState.accessContext.organizationId == organizationId &&
+        storedState.accessContext.vaultId == vaultId &&
+        storedState.accessContext.memberKeyGeneration ==
+            minimumMemberKeyGeneration &&
+        storedState.accessContext.vaultKeyVersion == expectedVaultKeyVersion &&
+        _cache is MemberSearchIndexCache) {
+      final store = _cache as MemberSearchIndexCache;
+      final encoded = await _readSearchIndex(
+        store,
+        vaultId,
+        storedState,
+        generation,
+      );
+      _requireCurrent(generation);
+      if (encoded != null) {
+        MemberSearchIndexBundle? restored;
+        try {
+          restored = await _searchIndexCodec.open(
+            encoded: encoded,
+            state: storedState,
+            vaultKey: vaultKey,
+          );
+        } on Object {
+          // Derived cache corruption cannot destroy valid canonical ciphertext.
+          // The existing per-entry verification below rebuilds it instead.
+        }
+        _requireCurrent(generation);
+        if (restored != null &&
+            restored.entries.length <= maximumIndexedEntries &&
+            await _readSearchIndex(store, vaultId, storedState, generation) ==
+                encoded) {
+          _requireCurrent(generation);
+          _indexes[vaultId] = {
+            for (final entry in restored.entries) entry.entryId: entry,
+          };
+          _searchBundles[vaultId] = restored;
+          _publishIndexUpdate(vaultId);
+          return;
+        }
+      }
+    }
+    _requireCurrent(generation);
     final rebuilt = <String, MemberIndexEntry>{};
     await for (final page in _chunk(_cache.readHeads(vaultId), 100)) {
       _requireCurrent(generation);
@@ -521,8 +573,117 @@ final class MemberSyncService
       }
     }
     _requireCurrent(generation);
+    await _requireSearchState(vaultId, storedState, generation);
+    await _persistSearchIndex(
+      vaultId,
+      vaultKey,
+      generation,
+      storedState,
+      rebuilt,
+    );
+    _requireCurrent(generation);
     _indexes[vaultId] = rebuilt;
     _publishIndexUpdate(vaultId);
+  }
+
+  Future<void> _persistSearchIndex(
+    String vaultId,
+    Uint8List vaultKey,
+    int generation,
+    MemberSyncCacheState state,
+    Map<String, MemberIndexEntry> index, {
+    bool preservesContent = false,
+  }) async {
+    final cache = _cache;
+    if (cache is! MemberSearchIndexCache ||
+        !(cache as MemberSearchIndexCache).canWriteSearchIndex) {
+      return;
+    }
+    _requireCurrent(generation);
+    try {
+      final previous = _searchBundles[vaultId];
+      final rebound = preservesContent && previous != null
+          ? await _searchIndexCodec.rebind(
+              previous: previous,
+              state: state,
+              vaultKey: vaultKey,
+            )
+          : null;
+      final bundle =
+          rebound ??
+          await _searchIndexCodec.seal(
+            entries: index.values.toList(growable: false),
+            state: state,
+            vaultKey: vaultKey,
+            previous: previous,
+          );
+      _requireCurrent(generation);
+      if (identical(bundle, previous) &&
+          await (cache as MemberSearchIndexCache).readSearchIndex(
+                vaultId,
+                state,
+              ) ==
+              bundle.encoded) {
+        _requireCurrent(generation);
+        return;
+      }
+      _requireCurrent(generation);
+      final committed = await _serializeVault(vaultId, () async {
+        _requireCurrent(generation);
+        return (cache as MemberSearchIndexCache).writeSearchIndex(
+          vaultId,
+          state,
+          bundle.encoded,
+        );
+      });
+      _requireCurrent(generation);
+      if (!committed) throw const _MemberSyncInvalidated();
+      _searchBundles[vaultId] = bundle;
+    } on _MemberSyncInvalidated {
+      rethrow;
+    } on Object {
+      // A disposable optimization must never purge successfully committed
+      // ciphertext. Only keep the result if its original authority is current.
+      _requireCurrent(generation);
+      await _requireSearchState(vaultId, state, generation);
+      _searchBundles.remove(vaultId);
+    }
+  }
+
+  Future<String?> _readSearchIndex(
+    MemberSearchIndexCache cache,
+    String vaultId,
+    MemberSyncCacheState state,
+    int generation,
+  ) async {
+    try {
+      return await cache.readSearchIndex(vaultId, state);
+    } on Object {
+      await _requireSearchState(vaultId, state, generation);
+      return null;
+    }
+  }
+
+  Future<void> _requireSearchState(
+    String vaultId,
+    MemberSyncCacheState expected,
+    int generation,
+  ) async {
+    MemberSyncCacheState? current;
+    try {
+      current = await _cache.state(vaultId);
+    } on Object {
+      throw const _MemberSyncInvalidated();
+    }
+    _requireCurrent(generation);
+    if (current == null ||
+        current.sequence != expected.sequence ||
+        _canonicalJson(current.accessContext.toJson()) !=
+            _canonicalJson(expected.accessContext.toJson()) ||
+        _canonicalJson(current.memberVaultKey) !=
+            _canonicalJson(expected.memberVaultKey)) {
+      throw const _MemberSyncInvalidated();
+    }
   }
 
   /// Searches only runtime plaintext and never accesses persistent storage.
@@ -700,6 +861,7 @@ final class MemberSyncService
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
+    _searchBundles.clear();
     _runtimeAccessContexts.clear();
     _connectedSessionVaults.clear();
   }
@@ -872,6 +1034,19 @@ final class MemberSyncService
       ),
     );
     _requireCurrent(generation);
+    await _persistSearchIndex(
+      vaultId,
+      vaultKey,
+      generation,
+      MemberSyncCacheState(
+        sequence: applied,
+        accessContext: accessContext,
+        memberVaultKey: memberVaultKey,
+        maximumObservedWallTime: observed,
+      ),
+      stagedIndex,
+    );
+    _requireCurrent(generation);
     _indexes[vaultId] = stagedIndex;
     _connectedSessionVaults.add(vaultId);
     _revokedVaults.remove(vaultId);
@@ -903,6 +1078,7 @@ final class MemberSyncService
         minimumMemberKeyGeneration: minimumGeneration,
         expectedVaultKeyVersion: cachedState.accessContext.vaultKeyVersion,
         generation: generation,
+        storedState: cachedState,
       );
       _requireCurrent(generation);
     }
@@ -976,7 +1152,7 @@ final class MemberSyncService
         preservesContent: preservesContent,
       );
       _requireCurrent(generation);
-      final index = _indexes[vaultId]!;
+      final index = Map<String, MemberIndexEntry>.from(_indexes[vaultId]!);
       for (final item in page.items.where((item) => item.isTombstone)) {
         index.remove(item.entryId);
       }
@@ -987,6 +1163,21 @@ final class MemberSyncService
         lock();
         throw StateError('Vault local index exceeds the device budget');
       }
+      await _persistSearchIndex(
+        vaultId,
+        vaultKey,
+        generation,
+        MemberSyncCacheState(
+          sequence: page.appliedThroughSequence,
+          accessContext: page.accessContext,
+          memberVaultKey: page.memberVaultKey,
+          maximumObservedWallTime: _now().toUtc(),
+        ),
+        index,
+        preservesContent: preservesContent,
+      );
+      _requireCurrent(generation);
+      _indexes[vaultId] = index;
       // Consumers may rebuild native/search projections from this signal, so
       // publish only after both the durable delta and its current runtime index
       // are committed. No observer can see the previous candidate set.
@@ -1166,6 +1357,7 @@ final class MemberSyncService
     }
     _leaseTimers.remove(vaultId)?.cancel();
     _indexes.remove(vaultId);
+    _searchBundles.remove(vaultId);
     _runtimeAccessContexts.remove(vaultId);
     _connectedSessionVaults.remove(vaultId);
     _publishIndexUpdate(vaultId);
@@ -1187,6 +1379,7 @@ final class MemberSyncService
     }
     _leaseTimers.clear();
     _indexes.clear();
+    _searchBundles.clear();
     _runtimeAccessContexts.clear();
     _connectedSessionVaults.clear();
     final quarantineGeneration = await _cache.quarantineProfile();
