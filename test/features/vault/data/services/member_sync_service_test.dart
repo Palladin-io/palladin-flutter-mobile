@@ -1238,7 +1238,9 @@ void main() {
     SodiumProvider.debugOverride = await sodium_ffi.SodiumSumoInit.init(
       () => DynamicLibrary.open(
         Platform.environment['PALLADIN_LIBSODIUM_PATH'] ??
-            '/opt/homebrew/lib/libsodium.dylib',
+            (Platform.isMacOS
+                ? '/opt/homebrew/lib/libsodium.dylib'
+                : 'libsodium.so'),
       ),
     );
     final searchCache = _SearchMemoryCache();
