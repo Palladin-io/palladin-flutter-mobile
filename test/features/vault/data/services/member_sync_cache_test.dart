@@ -368,4 +368,309 @@ void main() {
       expect(guards, 1);
     },
   );
+  Future<MemberSyncCacheState> seedIndexState() async {
+    await cache.promoteSnapshot(
+      snapshot.accessContext.vaultId,
+      sequence: '12',
+      accessContext: snapshot.accessContext,
+      memberVaultKey: snapshot.memberVaultKey,
+      maximumObservedWallTime: snapshot.accessContext.issuedAt,
+    );
+    return (await cache.state(snapshot.accessContext.vaultId))!;
+  }
+
+  test('derived encrypted index roundtrips an empty sentinel', () async {
+    final state = await seedIndexState();
+    final index = cache;
+    final id = snapshot.accessContext.vaultId;
+    expect(await index.readSearchIndex(id, state), isNull);
+    expect(await index.writeSearchIndex(id, state, ''), isTrue);
+    expect(await index.readSearchIndex(id, state), '');
+  });
+
+  test('missing derived table stays absent after a read', () async {
+    final state = await seedIndexState();
+    expect(
+      await cache.readSearchIndex(snapshot.accessContext.vaultId, state),
+      isNull,
+    );
+    expect(
+      await database.rawQuery(
+        "SELECT 1 FROM sqlite_master WHERE name = 'member_search_index'",
+      ),
+      isEmpty,
+    );
+  });
+
+  for (final change in ['sequence', 'context', 'wrapper']) {
+    test('derived index rejects stale $change for reads and writes', () async {
+      final old = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      expect(await cache.writeSearchIndex(id, old, 'opaque-a'), isTrue);
+      final context = old.accessContext.toJson();
+      if (change == 'context') context['offlinePolicyVersion'] = 2;
+      await cache.applyDelta(
+        id,
+        sequence: change == 'sequence' ? '13' : old.sequence,
+        items: [],
+        accessContext: MemberOfflineAccessContext.fromJson(context),
+        memberVaultKey: change == 'wrapper'
+            ? {...old.memberVaultKey, 'ciphertext': 'opaque-b'}
+            : old.memberVaultKey,
+        maximumObservedWallTime: old.maximumObservedWallTime,
+      );
+      expect(await cache.readSearchIndex(id, old), isNull);
+      expect(await cache.writeSearchIndex(id, old, 'opaque-b'), isFalse);
+      final current = (await cache.state(id))!;
+      expect(await cache.readSearchIndex(id, current), isNull);
+      expect(await cache.writeSearchIndex(id, current, 'opaque-c'), isTrue);
+      expect(await cache.readSearchIndex(id, current), 'opaque-c');
+    });
+  }
+
+  test('read-only derived cache reads but never replaces or creates', () async {
+    final state = await seedIndexState();
+    final id = snapshot.accessContext.vaultId;
+    final reader = SqliteMemberSyncCache(
+      databaseLoader: () async => database,
+      readOnly: true,
+    );
+    expect(await reader.writeSearchIndex(id, state, 'opaque-b'), isFalse);
+    expect(await reader.readSearchIndex(id, state), isNull);
+    await cache.writeSearchIndex(id, state, 'opaque-a');
+    expect(await reader.readSearchIndex(id, state), 'opaque-a');
+    expect(await reader.writeSearchIndex(id, state, 'opaque-b'), isFalse);
+    expect(await cache.readSearchIndex(id, state), 'opaque-a');
+  });
+
+  for (final cleanup in ['vault', 'all', 'quarantine', 'snapshot']) {
+    test('$cleanup cleanup removes the encrypted derived index', () async {
+      final state = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      await cache.writeSearchIndex(id, state, 'opaque-a');
+      switch (cleanup) {
+        case 'vault':
+          await cache.clearVault(id);
+        case 'all':
+          await cache.clearAll();
+        case 'snapshot':
+          await cache.beginSnapshot(id, invalidateActive: true);
+        case 'quarantine':
+          final token = await cache.quarantineProfile();
+          await expectLater(
+            cache.readSearchIndex(id, state),
+            throwsA(isA<MemberSyncProfileQuarantinedException>()),
+          );
+          await expectLater(
+            cache.writeSearchIndex(id, state, 'opaque-b'),
+            throwsA(isA<MemberSyncProfileQuarantinedException>()),
+          );
+          await cache.clearQuarantinedProfile(token);
+      }
+      await seedIndexState();
+      expect(await cache.readSearchIndex(id, state), isNull);
+    });
+  }
+
+  test(
+    'derived quota failure rolls back replacement and canonical changes',
+    () async {
+      final state = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      await cache.writeSearchIndex(id, state, 'opaque-a');
+      final bounded = SqliteMemberSyncCache(
+        databaseLoader: () async => database,
+        maximumProfileCacheBytes: 1,
+      );
+      await expectLater(
+        bounded.writeSearchIndex(id, state, 'opaque-b'),
+        throwsStateError,
+      );
+      expect(await cache.readSearchIndex(id, state), 'opaque-a');
+      await expectLater(
+        bounded.applyDelta(
+          id,
+          sequence: '13',
+          items: [],
+          accessContext: state.accessContext,
+          memberVaultKey: state.memberVaultKey,
+          maximumObservedWallTime: state.maximumObservedWallTime,
+        ),
+        throwsStateError,
+      );
+      expect(await cache.readSearchIndex(id, state), 'opaque-a');
+    },
+  );
+
+  test(
+    'derived writes preserve native authority while canonical writes invalidate',
+    () async {
+      final state = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      await cache.writeSearchIndex(id, state, 'opaque-a');
+      final guarded = SqliteMemberSyncCache(
+        databaseLoader: () async => database,
+        mutationGuard: <T>(Future<T> Function() write) async =>
+            throw StateError('synthetic denial'),
+      );
+      expect(await guarded.writeSearchIndex(id, state, 'opaque-b'), isTrue);
+      expect(await cache.readSearchIndex(id, state), 'opaque-b');
+      await expectLater(guarded.clearVault(id), throwsStateError);
+    },
+  );
+  test('derived ciphertext bytes count toward the profile quota', () async {
+    final state = await seedIndexState();
+    final id = snapshot.accessContext.vaultId;
+    final baseline =
+        (await database.rawQuery(
+              'SELECT LENGTH(applied_sequence) + LENGTH(access_context_json) + LENGTH(member_vault_key_json) + 8 AS bytes FROM member_sync_state',
+            )).single['bytes']!
+            as int;
+    await cache.writeSearchIndex(id, state, '');
+    final bindingBytes =
+        (await database.rawQuery(
+              'SELECT LENGTH(CAST(binding AS BLOB)) AS bytes FROM member_search_index',
+            )).single['bytes']!
+            as int;
+    final bounded = SqliteMemberSyncCache(
+      databaseLoader: () async => database,
+      maximumProfileCacheBytes: baseline + bindingBytes + 100,
+    );
+    await expectLater(
+      bounded.writeSearchIndex(id, state, 'x' * 101),
+      throwsStateError,
+    );
+    expect(await cache.readSearchIndex(id, state), '');
+  });
+
+  test(
+    'aborted derived transaction retains the previous encrypted value',
+    () async {
+      final state = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      await cache.writeSearchIndex(id, state, 'opaque-a');
+      await database.execute(
+        "CREATE TRIGGER abort_index BEFORE INSERT ON member_search_index BEGIN SELECT RAISE(ABORT, 'synthetic interruption'); END",
+      );
+      await expectLater(
+        cache.writeSearchIndex(id, state, 'opaque-b'),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(await cache.readSearchIndex(id, state), 'opaque-a');
+    },
+  );
+  test(
+    'derived writer retains caller ownership while the database opens',
+    () async {
+      final state = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      await cache.writeSearchIndex(id, state, 'opaque-a');
+      final opening = Completer<Database>();
+      var session = 1;
+      final guarded = SqliteMemberSyncCache(
+        databaseLoader: () => opening.future,
+        captureMutationSession: () {
+          final captured = session;
+          return () {
+            if (captured != session) {
+              throw StateError('synthetic session replacement');
+            }
+          };
+        },
+      );
+      final pending = guarded.writeSearchIndex(id, state, 'opaque-b');
+      final rejection = expectLater(pending, throwsStateError);
+      session++;
+      opening.complete(database);
+      await rejection;
+      expect(await cache.readSearchIndex(id, state), 'opaque-a');
+    },
+  );
+
+  test(
+    'wrapper property ordering does not invalidate an encrypted index',
+    () async {
+      final state = await seedIndexState();
+      final id = snapshot.accessContext.vaultId;
+      final reordered = MemberSyncCacheState(
+        sequence: state.sequence,
+        accessContext: state.accessContext,
+        memberVaultKey: Map.fromEntries(
+          state.memberVaultKey.entries.toList().reversed,
+        ),
+        maximumObservedWallTime: state.maximumObservedWallTime,
+      );
+      expect(await cache.writeSearchIndex(id, reordered, 'opaque-a'), isTrue);
+      expect(await cache.readSearchIndex(id, state), 'opaque-a');
+    },
+  );
+  for (final operation in ['append', 'delta', 'promote']) {
+    test(
+      'canonical $operation evicts derived ciphertext before enforcing quota',
+      () async {
+        final state = await seedIndexState();
+        final id = snapshot.accessContext.vaultId;
+        final canonicalBytes =
+            (await database.rawQuery(
+                  'SELECT LENGTH(applied_sequence) + LENGTH(access_context_json) + LENGTH(member_vault_key_json) + 8 AS bytes FROM member_sync_state',
+                )).single['bytes']!
+                as int;
+        final itemBytes = utf8
+            .encode(jsonEncode(snapshot.items.single.toJson()))
+            .length;
+        await cache.writeSearchIndex(id, state, 'x' * (itemBytes * 2));
+        final bounded = SqliteMemberSyncCache(
+          databaseLoader: () async => database,
+          maximumProfileCacheBytes: canonicalBytes + itemBytes + 1,
+        );
+        switch (operation) {
+          case 'append':
+            await bounded.appendSnapshot(id, snapshot.items);
+            final rows = await database.query(
+              'member_sync_heads',
+              where: 'generation = ?',
+              whereArgs: ['staging'],
+            );
+            expect(rows, hasLength(1));
+          case 'delta':
+            await bounded.applyDelta(
+              id,
+              sequence: '13',
+              items: snapshot.items,
+              accessContext: state.accessContext,
+              memberVaultKey: state.memberVaultKey,
+              maximumObservedWallTime: state.maximumObservedWallTime,
+            );
+            expect((await cache.readHeads(id).toList()), hasLength(1));
+            expect((await cache.state(id))!.sequence, '13');
+          case 'promote':
+            await bounded.promoteSnapshot(
+              id,
+              sequence: '13',
+              accessContext: state.accessContext,
+              memberVaultKey: state.memberVaultKey,
+              maximumObservedWallTime: state.maximumObservedWallTime,
+            );
+            expect((await cache.state(id))!.sequence, '13');
+        }
+        expect(await database.query('member_search_index'), isEmpty);
+        expect(
+          await cache.readSearchIndex(id, (await cache.state(id))!),
+          isNull,
+        );
+      },
+    );
+  }
+
+  test('non-text derived ciphertext is a cache miss', () async {
+    final state = await seedIndexState();
+    final id = snapshot.accessContext.vaultId;
+    await cache.writeSearchIndex(id, state, 'opaque');
+    await database.rawUpdate(
+      "UPDATE member_search_index SET encoded = X'0102' WHERE vault_id = ?",
+      [id],
+    );
+    expect(await cache.readSearchIndex(id, state), isNull);
+    expect((await cache.state(id))!.sequence, '12');
+  });
 }

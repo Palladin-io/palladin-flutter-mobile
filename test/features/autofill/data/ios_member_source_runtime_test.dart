@@ -6,6 +6,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
 import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_search_index_codec.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
 import '../../../fixtures/autofill/ios_member_runtime_fixture.dart';
@@ -16,6 +19,27 @@ import 'package:mobile_palladin/features/autofill/data/ios_member_source_runtime
 
 class _CountingCrypto extends EntryV2CryptoService {
   var bodyOpens = 0;
+  var dekOpens = 0;
+  var indexOpens = 0;
+
+  @override
+  Future<Uint8List> openEntryDek({
+    required Map<String, dynamic> entryKey,
+    required Uint8List vaultKey,
+  }) {
+    dekOpens++;
+    return super.openEntryDek(entryKey: entryKey, vaultKey: vaultKey);
+  }
+
+  @override
+  Future<Map<String, dynamic>> openMemberIndex({
+    required Map<String, dynamic> envelope,
+    required Uint8List vaultKey,
+  }) {
+    indexOpens++;
+    return super.openMemberIndex(envelope: envelope, vaultKey: vaultKey);
+  }
+
   @override
   Future<Map<String, dynamic>> openMemberSecret({
     required Map<String, dynamic> entryKey,
@@ -32,9 +56,12 @@ class _CountingCrypto extends EntryV2CryptoService {
 }
 
 void main() {
-  for (final usePassword in [false, true]) {
+  for (final (indexMode, usePassword) in [
+    for (final mode in ['missing', 'persisted', 'corrupt'])
+      for (final password in [false, true]) (mode, password),
+  ]) {
     test(
-      'real readonly SQLite ${usePassword ? 'password KDF' : 'biometric key with future-issued lease'} opens only selected body',
+      'real readonly SQLite ${usePassword ? 'password KDF' : 'biometric key with future-issued lease'} with $indexMode search index opens only selected body',
       () async {
         sqfliteFfiInit();
         databaseFactory = databaseFactoryFfi;
@@ -118,6 +145,55 @@ void main() {
             memberVaultKey: wrapper,
             maximumObservedWallTime: now,
           );
+          if (indexMode != 'missing') {
+            final privateKey = base64Decode(fixture['privateKey'] as String);
+            final vaultKey = await VaultRotationCryptoService()
+                .openMemberVaultKey(
+                  wrapper,
+                  privateKey,
+                  expectedOrganizationId: org,
+                  expectedVaultId: vault,
+                  expectedVaultKeyVersion: 1,
+                  expectedMemberKeyGeneration: 1,
+                );
+            try {
+              final state = (await cache.state(vault))!;
+              final sealed = await MemberSearchIndexCodec().seal(
+                entries: const [
+                  MemberIndexEntry(
+                    entryId: '33333333-3333-4333-8333-333333333333',
+                    entryType: 1,
+                    memberLabel: 'Synthetic',
+                    username: 'synthetic',
+                    searchFields: ['Synthetic', 'synthetic', 'example.invalid'],
+                    revision: '1',
+                    state: MemberEntryState.active,
+                    autofillDomains: ['example.invalid'],
+                  ),
+                ],
+                state: state,
+                vaultKey: vaultKey,
+              );
+              var encoded = sealed.encoded;
+              if (indexMode == 'corrupt') {
+                final corrupted = jsonDecode(encoded) as Map<String, dynamic>;
+                final manifest = corrupted['manifest'] as String;
+                corrupted['manifest'] =
+                    '${manifest.startsWith('A') ? 'B' : 'A'}${manifest.substring(1)}';
+                encoded = jsonEncode(corrupted);
+              }
+              expect(
+                await cache.writeSearchIndex(vault, state, encoded),
+                isTrue,
+              );
+            } finally {
+              privateKey.fillRange(0, privateKey.length, 0);
+              vaultKey.fillRange(0, vaultKey.length, 0);
+            }
+          }
+          // This connection observes writes committed by the extension's
+          // independent readonly connection, including attempted cache repair.
+          final dataVersion = await db.rawQuery('PRAGMA data_version');
           final kdfSalt = Uint8List.fromList(List.filled(16, 6));
           final derived = await IdentityKdfService().derive(
             password: 'synthetic-master-password',
@@ -207,6 +283,8 @@ void main() {
           expect(rows, hasLength(1));
           expect(rows.single['label'], 'Synthetic');
           expect(crypto.bodyOpens, 0);
+          expect(crypto.dekOpens, indexMode == 'persisted' ? 0 : 1);
+          expect(crypto.indexOpens, indexMode == 'persisted' ? 0 : 1);
           if (!usePassword) {
             expect(DateTime.now().toUtc().isBefore(context.issuedAt), isTrue);
           }
@@ -218,6 +296,7 @@ void main() {
           expect(crypto.bodyOpens, 1);
           expect(completions, 1);
           expect((await db.query('member_sync_heads')), hasLength(1));
+          expect(await db.rawQuery('PRAGMA data_version'), dataVersion);
         } finally {
           await runtime?.close();
           await db.close();

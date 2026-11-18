@@ -983,3 +983,46 @@ password (for example OAuth-only accounts) remain excluded from the native
 AutoFill cache exactly as before (`AutofillCacheService` skips them and
 `AutofillRecord` rejects them), and AutoFill saving still requires a non-empty
 password.
+
+
+## Persisted encrypted search metadata (2026-11-18)
+
+The app builds an optional derived search index from already verified MemberIndex
+metadata, not MemberSecret bodies. SQLite retains it across lock and process exit;
+lock/purge clears every plaintext runtime projection. Existing biometric/password
+unlock and independently scoped Vault-key unwrap remain required. Android app
+requests and the readonly iOS provider use the same MemberSync fast reopen path.
+
+Each Vault has sixteen deterministic metadata buckets, encrypted separately with
+XChaCha20-Poly1305 and local-purpose HKDF-SHA256 subkeys of its current Vault key.
+An encrypted manifest binds the complete bucket set to the canonical stream
+sequence and full access context. Buckets bind principal, organization, Vault,
+member/key generations and policy; renewing a lease updates the manifest, not
+unchanged buckets. Local plaintext hashes and metadata remain in RAM only.
+This is a disposable local format, not a new server protocol or secret export.
+
+Snapshots and deltas supply the exact state that produced their metadata to the
+cache writer. SQLite compares that state to canonical sequence/context/wrapper
+inside its transaction; an interrupted or superseded write cannot certify stale
+metadata. Insert, edit, archive and tombstone changes regenerate only changed
+bucket ciphertext; SQLite currently stores the complete encoded bundle in one
+row per Vault. A proven content-preserving empty delta rebinds only the manifest
+without serializing all entries. Unchanged bindings avoid another auxiliary write.
+
+Derived-only writes do not revoke native source access: they cannot change
+canonical ciphertext or authorize a fill. They retain session capture, transaction,
+quarantine and current-state checks. Canonical mutations retain native invalidation.
+Missing, incompatible or unauthentic derived data uses canonical per-entry rebuild;
+iOS never writes this repair. Optional write failure must not purge canonical data.
+Canonical updates may evict disposable indexes to retain the original cache quota.
+A valid empty index is usable; it is not a missing-cache sentinel.
+
+The fast path does not bypass original lease expiry, account/member/key changes,
+source fencing, exact-origin policy or selected-body validation. Legacy indexes
+without a typed username keep bounded visible-row previews; no bulk body scan is
+introduced. Explicitly indexed descriptions/custom text remain encrypted metadata.
+
+Host tests cover real SQLite/libsodium cold reconstruction and persisted reopen,
+plus synthetic HTTP counts, update/delete, corruption, quota and concurrent-state
+changes. They are not S22 latency or native OS integration evidence. Network
+synchronization before app preparation remains a separate potential waiting cost.

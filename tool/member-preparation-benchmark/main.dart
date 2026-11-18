@@ -417,6 +417,69 @@ Future<List<Map<String, Object>>> runBenchmark({
             await loopbackServer.close(force: true);
             server = null;
 
+            for (final reopenMode in [
+              'locked-persisted-index',
+              'locked-canonical-baseline',
+            ]) {
+              sync.lock();
+              if (wrappers.keys.any((id) => sync.entries(id).isNotEmpty)) {
+                throw StateError('Lock retained plaintext index entries');
+              }
+              if (reopenMode == 'locked-canonical-baseline') {
+                // Only this temporary fixture database is modified. Preserve
+                // byte-identical canonical heads/state for the baseline.
+                await database.execute('DROP TABLE member_search_index');
+              }
+              requests.clear();
+              crypto.entryDekReads = 0;
+              crypto.indexReads = 0;
+              crypto.secretReads = 0;
+              vaultKeys.opens = 0;
+              final authority = await _Authority().current();
+              final reopenTimer = Stopwatch()..start();
+              final reopened = await sync.unlockAllCached(
+                memberPrivateKey: privateKey,
+                authority: authority,
+              );
+              reopenTimer.stop();
+              final reopenedCount = reopened.fold<int>(
+                0,
+                (count, id) => count + sync.entries(id).length,
+              );
+              final expectedEntryOpens = reopenMode == 'locked-persisted-index'
+                  ? 0
+                  : _vaultCount * entriesPerVault;
+              final httpRequests = requests.values.fold<int>(
+                0,
+                (a, b) => a + b,
+              );
+              if (reopened.length != _vaultCount ||
+                  reopenedCount != _vaultCount * entriesPerVault ||
+                  crypto.entryDekReads != expectedEntryOpens ||
+                  crypto.indexReads != expectedEntryOpens ||
+                  crypto.secretReads != 0 ||
+                  vaultKeys.opens != _vaultCount ||
+                  httpRequests != 0) {
+                throw StateError(
+                  'Locked reopen crypto/request invariant failed',
+                );
+              }
+              final reopen = <String, Object>{
+                'mode': reopenMode,
+                'networkOffline': true,
+                'vaults': reopened.length,
+                'entries': reopenedCount,
+                'vaultKeyOpens': vaultKeys.opens,
+                'entryDekOpens': crypto.entryDekReads,
+                'indexOpens': crypto.indexReads,
+                'secretOpens': crypto.secretReads,
+                'httpRequests': httpRequests,
+                'elapsedMicros': reopenTimer.elapsedMicroseconds,
+              };
+              results.add(reopen);
+              debugPrint('MEMBER_BENCHMARK ${jsonEncode(reopen)}');
+            }
+
             final reader = _CountingCurrentEntries(
               reader: sync,
               authorityProvider: _Authority(),
@@ -577,6 +640,17 @@ class _VaultList implements MemberVaultListLoader {
 class _CountingEntryCrypto extends EntryV2CryptoService {
   int secretReads = 0;
   int indexReads = 0;
+  int entryDekReads = 0;
+
+  @override
+  Future<Uint8List> openEntryDek({
+    required Map<String, dynamic> entryKey,
+    required Uint8List vaultKey,
+  }) {
+    entryDekReads++;
+    return super.openEntryDek(entryKey: entryKey, vaultKey: vaultKey);
+  }
+
   @override
   Future<Map<String, dynamic>> openMemberIndex({
     required Map<String, dynamic> envelope,

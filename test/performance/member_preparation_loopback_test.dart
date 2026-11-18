@@ -26,7 +26,7 @@ void main() {
             repetitions: 1,
             entriesPerVault: entriesPerVault,
           );
-          expect(results, hasLength(7));
+          expect(results, hasLength(9));
           expect(
             results.take(4).every((row) => row['entries'] == entryCount),
             isTrue,
@@ -49,6 +49,23 @@ void main() {
             expect(warm['indexOpens'], 0);
             expect(warm['secretOpens'], 0);
             expect(warm['requestDelayMillis'], mode.endsWith('slow') ? 25 : 0);
+          }
+          for (final mode in [
+            'locked-persisted-index',
+            'locked-canonical-baseline',
+          ]) {
+            final reopened = results.singleWhere((row) => row['mode'] == mode);
+            final expectedOpens = mode == 'locked-persisted-index'
+                ? 0
+                : entryCount;
+            expect(reopened['networkOffline'], isTrue);
+            expect(reopened['entries'], entryCount);
+            expect(reopened['vaults'], 8);
+            expect(reopened['vaultKeyOpens'], 8);
+            expect(reopened['entryDekOpens'], expectedOpens);
+            expect(reopened['indexOpens'], expectedOpens);
+            expect(reopened['secretOpens'], 0);
+            expect(reopened['httpRequests'], 0);
           }
           expect(selected['networkOffline'], isTrue);
           expect(selected['candidateIndexOpens'], 0);

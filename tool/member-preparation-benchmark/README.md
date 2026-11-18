@@ -80,3 +80,30 @@ Loopback on an emulator measures actual socket, native SQLite and crypto work
 in a debug runtime, but does not reproduce a remote API's RTT or an actual
 phone's CPU/storage. A neutral or slower result is valid evidence; do not
 replace it with an injected-delay estimate or claim Home/Inbox latency is fixed.
+
+## Persisted metadata reopen
+
+The host regression exercises both 160 and 1,024 Entries. After the existing
+warm-repeat passes, it closes the loopback server, locks the production sync
+service and calls `unlockAllCached` twice over the same canonical SQLite heads:
+
+- `locked-persisted-index` opens the encrypted grouped metadata index retained
+  after lock. Eight Vault-key unwraps are expected, with zero Entry DEK,
+  MemberIndex or MemberSecret opens and zero HTTP requests.
+- `locked-canonical-baseline` locks again, drops only the auxiliary
+  `member_search_index` table in the isolated temporary fixture database and
+  reopens the unchanged canonical heads. Every Entry requires one DEK and one
+  MemberIndex open; MemberSecret and HTTP counts remain zero. This includes
+  rebuilding/persisting the auxiliary index through production code, so it is
+  a missing-index recovery baseline, not the exact historical implementation.
+
+Both paths verify the complete Entry count. The subsequent shared-source check
+still verifies metadata-only candidates and one selected credential body read.
+Reported times are host debug observations, not phone measurements or latency
+pass/fail thresholds. The persisted run precedes the missing-index run; neither
+OS filesystem caches nor the JIT are reset between them.
+
+For content-preserving empty deltas, the service rebinds only the authenticated
+manifest and skips Entry serialization/hashing. Changed Entry deltas still group
+and hash the current metadata to identify affected buckets; unchanged ciphertext
+is reused. SQLite writes a complete encoded row when the bundle changes.

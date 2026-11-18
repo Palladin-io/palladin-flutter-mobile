@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ffi';
+import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
+import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_search_index_cache.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
@@ -55,7 +59,7 @@ final class _FakeRemote implements MemberSyncRemote {
   }
 }
 
-final class _MemoryCache implements MemberSyncCache {
+class _MemoryCache implements MemberSyncCache {
   final Map<String, MemberSyncCacheState> states = {};
   final Map<String, Map<String, MemberSyncItemModel>> active = {};
   final Map<String, Map<String, MemberSyncItemModel>> staged = {};
@@ -226,6 +230,54 @@ final class _MemoryCache implements MemberSyncCache {
     active.clear();
     staged.clear();
     profileQuarantineGeneration = null;
+  }
+}
+
+final class _SearchMemoryCache extends _MemoryCache
+    implements MemberSearchIndexCache {
+  final Map<String, ({String binding, String encoded})> bundles = {};
+  int writes = 0;
+  bool failSearchWrite = false;
+  @override
+  bool get canWriteSearchIndex => true;
+  String _binding(MemberSyncCacheState state) => jsonEncode([
+    state.sequence,
+    state.accessContext.toJson(),
+    state.memberVaultKey,
+  ]);
+  @override
+  Future<String?> readSearchIndex(
+    String vaultId,
+    MemberSyncCacheState expected,
+  ) async {
+    _requireAvailable();
+    final state = states[vaultId];
+    if (state == null || _binding(state) != _binding(expected)) return null;
+    final stored = bundles[vaultId];
+    return stored?.binding == _binding(expected) ? stored!.encoded : null;
+  }
+
+  @override
+  Future<bool> writeSearchIndex(
+    String vaultId,
+    MemberSyncCacheState expected,
+    String encoded,
+  ) async {
+    _requireAvailable();
+    final state = states[vaultId];
+    if (state == null || _binding(state) != _binding(expected)) return false;
+    if (failSearchWrite) {
+      throw StateError('synthetic derived cache write failure');
+    }
+    bundles[vaultId] = (binding: _binding(expected), encoded: encoded);
+    writes++;
+    return true;
+  }
+
+  @override
+  Future<void> clearVault(String vaultId) async {
+    await super.clearVault(vaultId);
+    bundles.remove(vaultId);
   }
 }
 
@@ -1180,6 +1232,319 @@ void main() {
     expect(material?.item.memberSecret, isNotNull);
     expect(material?.item.entryKey, isNotNull);
     expect(material?.accessContext.notAfter, snapshot.accessContext.notAfter);
+  });
+
+  Future<_SearchMemoryCache> enableSearchCache() async {
+    SodiumProvider.debugOverride = await sodium_ffi.SodiumSumoInit.init(
+      () => DynamicLibrary.open(
+        Platform.environment['PALLADIN_LIBSODIUM_PATH'] ??
+            (Platform.isMacOS
+                ? '/opt/homebrew/lib/libsodium.dylib'
+                : 'libsodium.so'),
+      ),
+    );
+    final searchCache = _SearchMemoryCache();
+    cache = searchCache;
+    service = MemberSyncService(
+      remote: remote,
+      cache: cache,
+      entryCrypto: entryCrypto,
+      vaultKeys: vaultKeys,
+      now: () => now,
+    );
+    when(
+      () => vaultKeys.openMemberVaultKey(
+        any(),
+        any(),
+        expectedOrganizationId: any(named: 'expectedOrganizationId'),
+        expectedVaultId: any(named: 'expectedVaultId'),
+        expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+        expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+      ),
+    ).thenAnswer((_) async => Uint8List(32));
+    return searchCache;
+  }
+
+  test(
+    'persisted search index reopens after lock without per-entry crypto',
+    () async {
+      await enableSearchCache();
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      service.lock();
+      clearInteractions(entryCrypto);
+      when(
+        () => vaultKeys.openMemberVaultKey(
+          any(),
+          any(),
+          expectedOrganizationId: any(named: 'expectedOrganizationId'),
+          expectedVaultId: any(named: 'expectedVaultId'),
+          expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+          expectedMemberKeyGeneration: any(
+            named: 'expectedMemberKeyGeneration',
+          ),
+        ),
+      ).thenAnswer((_) async => Uint8List(32));
+      await service.unlockCached(
+        vaultId: snapshot.accessContext.vaultId,
+        memberPrivateKey: Uint8List(32),
+        authority: authority,
+      );
+      expect(service.search('offline'), hasLength(1));
+      verifyNever(
+        () => entryCrypto.openEntryDek(
+          entryKey: any(named: 'entryKey'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+      verifyNever(
+        () => entryCrypto.openMemberIndex(
+          envelope: any(named: 'envelope'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+      expect(remote.snapshotRequests, 1);
+      expect(remote.deltaRequests, 1);
+    },
+  );
+
+  for (final change in ['insert', 'edit', 'archive', 'delete']) {
+    test(
+      'persisted search index includes $change after delta and process restart',
+      () async {
+        final searchCache = await enableSearchCache();
+        final vaultId = snapshot.accessContext.vaultId;
+        await service.synchronize(
+          vaultId: vaultId,
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration:
+              snapshot.accessContext.memberKeyGeneration,
+          authority: authority,
+          authoritativeMemberVaultKey: snapshot.memberVaultKey,
+        );
+        final oldId = snapshot.items.single.entryId;
+        final id = change == 'insert'
+            ? '99999999-9999-4999-8999-999999999999'
+            : oldId;
+        final item =
+            jsonDecode(jsonEncode(snapshot.items.single.toJson()))
+                as Map<String, dynamic>;
+        item['entryId'] = id;
+        if (change == 'delete') {
+          item['kind'] = 'tombstone';
+          for (final field in [
+            'state',
+            'updatedAt',
+            'currentRevision',
+            'memberIndexRevision',
+            'currentKeyVersion',
+            'entryKey',
+            'memberIndex',
+            'memberSecret',
+          ]) {
+            item[field] = null;
+          }
+        } else {
+          item['currentRevision'] = '13';
+          item['memberIndexRevision'] = '13';
+          if (change == 'archive') item['state'] = 'archived';
+          for (final field in ['entryKey', 'memberIndex', 'memberSecret']) {
+            final descriptor = (item[field] as Map)['descriptor'] as Map;
+            (descriptor['scope'] as Map)['entryId'] = id;
+            if (field != 'entryKey') descriptor['resourceRevision'] = '13';
+          }
+        }
+        when(
+          () => entryCrypto.openMemberIndex(
+            envelope: any(named: 'envelope'),
+            vaultKey: any(named: 'vaultKey'),
+          ),
+        ).thenAnswer(
+          (_) async => {
+            'schema': 'palladin.member-index.v1',
+            'memberLabel': 'Changed account',
+            'entryType': 'credential',
+            'description': null,
+            'icon': null,
+            'color': null,
+            'urlDomain': 'example.invalid',
+            'customIndex': [],
+            'username': 'synthetic@example.invalid',
+          },
+        );
+        remote.deltaResult = MemberDeltaSuccess(
+          MemberDeltaPage.fromJson({
+            'deltaUpperBound': '13',
+            'appliedThroughSequence': '13',
+            'accessContext': snapshot.accessContext.toJson(),
+            'memberVaultKey': snapshot.memberVaultKey,
+            'items': [item],
+            'continuationCursor': null,
+          }),
+        );
+        await service.synchronize(
+          vaultId: vaultId,
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration:
+              snapshot.accessContext.memberKeyGeneration,
+          authority: authority,
+          authoritativeMemberVaultKey: snapshot.memberVaultKey,
+        );
+        service.lock();
+        clearInteractions(entryCrypto);
+        service = MemberSyncService(
+          remote: remote,
+          cache: searchCache,
+          entryCrypto: entryCrypto,
+          vaultKeys: vaultKeys,
+          now: () => now,
+        );
+        await service.unlockCached(
+          vaultId: vaultId,
+          memberPrivateKey: Uint8List(32),
+          authority: authority,
+        );
+        final entries = service.entries(vaultId);
+        expect(
+          entries,
+          hasLength(
+            change == 'insert'
+                ? 2
+                : change == 'delete'
+                ? 0
+                : 1,
+          ),
+        );
+        if (change != 'delete') {
+          final updated = entries.singleWhere((e) => e.entryId == id);
+          expect(updated.memberLabel, 'Changed account');
+          expect(updated.username, 'synthetic@example.invalid');
+          expect(
+            updated.state,
+            change == 'archive'
+                ? MemberEntryState.archived
+                : MemberEntryState.active,
+          );
+        }
+        verifyNever(
+          () => entryCrypto.openMemberIndex(
+            envelope: any(named: 'envelope'),
+            vaultKey: any(named: 'vaultKey'),
+          ),
+        );
+        expect(remote.snapshotRequests, 1);
+        expect(remote.deltaRequests, 2);
+      },
+    );
+  }
+
+  for (final damage in ['missing', 'corrupt']) {
+    test(
+      'persisted search index $damage rebuilds without deleting canonical entries',
+      () async {
+        final searchCache = await enableSearchCache();
+        final vaultId = snapshot.accessContext.vaultId;
+        await service.synchronize(
+          vaultId: vaultId,
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration:
+              snapshot.accessContext.memberKeyGeneration,
+          authority: authority,
+          authoritativeMemberVaultKey: snapshot.memberVaultKey,
+        );
+        service.lock();
+        if (damage == 'missing') {
+          searchCache.bundles.clear();
+        } else {
+          searchCache.bundles[vaultId] = (
+            binding: searchCache.bundles[vaultId]!.binding,
+            encoded: 'corrupt',
+          );
+        }
+        clearInteractions(entryCrypto);
+        await service.unlockCached(
+          vaultId: vaultId,
+          memberPrivateKey: Uint8List(32),
+          authority: authority,
+        );
+        expect(service.entries(vaultId), hasLength(1));
+        expect(searchCache.active[vaultId], hasLength(1));
+        verify(
+          () => entryCrypto.openMemberIndex(
+            envelope: any(named: 'envelope'),
+            vaultKey: any(named: 'vaultKey'),
+          ),
+        ).called(1);
+        service.lock();
+        clearInteractions(entryCrypto);
+        await service.unlockCached(
+          vaultId: vaultId,
+          memberPrivateKey: Uint8List(32),
+          authority: authority,
+        );
+        verifyNever(
+          () => entryCrypto.openMemberIndex(
+            envelope: any(named: 'envelope'),
+            vaultKey: any(named: 'vaultKey'),
+          ),
+        );
+      },
+    );
+  }
+
+  test(
+    'derived cache write failure preserves canonical data and offline results',
+    () async {
+      final searchCache = await enableSearchCache();
+      final vaultId = snapshot.accessContext.vaultId;
+      await service.synchronize(
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      service.lock();
+      searchCache.bundles.clear();
+      searchCache.failSearchWrite = true;
+      await service.unlockCached(
+        vaultId: vaultId,
+        memberPrivateKey: Uint8List(32),
+        authority: authority,
+      );
+      expect(service.entries(vaultId), hasLength(1));
+      expect(searchCache.active[vaultId], hasLength(1));
+      expect(searchCache.states, contains(vaultId));
+    },
+  );
+
+  test('persisted search index cannot bypass expired lease', () async {
+    await enableSearchCache();
+    final vaultId = snapshot.accessContext.vaultId;
+    await service.synchronize(
+      vaultId: vaultId,
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: snapshot.memberVaultKey,
+    );
+    service.lock();
+    now = snapshot.accessContext.notAfter;
+    await expectLater(
+      service.unlockCached(
+        vaultId: vaultId,
+        memberPrivateKey: Uint8List(32),
+        authority: authority,
+      ),
+      throwsA(anything),
+    );
+    expect(service.entries(vaultId), isEmpty);
+    expect((cache as _SearchMemoryCache).bundles, isEmpty);
   });
 
   test('offline unlock discovers and reopens persisted generations', () async {

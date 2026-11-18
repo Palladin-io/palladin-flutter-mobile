@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../domain/entities/vault_performance_budget.dart';
 import '../models/member_sync_models.dart';
+import 'member_search_index_cache.dart';
 
 /// `journal_mode` returns a result row. Using `execute` for it causes
 /// sqflite_darwin to surface SQLite's successful response as an exception.
@@ -74,11 +75,13 @@ typedef MemberSyncMutationGuard =
     Future<T> Function<T>(Future<T> Function() write);
 
 /// SQLite implementation of the policy-2 ciphertext cache.
-final class SqliteMemberSyncCache implements MemberSyncCache {
+final class SqliteMemberSyncCache
+    implements MemberSyncCache, MemberSearchIndexCache {
   SqliteMemberSyncCache({
     Future<Database> Function()? databaseLoader,
     MemberSyncMutationGuard? mutationGuard,
     void Function() Function()? captureMutationSession,
+    this.readOnly = false,
     this.maximumProfileCacheBytes =
         VaultPerformanceBudget.maximumMemberSyncProfileCacheBytes,
   }) : _databaseLoader = databaseLoader ?? _openDatabase,
@@ -93,21 +96,31 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   final void Function() Function()? _captureMutationSession;
 
-  Future<T> _writeTransaction<T>(Future<T> Function(Transaction) write) async {
+  Future<T> _writeTransaction<T>(
+    Future<T> Function(Transaction) write, {
+    bool changesCanonicalState = true,
+  }) async {
     // Capture caller ownership before the loader can await migration/bootstrap.
     // The native writer queue must not enclose that loader (migration uses it).
     final validate = _captureMutationSession?.call();
     final db = await _db;
     validate?.call();
-    final guard = _mutationGuard;
+    final guard = changesCanonicalState ? _mutationGuard : null;
     Future<T> commit() {
       validate?.call();
-      return db.transaction(write);
+      return db.transaction((transaction) {
+        validate?.call();
+        return write(transaction);
+      });
     }
 
     return guard == null ? commit() : guard(commit);
   }
 
+  final bool readOnly;
+
+  @override
+  bool get canWriteSearchIndex => !readOnly;
   final int maximumProfileCacheBytes;
   Database? _database;
   Future<Database>? _opening;
@@ -178,6 +191,116 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     ''');
   }
 
+  static const _searchIndexTable = 'member_search_index';
+
+  Future<bool> _hasSearchIndex(DatabaseExecutor db) async => (await db.rawQuery(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+    [_searchIndexTable],
+  )).isNotEmpty;
+
+  String _binding(String sequence, Object? context, Object? wrapper) {
+    Object? ordered(Object? value) {
+      if (value is Map) {
+        final keys = value.keys.cast<String>().toList()..sort();
+        return {for (final key in keys) key: ordered(value[key])};
+      }
+      if (value is List) return value.map(ordered).toList();
+      return value;
+    }
+
+    return jsonEncode(ordered([sequence, context, wrapper]));
+  }
+
+  String _expectedBinding(MemberSyncCacheState state) => _binding(
+    state.sequence,
+    state.accessContext.toJson(),
+    state.memberVaultKey,
+  );
+
+  String _rowBinding(Map<String, Object?> row) => _binding(
+    row['applied_sequence']! as String,
+    jsonDecode(row['access_context_json']! as String),
+    jsonDecode(row['member_vault_key_json']! as String),
+  );
+
+  @override
+  Future<String?> readSearchIndex(
+    String vaultId,
+    MemberSyncCacheState expected,
+  ) async {
+    final db = await _db;
+    await _requireProfileAvailable(db);
+    if (!await _hasSearchIndex(db)) return null;
+    // One SQLite statement observes the index, canonical authority and fence
+    // together, including a quarantine committed by another process.
+    final rows = await db.rawQuery(
+      '''
+      SELECT i.encoded, i.binding, s.applied_sequence,
+             s.access_context_json, s.member_vault_key_json
+      FROM member_search_index i
+      JOIN member_sync_state s ON s.vault_id = i.vault_id
+      WHERE i.vault_id = ? AND NOT EXISTS
+        (SELECT 1 FROM member_sync_profile_fence WHERE singleton = 1)
+    ''',
+      [vaultId],
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.single;
+    final binding = _expectedBinding(expected);
+    if (row['binding'] != binding || _rowBinding(row) != binding) return null;
+    final encoded = row['encoded'];
+    return encoded is String ? encoded : null;
+  }
+
+  @override
+  Future<bool> writeSearchIndex(
+    String vaultId,
+    MemberSyncCacheState expected,
+    String encoded,
+  ) async {
+    if (readOnly) return false;
+    // This auxiliary row cannot activate native access or change canonical
+    // ciphertext. Preserve session/quarantine/CAS fences without revoking the
+    // native source merely to refresh a disposable encrypted projection.
+    return _writeTransaction((transaction) async {
+      await _requireProfileAvailable(transaction);
+      final rows = await transaction.query(
+        'member_sync_state',
+        where: 'vault_id = ?',
+        whereArgs: [vaultId],
+        limit: 1,
+      );
+      final binding = _expectedBinding(expected);
+      if (rows.isEmpty || _rowBinding(rows.single) != binding) return false;
+      await transaction.execute('''
+        CREATE TABLE IF NOT EXISTS member_search_index (
+          vault_id TEXT PRIMARY KEY,
+          binding TEXT NOT NULL,
+          encoded TEXT NOT NULL
+        )
+      ''');
+      await transaction.insert(_searchIndexTable, {
+        'vault_id': vaultId,
+        'binding': binding,
+        'encoded': encoded,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await _requireProfileWithinQuota(executor: transaction);
+      return true;
+    }, changesCanonicalState: false);
+  }
+
+  Future<void> _deleteSearchIndex(
+    DatabaseExecutor db, [
+    String? vaultId,
+  ]) async {
+    if (!await _hasSearchIndex(db)) return;
+    await db.delete(
+      _searchIndexTable,
+      where: vaultId == null ? null : 'vault_id = ?',
+      whereArgs: vaultId == null ? null : [vaultId],
+    );
+  }
+
   @override
   Future<int> quarantineProfile() async {
     return _writeTransaction((transaction) async {
@@ -212,6 +335,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
       }
       await transaction.delete('member_sync_heads');
       await transaction.delete('member_sync_state');
+      await _deleteSearchIndex(transaction);
       await transaction.delete(
         'member_sync_profile_fence',
         where: 'singleton = 1 AND generation = ?',
@@ -281,6 +405,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
         whereArgs: [vaultId, _staging],
       );
       if (invalidateActive) {
+        await _deleteSearchIndex(transaction, vaultId);
         await transaction.delete(
           'member_sync_heads',
           where: 'vault_id = ? AND generation = ?',
@@ -306,7 +431,10 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await _applyItemsWith(transaction, vaultId, _staging, items);
-      await _requireProfileWithinQuota(executor: transaction);
+      await _requireProfileWithinQuota(
+        executor: transaction,
+        evictDerived: true,
+      );
     });
   }
 
@@ -318,7 +446,10 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     await _writeTransaction((transaction) async {
       await _requireProfileAvailable(transaction);
       await _applyItemsWith(transaction, vaultId, _staging, items);
-      await _requireProfileWithinQuota(executor: transaction);
+      await _requireProfileWithinQuota(
+        executor: transaction,
+        evictDerived: true,
+      );
     });
   }
 
@@ -350,7 +481,10 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
         memberVaultKey: memberVaultKey,
         maximumObservedWallTime: maximumObservedWallTime,
       );
-      await _requireProfileWithinQuota(executor: transaction);
+      await _requireProfileWithinQuota(
+        executor: transaction,
+        evictDerived: true,
+      );
     });
   }
 
@@ -398,7 +532,10 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
         memberVaultKey: memberVaultKey,
         maximumObservedWallTime: maximumObservedWallTime,
       );
-      await _requireProfileWithinQuota(executor: transaction);
+      await _requireProfileWithinQuota(
+        executor: transaction,
+        evictDerived: true,
+      );
     });
   }
 
@@ -496,7 +633,10 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
         .microsecondsSinceEpoch,
   }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-  Future<void> _requireProfileWithinQuota({DatabaseExecutor? executor}) async {
+  Future<void> _requireProfileWithinQuota({
+    DatabaseExecutor? executor,
+    bool evictDerived = false,
+  }) async {
     final database = executor ?? await _db;
     final rows = await database.rawQuery('''
       SELECT
@@ -508,7 +648,22 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
            LENGTH(member_vault_key_json) + 8
          ), 0) FROM member_sync_state) AS bytes
       ''');
-    final bytes = rows.single['bytes']! as int;
+    final canonicalBytes = rows.single['bytes']! as int;
+    var bytes = canonicalBytes;
+    if (await _hasSearchIndex(database)) {
+      final derived = await database.rawQuery(
+        'SELECT COALESCE(SUM(LENGTH(CAST(encoded AS BLOB)) + '
+        'LENGTH(CAST(binding AS BLOB))), 0) AS bytes FROM member_search_index',
+      );
+      bytes += derived.single['bytes']! as int;
+    }
+    if (bytes > maximumProfileCacheBytes && evictDerived) {
+      // Disposable projections must never crowd out canonical ciphertext.
+      // The enclosing transaction rolls this eviction back if canonical data
+      // itself exceeds the same unchanged device budget.
+      await _deleteSearchIndex(database);
+      bytes = canonicalBytes;
+    }
     if (bytes > maximumProfileCacheBytes) {
       throw StateError('Member sync cache exceeds the profile quota');
     }
@@ -540,6 +695,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
         where: 'vault_id = ?',
         whereArgs: [vaultId],
       );
+      await _deleteSearchIndex(transaction, vaultId);
     });
   }
 
@@ -548,6 +704,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     await _writeTransaction((transaction) async {
       await transaction.delete('member_sync_heads');
       await transaction.delete('member_sync_state');
+      await _deleteSearchIndex(transaction);
       await transaction.delete('member_sync_profile_fence');
     });
   }
