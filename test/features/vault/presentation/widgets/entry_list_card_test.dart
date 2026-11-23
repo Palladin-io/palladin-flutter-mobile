@@ -43,6 +43,57 @@ void main() {
     });
   }
 
+  testWidgets('selection refresh keeps username layout stable while disabled', (
+    tester,
+  ) async {
+    final entry = EntryEntity(
+      id: 'entry',
+      vaultId: 'vault',
+      label: 'example.test',
+      username: 'a-long-synthetic-account-identifier@example.test',
+      urlDomain: 'example.test',
+      type: EntryType.credential,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    var enabled = true;
+    var selections = 0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: EntryListCard.selection(
+                  entry: entry,
+                  enabled: enabled,
+                  onSelect: () => selections++,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    final before = tester.getRect(find.text(entry.username!));
+    update(() => enabled = false);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.text(entry.username!)), before);
+    await tester.tap(find.text(entry.username!));
+    expect(selections, 0);
+    expect(find.byIcon(Icons.arrow_forward).hitTestable(), findsNothing);
+    update(() => enabled = true);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.text(entry.username!)), before);
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    expect(selections, 1);
+  });
+
   testWidgets('same-name accounts show usernames and domain, not vault name', (
     tester,
   ) async {

@@ -32,6 +32,7 @@ void main() {
     null,
     'sourceChanged',
     'refreshRetain',
+    'refreshScrolled',
     'refreshRemove',
     'refreshRevoke',
     'refreshFailure',
@@ -172,6 +173,12 @@ void main() {
                       )
                     else
                       syntheticAutoFillEntry('chosen', domain: 'example.com'),
+                    if (invalidation == 'refreshScrolled')
+                      for (var i = 0; i < 40; i++)
+                        syntheticAutoFillEntry(
+                          'chosen-${i.toString().padLeft(2, '0')}',
+                          domain: 'example.com',
+                        ),
                     if (!manualNative)
                       syntheticAutoFillEntry(
                         'unrelated',
@@ -250,6 +257,40 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
+          if (invalidation == 'refreshScrolled') {
+            await tester.drag(
+              find.byType(CustomScrollView),
+              const Offset(0, -1200),
+            );
+            await tester.pumpAndSettle();
+            final scroll = tester.state<ScrollableState>(
+              find.byType(Scrollable).first,
+            );
+            final offset = scroll.position.pixels;
+            final visible = find.byType(EntryListCard).hitTestable().first;
+            final label = tester.widget<EntryListCard>(visible).entry.label;
+            Finder anchor() => find.widgetWithText(EntryListCard, label);
+            final before = tester.getRect(anchor());
+            await messenger.handlePlatformMessage(
+              channel.name,
+              const StandardMethodCodec().encodeMethodCall(
+                const MethodCall('sourceChanged', 'request'),
+              ),
+              (_) {},
+            );
+            await tester.pump();
+            expect(scroll.position.pixels, offset);
+            expect(tester.getRect(anchor()), before);
+            refreshGate.complete();
+            await tester.pumpAndSettle();
+            expect(scroll.position.pixels, offset);
+            expect(tester.getRect(anchor()), before);
+            expect(completed, isNull);
+            verifyZeroInteractions(entries);
+            await tester.pumpWidget(const SizedBox());
+            controller.dispose();
+            return;
+          }
           if (invalidation == 'unauthorizedChanged') {
             await messenger.handlePlatformMessage(
               channel.name,
