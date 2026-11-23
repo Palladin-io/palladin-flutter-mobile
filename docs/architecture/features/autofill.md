@@ -801,8 +801,11 @@ manual-native and username-only selections retain explicit one-operation consent
 
 Source invalidation immediately drops selection authority and pending username
 previews. During the single authorized metadata recovery, already displayed rows
-remain as disabled presentation only, preserving the query and list layout; no
-new legacy username reads are started. Successful recovery replaces them atomically
+remain as disabled presentation only, preserving the query and list layout.
+Selection cards reserve the hidden action width while disabled, so labels and
+usernames do not change ellipsis width during repair. Hidden actions cannot be
+tapped and are excluded from accessibility. No new legacy username reads are
+started. Successful recovery replaces them atomically
 with newly validated candidates. Failure, expiry, request cancellation or loss of
 authorization clears the rows, including while recovery is pending. This avoids
 replacing an already populated list with a skeleton on ordinary source refresh.
