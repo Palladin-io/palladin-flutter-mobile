@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:mobile_palladin/core/widgets/skeleton_box.dart';
 import 'package:mobile_palladin/core/widgets/warning_zone.dart';
 import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
 import 'package:mobile_palladin/core/widgets/app_empty_state.dart';
@@ -27,6 +30,12 @@ void main() {
   for (final invalidation in [
     null,
     'sourceChanged',
+    'refreshRetain',
+    'refreshRemove',
+    'refreshRevoke',
+    'refreshFailure',
+    'refreshExpired',
+    'refreshReplace',
     'invalidated',
     'expired',
     'prepareChanged',
@@ -155,6 +164,8 @@ void main() {
                         domain: 'other.example',
                       ),
                   ];
+          final refreshGate = Completer<void>();
+          var preparations = 0;
           var reads = 0;
           index.waiting = () async {
             reads++;
@@ -192,6 +203,14 @@ void main() {
                 credentials: credentials,
                 access: access,
                 prepare: () async {
+                  preparations++;
+                  if ((invalidation?.startsWith('refresh') ?? false) &&
+                      preparations > 1) {
+                    await refreshGate.future;
+                    if (invalidation == 'refreshFailure') {
+                      throw const AutoFillRequestInvalidated();
+                    }
+                  }
                   if (invalidation == 'prepareChanged') {
                     await messenger.handlePlatformMessage(
                       channel.name,
@@ -292,6 +311,69 @@ void main() {
           await tester.enterText(find.byType(TextField), 'chosen');
           await tester.pumpAndSettle();
           expect(find.byType(EntryListCard), findsOneWidget);
+          if (invalidation?.startsWith('refresh') ?? false) {
+            await messenger.handlePlatformMessage(
+              channel.name,
+              const StandardMethodCodec().encodeMethodCall(
+                const MethodCall('sourceChanged', 'request'),
+              ),
+              (_) {},
+            );
+            await tester.pump();
+            expect(find.byType(EntryListCard), findsOneWidget);
+            expect(find.byType(SkeletonBox), findsNothing);
+            expect(search.controller.text, 'chosen');
+            final row = tester.widget<EntryListCard>(
+              find.byType(EntryListCard),
+            );
+            expect(row.enabled, isFalse);
+            await tester.tap(find.byType(EntryListCard));
+            await tester.pump();
+            expect(completed, isNull);
+            verifyZeroInteractions(entries);
+            if (invalidation == 'refreshRemove') index.values = [];
+            if (invalidation == 'refreshReplace') {
+              index.values = [
+                syntheticAutoFillEntry('chosen-new', domain: 'example.com'),
+              ];
+            }
+            if (invalidation == 'refreshExpired') {
+              await tester.pump(const Duration(seconds: 31));
+              expect(find.byType(EntryListCard), findsNothing);
+            }
+            if (invalidation == 'refreshRevoke') {
+              await messenger.handlePlatformMessage(
+                channel.name,
+                const StandardMethodCodec().encodeMethodCall(
+                  const MethodCall('invalidated', 'request'),
+                ),
+                (_) {},
+              );
+              await tester.pump();
+              expect(find.byType(EntryListCard), findsNothing);
+            }
+            refreshGate.complete();
+            await tester.pumpAndSettle();
+            if (invalidation == 'refreshReplace') {
+              expect(find.text('account-chosen'), findsNothing);
+              expect(find.text('account-chosen-new'), findsOneWidget);
+            } else if (invalidation == 'refreshRetain') {
+              expect(find.byType(EntryListCard), findsOneWidget);
+              expect(
+                tester
+                    .widget<EntryListCard>(find.byType(EntryListCard))
+                    .enabled,
+                isTrue,
+              );
+            } else {
+              expect(find.byType(EntryListCard), findsNothing);
+            }
+            expect(completed, isNull);
+            verifyZeroInteractions(entries);
+            await tester.pumpWidget(const SizedBox());
+            controller.dispose();
+            return;
+          }
           if (invalidation != null &&
               !needsConsent &&
               invalidation != 'prepareChanged' &&
