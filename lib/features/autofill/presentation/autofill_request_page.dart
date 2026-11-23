@@ -103,7 +103,9 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
       _password.clear();
       setState(() {
         _session = null;
-        _candidates = const [];
+        // Retain display-only rows during the single authorized recovery.
+        // The session is gone and all selection/preview reads remain fenced.
+        if (!recover) _candidates = const [];
         _busy = recover;
         // Sync before authorization has no selection; active reads get one
         // coalesced metadata recovery, never an unbounded preparation loop.
@@ -119,7 +121,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
     if (!_reloadQueued || _loadingGeneration != null) return;
     _reloadQueued = false;
     if (mounted && !_closing && widget.controller.isAuthorized) {
-      unawaited(_load());
+      unawaited(_load(retainRows: true));
     }
   }
 
@@ -166,7 +168,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool retainRows = false}) async {
     if (!mounted || _closing || !widget.controller.isAuthorized) return;
     final generation = ++_viewGeneration;
     _usernamePreviews.clear();
@@ -174,7 +176,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
     _loadingGeneration = generation;
     setState(() {
       _session = null;
-      _candidates = const [];
+      if (!retainRows) _candidates = const [];
       _busy = true;
       _failed = false;
     });
@@ -219,7 +221,10 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
         debugPrint('AUTOFILL_PICKER LOAD_FAILED ${error.runtimeType}');
       }
       if (mounted && !_closing && generation == _viewGeneration) {
-        setState(() => _failed = true);
+        setState(() {
+          _candidates = const [];
+          _failed = true;
+        });
       }
     } finally {
       if (_preparingGeneration == generation) _preparingGeneration = null;
@@ -466,14 +471,17 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
                     candidate.entryId,
                     candidate.revision,
                     _viewGeneration,
+                    _session != null,
                   )),
-                  loadUsername: () => _usernamePreviews.read((
-                    candidate.vaultId,
-                    candidate.entryId,
-                    candidate.revision,
-                    candidate.keyVersion,
-                    host,
-                  ), () => _readUsernamePreview(candidate, host)),
+                  loadUsername: _busy
+                      ? null
+                      : () => _usernamePreviews.read((
+                          candidate.vaultId,
+                          candidate.entryId,
+                          candidate.revision,
+                          candidate.keyVersion,
+                          host,
+                        ), () => _readUsernamePreview(candidate, host)),
                   entry: EntryEntity(
                     id: candidate.entryId,
                     vaultId: candidate.vaultId,

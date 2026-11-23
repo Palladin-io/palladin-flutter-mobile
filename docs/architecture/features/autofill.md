@@ -799,8 +799,15 @@ persisted grant or key. Lock/logout/key or account replacement and process death
 remove this authority. A locked app still uses its existing unlock screen once;
 manual-native and username-only selections retain explicit one-operation consent; the Android picker row tap grants it after the visible notice (2026-11-09 decision).
 
-While candidates are being read, source invalidation clears stale rows and may
-trigger at most one coalesced metadata recovery per request. A further change
+Source invalidation immediately drops selection authority and pending username
+previews. During the single authorized metadata recovery, already displayed rows
+remain as disabled presentation only, preserving the query and list layout; no
+new legacy username reads are started. Successful recovery replaces them atomically
+with newly validated candidates. Failure, expiry, request cancellation or loss of
+authorization clears the rows, including while recovery is pending. This avoids
+replacing an already populated list with a skeleton on ordinary source refresh.
+While candidates are being read, source invalidation may trigger at most one
+coalesced metadata recovery per request. A further change
 after recovery starts requires explicit Retry; there is no timer or unbounded
 full-preparation loop. Lock, expiry, revoke and request replacement never reload.
 
