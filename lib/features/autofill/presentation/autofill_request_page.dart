@@ -49,7 +49,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
   );
   List<AutoFillCandidate> _candidates = const [];
   AutoFillRequestSession? _session;
-  int _viewGeneration = 0, _candidateGeneration = 0;
+  int _viewGeneration = 0;
   int? _preparingGeneration;
   int? _loadingGeneration;
   bool _automaticReloadAvailable = true, _reloadQueued = false;
@@ -214,7 +214,6 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
         setState(() {
           _session = session;
           _candidates = candidates;
-          _candidateGeneration = generation;
         });
       }
     } catch (error) {
@@ -471,7 +470,8 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
                     candidate.vaultId,
                     candidate.entryId,
                     candidate.revision,
-                    _candidateGeneration,
+                    _viewGeneration,
+                    _session != null,
                   )),
                   loadUsername: _busy
                       ? null

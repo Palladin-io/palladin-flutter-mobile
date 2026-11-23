@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_palladin/core/widgets/skeleton_box.dart';
@@ -36,6 +37,8 @@ void main() {
     'refreshFailure',
     'refreshExpired',
     'refreshReplace',
+    'refreshLegacy',
+    'refreshLegacyRetain',
     'invalidated',
     'expired',
     'prepareChanged',
@@ -157,7 +160,18 @@ void main() {
             ..values = invalidation == 'empty'
                 ? []
                 : [
-                    syntheticAutoFillEntry('chosen', domain: 'example.com'),
+                    if ((invalidation?.startsWith('refreshLegacy') ?? false))
+                      const MemberIndexEntry(
+                        entryId: 'chosen',
+                        entryType: 1,
+                        memberLabel: 'chosen',
+                        searchFields: [],
+                        revision: '1',
+                        state: MemberEntryState.active,
+                        autofillDomains: ['example.com'],
+                      )
+                    else
+                      syntheticAutoFillEntry('chosen', domain: 'example.com'),
                     if (!manualNative)
                       syntheticAutoFillEntry(
                         'unrelated',
@@ -192,7 +206,11 @@ void main() {
               entryId: 'chosen',
               memberPrivateKey: any(named: 'memberPrivateKey'),
             ),
-          ).thenAnswer((_) async => reveal);
+          ).thenAnswer(
+            (_) async => (invalidation?.startsWith('refreshLegacy') ?? false)
+                ? syntheticAutoFillReveal()
+                : reveal,
+          );
           await tester.pumpWidget(
             MaterialApp(
               locale: Locale(locale),
@@ -251,6 +269,10 @@ void main() {
             controller.dispose();
             return;
           }
+          if ((invalidation?.startsWith('refreshLegacy') ?? false)) {
+            expect(find.text('synthetic-user'), findsOneWidget);
+            clearInteractions(entries);
+          }
           verifyNever(
             () => entries.revealCurrentWithAuthority(
               vaultId: 'vault',
@@ -274,7 +296,14 @@ void main() {
             controller.dispose();
             return;
           }
-          expect(find.text('account-chosen'), findsOneWidget);
+          expect(
+            find.text(
+              (invalidation?.startsWith('refreshLegacy') ?? false)
+                  ? 'synthetic-user'
+                  : 'account-chosen',
+            ),
+            findsOneWidget,
+          );
           expect(find.byType(AppBar), findsNothing);
           final header = tester.widget<ListScreenHeader>(
             find.byType(ListScreenHeader),
@@ -323,6 +352,9 @@ void main() {
             expect(find.byType(EntryListCard), findsOneWidget);
             expect(find.byType(SkeletonBox), findsNothing);
             expect(search.controller.text, 'chosen');
+            if ((invalidation?.startsWith('refreshLegacy') ?? false)) {
+              expect(find.text('synthetic-user'), findsNothing);
+            }
             final row = tester.widget<EntryListCard>(
               find.byType(EntryListCard),
             );
@@ -331,7 +363,10 @@ void main() {
             await tester.pump();
             expect(completed, isNull);
             verifyZeroInteractions(entries);
-            if (invalidation == 'refreshRemove') index.values = [];
+            if (invalidation == 'refreshRemove' ||
+                invalidation == 'refreshLegacy') {
+              index.values = [];
+            }
             if (invalidation == 'refreshReplace') {
               index.values = [
                 syntheticAutoFillEntry('chosen-new', domain: 'example.com'),
@@ -354,7 +389,17 @@ void main() {
             }
             refreshGate.complete();
             await tester.pumpAndSettle();
-            if (invalidation == 'refreshReplace') {
+            if (invalidation == 'refreshLegacyRetain') {
+              expect(find.text('synthetic-user'), findsOneWidget);
+              verify(
+                () => entries.revealCurrentWithAuthority(
+                  vaultId: 'vault',
+                  entryId: 'chosen',
+                  memberPrivateKey: any(named: 'memberPrivateKey'),
+                ),
+              ).called(1);
+              clearInteractions(entries);
+            } else if (invalidation == 'refreshReplace') {
               expect(find.text('account-chosen'), findsNothing);
               expect(find.text('account-chosen-new'), findsOneWidget);
             } else if (invalidation == 'refreshRetain') {
