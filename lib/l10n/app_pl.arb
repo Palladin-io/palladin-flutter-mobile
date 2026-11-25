@@ -1589,6 +1589,8 @@
   "autofillRequestTitle": "Uzupełnij login",
   "autofillRequestAuthorize": "Potwierdź dostęp, aby wybrać zapisany login.",
   "autofillRequestEmpty": "Brak pasujących zapisanych loginów.",
+  "autofillRequestRefreshRequired": "Odśwież listę, aby kontynuować.",
+  "autofillRequestRefresh": "Odśwież",
   "autofillRequestFailed": "Nie udało się bezpiecznie uzupełnić loginu. Spróbuj ponownie lub anuluj.",
   "autofillRequestManualWarning": "Nie możemy potwierdzić tej aplikacji. Wybierz wpis tylko, jeśli jej ufasz.",
   "autofillRequestUsernameOnly": "Zostanie uzupełniona tylko nazwa użytkownika.",

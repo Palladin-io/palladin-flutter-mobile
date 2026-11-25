@@ -3814,6 +3814,8 @@
   "autofillRequestTitle": "Fill login",
   "autofillRequestAuthorize": "Authorize access to choose a saved login.",
   "autofillRequestEmpty": "No matching saved logins.",
+  "autofillRequestRefreshRequired": "Refresh the list to continue.",
+  "autofillRequestRefresh": "Refresh",
   "autofillRequestFailed": "The login could not be filled safely. Try again or cancel.",
   "autofillRequestManualWarning": "We can’t verify this app. Tap a login only if you trust it.",
   "autofillRequestUsernameOnly": "Only the username will be filled.",

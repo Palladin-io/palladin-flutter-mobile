@@ -802,16 +802,18 @@ manual-native and username-only selections retain explicit one-operation consent
 Source invalidation immediately drops selection authority and pending username
 previews. During the single authorized metadata recovery, already displayed rows
 remain as disabled presentation only, preserving the query and list layout.
-Selection cards reserve the hidden action width while disabled, so labels and
-usernames do not change ellipsis width during repair. Hidden actions cannot be
-tapped and are excluded from accessibility. No new legacy username reads are
+Selection cards keep the action glyph visible and unchanged while disabled,
+so neither arrows nor label/username ellipsis blink during repair. The action
+callback is null until selection is valid again. No new legacy username reads are
 started. Successful recovery replaces them atomically
 with newly validated candidates. Failure, expiry, request cancellation or loss of
 authorization clears the rows, including while recovery is pending. This avoids
 replacing an already populated list with a skeleton on ordinary source refresh.
 While candidates are being read, source invalidation may trigger at most one
 coalesced metadata recovery per request. A further change
-after recovery starts requires explicit Retry; there is no timer or unbounded
+after recovery starts requires explicit Refresh, with a localized neutral prompt
+rather than claiming an unattempted fill failed. Operation failures still show
+the failure/retry state; request expiry still cancels. There is no timer or unbounded
 full-preparation loop. Lock, expiry, revoke and request replacement never reload.
 
 The Android host observes the application's GoRouter delegate and waits for

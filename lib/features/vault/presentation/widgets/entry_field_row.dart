@@ -182,7 +182,7 @@ class EntrySmallIconButton extends StatelessWidget {
 
   final IconData icon;
   final String tooltip;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final double size;
 
   @override

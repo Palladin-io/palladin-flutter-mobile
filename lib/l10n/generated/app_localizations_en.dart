@@ -5074,6 +5074,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autofillRequestEmpty => 'No matching saved logins.';
 
   @override
+  String get autofillRequestRefreshRequired => 'Refresh the list to continue.';
+
+  @override
+  String get autofillRequestRefresh => 'Refresh';
+
+  @override
   String get autofillRequestFailed =>
       'The login could not be filled safely. Try again or cancel.';
 

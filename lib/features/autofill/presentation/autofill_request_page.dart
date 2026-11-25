@@ -19,6 +19,8 @@ import '../data/autofill_request_controller.dart';
 import '../data/autofill_request_session.dart';
 import '../data/autofill_source_access_service.dart';
 
+enum _PickerFailure { operation, refreshRequired }
+
 class AutoFillRequestPage extends StatefulWidget {
   const AutoFillRequestPage({
     super.key,
@@ -54,7 +56,8 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
   int? _loadingGeneration;
   bool _automaticReloadAvailable = true, _reloadQueued = false;
   late int _selectionRevision;
-  bool _busy = false, _failed = false, _biometric = false, _closing = false;
+  bool _busy = false, _biometric = false, _closing = false;
+  _PickerFailure? _failure;
   @override
   void initState() {
     super.initState();
@@ -109,7 +112,9 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
         _busy = recover;
         // Sync before authorization has no selection; active reads get one
         // coalesced metadata recovery, never an unbounded preparation loop.
-        _failed = changed && widget.controller.isAuthorized && !recover;
+        _failure = changed && widget.controller.isAuthorized && !recover
+            ? _PickerFailure.refreshRequired
+            : null;
         _closing = ended;
       });
       if (ended) Navigator.of(context).maybePop();
@@ -142,7 +147,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _failed = false;
+      _failure = null;
     });
     try {
       if (kDebugMode) debugPrint('AUTOFILL_PICKER AUTH_START');
@@ -161,7 +166,9 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
             : error.runtimeType.toString();
         debugPrint('AUTOFILL_PICKER OPERATION_FAILED $kind');
       }
-      if (mounted && !_closing) setState(() => _failed = true);
+      if (mounted && !_closing) {
+        setState(() => _failure = _PickerFailure.operation);
+      }
     } finally {
       _password.clear();
       if (mounted && !_closing) setState(() => _busy = false);
@@ -178,7 +185,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
       _session = null;
       if (!retainRows) _candidates = const [];
       _busy = true;
-      _failed = false;
+      _failure = null;
     });
     try {
       final request = widget.controller.request!;
@@ -223,7 +230,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
       if (mounted && !_closing && generation == _viewGeneration) {
         setState(() {
           _candidates = const [];
-          _failed = true;
+          _failure = _PickerFailure.operation;
         });
       }
     } finally {
@@ -287,7 +294,7 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
     if (_busy || session == null || request == null) return;
     setState(() {
       _busy = true;
-      _failed = false;
+      _failure = null;
     });
     try {
       final guard = widget.controller.captureGuard();
@@ -327,7 +334,9 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
             : error.runtimeType.toString();
         debugPrint('AUTOFILL_PICKER OPERATION_FAILED $kind');
       }
-      if (mounted && !_closing) setState(() => _failed = true);
+      if (mounted && !_closing) {
+        setState(() => _failure = _PickerFailure.operation);
+      }
     } finally {
       if (mounted && !_closing) setState(() => _busy = false);
     }
@@ -365,8 +374,12 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
       leading: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_failed) ...[
-            Text(l10n.autofillRequestFailed),
+          if (_failure != null) ...[
+            Text(
+              _failure == _PickerFailure.refreshRequired
+                  ? l10n.autofillRequestRefreshRequired
+                  : l10n.autofillRequestFailed,
+            ),
             TextButton(
               onPressed: _busy || !widget.controller.isAuthorized
                   ? null
@@ -374,7 +387,11 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
                       _automaticReloadAvailable = true;
                       unawaited(_load());
                     },
-              child: Text(l10n.vaultRetry),
+              child: Text(
+                _failure == _PickerFailure.refreshRequired
+                    ? l10n.autofillRequestRefresh
+                    : l10n.vaultRetry,
+              ),
             ),
           ],
           if (!widget.controller.isAuthorized) ...[
@@ -432,7 +449,9 @@ class _AutoFillRequestPageState extends State<AutoFillRequestPage> {
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
             sliver: SliverToBoxAdapter(child: SkeletonBox(height: 80)),
           )
-        else if (widget.controller.isAuthorized && rows.isEmpty && !_failed)
+        else if (widget.controller.isAuthorized &&
+            rows.isEmpty &&
+            _failure == null)
           SliverFillRemaining(
             hasScrollBody: false,
             child: AppEmptyState(

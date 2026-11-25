@@ -184,40 +184,34 @@ class EntryListCard extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
                     if (interactive || selectionOnly)
-                      Visibility(
-                        visible: interactive,
-                        maintainSize: selectionOnly,
-                        maintainAnimation: selectionOnly,
-                        maintainState: selectionOnly,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!selectionOnly)
-                              EntrySmallIconButton(
-                                icon: isExpanded
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                tooltip: l10n.vaultRevealEntry,
-                                onPressed: onToggleReveal!,
-                              ),
-                            if (onShare != null) ...[
-                              const SizedBox(width: AppSpacing.chipGap),
-                              EntrySmallIconButton(
-                                icon: Icons.share_outlined,
-                                tooltip: l10n.sharingShareEntry,
-                                onPressed: onShare!,
-                              ),
-                            ],
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!selectionOnly)
+                            EntrySmallIconButton(
+                              icon: isExpanded
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              tooltip: l10n.vaultRevealEntry,
+                              onPressed: onToggleReveal!,
+                            ),
+                          if (onShare != null) ...[
                             const SizedBox(width: AppSpacing.chipGap),
                             EntrySmallIconButton(
-                              icon: selected
-                                  ? Icons.check_circle
-                                  : Icons.arrow_forward,
-                              tooltip: l10n.vaultViewEntry,
-                              onPressed: onEdit,
+                              icon: Icons.share_outlined,
+                              tooltip: l10n.sharingShareEntry,
+                              onPressed: onShare!,
                             ),
                           ],
-                        ),
+                          const SizedBox(width: AppSpacing.chipGap),
+                          EntrySmallIconButton(
+                            icon: selected
+                                ? Icons.check_circle
+                                : Icons.arrow_forward,
+                            tooltip: l10n.vaultViewEntry,
+                            onPressed: interactive ? onEdit : null,
+                          ),
+                        ],
                       ),
                   ],
                 ),

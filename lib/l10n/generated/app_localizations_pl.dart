@@ -5125,6 +5125,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get autofillRequestEmpty => 'Brak pasujących zapisanych loginów.';
 
   @override
+  String get autofillRequestRefreshRequired =>
+      'Odśwież listę, aby kontynuować.';
+
+  @override
+  String get autofillRequestRefresh => 'Odśwież';
+
+  @override
   String get autofillRequestFailed =>
       'Nie udało się bezpiecznie uzupełnić loginu. Spróbuj ponownie lub anuluj.';
 
