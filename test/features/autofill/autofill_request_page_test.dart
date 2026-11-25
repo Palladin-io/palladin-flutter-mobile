@@ -59,6 +59,7 @@ void main() {
       'en',
       if (invalidation == null ||
           invalidation == 'empty' ||
+          invalidation == 'sourceChanged' ||
           invalidation == 'manualWeb' ||
           invalidation == 'manualNative' ||
           invalidation == 'usernameOnly')
@@ -430,6 +431,16 @@ void main() {
             }
             refreshGate.complete();
             await tester.pumpAndSettle();
+            if (invalidation == 'refreshFailure') {
+              final l10n = AppLocalizations.of(
+                tester.element(find.byType(AutoFillRequestPage)),
+              )!;
+              expect(find.text(l10n.autofillRequestFailed), findsOneWidget);
+              expect(
+                find.text(l10n.autofillRequestRefreshRequired),
+                findsNothing,
+              );
+            }
             if (invalidation == 'refreshLegacyRetain') {
               expect(find.text('synthetic-user'), findsOneWidget);
               verify(
@@ -488,6 +499,28 @@ void main() {
               );
               await tester.pumpAndSettle();
               expect(reads, 2); // At most one automatic recovery per request.
+              final l10n = AppLocalizations.of(
+                tester.element(find.byType(AutoFillRequestPage)),
+              )!;
+              expect(find.text(l10n.autofillRequestFailed), findsNothing);
+              expect(
+                find.text(l10n.autofillRequestRefreshRequired),
+                findsOneWidget,
+              );
+              expect(find.byType(EntryListCard), findsNothing);
+              await tester.tap(find.text(l10n.autofillRequestRefresh));
+              await tester.pumpAndSettle();
+              expect(find.byType(EntryListCard), findsOneWidget);
+              expect(
+                find.text(l10n.autofillRequestRefreshRequired),
+                findsNothing,
+              );
+              expect(reads, 3);
+              expect(completed, isNull);
+              verifyZeroInteractions(entries);
+              await tester.pumpWidget(const SizedBox());
+              controller.dispose();
+              return;
             }
             expect(find.byType(EntryListCard), findsNothing);
             verifyZeroInteractions(entries);

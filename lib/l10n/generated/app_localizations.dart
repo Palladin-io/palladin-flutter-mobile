@@ -8960,6 +8960,18 @@ abstract class AppLocalizations {
   /// **'No matching saved logins.'**
   String get autofillRequestEmpty;
 
+  /// No description provided for @autofillRequestRefreshRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh the list to continue.'**
+  String get autofillRequestRefreshRequired;
+
+  /// No description provided for @autofillRequestRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get autofillRequestRefresh;
+
   /// No description provided for @autofillRequestFailed.
   ///
   /// In en, this message translates to:
