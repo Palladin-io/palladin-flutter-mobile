@@ -17,9 +17,9 @@
 - [x] Fetch origin/main and create isolated implementation worktree.
 - [x] Reconcile approved shared components and all resource/screens with main.
 - [x] Promote final auth background, shield grain and bundled Inter wordmark without query-based production variants.
-- [ ] Verify navigation, list/field geometry, light/dark and auth against reference at 390x844; test narrow/scaled layouts.
+- [x] Verify navigation, list/field geometry, light/dark and auth against reference at 390x844; test narrow/scaled layouts.
 - [x] Run local analysis, tests, notices, structural budgets and configuration/delivery checks; review final diff.
-- [ ] Update canonical docs and prepare reviewable commit/PR (CI approval gate applies).
+- [x] Update canonical docs and publish PR #169 after explicit CI authorization.
 
 ## Review focus
 - AutoFill disabled-row geometry and existing security boundaries.
@@ -35,7 +35,7 @@ Complete production component port, approved soft-b10 auth, and local Inbox user
 Fresh whole-branch review completed. Fixed findings: reactive Agent edit permission/lifecycle state, operation-specific save result, Entry/Agent footer safe-area ownership, and legacy detail/list bottom padding.
 Regression evidence: footer tests failed before inset fix; Agent editor test failed before reactive permission fix; focused editor suite passed 27 tests. Final full suite: 2659 passed, 2 skipped (native platform limitations), no failures. Analyze: no issues. Third-party notices check exit 0. Python tool checks: 23 passed. Gitleaks on clean current source tree: no leaks (build-cache binary matches excluded from source-tree scan). Preview web build passed.
 Browser verified 390x844 light unlock/home/Entries/details/TOTP/Sharing/Agents/Inbox and dark navigation/settings. Native iOS/Android device rendering remains a release QA limitation; do not claim device pixel parity from browser alone.
-No CI, deployment or merge triggered. Next gate: owner authorization to run mobile CI when publishing PR.
+PR #169 published; CI passed on 41f3681a. Codex round 1 found two valid in-scope lifecycle regressions: root settings editors outliving authorization/owner and audit completions after tab disposal. Both fixed with regression coverage. Analyze clean; 19 audit, 6 editor-lifetime, 6 settings-cubit and 10 settings-UI tests pass. Full rerun had 2668 passes and two outdated session fixtures, both corrected and covered by the passing focused UI rerun. Next: push corrections, answer/resolve both threads and run round 2 plus CI. No deployment or merge.
 
 Ruling: retained compact resource-by-actor audit headlines because owner explicitly approved them; event chips preserve event identity. No backend or cryptographic contract changes.
 Ruling: local validation uses PALLADIN_LIBSODIUM_PATH on macOS; initial missing-library failures were environment setup, not waived test failures.

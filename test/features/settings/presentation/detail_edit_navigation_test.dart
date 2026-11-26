@@ -1,3 +1,7 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
+import '../../../../design/mobile/bootstrap.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,10 +13,19 @@ import 'package:mobile_palladin/features/settings/presentation/pages/permission_
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import '../../../../design/mobile/settings_adapters.dart';
 
+class _Auth extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+
 void main() {
   testWidgets(
     'role opens read-only; cancel discards draft and save returns to details',
     (tester) async {
+      final auth = _Auth();
+      whenListen(
+        auth,
+        const Stream<AuthState>.empty(),
+        initialState: demoSession(),
+      );
+      addTearDown(auth.close);
       final repository = MemorySettingsRepository();
       getIt.registerFactory<PermissionsCubit>(
         () => PermissionsCubit(repository: repository),
@@ -23,20 +36,23 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: AppShellScope(
-            openSettingsDrawer: () {},
-            setBottomNavHidden: (_) {},
-            setFab: (_, _) {},
-            clearFab: (_) {},
-            child: Scaffold(
-              bottomNavigationBar: const Text('shell navigation'),
-              body: Navigator(
-                onGenerateRoute: (_) => MaterialPageRoute(
-                  builder: (_) =>
-                      const PermissionRolePage(roleId: 'role-engineer'),
+        BlocProvider<AuthBloc>.value(
+          value: auth,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: AppShellScope(
+              openSettingsDrawer: () {},
+              setBottomNavHidden: (_) {},
+              setFab: (_, _) {},
+              clearFab: (_) {},
+              child: Scaffold(
+                bottomNavigationBar: const Text('shell navigation'),
+                body: Navigator(
+                  onGenerateRoute: (_) => MaterialPageRoute(
+                    builder: (_) =>
+                        const PermissionRolePage(roleId: 'role-engineer'),
+                  ),
                 ),
               ),
             ),

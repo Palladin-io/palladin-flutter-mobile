@@ -125,3 +125,7 @@ See `docs/design/mobile-ui-alignment.md` (Current approved UI contract). Resourc
 lists reuse AppRecordList/AppRecordRow; metadata uses read-only details and root
 Edit routes with one pinned AppActionFooter. Member edit contains role selection
 only; email and joined metadata stay in read-only Details. Preserve permission guards.
+
+Root role, member and invitation editors use `pushSettingsEditor`: losing the
+required permission, locking/signing out or closing the owning Cubit removes
+the exact editor route. In-flight settings work ignores results after disposal.

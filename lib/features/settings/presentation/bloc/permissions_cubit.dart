@@ -14,11 +14,13 @@ class PermissionsCubit extends Cubit<PermissionsState> {
   final SettingsRepository repository;
 
   Future<void> load({bool showLoading = true}) async {
+    if (isClosed) return;
     if (showLoading) {
       emit(state.copyWith(status: PermissionsStatus.loading, clearError: true));
     }
     try {
       final result = await repository.listOrganizationRoles();
+      if (isClosed) return;
       emit(
         state.copyWith(
           status: PermissionsStatus.loaded,
@@ -28,8 +30,10 @@ class PermissionsCubit extends Cubit<PermissionsState> {
         ),
       );
     } on SettingsException catch (error) {
+      if (isClosed) return;
       emit(state.copyWith(status: PermissionsStatus.error, error: error.kind));
     } catch (error, stackTrace) {
+      if (isClosed) return;
       AppLogger.e(
         'Permissions',
         'Role load failed unexpectedly',
@@ -72,6 +76,7 @@ class PermissionsCubit extends Cubit<PermissionsState> {
     PermissionsAction action,
     Future<Object?> Function() call,
   ) async {
+    if (isClosed) return;
     emit(
       state.copyWith(
         busyAction: action,
@@ -81,11 +86,15 @@ class PermissionsCubit extends Cubit<PermissionsState> {
     );
     try {
       await call();
+      if (isClosed) return;
       await load(showLoading: false);
+      if (isClosed) return;
       emit(state.copyWith(clearBusyAction: true, completedAction: action));
     } on SettingsException catch (error) {
+      if (isClosed) return;
       emit(state.copyWith(clearBusyAction: true, actionError: error.kind));
     } catch (error, stackTrace) {
+      if (isClosed) return;
       AppLogger.e(
         'Permissions',
         '${action.name} failed unexpectedly',
@@ -102,6 +111,7 @@ class PermissionsCubit extends Cubit<PermissionsState> {
   }
 
   void acknowledgeActionResult() {
+    if (isClosed) return;
     emit(state.copyWith(clearActionError: true, clearCompletedAction: true));
   }
 }

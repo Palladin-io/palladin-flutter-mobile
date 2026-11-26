@@ -467,6 +467,7 @@ void main() {
       const AuthAuthenticated(
         userId: 'user-1',
         isOnboarded: true,
+        isVaultLocked: false,
         permissions: Permissions.addUser,
       ),
     );

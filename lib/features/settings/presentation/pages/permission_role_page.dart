@@ -1,3 +1,5 @@
+import '../../../../core/permissions.dart';
+import '../widgets/push_settings_editor.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../vault/presentation/widgets/entry_field_row.dart';
 import '../../../../core/widgets/action_zone.dart';
@@ -53,12 +55,13 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
   Future<void> _edit() async {
     final cubit = context.read<PermissionsCubit>();
     _editorOpen = true;
-    await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: cubit,
-          child: _PermissionRoleView(roleId: widget.roleId, editing: true),
-        ),
+    await pushSettingsEditor(
+      context: context,
+      permission: Permissions.organizationManagement,
+      owner: cubit,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _PermissionRoleView(roleId: widget.roleId, editing: true),
       ),
     );
     if (mounted) setState(() => _editorOpen = false);

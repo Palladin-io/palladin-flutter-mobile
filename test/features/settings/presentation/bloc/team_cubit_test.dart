@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -16,6 +17,22 @@ void main() {
     when(
       () => repository.listOrganizationMembers(),
     ).thenAnswer((_) async => [_member]);
+  });
+
+  test('pending mutation stops when its editor owner closes', () async {
+    final response = Completer<void>();
+    when(
+      () => repository.inviteOrganizationMember(any(), any()),
+    ).thenAnswer((_) => response.future);
+    final cubit = TeamCubit(repository: repository);
+    final action = cubit.invite(
+      email: 'test@example.test',
+      roleId: 'role-user',
+    );
+    await cubit.close();
+    response.complete();
+    await expectLater(action, completes);
+    verifyNever(() => repository.listOrganizationMembers());
   });
 
   blocTest<TeamCubit, TeamState>(

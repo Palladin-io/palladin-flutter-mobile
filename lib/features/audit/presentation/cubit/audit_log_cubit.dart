@@ -47,12 +47,21 @@ class AuditLogCubit extends Cubit<AuditLogState> {
   int _loadGeneration = 0;
 
   Future<void> load() async {
+    if (isClosed) return;
     final generation = ++_loadGeneration;
-    emit(state.copyWith(status: AuditLogStatus.loading, clearError: true));
+    emit(
+      state.copyWith(
+        status: AuditLogStatus.loading,
+        clearError: true,
+        loadingMore: false,
+      ),
+    );
     _seenCursors.clear();
     try {
       final page = await _fetch();
+      if (isClosed || generation != _loadGeneration) return;
       final names = await _resolveNames(page.entries);
+      if (isClosed || generation != _loadGeneration) return;
       final accepted = page.entries
           .take(maximumLoadedEntries)
           .toList(growable: false);
@@ -74,9 +83,11 @@ class AuditLogCubit extends Cubit<AuditLogState> {
       );
       await _refreshEntryNamesAfterSync(generation);
     } on AuditException catch (e) {
+      if (isClosed || generation != _loadGeneration) return;
       AppLogger.w('Audit', 'Audit log load failed: ${e.kind.name}');
       emit(state.copyWith(status: AuditLogStatus.error, error: e.kind));
     } catch (e, s) {
+      if (isClosed || generation != _loadGeneration) return;
       AppLogger.e(
         'Audit',
         'Audit log load failed unexpectedly',
@@ -130,11 +141,13 @@ class AuditLogCubit extends Cubit<AuditLogState> {
   }
 
   Future<void> loadMore() async {
-    if (state.loadingMore ||
+    if (isClosed ||
+        state.loadingMore ||
         state.nextCursor == null ||
         state.entries.length >= maximumLoadedEntries) {
       return;
     }
+    final generation = _loadGeneration;
     emit(state.copyWith(loadingMore: true, loadMoreError: false));
     try {
       final requestedCursor = state.nextCursor!;
@@ -143,7 +156,9 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         return;
       }
       final page = await _fetch(cursor: requestedCursor);
+      if (isClosed || generation != _loadGeneration) return;
       final names = await _resolveNames(page.entries);
+      if (isClosed || generation != _loadGeneration) return;
       final mergedNames = _mergeNames(_namesFromState(), names);
       final remaining = maximumLoadedEntries - state.entries.length;
       final existingIds = state.entries.map((entry) => entry.id).toSet();
@@ -175,6 +190,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         ),
       );
     } catch (e, s) {
+      if (isClosed || generation != _loadGeneration) return;
       AppLogger.e(
         'Audit',
         'Audit log loadMore failed',

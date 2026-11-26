@@ -69,3 +69,7 @@ the approver. Rows show one line, and tapping opens SheetSurface with the full
 localized sentence, exact date and metadata. Chip expansion remains independent.
 
 Agent Details uses AuditLogContent/AuditLogList with an immutable server-side agentId scope on AuditLogCubit, retained for pagination. It requires AuditView and replaces the separate lifecycle-date timeline. The offline preview uses the same feed with its local audit adapter.
+
+AuditLogCubit fences fetch, name resolution and pagination completions by its
+load generation and closed state, so leaving Agent Logs cannot publish stale
+results or emit into a disposed tab.

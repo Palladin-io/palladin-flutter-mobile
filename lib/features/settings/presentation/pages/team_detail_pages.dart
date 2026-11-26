@@ -1,3 +1,4 @@
+import '../widgets/push_settings_editor.dart';
 import '../../../../core/widgets/card_action_footer.dart';
 import '../../../vault/presentation/widgets/entry_field_row.dart';
 import '../../../../core/widgets/app_fab.dart';
@@ -69,15 +70,16 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
   Future<void> _edit() async {
     final cubit = context.read<TeamCubit>();
     _editorOpen = true;
-    await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: cubit,
-          child: _TeamMemberView(
-            userId: widget.userId,
-            callerPermissions: widget.callerPermissions,
-            editing: true,
-          ),
+    await pushSettingsEditor(
+      context: context,
+      permission: Permissions.organizationManagement,
+      owner: cubit,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _TeamMemberView(
+          userId: widget.userId,
+          callerPermissions: widget.callerPermissions,
+          editing: true,
         ),
       ),
     );
@@ -416,14 +418,15 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
   Future<void> _edit() async {
     final cubit = context.read<TeamCubit>();
     _editorOpen = true;
-    await Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: cubit,
-          child: _TeamInvitationView(
-            invitationId: widget.invitationId,
-            editing: true,
-          ),
+    await pushSettingsEditor(
+      context: context,
+      permission: Permissions.addUser,
+      owner: cubit,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _TeamInvitationView(
+          invitationId: widget.invitationId,
+          editing: true,
         ),
       ),
     );
