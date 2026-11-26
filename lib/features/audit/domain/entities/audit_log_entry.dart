@@ -203,6 +203,7 @@ class AuditLogEntry {
     this.vaultId,
     this.entryId,
     this.entryLabel,
+    this.entryCurrentLogin,
     this.agentReason,
     this.resolvedObjectName,
     this.resolvedVaultName,
@@ -251,6 +252,10 @@ class AuditLogEntry {
 
   /// Human-readable entry label, denormalized server-side at write time.
   final String? entryLabel;
+
+  /// Current login of [entryId] from the unlocked member index. It is not
+  /// proof of the login used when the event happened, so it is labelled as current.
+  final String? entryCurrentLogin;
 
   /// Free-text reason the agent supplied when requesting access.
   final String? agentReason;

@@ -422,6 +422,78 @@ void main() {
       },
     );
 
+    test(
+      'distinguishes same-name Entries by the current login bound to entryId',
+      () async {
+        const vaultId = '11111111-1111-1111-1111-111111111111';
+        when(() => agents.listAgents()).thenAnswer((_) async => const []);
+        vaults.current = VaultListLoaded([_vault(vaultId, 'Team')]);
+        when(() => memberIndex.entries(vaultId)).thenReturn(const [
+          MemberIndexEntry(
+            entryId: 'x-1',
+            entryType: 1,
+            memberLabel: 'X',
+            searchFields: [],
+            revision: 'r',
+            state: MemberEntryState.active,
+            username: 'synthetic.one',
+          ),
+          MemberIndexEntry(
+            entryId: 'x-2',
+            entryType: 1,
+            memberLabel: 'X',
+            searchFields: [],
+            revision: 'r',
+            state: MemberEntryState.active,
+            username: 'synthetic.two',
+          ),
+        ]);
+        AuditLogEntry access(String id, String entryId) => AuditLogEntry(
+          id: id,
+          eventType: AuditEventType.credentialAccessed,
+          rawEventType: 'credential.accessed',
+          actorType: AuditActorType.agent,
+          createdAt: DateTime(2026),
+          vaultId: vaultId,
+          entryId: entryId,
+        );
+        when(
+          () => audit.listOrgLogs(
+            actions: any(named: 'actions'),
+            vaultId: any(named: 'vaultId'),
+            agentId: any(named: 'agentId'),
+            userId: any(named: 'userId'),
+            entryId: any(named: 'entryId'),
+            from: any(named: 'from'),
+            to: any(named: 'to'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
+          (_) async => AuditLogPage(
+            entries: [
+              access('log-1', 'x-1'),
+              access('log-2', 'x-2'),
+              access('log-3', 'x-deleted'),
+            ],
+          ),
+        );
+
+        final cubit = orgCubit();
+        await cubit.load();
+        final logins = {
+          for (final row in cubit.state.entries)
+            row.entryId: row.entryCurrentLogin,
+        };
+        expect(logins, {
+          'x-1': 'synthetic.one',
+          'x-2': 'synthetic.two',
+          'x-deleted': null,
+        });
+        await cubit.close();
+      },
+    );
+
     test('does not resolve or query a vault outside the local scope', () async {
       const foreignVault = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
       when(() => agents.listAgents()).thenAnswer((_) async => []);

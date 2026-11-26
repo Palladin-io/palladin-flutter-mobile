@@ -171,6 +171,8 @@ class _ExpandedDetail extends StatelessWidget {
         (l10n.auditDetailVault, entry.resolvedVaultName!),
       if (entry.entryLabel != null && entry.entryLabel!.isNotEmpty)
         (l10n.auditDetailEntry, entry.entryLabel!),
+      if (entry.entryCurrentLogin != null)
+        (l10n.auditDetailCurrentLogin, entry.entryCurrentLogin!),
       if (entry.agentReason != null && entry.agentReason!.isNotEmpty)
         (l10n.auditDetailReason, entry.agentReason!),
       ...entry.metadata.entries

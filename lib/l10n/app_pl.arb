@@ -1018,6 +1018,7 @@
   "auditFilterReset": "Wyczyść",
   "auditFilterApply": "Zastosuj",
   "auditDetailEntry": "Wpis",
+  "auditDetailCurrentLogin": "Obecny login",
   "auditDetailVault": "Sejf",
   "auditDetailReason": "Powód",
   "auditDetailNone": "Brak dodatkowych szczegółów.",

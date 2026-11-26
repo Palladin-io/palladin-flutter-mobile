@@ -5678,6 +5678,12 @@ abstract class AppLocalizations {
   /// **'Entry'**
   String get auditDetailEntry;
 
+  /// No description provided for @auditDetailCurrentLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Current login'**
+  String get auditDetailCurrentLogin;
+
   /// No description provided for @auditDetailVault.
   ///
   /// In en, this message translates to:

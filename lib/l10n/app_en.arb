@@ -2950,6 +2950,7 @@
   "auditFilterReset": "Reset",
   "auditFilterApply": "Apply",
   "auditDetailEntry": "Entry",
+  "auditDetailCurrentLogin": "Current login",
   "auditDetailVault": "Vault",
   "auditDetailReason": "Reason",
   "auditDetailNone": "No additional details.",
