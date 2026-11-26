@@ -31,7 +31,10 @@ actual backend/device acceptance remains pending.
   and actor presentation resolves from unlocked local MemberIndex/Vault/Agent
   state with `prefix…suffix` fallbacks. Legacy backend names, reasons, and
   metadata are discarded before rows reach presentation; local search never
-  becomes an API query and never indexes Entry secret content.
+  becomes an API query and never indexes Entry secret content. Org and Vault
+  rows also expose the Entry's current MemberIndex login (memory only) in the
+  expanded detail as "Current login": the local index has no timestamp, so it
+  is never presented as the login used when the event happened.
 - **Global Audit Log:** resolves only identifiers present in each
   fetched page through the current organization’s Agent/Vault directories and
   each accessible Vault’s local MemberIndex/Member directory. Resolution maps

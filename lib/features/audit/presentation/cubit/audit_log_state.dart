@@ -26,6 +26,7 @@ class AuditLogState {
     this.agentNames = const {},
     this.vaultNames = const {},
     this.entryNames = const {},
+    this.entryLogins = const {},
     this.memberNames = const {},
     this.error,
     this.nextCursor,
@@ -52,6 +53,9 @@ class AuditLogState {
   /// Resolved vault id → name (org scope) for the dropdown and search.
   final Map<String, String> vaultNames;
   final Map<String, String> entryNames;
+
+  /// Current Entry logins from the unlocked member index, memory only.
+  final Map<String, String> entryLogins;
   final Map<String, String> memberNames;
 
   final AuditErrorKind? error;
@@ -218,6 +222,7 @@ class AuditLogState {
     Map<String, String>? agentNames,
     Map<String, String>? vaultNames,
     Map<String, String>? entryNames,
+    Map<String, String>? entryLogins,
     Map<String, String>? memberNames,
     AuditErrorKind? error,
     bool clearError = false,
@@ -242,6 +247,7 @@ class AuditLogState {
       agentNames: agentNames ?? this.agentNames,
       vaultNames: vaultNames ?? this.vaultNames,
       entryNames: entryNames ?? this.entryNames,
+      entryLogins: entryLogins ?? this.entryLogins,
       memberNames: memberNames ?? this.memberNames,
       error: clearError ? null : (error ?? this.error),
       nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),

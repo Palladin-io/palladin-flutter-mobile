@@ -12,12 +12,14 @@ final class AuditPresentationNames {
     this.agents = const {},
     this.vaults = const {},
     this.entries = const {},
+    this.entryLogins = const {},
     this.members = const {},
   });
 
   final Map<String, String> agents;
   final Map<String, String> vaults;
   final Map<String, String> entries;
+  final Map<String, String> entryLogins;
   final Map<String, String> members;
 
   AuditPresentationNames merge(AuditPresentationNames other) =>
@@ -25,6 +27,7 @@ final class AuditPresentationNames {
         agents: {...agents, ...other.agents},
         vaults: {...vaults, ...other.vaults},
         entries: {...entries, ...other.entries},
+        entryLogins: {...entryLogins, ...other.entryLogins},
         members: {...members, ...other.members},
       );
 }
@@ -94,6 +97,7 @@ final class LocalAuditPresentationResolver
       vaults.entries.where((entry) => allowedVaultIds.contains(entry.key)),
     );
     final entries = <String, String>{};
+    final entryLogins = <String, String>{};
     final members = <String, String>{};
     for (final vaultId in allowedVaultIds) {
       final requestedEntryIds = page
@@ -102,7 +106,9 @@ final class LocalAuditPresentationResolver
           .whereType<String>()
           .toSet();
       if (requestedEntryIds.isNotEmpty) {
-        entries.addAll(await _resolveEntryNames(vaultId, requestedEntryIds));
+        final resolved = await _resolveEntries(vaultId, requestedEntryIds);
+        entries.addAll(resolved.names);
+        entryLogins.addAll(resolved.logins);
       }
       final requestedMemberIds = page
           .where((entry) => entry.vaultId == vaultId)
@@ -129,6 +135,7 @@ final class LocalAuditPresentationResolver
       agents: scopedAgents,
       vaults: scopedVaults,
       entries: entries,
+      entryLogins: entryLogins,
       members: members,
     );
   }
@@ -144,8 +151,10 @@ final class LocalAuditPresentationResolver
         .whereType<String>()
         .toSet();
     if (requestedEntryIds.isEmpty) return const AuditPresentationNames();
+    final resolved = await _resolveEntries(scopedVaultId, requestedEntryIds);
     return AuditPresentationNames(
-      entries: await _resolveEntryNames(scopedVaultId, requestedEntryIds),
+      entries: resolved.names,
+      entryLogins: resolved.logins,
     );
   }
 
@@ -182,6 +191,9 @@ final class LocalAuditPresentationResolver
           vaultId: entry.vaultId,
           entryId: entry.entryId,
           entryLabel: entryName,
+          entryCurrentLogin: entry.entryId == null
+              ? null
+              : names.entryLogins[entry.entryId],
           // A Vault name must never masquerade as an unresolved Entry label.
           resolvedObjectName: entry.entryId == null ? vaultName : entryName,
           resolvedVaultName: vaultName,
@@ -219,20 +231,27 @@ final class LocalAuditPresentationResolver
     }
   }
 
-  Future<Map<String, String>> _resolveEntryNames(
-    String vaultId,
-    Set<String> requestedEntryIds,
-  ) async {
+  Future<({Map<String, String> names, Map<String, String> logins})>
+  _resolveEntries(String vaultId, Set<String> requestedEntryIds) async {
     try {
       await _memberIndex.waitForCurrent(vaultId);
-      return {
-        for (final entry in _memberIndex.entries(vaultId))
-          if (!entry.corrupt && requestedEntryIds.contains(entry.entryId))
-            entry.entryId: entry.memberLabel,
-      };
+      final names = <String, String>{};
+      final logins = <String, String>{};
+      for (final entry in _memberIndex.entries(vaultId)) {
+        if (entry.corrupt || !requestedEntryIds.contains(entry.entryId)) {
+          continue;
+        }
+        names[entry.entryId] = entry.memberLabel;
+        final login = entry.username?.trim();
+        if (login != null && login.isNotEmpty) logins[entry.entryId] = login;
+      }
+      return (names: names, logins: logins);
     } catch (_) {
       AppLogger.w('Audit', 'Local entry-name resolution failed');
-      return const {};
+      return (
+        names: const <String, String>{},
+        logins: const <String, String>{},
+      );
     }
   }
 

@@ -62,6 +62,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
           agentNames: scopedNames.agents,
           vaultNames: scopedNames.vaults,
           entryNames: scopedNames.entries,
+          entryLogins: scopedNames.entryLogins,
           memberNames: scopedNames.members,
           nextCursor: reachedLimit ? null : page.nextCursor,
           clearNextCursor: reachedLimit || page.nextCursor == null,
@@ -118,6 +119,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         agentNames: retained.agents,
         vaultNames: retained.vaults,
         entryNames: retained.entries,
+        entryLogins: retained.entryLogins,
         memberNames: retained.members,
       ),
     );
@@ -160,6 +162,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
           agentNames: retainedNames.agents,
           vaultNames: retainedNames.vaults,
           entryNames: retainedNames.entries,
+          entryLogins: retainedNames.entryLogins,
           memberNames: retainedNames.members,
           nextCursor: reachedLimit || repeatedCursor ? null : page.nextCursor,
           clearNextCursor:
@@ -222,6 +225,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
     agents: state.agentNames,
     vaults: state.vaultNames,
     entries: state.entryNames,
+    entryLogins: state.entryLogins,
     members: state.memberNames,
   );
 
@@ -259,6 +263,11 @@ class AuditLogCubit extends Cubit<AuditLogState> {
       ),
       entries: Map.fromEntries(
         names.entries.entries.where((entry) => entryIds.contains(entry.key)),
+      ),
+      entryLogins: Map.fromEntries(
+        names.entryLogins.entries.where(
+          (entry) => entryIds.contains(entry.key),
+        ),
       ),
       members: Map.fromEntries(
         names.members.entries.where((entry) => memberIds.contains(entry.key)),

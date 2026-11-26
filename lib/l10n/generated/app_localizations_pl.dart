@@ -3196,6 +3196,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditDetailEntry => 'Wpis';
 
   @override
+  String get auditDetailCurrentLogin => 'Obecny login';
+
+  @override
   String get auditDetailVault => 'Sejf';
 
   @override
