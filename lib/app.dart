@@ -10,7 +10,7 @@ import 'features/shell/presentation/cubit/library_view_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'core/theme/app_theme.dart';
 import 'l10n/generated/app_localizations.dart';
 
 import 'config/env_config.dart';
@@ -20,7 +20,6 @@ import 'core/l10n/locale_cubit.dart';
 import 'core/identity/organization_member_directory_service.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/user_preferences.dart';
-import 'core/theme/app_colors.dart';
 import 'core/utils/app_logger.dart';
 import 'core/theme/theme_cubit.dart';
 import 'core/widgets/privacy_cover.dart';
@@ -690,8 +689,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             return MaterialApp.router(
               title: widget.config.appName,
               debugShowCheckedModeBanner: false,
-              theme: _buildLightTheme(),
-              darkTheme: _buildDarkTheme(),
+              theme: AppTheme.light(),
+              darkTheme: AppTheme.dark(),
               themeMode: themeMode,
               locale: locale,
               routerConfig: _router,
@@ -967,98 +966,4 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   static const _sessionLossAutoFillAttempts = 3;
   static const _sessionLossAutoFillOperationTimeout = Duration(seconds: 5);
 
-  /// Light theme — warm cream background, navy text.
-  ThemeData _buildLightTheme() {
-    return ThemeData(
-      brightness: Brightness.light,
-      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
-      scaffoldBackgroundColor: AppColors.lightBackground,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.brandRed,
-        error: AppColors.brandRed,
-        surface: AppColors.lightSurface,
-        onSurface: AppColors.darkBackground,
-        onPrimary: AppColors.onBrandRed,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.lightSurface,
-        foregroundColor: AppColors.darkBackground,
-        elevation: 0,
-      ),
-      datePickerTheme: _datePickerTheme(Brightness.light),
-      snackBarTheme: const SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  /// Dark theme — deep navy background, cream text.
-  ThemeData _buildDarkTheme() {
-    return ThemeData(
-      brightness: Brightness.dark,
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-      scaffoldBackgroundColor: AppColors.darkBackground,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.brandRed,
-        error: AppColors.brandRed,
-        surface: AppColors.darkSurface,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.darkSurface,
-        foregroundColor: AppColors.onBrandRed,
-        elevation: 0,
-      ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.brandRed,
-      ),
-      datePickerTheme: _datePickerTheme(Brightness.dark),
-      snackBarTheme: const SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  /// Shared calendar-popup theme for [showDatePicker] (audit From/To filters,
-  /// and any future date picker) so the dialog follows the app's light/dark
-  /// surface with the brand-red accent — never Material's bare defaults.
-  /// Colors come exclusively from [AppColors].
-  DatePickerThemeData _datePickerTheme(Brightness brightness) {
-    final isDark = brightness == Brightness.dark;
-    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final onSurface = isDark ? AppColors.onBrandRed : AppColors.darkBackground;
-    final subtle = AppColors.textTertiary;
-
-    Color? selectedBg(Set<WidgetState> states) =>
-        states.contains(WidgetState.selected) ? AppColors.brandRed : null;
-    Color selectedFg(Set<WidgetState> states, Color unselected) =>
-        states.contains(WidgetState.selected)
-        ? AppColors.onBrandRed
-        : unselected;
-
-    return DatePickerThemeData(
-      backgroundColor: surface,
-      // Match the tint to the surface so M3 elevation tint can't shift it.
-      surfaceTintColor: surface,
-      headerBackgroundColor: AppColors.brandRed,
-      headerForegroundColor: AppColors.onBrandRed,
-      weekdayStyle: TextStyle(color: subtle),
-      dayForegroundColor: WidgetStateProperty.resolveWith(
-        (states) => selectedFg(states, onSurface),
-      ),
-      dayBackgroundColor: WidgetStateProperty.resolveWith(selectedBg),
-      todayForegroundColor: WidgetStateProperty.resolveWith(
-        (states) => selectedFg(states, AppColors.brandRed),
-      ),
-      todayBackgroundColor: WidgetStateProperty.resolveWith(selectedBg),
-      todayBorder: const BorderSide(color: AppColors.brandRed),
-      yearForegroundColor: WidgetStateProperty.resolveWith(
-        (states) => selectedFg(states, onSurface),
-      ),
-      yearBackgroundColor: WidgetStateProperty.resolveWith(selectedBg),
-      cancelButtonStyle: TextButton.styleFrom(foregroundColor: subtle),
-      confirmButtonStyle: TextButton.styleFrom(
-        foregroundColor: AppColors.brandRed,
-      ),
-    );
-  }
 }

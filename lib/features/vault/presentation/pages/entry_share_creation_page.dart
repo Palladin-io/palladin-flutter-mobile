@@ -85,13 +85,19 @@ class _EntryShareCreationPageState extends State<EntryShareCreationPage>
       _initialUserId = initial.userId;
       _initialKey = initial.privateKey;
     }
-    _cubit = EntryShareCreationCubit(
-      remote: getIt<EntrySharingRemoteDatasource>(),
-      crypto: getIt<EntryShareCryptoService>(),
-      expected: widget.entry,
-      sessionReader: _session,
-      sourceReader: _source,
-    );
+    _cubit = getIt.isRegistered<EntryShareCreationCubitFactory>()
+        ? getIt<EntryShareCreationCubitFactory>()(
+            expected: widget.entry,
+            sessionReader: _session,
+            sourceReader: _source,
+          )
+        : EntryShareCreationCubit(
+            remote: getIt<EntrySharingRemoteDatasource>(),
+            crypto: getIt<EntryShareCryptoService>(),
+            expected: widget.entry,
+            sessionReader: _session,
+            sourceReader: _source,
+          );
     try {
       _links = EntryShareLinkService(getIt<EnvConfig>());
     } on EntryShareException {

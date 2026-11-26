@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dio/dio.dart';
@@ -478,6 +479,20 @@ void main() {
       expect(find.text('Stripe'), findsOneWidget);
     }
 
+    testWidgets('mouse click inside search results keeps the action mounted', (
+      tester,
+    ) async {
+      await pumpWithEntryHit(tester);
+      await tester.pumpAndSettle();
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.down(tester.getCenter(find.byIcon(Icons.visibility)));
+      await tester.pump();
+      expect(find.text('Stripe'), findsOneWidget);
+      await mouse.up();
+      await tester.pumpAndSettle();
+      expect(find.text('s3cr3t'), findsOneWidget);
+    });
+
     testWidgets(
       "tapping an entry hit's copy action decrypts + copies the secret "
       'without navigating',
@@ -540,7 +555,7 @@ void main() {
       // unchanged — the name + vault-name subtitle are both still present.
       expect(find.text('s3cr3t'), findsOneWidget);
       expect(find.text('Stripe'), findsOneWidget);
-      expect(find.text('Personal'), findsOneWidget);
+      expect(find.text('Entry · Personal'), findsOneWidget);
       expect(find.byIcon(Icons.visibility_off), findsOneWidget);
       verify(
         () => entryRepository.revealEntry(
@@ -555,7 +570,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.visibility_off));
       await tester.pumpAndSettle();
       expect(find.text('s3cr3t'), findsNothing);
-      expect(find.text('Personal'), findsOneWidget);
+      expect(find.text('Entry · Personal'), findsOneWidget);
     });
 
     testWidgets('credit-card hits omit unsupported reveal and copy actions', (

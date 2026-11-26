@@ -9,7 +9,7 @@ import '../../data/services/totp_service.dart';
 import '../../domain/entities/totp_config.dart';
 import 'entry_field_row.dart';
 
-/// Live TOTP code with a countdown ring and copy action.
+/// Live TOTP code using the same typography and copy action as other fields.
 ///
 /// Recomputes once a second from [config] via a stateless [TotpService].
 /// The secret never leaves memory — only the ephemeral 6/8-digit code is
@@ -20,9 +20,18 @@ class TotpDisplay extends StatefulWidget {
     required this.config,
     required this.onCopy,
     this.compact = false,
+    this.label,
   });
 
   final TotpConfig config;
+  final String? label;
+
+  TotpDisplay labeled(String text) => TotpDisplay(
+    config: config,
+    onCopy: onCopy,
+    compact: compact,
+    label: text,
+  );
 
   /// Copies the current code — receives the raw (ungrouped) digits.
   final ValueChanged<String> onCopy;
@@ -96,36 +105,34 @@ class _TotpDisplayState extends State<TotpDisplay> {
     final code = _code;
     if (code == null) return const SizedBox.shrink();
 
-    final fontSize = widget.compact ? 13.0 : 16.0;
+    final field = EntryFieldRow(
+      icon: Icons.key_outlined,
+      value: _grouped(code.code),
+      isMasked: false,
+      revealed: true,
+      onToggleReveal: null,
+      onCopy: () => widget.onCopy(code.code),
+      valueFontSize: 14,
+      actionIconSize: 18,
+      beforeActions: _Countdown(code: code),
+    );
+    if (widget.label != null) return field.labeled(widget.label!);
     return Row(
       children: [
-        Icon(
-          Icons.timer_outlined,
-          size: 12,
-          color: AppColors.onSurfaceSubtle(brightness),
-        ),
-        const SizedBox(width: AppSpacing.innerGap),
         Expanded(
           child: Text(
             _grouped(code.code),
             style: TextStyle(
               color: AppColors.onSurface(brightness),
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
-              letterSpacing: 2,
+              fontSize: 14,
             ),
           ),
         ),
-        _CountdownRing(
-          fraction: code.secondsRemaining / code.period,
-          secondsRemaining: code.secondsRemaining,
-          brightness: brightness,
-        ),
-        const SizedBox(width: AppSpacing.sm),
+        _Countdown(code: code),
+        const SizedBox(width: AppSpacing.xs),
         EntrySmallIconButton(
           icon: Icons.content_copy,
-          size: widget.compact ? 12 : 14,
+          size: 18,
           tooltip: l10n.vaultCopyValue,
           onPressed: () => widget.onCopy(code.code),
         ),
@@ -134,49 +141,34 @@ class _TotpDisplayState extends State<TotpDisplay> {
   }
 }
 
-/// Small ring that depletes over the current time-step, with the seconds
-/// remaining in the centre.
-class _CountdownRing extends StatelessWidget {
-  const _CountdownRing({
-    required this.fraction,
-    required this.secondsRemaining,
-    required this.brightness,
-  });
+class _Countdown extends StatelessWidget {
+  const _Countdown({required this.code});
 
-  final double fraction;
-  final int secondsRemaining;
-  final Brightness brightness;
+  final TotpCode code;
 
   @override
   Widget build(BuildContext context) {
-    // Turn red in the final stretch to hint the code is about to roll.
-    final color = secondsRemaining <= 5
-        ? AppColors.brandRed
-        : AppColors.positiveAccent;
-    return SizedBox(
-      width: 22,
-      height: 22,
+    final brightness = Theme.of(context).brightness;
+    return SizedBox.square(
+      dimension: 24,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          SizedBox(
-            width: 22,
-            height: 22,
+          Positioned.fill(
             child: CircularProgressIndicator(
-              value: fraction.clamp(0.0, 1.0),
+              value: 1 - code.elapsedFraction,
               strokeWidth: 2,
-              backgroundColor: AppColors.onSurface(
-                brightness,
-              ).withValues(alpha: 0.12),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+              backgroundColor: AppColors.cardBorder(brightness),
+              color: code.secondsRemaining <= 5
+                  ? AppColors.brandRed
+                  : AppColors.positiveAccent,
             ),
           ),
           Text(
-            '$secondsRemaining',
+            '${code.secondsRemaining}',
             style: TextStyle(
+              fontSize: 10,
               color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],

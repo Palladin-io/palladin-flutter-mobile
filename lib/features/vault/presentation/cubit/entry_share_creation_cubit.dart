@@ -52,6 +52,13 @@ final class EntryShareCreationState {
   final List<CreatedEntryShareLink> links;
 }
 
+typedef EntryShareCreationCubitFactory =
+    EntryShareCreationCubit Function({
+      required EntryEntity expected,
+      required Future<EntrySharingSession?> Function() sessionReader,
+      required Future<CanonicalEntrySnapshot> Function() sourceReader,
+    });
+
 class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
   EntryShareCreationCubit({
     required EntrySharingRemoteDatasource remote,

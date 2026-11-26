@@ -21,6 +21,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
     required this.presentationResolver,
     required AuditLogScope scope,
     this.vaultId,
+    this.agentId,
     this.maximumLoadedEntries = 2000,
     this.entryNameRefreshDelay = const Duration(milliseconds: 250),
   }) : super(AuditLogState(scope: scope));
@@ -37,6 +38,9 @@ class AuditLogCubit extends Cubit<AuditLogState> {
   /// The vault to scope the feed to ([AuditLogScope.vault]); `null` for the
   /// org-wide feed.
   final String? vaultId;
+
+  /// Fixed server-side scope for an agent detail feed, across every page.
+  final String? agentId;
 
   static const _pageSize = 50;
   final Set<String> _seenCursors = {};
@@ -212,7 +216,11 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         pageSize: _pageSize,
       );
     }
-    return auditRepository.listOrgLogs(cursor: cursor, pageSize: _pageSize);
+    return auditRepository.listOrgLogs(
+      agentId: agentId,
+      cursor: cursor,
+      pageSize: _pageSize,
+    );
   }
 
   Future<AuditPresentationNames> _resolveNames(List<AuditLogEntry> page) =>

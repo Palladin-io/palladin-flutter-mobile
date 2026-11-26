@@ -1,3 +1,6 @@
+import '../widgets/agent_avatar.dart';
+import '../widgets/agent_status_badge.dart';
+import '../../../../core/widgets/app_record_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -213,7 +216,7 @@ class _Body extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.screenH,
-              0,
+              AppSpacing.fieldGap,
               AppSpacing.screenH,
               AppSpacing.fieldGap,
             ),
@@ -281,15 +284,14 @@ class _Body extends StatelessWidget {
           AppSpacing.screenH,
           0,
           AppSpacing.screenH,
-          AppSpacing.listBottom,
+          AppSpacing.section,
         ),
-        sliver: SliverList.separated(
+        sliver: AppRecordList(
           itemCount: filtered.length,
-          separatorBuilder: (_, _) =>
-              const SizedBox(height: AppSpacing.cardGap),
           itemBuilder: (_, index) {
             final agent = filtered[index];
             return AgentCard(
+              compact: true,
               agent: agent,
               selected: agent.agentId == selectedAgentId,
               onTap: () => onOpenAgent(agent.agentId),
@@ -410,6 +412,14 @@ class _SplitDetailPane extends StatelessWidget {
               ),
               child: Row(
                 children: [
+                  AgentAvatar(
+                    agentId: agent.agentId,
+                    name: agent.name,
+                    iconKey: agent.iconKey,
+                    iconColor: agent.iconColor,
+                    size: 28,
+                  ),
+                  const SizedBox(width: AppSpacing.innerGap),
                   Expanded(
                     child: Text(
                       agentDisplayName(l10n, agent),
@@ -422,6 +432,8 @@ class _SplitDetailPane extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.innerGap),
+                  AgentStatusBadge(status: agent.status),
                 ],
               ),
             ),

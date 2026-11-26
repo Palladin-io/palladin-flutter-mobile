@@ -1,3 +1,4 @@
+import '../../../../core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -28,29 +29,9 @@ class RoleNameRow extends StatelessWidget {
 /// Compact marker for Palladin-managed organization roles.
 class SystemRoleBadge extends StatelessWidget {
   const SystemRoleBadge({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    final label = AppLocalizations.of(context)!.permissionsSystem;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.innerGap,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.vaultBlue.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.vaultBlue.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.vaultBlue,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StatusBadge(
+    label: AppLocalizations.of(context)!.permissionsSystem,
+    color: AppColors.onSurfaceMuted(Theme.of(context).brightness),
+  );
 }

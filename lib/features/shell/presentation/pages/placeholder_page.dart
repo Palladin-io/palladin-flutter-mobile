@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_canvas_background.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -31,7 +31,7 @@ class PlaceholderPage extends StatelessWidget {
         ),
         backgroundColor: AppColors.cardFill(brightness),
       ),
-      body: AppBrandBackground(
+      body: AppCanvasBackground(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

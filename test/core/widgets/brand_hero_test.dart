@@ -9,12 +9,24 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: BrandHero(textColor: AppColors.onBrandRed)),
+      MaterialApp(
+        theme: ThemeData(
+          textTheme: const TextTheme(
+            headlineSmall: TextStyle(fontFamily: 'BrandInter'),
+          ),
+        ),
+        home: const Scaffold(body: BrandHero(textColor: AppColors.onBrandRed)),
       ),
     );
 
-    final image = tester.widget<Image>(find.byType(Image));
+    final image = tester.widget<Image>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == 'assets/images/logo.png',
+      ),
+    );
     final gap = tester.widget<SizedBox>(
       find.descendant(
         of: find.byType(BrandHero),
@@ -26,6 +38,7 @@ void main() {
 
     expect(image.height, 72);
     expect(gap.height, AppSpacing.xxl + AppSpacing.xs);
+    expect(style.fontFamily, 'PalladinBrand');
     expect(style.fontSize, 28);
     expect(style.fontWeight, FontWeight.w800);
     expect(style.letterSpacing, -0.28);

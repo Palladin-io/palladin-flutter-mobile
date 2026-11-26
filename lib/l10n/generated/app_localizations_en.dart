@@ -3353,42 +3353,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String auditSentenceCreated(String actor, String object) {
-    return '$actor created $object';
+    return '$object created by $actor';
   }
 
   @override
   String auditSentenceUpdated(String actor, String object) {
-    return '$actor updated $object';
+    return '$object updated by $actor';
   }
 
   @override
   String auditSentenceDeleted(String actor, String object) {
-    return '$actor deleted $object';
+    return '$object deleted by $actor';
   }
 
   @override
   String auditSentenceExported(String actor, String object) {
-    return '$actor exported $object';
+    return '$object exported by $actor';
   }
 
   @override
   String auditSentenceActivated(String actor, String object) {
-    return '$actor activated $object';
+    return '$object activated by $actor';
   }
 
   @override
   String auditSentenceRevoked(String actor, String object) {
-    return '$actor revoked $object';
+    return '$object revoked by $actor';
   }
 
   @override
   String auditSentenceBlocked(String actor, String object) {
-    return '$actor blocked $object';
+    return '$object blocked by $actor';
   }
 
   @override
   String auditSentenceReactivated(String actor, String object) {
-    return '$actor reactivated $object';
+    return '$object reactivated by $actor';
   }
 
   @override
@@ -5229,4 +5229,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entrySignInMethodVisibility => 'Visible to agents';
+
+  @override
+  String auditSentenceGrantApproved(
+    String resource,
+    String agent,
+    String actor,
+  ) {
+    return '$resource → $agent by $actor';
+  }
+
+  @override
+  String auditSentenceGrantExpired(String resource, String agent) {
+    return '$resource → $agent';
+  }
+
+  @override
+  String auditSentenceAccessed(String resource, String actor) {
+    return '$resource by $actor';
+  }
+
+  @override
+  String get teamJoinedLabel => 'Joined';
+
+  @override
+  String get teamSentLabel => 'Sent';
+
+  @override
+  String get teamExpiresLabel => 'Expires';
+
+  @override
+  String get teamInvitedByLabel => 'Invited by';
 }

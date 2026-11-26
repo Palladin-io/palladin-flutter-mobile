@@ -1,3 +1,4 @@
+import '../../../../core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -125,7 +126,7 @@ class _SummaryHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            _Badge(
+            StatusBadge(
               label: ImportWizardCopy.formatName(l10n, state.format),
               color: AppColors.brandRed,
             ),
@@ -208,38 +209,11 @@ class _StrategyChip extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: AppSpacing.controlHeight,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: selected
-              ? AppColors.brandRed.withValues(alpha: 0.12)
-              : AppColors.cardFill(brightness),
-          border: Border.all(
-            color: selected
-                ? AppColors.brandRed
-                : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected
-                ? AppColors.brandRed
-                : AppColors.onSurfaceMuted(brightness),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ChoiceChip(
+    label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    selected: selected,
+    onSelected: (_) => onTap(),
+  );
 }
 
 class _PreviewRow extends StatelessWidget {
@@ -296,7 +270,7 @@ class _PreviewRow extends StatelessWidget {
                       ),
                       if (item.hasConflict) ...[
                         const SizedBox(width: AppSpacing.chipGap),
-                        _Badge(
+                        StatusBadge(
                           label: l10n.importConflictBadge,
                           color: AppColors.vaultPeach,
                         ),
@@ -352,36 +326,6 @@ class _PreviewRow extends StatelessWidget {
   }
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.innerGap,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 class _MetaChip extends StatelessWidget {
   const _MetaChip({required this.icon, required this.label});
 
@@ -389,20 +333,9 @@ class _MetaChip extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: AppColors.textTertiaryMobile),
-        const SizedBox(width: AppSpacing.xs),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textTertiaryMobile,
-            fontSize: 11,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => StatusBadge(
+    label: label,
+    icon: icon,
+    color: AppColors.onSurfaceMuted(Theme.of(context).brightness),
+  );
 }

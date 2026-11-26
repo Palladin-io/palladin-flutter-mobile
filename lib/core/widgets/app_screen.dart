@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_brand_background.dart';
+import 'app_canvas_background.dart';
+import 'app_header_surface.dart';
 
 import '../theme/app_spacing.dart';
 import 'list_screen_header.dart';
@@ -120,14 +121,19 @@ class AppScreen extends StatelessWidget {
     final resolvedHeader = title != null
         ? ListScreenHeader(title: title!, subtitle: subtitle, actions: actions)
         : header;
-    return AppBrandBackground(
+    return AppCanvasBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: appBar,
+        appBar: appBar == null
+            ? null
+            : PreferredSize(
+                preferredSize: appBar!.preferredSize,
+                child: AppHeaderSurface(child: appBar!),
+              ),
         endDrawer: endDrawer,
         floatingActionButton: floatingActionButton,
         body: SafeArea(
-          top: appBar == null,
+          top: appBar == null && resolvedHeader == null,
           bottom: safeAreaBottom,
           child: appBar != null
               ? Column(
@@ -141,9 +147,18 @@ class AppScreen extends StatelessWidget {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ?resolvedHeader,
-                    if (resolvedHeader != null && gapAfterHeader)
-                      const SizedBox(height: AppSpacing.headerGap),
+                    if (resolvedHeader != null)
+                      AppHeaderSurface(
+                        child: SafeArea(
+                          bottom: false,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: gapAfterHeader ? AppSpacing.fieldGap : 0,
+                            ),
+                            child: resolvedHeader,
+                          ),
+                        ),
+                      ),
                     Expanded(child: body),
                   ],
                 ),

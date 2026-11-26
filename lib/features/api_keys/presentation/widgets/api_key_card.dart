@@ -1,7 +1,7 @@
+import '../../../../core/widgets/app_record_row.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import 'api_key_format.dart';
 import 'api_key_status_badge.dart';
@@ -21,67 +21,16 @@ class ApiKeyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          padding: const EdgeInsets.all(AppSpacing.cardPadding),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      apiKey.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.onSurface(brightness),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      maskedApiKey(apiKey.keySuffix),
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.innerGap),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ApiKeyStatusBadge(status: apiKey.status),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    formatApiKeyDate(apiKey.createdAt),
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+    return AppRecordRow(
+      title: apiKey.name,
+      subtitle: maskedApiKey(apiKey.keySuffix),
+      onTap: onTap,
+      leading: Icon(
+        Icons.key_outlined,
+        size: 22,
+        color: AppColors.onSurfaceMuted(brightness),
       ),
+      trailing: ApiKeyStatusBadge(status: apiKey.status),
     );
   }
 }

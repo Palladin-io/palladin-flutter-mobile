@@ -153,3 +153,10 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/fonts/Inter-OFL.txt
+
+  fonts:
+    - family: PalladinBrand
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+          weight: 800

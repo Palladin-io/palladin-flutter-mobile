@@ -14,7 +14,7 @@ Legacy `/settings`, `/api-keys`, and `/audit` links redirect into that namespace
 | Surface | Visibility and mutation boundary | Implementation |
 | --- | --- | --- |
 | General | The organization-name card is visible to every authenticated member; rename requires `OrganizationManagement` (`2`) and Save lives in a pinned full-width footer | `SettingsPage`, `SettingsCubit`, `OrgSettingsSection` |
-| Team | Member list is visible to every member; member cards place the localized role count on the left and joined date on the right of a distinct footer; invitations require `AddUser` (`1`); member-role changes require `OrganizationManagement` (`2`) | `TeamPage`, member/invitation detail pages, `TeamCubit` |
+| Team | Member list is visible to every member; compact member rows show identity; roles and joined date live in Details; invitations require `AddUser` (`1`); member-role changes require `OrganizationManagement` (`2`) | `TeamPage`, member/invitation detail pages, `TeamCubit` |
 | Permissions | Route and drawer item require `OrganizationManagement` (`2`) | `PermissionsPage`, `PermissionRolePage`, `PermissionsCubit` |
 | API Keys | Read requires `ReadApiKey` (`4096`); mutations require `WriteApiKey` (`8192`) | presentation remains in the `api_keys` feature |
 | Audit Logs | Route and drawer item require `AuditView` (`128`) | presentation remains in the `audit` feature |
@@ -54,7 +54,9 @@ and invitation-safe roles are fetched only for callers with `AddUser`; the
 caller-aware full role catalogue is fetched only with
 `OrganizationManagement`. Supported mutations are invite, cancel, resend,
 change an invitation's initial role, and replace a member's complete role set.
-Invitation-role Save stays in the pinned form footer, while Resend becomes
+Invitation details use EntryFieldRow labels and paired Resend/Cancel actions.
+The edit FAB opens a root full-screen role editor; Save stays in its pinned
+form footer. Canceling the editor discards its draft. Resend becomes
 enabled at the authoritative cooldown deadline without reopening the screen.
 There is intentionally no mobile invitation-acceptance deep link: mobile does
 not yet own an approved contract for replacing the active organization session.
@@ -116,3 +118,10 @@ sheet and settle on `/settings/security` when dismissed.
 General Save, Team member/invitation Save and editable Permission Role Save use
 `AppActionFooter` for one shared bottom safe-area contract. Their hosts leave
 bottom inset ownership to the footer, so system navigation cannot cover actions.
+
+## Current presentation contract
+
+See `docs/design/mobile-ui-alignment.md` (Current approved UI contract). Resource
+lists reuse AppRecordList/AppRecordRow; metadata uses read-only details and root
+Edit routes with one pinned AppActionFooter. Member edit contains role selection
+only; email and joined metadata stay in read-only Details. Preserve permission guards.

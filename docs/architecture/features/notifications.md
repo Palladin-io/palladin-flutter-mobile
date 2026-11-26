@@ -177,3 +177,15 @@ acceptance remains required.
 **Cross-feature deps (heavy):** `agents` (`AgentAvatar`, `ApproveAgentSheet`, `DeactivateAgentSheet`), `grants` (`GrantDetailRow`), `approval` (`ApproveGrantSheet`, `DenyGrantSheet`).
 
 **⚠ Architecture smell:** `_EmptyCard` duplicates the empty-card pattern → extract `ListEmptyCard` (shared with agents + api_keys). See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).
+
+Approved/expired Entry-scoped grant cards offer View Entry and open Details;
+FULL grants retain the Vault access destination. The authoritative grantType and
+exact Vault/Entry identifiers remain required by the existing safe resolver.
+
+### Local account label in access requests
+
+The fourth access-request property is Username. NotificationPresentationResolver
+resolves it alongside the Entry label from the exact Vault/Entry in the unlocked
+Member index. It strips any transport-supplied entryUsername first and removes
+the enriched value on lock. No extra body decrypt, backend field or persistent
+plaintext cache is introduced; missing usernames use the standard placeholder.

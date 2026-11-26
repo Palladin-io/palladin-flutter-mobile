@@ -12,23 +12,24 @@ abstract final class AppColors {
   static const Color darkBackground = Color(0xFF15171B);
 
   /// Dark theme surface — elevated graphite.
-  static const Color darkSurface = Color(0xFF20242C);
+  static const Color darkSurface = Color(0xFF191C20);
 
-  /// Mobile prototype "surface" card background — graphite,
-  /// used by vault detail and list cards (matches `--surface` in the
-  /// Astro prototype).
-  static const Color mobileSurface = Color(0xFF23262C);
+  /// Opaque graphite card surface shared with the panel.
+  static const Color mobileSurface = Color(0xFF191C20);
 
   /// Light theme scaffold background — warm cream.
   static const Color lightBackground = Color(0xFFE8EAED);
 
-  /// Light theme surface — slightly darker cream.
-  static const Color lightSurface = Color(0xFFDCDEE2);
+  /// Opaque white surface for light cards and overlays.
+  static const Color lightSurface = Color(0xFFFFFFFF);
 
   // === Brand ===
 
   /// Brand red — "Vault" wordmark and error states.
   static const Color brandRed = Color(0xFFE54645);
+
+  /// Panel/extension primary action fill, separate from semantic brand text.
+  static const Color primaryAction = Color(0xFFD43E3E);
 
   /// Foreground (text/icon) color used on top of [brandRed] surfaces —
   /// e.g. the destructive "Delete" CTA, the empty-state "New vault"
@@ -53,9 +54,8 @@ abstract final class AppColors {
   /// used inside `const` `BoxShadow` lists.
   static const Color fabShadow = Color(0x59E54645);
 
-  /// Primary CTA glow shared with the web and landing (20–22% brand red).
-  static Color primaryGlow(Brightness b) =>
-      brandRed.withValues(alpha: b == Brightness.dark ? 0.20 : 0.22);
+  /// Restrained brand glow for enabled primary actions.
+  static Color primaryGlow(Brightness b) => brandRed.withValues(alpha: 0.10);
 
   static Color navigationGrain(Brightness b) =>
       (b == Brightness.dark ? onBrandRed : darkBackground).withValues(
@@ -233,11 +233,7 @@ abstract final class AppColors {
   static const RadialGradient authLightPageGradient = RadialGradient(
     center: authLightPageCenter,
     radius: 0.5,
-    colors: [
-      authLightPageStart,
-      authLightPageMid,
-      authLightPageEdge,
-    ],
+    colors: [authLightPageStart, authLightPageMid, authLightPageEdge],
     stops: [0, 0.46, 1],
   );
 
@@ -270,8 +266,12 @@ abstract final class AppColors {
     center: authLightGlowCenter,
     radius: 0.5,
     colors: [
-      Color(0xFAFFFFFF), Color(0xFAFFFFFF), Color(0xADFFFFFF),
-      Color(0x29FFFFFF), Color(0x0EFFFFFF), Color(0x00FFFFFF),
+      Color(0xFAFFFFFF),
+      Color(0xFAFFFFFF),
+      Color(0xADFFFFFF),
+      Color(0x29FFFFFF),
+      Color(0x0EFFFFFF),
+      Color(0x00FFFFFF),
     ],
     stops: [0, 0.14, 0.30, 0.44, 0.54, 0.68],
   );
@@ -283,14 +283,101 @@ abstract final class AppColors {
 
   static Color get darkAuthGrain => onBrandRed.withValues(alpha: 0.12);
 
+  static LinearGradient canvasGradient(Brightness b) => LinearGradient(
+    begin: Alignment.topRight,
+    end: Alignment.bottomLeft,
+    colors: b == Brightness.dark
+        ? [darkBackground, mobileSurface, darkBackground]
+        : [onBrandRed, const Color(0xFFF1F0ED), onBrandRed],
+    stops: const [0, 0.55, 1],
+  );
+
+  static LinearGradient navigationGradient(
+    Brightness brightness, {
+    bool bottom = false,
+  }) => LinearGradient(
+    begin: bottom ? Alignment.bottomCenter : Alignment.topCenter,
+    end: bottom ? Alignment.topCenter : Alignment.bottomCenter,
+    colors: [
+      brightness == Brightness.dark
+          ? darkBackground
+          : Color.alphaBlend(
+              onSurface(brightness).withValues(alpha: 0.02),
+              cardFill(brightness),
+            ),
+      cardFill(brightness),
+    ],
+  );
+
+  static RadialGradient get navigationLogoGlow => RadialGradient(
+    center: Alignment.topCenter,
+    radius: 3.4,
+    colors: [onBrandRed.withValues(alpha: 0.035), transparent],
+  );
+
+  static LinearGradient authGradient(Brightness b) => LinearGradient(
+    begin: Alignment.topRight,
+    end: Alignment.bottomLeft,
+    colors: b == Brightness.dark
+        ? [mobileSurface, darkBackground]
+        : [canvasGradient(b).colors[1], canvasGradient(b).colors[1]],
+  );
+
+  static RadialGradient authShieldBloom(Brightness b) => RadialGradient(
+    radius: 0.5,
+    colors: b == Brightness.dark
+        ? [onBrandRed.withValues(alpha: 0.09), transparent]
+        : [
+            onBrandRed.withValues(alpha: 0.98),
+            onBrandRed.withValues(alpha: 0.84),
+            onBrandRed.withValues(alpha: 0.36),
+            onBrandRed.withValues(alpha: 0),
+          ],
+    stops: b == Brightness.dark ? const [0, 1] : const [0, 0.18, 0.52, 1],
+  );
+
+  static const authGrainMask = RadialGradient(
+    colors: [onBrandRed, Color(0x40FFFFFF)],
+    stops: [0.12, 1],
+    radius: 0.5,
+  );
+  static const authWhiteGrainMask = RadialGradient(
+    colors: [onBrandRed, Color(0xBFFFFFFF), Color(0x00FFFFFF)],
+    stops: [0, 0.35, 1],
+    radius: 0.5,
+  );
+  // Turn panel texture luminance into white-particle opacity.
+  static const authWhiteGrainFilter = ColorFilter.matrix([
+    0,
+    0,
+    0,
+    0,
+    255,
+    0,
+    0,
+    0,
+    0,
+    255,
+    0,
+    0,
+    0,
+    0,
+    255,
+    0.2126,
+    0.7152,
+    0.0722,
+    0,
+    0,
+  ]);
+
+  static Color canvasGrain(Brightness b) =>
+      onSurface(b).withValues(alpha: b == Brightness.dark ? 0.10 : 0.06);
+
   /// Existing dark-auth bloom retained independently from the light surface.
   static RadialGradient get darkAuthBrandGlow => RadialGradient(
     center: const Alignment(0, -0.2),
     radius: 0.85,
-    colors: [
-      onBrandRed.withValues(alpha: 0.1),
-      transparent,
-    ],
+    colors: [onBrandRed.withValues(alpha: 0.1), transparent],
   );
 
   // ── Brightness-aware semantic colors ─────────────────────────────────
@@ -311,20 +398,14 @@ abstract final class AppColors {
   static Color onSurfaceSubtle(Brightness b) =>
       b == Brightness.dark ? textTertiary : textTertiaryMobile;
 
-  /// Input fill — `rgba(232, 234, 237,0.04)` in dark,
-  /// `rgba(245, 247, 250,0.70)` in light. Matches the prototype's frosted
-  /// input recipe.
+  /// Translucent neutral input in dark; opaque white in light.
   static Color inputFill(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x0AE8EAED)
-          : const Color(0xB3F5F7FA);
+      b == Brightness.dark ? const Color(0x0AE8EAED) : onBrandRed;
 
   /// Input border — `rgba(232, 234, 237,0.08)` in dark,
   /// `rgba(12, 14, 18,0.08)` in light.
   static Color inputBorder(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x14E8EAED)
-          : const Color(0x1415171B);
+      b == Brightness.dark ? const Color(0x14E8EAED) : const Color(0x1415171B);
 
   /// Input text color — cream in dark, deep navy in light.
   static Color inputText(Brightness b) =>
@@ -335,26 +416,16 @@ abstract final class AppColors {
   static Color inputHint(Brightness b) =>
       b == Brightness.dark ? textTertiary : textTertiaryMobile;
 
-  /// Glass card fill — `rgba(232, 234, 237,0.04)` in dark,
-  /// `rgba(245, 247, 250,0.65)` in light.
+  /// Opaque cards match the panel and extension; grain stays on the canvas.
   static Color cardFill(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x0AE8EAED)
-          : const Color(0xA6F5F7FA);
+      b == Brightness.dark ? mobileSurface : onBrandRed;
 
-  /// Glass card border — `rgba(232, 234, 237,0.06)` in dark,
-  /// `rgba(12, 14, 18,0.06)` in light.
-  static Color cardBorder(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x0FE8EAED)
-          : const Color(0x0F15171B);
+  static Color cardBorder(Brightness b) => onSurface(b).withValues(alpha: 0.10);
 
   /// Neutral OFF-state track for the compact [AppToggle] — a muted grey that
   /// reads clearly as "off" (not disabled) in both themes.
   static Color toggleTrackOff(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x33E8EAED)
-          : const Color(0x3315171B);
+      b == Brightness.dark ? const Color(0x33E8EAED) : const Color(0x3315171B);
 
   /// Footer overlay on a glass card — nearly transparent navy tint in
   /// light mode (`rgba(12, 14, 18,0.015)`) and a nearly transparent cream
@@ -362,28 +433,20 @@ abstract final class AppColors {
   /// card footer apart from the main card body without introducing a
   /// distinct surface colour.
   static Color cardFooterOverlay(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x05E8EAED)
-          : const Color(0x0415171B);
+      b == Brightness.dark ? const Color(0x05E8EAED) : const Color(0x0415171B);
 
   /// Bottom navigation stays opaque beneath its decorative grain.
   static Color navBackground(Brightness b) =>
-      b == Brightness.dark
-          ? bottomNavBackground
-          : const Color(0xFFF5F7FA);
+      b == Brightness.dark ? bottomNavBackground : onBrandRed;
 
   /// Bottom nav top border — `rgba(232, 234, 237,0.06)` in dark,
   /// `rgba(12, 14, 18,0.06)` in light.
   static Color navBorder(Brightness b) =>
-      b == Brightness.dark
-          ? const Color(0x0FE8EAED)
-          : const Color(0x0F15171B);
+      b == Brightness.dark ? const Color(0x0FE8EAED) : const Color(0x0F15171B);
 
-  /// Modal / drawer background — solid, non-transparent. `#23262C` in
-  /// dark, `#F5F7FA` in light. Use this for bottom sheets and the
-  /// settings drawer so they read as opaque surfaces above the gradient.
+  /// Opaque surface for sheets and drawers above the textured canvas.
   static Color modalBackground(Brightness b) =>
-      b == Brightness.dark ? mobileSurface : const Color(0xFFF5F7FA);
+      b == Brightness.dark ? mobileSurface : onBrandRed;
 
   /// The light settings drawer is a clean white surface without a tint.
   static Color drawerBackground(Brightness b) =>
@@ -391,8 +454,7 @@ abstract final class AppColors {
 
   /// Card / elevated surface — kept for back-compat with code paths that
   /// expect a fully opaque tile (refresh indicators, dropdown menus).
-  /// New surfaces should prefer [cardFill] + [cardBorder] for the glass
-  /// recipe, or [modalBackground] for solid sheets/drawers.
+  /// New surfaces use [cardFill] + [cardBorder].
   static Color cardSurface(Brightness b) =>
       b == Brightness.dark ? mobileSurface : lightSurface;
 
@@ -409,7 +471,6 @@ abstract final class AppColors {
   /// popovers). Slightly stronger in dark mode where the overlay sits on
   /// a darker backdrop and needs more separation. Black at 30% (dark) /
   /// 15% (light) keeps the lift subtle without a hard edge.
-  static Color dropdownShadow(Brightness b) => b == Brightness.dark
-      ? const Color(0x4D000000)
-      : const Color(0x26000000);
+  static Color dropdownShadow(Brightness b) =>
+      b == Brightness.dark ? const Color(0x4D000000) : const Color(0x26000000);
 }

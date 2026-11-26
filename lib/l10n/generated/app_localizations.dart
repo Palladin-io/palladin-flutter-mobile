@@ -6029,49 +6029,49 @@ abstract class AppLocalizations {
   /// No description provided for @auditSentenceCreated.
   ///
   /// In en, this message translates to:
-  /// **'{actor} created {object}'**
+  /// **'{object} created by {actor}'**
   String auditSentenceCreated(String actor, String object);
 
   /// No description provided for @auditSentenceUpdated.
   ///
   /// In en, this message translates to:
-  /// **'{actor} updated {object}'**
+  /// **'{object} updated by {actor}'**
   String auditSentenceUpdated(String actor, String object);
 
   /// No description provided for @auditSentenceDeleted.
   ///
   /// In en, this message translates to:
-  /// **'{actor} deleted {object}'**
+  /// **'{object} deleted by {actor}'**
   String auditSentenceDeleted(String actor, String object);
 
   /// Audit sentence — vault exported
   ///
   /// In en, this message translates to:
-  /// **'{actor} exported {object}'**
+  /// **'{object} exported by {actor}'**
   String auditSentenceExported(String actor, String object);
 
   /// No description provided for @auditSentenceActivated.
   ///
   /// In en, this message translates to:
-  /// **'{actor} activated {object}'**
+  /// **'{object} activated by {actor}'**
   String auditSentenceActivated(String actor, String object);
 
   /// No description provided for @auditSentenceRevoked.
   ///
   /// In en, this message translates to:
-  /// **'{actor} revoked {object}'**
+  /// **'{object} revoked by {actor}'**
   String auditSentenceRevoked(String actor, String object);
 
   /// No description provided for @auditSentenceBlocked.
   ///
   /// In en, this message translates to:
-  /// **'{actor} blocked {object}'**
+  /// **'{object} blocked by {actor}'**
   String auditSentenceBlocked(String actor, String object);
 
   /// No description provided for @auditSentenceReactivated.
   ///
   /// In en, this message translates to:
-  /// **'{actor} reactivated {object}'**
+  /// **'{object} reactivated by {actor}'**
   String auditSentenceReactivated(String actor, String object);
 
   /// No description provided for @auditSentenceUserSignedUp.
@@ -9235,6 +9235,52 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Visible to agents'**
   String get entrySignInMethodVisibility;
+
+  /// No description provided for @auditSentenceGrantApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'{resource} → {agent} by {actor}'**
+  String auditSentenceGrantApproved(
+    String resource,
+    String agent,
+    String actor,
+  );
+
+  /// No description provided for @auditSentenceGrantExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'{resource} → {agent}'**
+  String auditSentenceGrantExpired(String resource, String agent);
+
+  /// No description provided for @auditSentenceAccessed.
+  ///
+  /// In en, this message translates to:
+  /// **'{resource} by {actor}'**
+  String auditSentenceAccessed(String resource, String actor);
+
+  /// No description provided for @teamJoinedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined'**
+  String get teamJoinedLabel;
+
+  /// No description provided for @teamSentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get teamSentLabel;
+
+  /// No description provided for @teamExpiresLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires'**
+  String get teamExpiresLabel;
+
+  /// No description provided for @teamInvitedByLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Invited by'**
+  String get teamInvitedByLabel;
 }
 
 class _AppLocalizationsDelegate

@@ -21,7 +21,7 @@ abstract final class AppSpacing {
   static const double screenH = 20;
 
   /// Header row → first content element.
-  static const double headerGap = 16;
+  static const double headerGap = 12;
 
   /// Vertical gap between sections.
   static const double section = 16;

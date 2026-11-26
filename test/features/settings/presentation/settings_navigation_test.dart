@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -85,6 +86,67 @@ void main() {
     expect(find.text('Permissions'), findsOneWidget);
     expect(find.text('API keys'), findsOneWidget);
     expect(find.text('Audit logs'), findsOneWidget);
+  });
+
+  testWidgets('Back from a drawer destination restores the menu', (
+    tester,
+  ) async {
+    final auth = _AuthBloc();
+    when(() => auth.state).thenReturn(
+      const AuthAuthenticated(
+        userId: 'user-1',
+        isOnboarded: true,
+        isVaultLocked: false,
+      ),
+    );
+    final preferences = _Preferences();
+    final theme = ThemeCubit(preferences);
+    final locale = LocaleCubit(preferences);
+    addTearDown(auth.close);
+    addTearDown(theme.close);
+    addTearDown(locale.close);
+    final scaffold = GlobalKey<ScaffoldState>();
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => Scaffold(
+            key: scaffold,
+            endDrawer: const SettingsDrawer(),
+            body: const Text('Home'),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.settingsGeneral,
+          builder: (_, _) =>
+              Scaffold(appBar: AppBar(title: const Text('General details'))),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>.value(value: auth),
+          BlocProvider<ThemeCubit>.value(value: theme),
+          BlocProvider<LocaleCubit>.value(value: locale),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ),
+    );
+    scaffold.currentState!.openEndDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('General'));
+    await tester.pumpAndSettle();
+    expect(find.text('General details'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(scaffold.currentState!.isEndDrawerOpen, isTrue);
+    expect(find.text('Team').hitTestable(), findsOneWidget);
   });
 
   test('settings route guard mirrors permission affordances', () {

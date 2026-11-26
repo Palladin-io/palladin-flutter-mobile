@@ -2,9 +2,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/brand_tab_indicator.dart';
+import '../../../../core/widgets/app_detail_tabs.dart';
+import '../../../../core/widgets/app_header_surface.dart';
 
-import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_canvas_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -40,9 +41,8 @@ import 'import_wizard_page.dart';
 /// Entries, Agents, Logs, Members, Settings. Each tab body lives in
 /// its own widget under `widgets/vault_*_tab.dart`.
 ///
-/// Page-level state (form-data dirty flag, current tab index) is held
-/// here so the AppBar Save action can react without coupling the
-/// settings widget to the cubit.
+/// Metadata is read-only; Edit opens a root form and saves through this
+/// page's cubit, preserving the original metadata for conflict detection.
 class VaultDetailPage extends StatelessWidget {
   const VaultDetailPage({
     super.key,
@@ -300,22 +300,27 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     );
   }
 
-  Future<void> _saveSettings() async {
+  Future<bool> _saveSettings() async {
     final data = _currentFormData;
     final detail = context.read<VaultDetailCubit>().state;
+    final expected = detail is VaultDetailLoaded
+        ? detail.vault
+        : _lastLoadedVault;
     final auth = context.read<AuthBloc>().state;
     if (data == null ||
-        detail is! VaultDetailLoaded ||
+        expected == null ||
+        detail is VaultDetailLoading ||
         auth is! AuthAuthenticated ||
         auth.privateKey == null) {
-      return;
+      return false;
     }
     final privateKey = Uint8List.fromList(auth.privateKey!);
     final localIconPath = data.icon.startsWith('file:')
         ? Uri.parse(data.icon).toFilePath()
         : null;
-    await context.read<VaultDetailCubit>().updateEncrypted(
-      expected: detail.vault,
+    final cubit = context.read<VaultDetailCubit>();
+    await cubit.updateEncrypted(
+      expected: expected,
       name: data.name.trim(),
       description: data.description.trim(),
       icon: data.icon,
@@ -323,6 +328,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       memberPrivateKey: privateKey,
       localIconPath: localIconPath,
     );
+    return cubit.state is VaultDetailLoaded;
   }
 
   Future<void> _confirmDelete(VaultEntity vault) async {
@@ -429,7 +435,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
           final visibleVault = state is VaultDetailLoaded
               ? state.vault
               : _lastLoadedVault;
-          return AppBrandBackground(
+          return AppCanvasBackground(
             child: Scaffold(
               backgroundColor: Colors.transparent,
               appBar: _DetailAppBar(
@@ -505,7 +511,7 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onImport;
   final VoidCallback onExport;
 
-  static const double _tabBarHeight = 44;
+  static const double _tabBarHeight = 50;
 
   @override
   Size get preferredSize =>
@@ -520,9 +526,12 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
         ? l10n.vaultEntryCount(loaded.entryCount)
         : '';
     final onSurface = AppColors.onSurface(brightness);
-    final subtle = AppColors.onSurfaceSubtle(brightness);
 
     return AppBar(
+      flexibleSpace: const AppHeaderSurface(
+        showDivider: false,
+        child: SizedBox.expand(),
+      ),
       // Transparent AppBar lets the parent gradient show through —
       // matches the rest of the app's visual language.
       backgroundColor: Colors.transparent,
@@ -575,34 +584,8 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
         preferredSize: const Size.fromHeight(_tabBarHeight),
         child: SizedBox(
           height: _tabBarHeight,
-          child: TabBar(
+          child: AppDetailTabs(
             controller: tabController,
-            // Scrollable so long translated tab labels (e.g. "Ustawienia"
-            // in Polish) are not truncated — user can tap or swipe to
-            // navigate between tabs.
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.cardPadding,
-            ),
-            labelColor: AppColors.brandRed,
-            unselectedLabelColor: subtle,
-            indicator: BrandTabIndicator(
-              glowColor: AppColors.primaryGlow(brightness),
-            ),
-            indicatorSize: TabBarIndicatorSize.label,
-            indicatorWeight: 2,
-            // Hairline separator below the entire tab row — matches the
-            // prototype's `border-bottom: 1px solid rgba(…, 0.06)`.
-            dividerColor: AppColors.navBorder(brightness),
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
             tabs: [
               Tab(text: l10n.vaultTabEntries),
               Tab(text: l10n.vaultTabAgents),
@@ -664,15 +647,15 @@ class _LoadedBody extends StatelessWidget {
   final VoidCallback onImport;
   final ValueChanged<VaultFormData> onFormChanged;
   final VoidCallback onDelete;
-  final VoidCallback onSave;
+  final Future<bool> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // Tab bar → content: fieldGap (canonical segment/tab → next rhythm).
+      // Each tab owns its leading spacing inside the scrolling content.
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.fieldGap,
+        0,
         AppSpacing.screenH,
         0,
       ),
@@ -688,9 +671,9 @@ class _LoadedBody extends StatelessWidget {
             vaultId: vault.id,
             contentPadding: const EdgeInsets.fromLTRB(
               0,
+              AppSpacing.section,
               0,
-              0,
-              AppSpacing.listBottom,
+              AppSpacing.section,
             ),
           ),
           const VaultMembersTab(),

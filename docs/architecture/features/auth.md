@@ -91,15 +91,13 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 
 ## Entry background
 
-In dark mode, `AuthBrandBackground` adds a static `BrandGrainOverlay` above
-the existing gradient/glow and below all content. It reuses the navigation
-texture, ignores pointer events, and is isolated in a repaint boundary.
-The layer is limited to auth/confirmation surfaces and absent in light mode.
-
-`AuthBrandBackground` uses `AppBrandBackground` with the defined web-login
-palette (#F8FAFC → #E3E7EC → #C8CDD6) and white bloom. Login, unlock and
-registration share this variant; the authenticated app keeps its softer pale
-gray palette. Both variants share the same unclipped gradient geometry.
+`AuthBrandBackground` and `AuthShieldSurface` implement the approved auth recipe.
+Light mode uses a warm neutral canvas and the panel's tiled grain across the
+surface, with a broad white grain bloom centered on the shield (approved soft-b10).
+Dark mode keeps its subdued graphite gradient and soft shield-centered bloom.
+`BrandHero` uses bundled Inter variable weight 800 (`PalladinBrand`), not a network
+font, with the same shield, proportions and red .io suffix across authentication.
+The font's OFL attribution is bundled at `assets/fonts/Inter-OFL.txt`.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
 Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.

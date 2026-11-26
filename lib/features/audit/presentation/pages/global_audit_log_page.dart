@@ -79,7 +79,7 @@ class _GlobalAuditLogView extends StatelessWidget {
               AppSpacing.screenH,
               0,
               AppSpacing.screenH,
-              AppSpacing.listBottom,
+              AppSpacing.section,
             ),
           ),
           // Claim the shell FAB slot with `null` so no FAB leaks from the

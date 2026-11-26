@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_record_list.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -249,7 +250,7 @@ class _VaultListViewState extends State<_VaultListView> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.screenH,
-                    0,
+                    AppSpacing.fieldGap,
                     AppSpacing.screenH,
                     AppSpacing.fieldGap,
                   ),
@@ -295,11 +296,10 @@ class _VaultListViewState extends State<_VaultListView> {
                       AppSpacing.screenH,
                       AppSpacing.listBottom,
                     ),
-                    sliver: SliverList.separated(
+                    sliver: AppRecordList(
                       itemCount: filtered.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: AppSpacing.cardGap),
                       itemBuilder: (_, index) => VaultCard(
+                        compact: true,
                         vault: filtered[index],
                         onTap: () async {
                           await context.push('/vaults/${filtered[index].id}');

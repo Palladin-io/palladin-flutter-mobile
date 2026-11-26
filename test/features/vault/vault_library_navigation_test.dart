@@ -225,9 +225,12 @@ void main() {
       await tester.tap(find.byTooltip('Entries'));
       await tester.pumpAndSettle();
       expect(find.byType(EntryListCard), findsWidgets);
-      expect(find.byIcon(Icons.visibility), findsWidgets);
-      expect(find.byIcon(Icons.arrow_forward), findsWidgets);
-      expect(find.byTooltip('Share entry'), findsWidgets);
+      expect(find.byIcon(Icons.visibility), findsNothing);
+      expect(find.byTooltip('Share entry'), findsNothing);
+      expect(
+        tester.widget<EntryListCard>(find.byType(EntryListCard).first).compact,
+        isTrue,
+      );
       expect(router.routeInformationProvider.value.uri.path, '/entries');
       expect(tester.state(find.byType(VaultListPage)), same(originalPageState));
       expect(find.byIcon(Icons.tune), findsNothing);
@@ -261,7 +264,7 @@ void main() {
       expect(savedOffset, greaterThan(0));
 
       // The global action must ask for a Vault before mounting any form.
-      activeFab!.onPressed();
+      activeFab!.onPressed!();
       await tester.pumpAndSettle();
       expect(find.byType(ChooseEntryVaultSheet), findsOneWidget);
       expect(find.byType(AddEntryPage), findsNothing);

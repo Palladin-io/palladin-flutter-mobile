@@ -189,7 +189,11 @@ class _UnlockViewState extends State<_UnlockView> with WidgetsBindingObserver {
               obscureText: !_passwordVisible,
               textInputAction: TextInputAction.done,
               onSubmitted: canSubmit ? (_) => _submit() : null,
-              borderColor: hasError ? AppColors.brandRed : null,
+              borderColor: hasError
+                  ? AppColors.brandRed
+                  : Theme.of(context).brightness == Brightness.light
+                  ? AppColors.inputBorder(Brightness.light)
+                  : null,
               focusBorderColor: hasError ? AppColors.brandRed : null,
               feedbackVisible: hasError,
               feedbackReserveSpace: false,

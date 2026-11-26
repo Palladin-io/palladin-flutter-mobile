@@ -6,7 +6,7 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_menu_sheet.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../data/services/totp_service.dart';
-import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/accent_button.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/totp_config.dart';
 import 'entry_form_widgets.dart';
@@ -185,37 +185,7 @@ class _TotpEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DottedBorderBox(
-          brightness: brightness,
-          child: Row(
-            children: [
-              Icon(
-                Icons.shield_outlined,
-                size: 20,
-                color: AppColors.onSurfaceSubtle(brightness),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  l10n.totpEmptyHint,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceSubtle(brightness),
-                    fontSize: 11.5,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.innerGap),
-        PrimaryButton(label: l10n.totpAdd, onPressed: onAdd),
-      ],
-    );
+    return AccentButton(label: l10n.totpAdd, onPressed: onAdd);
   }
 }
 

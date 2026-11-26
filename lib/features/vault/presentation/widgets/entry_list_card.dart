@@ -24,6 +24,7 @@ class EntryListCard extends StatelessWidget {
     this.vaultName,
     this.enabled = true,
     this.loadUsername,
+    this.compact = false,
   }) : selectionOnly = false,
        selected = false;
 
@@ -34,6 +35,7 @@ class EntryListCard extends StatelessWidget {
     this.selected = false,
     this.enabled = true,
     this.loadUsername,
+    this.compact = false,
   }) : selectionOnly = true,
        onEdit = onSelect,
        isExpanded = false,
@@ -45,6 +47,7 @@ class EntryListCard extends StatelessWidget {
        onShare = null,
        vaultName = null;
 
+  final bool compact;
   final EntryEntity entry;
   final bool isExpanded;
   final Map<String, dynamic>? payload;
@@ -100,77 +103,143 @@ class EntryListCard extends StatelessWidget {
       color: AppColors.transparent,
       child: InkWell(
         onTap: interactive ? onEdit : null,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(compact ? 0 : 12),
         child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? AppColors.brandRed
-                  : AppColors.cardBorder(brightness),
-              width: 1,
-            ),
-          ),
+          decoration: compact
+              ? null
+              : BoxDecoration(
+                  color: AppColors.cardFill(brightness),
+                  borderRadius: BorderRadius.circular(compact ? 0 : 12),
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.brandRed
+                        : AppColors.cardBorder(brightness),
+                    width: 1,
+                  ),
+                ),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.cardPadding,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header row — icon + name/meta + action buttons.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  0,
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.cardGap,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    EntryListIcon(entry: entry),
-                    const SizedBox(width: AppSpacing.cardGap),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.onSurface(brightness),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+              // Compact library rows show identity and open details with one tap.
+              if (compact)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      EntryListIcon(entry: entry),
+                      const SizedBox(width: AppSpacing.fieldGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.onSurface(brightness),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          if (entry.type == EntryType.credential &&
-                              !entry.corrupt &&
-                              entry.lifecycleState ==
-                                  MemberEntryState.active) ...[
-                            const SizedBox(height: AppSpacing.xxs),
-                            EntryUsernameLabel(
-                              key: ValueKey((
-                                entry.vaultId,
-                                entry.id,
-                                entry.currentRevision,
-                                entry.currentKeyVersion,
-                                entry.username,
-                              )),
-                              username: entry.username,
-                              load: loadUsername,
-                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            if (entry.type == EntryType.credential &&
+                                !entry.corrupt &&
+                                entry.lifecycleState == MemberEntryState.active)
+                              EntryUsernameLabel(
+                                key: ValueKey((
+                                  entry.vaultId,
+                                  entry.id,
+                                  entry.currentRevision,
+                                  entry.currentKeyVersion,
+                                  entry.username,
+                                )),
+                                username: entry.username,
+                                load: loadUsername,
+                              )
+                            else
+                              Text(
+                                meta.isEmpty ? '—' : meta,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.onSurfaceSubtle(brightness),
+                                  fontSize: 12,
+                                ),
+                              ),
                           ],
-                          if (meta.isNotEmpty &&
-                              !(entry.type == EntryType.credential &&
-                                  entry.lifecycleState ==
-                                      MemberEntryState.active &&
-                                  !entry.corrupt &&
-                                  _labelRepeatsDomain(meta))) ...[
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.innerGap),
+                      Icon(
+                        selectionOnly && selected
+                            ? Icons.check_circle
+                            : Icons.chevron_right,
+                        size: 18,
+                        color: AppColors.onSurfaceSubtle(brightness),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      EntryListIcon(entry: entry),
+                      const SizedBox(width: AppSpacing.innerGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.onSurface(brightness),
+                                fontSize: compact ? 14 : 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xxs),
+                            if (entry.type == EntryType.credential &&
+                                !entry.corrupt &&
+                                entry.lifecycleState == MemberEntryState.active)
+                              EntryUsernameLabel(
+                                key: ValueKey((
+                                  entry.vaultId,
+                                  entry.id,
+                                  entry.currentRevision,
+                                  entry.currentKeyVersion,
+                                  entry.username,
+                                )),
+                                username: entry.username,
+                                load: loadUsername,
+                              )
+                            else
+                              Text(
+                                meta.isEmpty ? '—' : meta,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.onSurfaceMuted(brightness),
+                                  fontSize: compact ? 12 : 13,
+                                ),
+                              ),
                             const SizedBox(height: AppSpacing.xxs),
                             Text(
-                              meta,
+                              entry.type == EntryType.credential
+                                  ? (meta.isEmpty || _labelRepeatsDomain(meta)
+                                        ? '—'
+                                        : meta)
+                                  : (entry.urlDomain?.isNotEmpty == true
+                                        ? entry.urlDomain!
+                                        : '—'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -179,43 +248,38 @@ class EntryListCard extends StatelessWidget {
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.chipGap),
-                    if (interactive || selectionOnly)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!selectionOnly)
-                            EntrySmallIconButton(
-                              icon: isExpanded
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              tooltip: l10n.vaultRevealEntry,
-                              onPressed: onToggleReveal!,
-                            ),
-                          if (onShare != null) ...[
-                            const SizedBox(width: AppSpacing.chipGap),
-                            EntrySmallIconButton(
-                              icon: Icons.share_outlined,
-                              tooltip: l10n.sharingShareEntry,
-                              onPressed: onShare!,
-                            ),
-                          ],
+                      const SizedBox(width: AppSpacing.chipGap),
+                      if (interactive || selectionOnly) ...[
+                        if (!selectionOnly && interactive)
+                          EntrySmallIconButton(
+                            icon: isExpanded
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            tooltip: l10n.vaultRevealEntry,
+                            onPressed: onToggleReveal!,
+                          ),
+                        if (onShare != null) ...[
                           const SizedBox(width: AppSpacing.chipGap),
                           EntrySmallIconButton(
-                            icon: selected
-                                ? Icons.check_circle
-                                : Icons.arrow_forward,
-                            tooltip: l10n.vaultViewEntry,
-                            onPressed: interactive ? onEdit : null,
+                            icon: Icons.share_outlined,
+                            tooltip: l10n.sharingShareEntry,
+                            onPressed: onShare!,
                           ),
                         ],
-                      ),
-                  ],
+                        const SizedBox(width: AppSpacing.chipGap),
+                        EntrySmallIconButton(
+                          icon: selected
+                              ? Icons.check_circle
+                              : Icons.arrow_forward,
+                          tooltip: l10n.vaultViewEntry,
+                          onPressed: interactive ? onEdit : null,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
               // Reveal panel — animates open/closed.
               AnimatedSize(
                 duration: const Duration(milliseconds: 220),

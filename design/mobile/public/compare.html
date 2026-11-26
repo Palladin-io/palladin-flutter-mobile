@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palladin — porównanie proporcji mobile</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#15171b;color:#ebecef}
+*{box-sizing:border-box}body{margin:0;padding:26px 28px}header{max-width:1250px;margin:0 auto 22px}h1{font-size:23px;letter-spacing:-.5px;margin:0 0 8px}p{color:#a9aeb8;font-size:13px;line-height:1.5;margin:0}
+.controls{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:20px}
+.group{display:flex;gap:6px;flex-wrap:wrap}button,a{font:inherit}button{background:transparent;color:#a9aeb8;border:1px solid #34373c;border-radius:7px;padding:9px 13px;font-size:13px;cursor:pointer}button[aria-pressed=true]{color:#f4f5f6;border-color:#f4f5f6;background:#202329}button:hover{background:#272a30}button:focus-visible,a:focus-visible{outline:2px solid #cb5546;outline-offset:3px}
+.grid{display:grid;grid-template-columns:repeat(3,390px);justify-content:center;gap:28px;min-width:1226px}
+.variant h2{font-size:17px;margin:0 0 6px}.variant p{min-height:40px;font-size:12px;max-width:370px}.badge{font-size:10px;border:1px solid #707780;border-radius:5px;padding:3px 5px;margin-left:7px;font-weight:500;vertical-align:middle}.spec{display:flex;gap:10px;color:#a9aeb8;font-size:11px;margin:10px 0 14px}.spec span{border-right:1px solid #363a40;padding-right:10px}.spec span:last-child{border:none}
+iframe{display:block;border:0;width:390px;height:844px;border-radius:30px;background:#15171b;box-shadow:0 0 0 1px #30343b}
+.open{display:inline-block;margin-top:12px;color:#c6cad2;font-size:12px;text-decoration:none}.open:hover{text-decoration:underline}
+.note{margin:22px auto 0;max-width:1250px;font-size:12px}body.light{background:#ececea;color:#17191d;color-scheme:light}body.light p,body.light .spec{color:#626977}body.light button{color:#4c5360;border-color:#b8bbc1}body.light button[aria-pressed=true]{color:#17191d;border-color:#17191d;background:#fff}body.light button:hover{background:#fff}body.light .open{color:#4c5360}
+</style>
+<header>
+<h1>Ten sam Palladin. Trzy rytmy interfejsu.</h1>
+<p>Rzeczywiste komponenty Fluttera i te same lokalne dane. Klikaj, przewijaj i otwieraj szczegóły w każdym telefonie.</p>
+<div class="controls">
+<div class="group" aria-label="Wspólny ekran">
+<button data-screen="/entries" aria-pressed="true">Entries</button>
+<button data-screen="/agents" aria-pressed="false">Agents</button>
+<button data-screen="/settings/audit" aria-pressed="false">Logs</button>
+<button data-screen="/inbox" aria-pressed="false">Inbox</button>
+<button data-screen="/" aria-pressed="false">Home</button>
+</div>
+<div class="group" aria-label="Motyw">
+<button data-theme="dark" aria-pressed="true">Dark</button>
+<button data-theme="light" aria-pressed="false">Light</button>
+<button id="reset">Reset widoków</button>
+</div>
+</div>
+</header>
+<main class="grid">
+<section class="variant" data-variant="a">
+<h2>A · Minimalna korekta <span class="badge">WYBRANY</span></h2>
+<p>Obecna gęstość. Wyrównane nazwy i odstępy wierszy, węższe wnętrza list.</p>
+<div class="spec"><span>Wnętrze 14</span><span>Wiersz ↕ 12</span><span>Tytuł 14</span><span>Kontrolki 44</span></div>
+<iframe title="Palladin mobile — wariant A"></iframe>
+<a class="open" target="_blank" rel="noopener">Otwórz A osobno ↗</a>
+</section>
+<section class="variant" data-variant="b">
+<h2>B · Zrównoważony</h2>
+<p>Szersze wnętrza i uporządkowany rytm tekstu. Kompaktowa lista z oddechem.</p>
+<div class="spec"><span>Wnętrze 16</span><span>Wiersz ↕ 12</span><span>Tytuł 14</span><span>Kontrolki 44</span></div>
+<iframe title="Palladin mobile — wariant B"></iframe>
+<a class="open" target="_blank" rel="noopener">Otwórz B osobno ↗</a>
+</section>
+<section class="variant" data-variant="c">
+<h2>C · Przestronny</h2>
+<p>Większy tekst i kontrolki, więcej miejsca między elementami. Mniej rekordów naraz.</p>
+<div class="spec"><span>Wnętrze 16</span><span>Wiersz ↕ 16</span><span>Tytuł 15</span><span>Kontrolki 48</span></div>
+<iframe title="Palladin mobile — wariant C"></iframe>
+<a class="open" target="_blank" rel="noopener">Otwórz C osobno ↗</a>
+</section>
+</main>
+<p class="note">Makiety porównawcze, bez backendu. Każdy telefon ma 390 × 844 px i niezależny stan. Górne przełączniki otwierają ten sam ekran we wszystkich wariantach i resetują lokalne zmiany. Inbox zachowuje układ kart. To próbki kierunku proporcji — nie zakończona migracja wszystkich formularzy.</p>
+<script>
+const allowedScreens=['/entries','/agents','/settings/audit','/inbox','/'];
+const params=new URLSearchParams(location.search);
+let screen=allowedScreens.includes(params.get('screen'))?params.get('screen'):'/entries';
+let theme=params.get('theme')==='light'?'light':'dark';
+function render(){
+ document.body.classList.toggle('light',theme==='light');
+ document.querySelectorAll('[data-screen]').forEach(el=>el.setAttribute('aria-pressed',el.dataset.screen===screen));
+ document.querySelectorAll('[data-theme]').forEach(el=>el.setAttribute('aria-pressed',el.dataset.theme===theme));
+ document.querySelectorAll('[data-variant]').forEach(section=>{
+  const url=new URL('variants/'+section.dataset.variant+'/',location.href);
+  url.search=new URLSearchParams({screen,theme,comparison:'1'}).toString();
+  section.querySelector('iframe').src=url;
+  section.querySelector('a').href=url;
+ });
+ history.replaceState(null,'','?'+new URLSearchParams({screen,theme}));
+}
+document.querySelectorAll('[data-screen]').forEach(el=>el.addEventListener('click',()=>{screen=el.dataset.screen;render()}));
+document.querySelectorAll('[data-theme]').forEach(el=>el.addEventListener('click',()=>{theme=el.dataset.theme;render()}));
+document.getElementById('reset').addEventListener('click',render);
+render();
+</script>
+</html>

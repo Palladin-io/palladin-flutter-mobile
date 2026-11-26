@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_record_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -96,6 +97,7 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
 
     // Title→content gap (headerGap) is owned by AppScreen.appBar.
     return AppScreen.appBar(
+      gapAfterHeader: false,
       appBar: AppBar(
         centerTitle: false,
         backgroundColor: Colors.transparent,
@@ -181,23 +183,25 @@ class _KeysList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      // Title→list gap (headerGap) is owned by AppScreen.appBar.
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        0,
-        AppSpacing.screenH,
-        AppSpacing.listBottom,
-      ),
-      itemCount: keys.length,
-      itemBuilder: (context, index) {
-        final key = keys[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-          child: ApiKeyCard(apiKey: key, onTap: () => onOpenKey(key.apiKeyId)),
-        );
-      },
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.section,
+            AppSpacing.screenH,
+            AppSpacing.listBottom,
+          ),
+          sliver: AppRecordList(
+            itemCount: keys.length,
+            itemBuilder: (context, index) => ApiKeyCard(
+              apiKey: keys[index],
+              onTap: () => onOpenKey(keys[index].apiKeyId),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

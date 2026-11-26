@@ -445,3 +445,9 @@ with paths/query/fragment remain distinct. This is display-only; matching and
 native origin verification are unchanged.
 
 The Login-only sign-in method sheet uses a horizontally scrollable provider-logo rail with native focusable buttons and previous/next actions. Scrolling never selects a provider; saved-method rows, exact field IDs, manual accounts and candidate linking retain their behavior. Candidate controls resize with reduced-motion-aware `AnimatedSize` above the pinned sheet footer. The generic localized suggestion mail uses only `ContactConfig` (`PALLADIN_CONTACT_EMAIL`) and subject; it never includes account or Entry values. Generic builds leave the contact unset. Store artifact workflows require the public `CONTACT_EMAIL` repository variable and pass it as the Dart define to both Android and iOS. Copy `config/contact.example.json` to ignored `config/contact.local.json` for an empty generic starting point. For local previews supply `--dart-define=PALLADIN_CONTACT_EMAIL=<contact-address>` or put that key in an ignored `config/*.local.json` define file.
+
+## Current presentation contract
+
+See `docs/design/mobile-ui-alignment.md` (Current approved UI contract). Resource
+lists reuse AppRecordList/AppRecordRow; metadata uses read-only details and root
+Edit routes with one pinned AppActionFooter. Preserve existing permission guards.

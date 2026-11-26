@@ -3015,28 +3015,28 @@
   "auditGroupOrgAccount": "Org & account",
   "auditLegendTitle": "Event legend",
   "auditLegendSubtitle": "What the colours on each log entry mean.",
-  "auditSentenceCreated": "{actor} created {object}",
+  "auditSentenceCreated": "{object} created by {actor}",
   "@auditSentenceCreated": {
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }
     }
   },
-  "auditSentenceUpdated": "{actor} updated {object}",
+  "auditSentenceUpdated": "{object} updated by {actor}",
   "@auditSentenceUpdated": {
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }
     }
   },
-  "auditSentenceDeleted": "{actor} deleted {object}",
+  "auditSentenceDeleted": "{object} deleted by {actor}",
   "@auditSentenceDeleted": {
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }
     }
   },
-  "auditSentenceExported": "{actor} exported {object}",
+  "auditSentenceExported": "{object} exported by {actor}",
   "@auditSentenceExported": {
     "description": "Audit sentence — vault exported",
     "placeholders": {
@@ -3044,28 +3044,28 @@
       "object": { "type": "String" }
     }
   },
-  "auditSentenceActivated": "{actor} activated {object}",
+  "auditSentenceActivated": "{object} activated by {actor}",
   "@auditSentenceActivated": {
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }
     }
   },
-  "auditSentenceRevoked": "{actor} revoked {object}",
+  "auditSentenceRevoked": "{object} revoked by {actor}",
   "@auditSentenceRevoked": {
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }
     }
   },
-  "auditSentenceBlocked": "{actor} blocked {object}",
+  "auditSentenceBlocked": "{object} blocked by {actor}",
   "@auditSentenceBlocked": {
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }
     }
   },
-  "auditSentenceReactivated": "{actor} reactivated {object}",
+  "auditSentenceReactivated": "{object} reactivated by {actor}",
   "@auditSentenceReactivated": {
     "placeholders": {
       "actor": { "type": "String" },
@@ -3862,5 +3862,15 @@
   "entrySignInMethodAgentHint": "Agents can see the provider and the linked entry, never the account.",
   "entrySignInMethodsLabel": "Sign-in methods",
   "entrySignInMethodAdd": "Add sign-in method",
-  "entrySignInMethodVisibility": "Visible to agents"
+  "entrySignInMethodVisibility": "Visible to agents",
+  "auditSentenceGrantApproved": "{resource} → {agent} by {actor}",
+  "@auditSentenceGrantApproved": {"placeholders": {"resource": {"type": "String"}, "agent": {"type": "String"}, "actor": {"type": "String"}}},
+  "auditSentenceGrantExpired": "{resource} → {agent}",
+  "@auditSentenceGrantExpired": {"placeholders": {"resource": {"type": "String"}, "agent": {"type": "String"}}},
+  "auditSentenceAccessed": "{resource} by {actor}",
+  "@auditSentenceAccessed": {"placeholders": {"resource": {"type": "String"}, "actor": {"type": "String"}}},
+  "teamJoinedLabel": "Joined",
+"teamSentLabel": "Sent",
+"teamExpiresLabel": "Expires",
+"teamInvitedByLabel": "Invited by"
 }

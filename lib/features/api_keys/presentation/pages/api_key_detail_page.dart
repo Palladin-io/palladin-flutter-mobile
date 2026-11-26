@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/brand_tab_indicator.dart';
+import '../../../../core/widgets/app_detail_tabs.dart';
+import '../../../../core/widgets/app_header_surface.dart';
 
-import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_canvas_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -50,12 +51,16 @@ class _ApiKeyDetailView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return AppBrandBackground(
+    return AppCanvasBackground(
       child: DefaultTabController(
         length: 2,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
+            flexibleSpace: const AppHeaderSurface(
+              showDivider: false,
+              child: SizedBox.expand(),
+            ),
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
             scrolledUnderElevation: 0,
@@ -68,23 +73,7 @@ class _ApiKeyDetailView extends StatelessWidget {
               onPressed: () => context.pop(),
             ),
             title: _AppBarTitle(keyId: keyId),
-            bottom: TabBar(
-              labelColor: AppColors.brandRed,
-              unselectedLabelColor: AppColors.onSurfaceSubtle(brightness),
-              indicator: BrandTabIndicator(
-                glowColor: AppColors.primaryGlow(brightness),
-              ),
-              indicatorSize: TabBarIndicatorSize.label,
-              indicatorWeight: 2,
-              dividerColor: AppColors.navBorder(brightness),
-              labelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+            bottom: AppDetailTabs(
               tabs: [
                 Tab(text: l10n.apiKeysTabDetails),
                 Tab(text: l10n.apiKeysTabAgents),

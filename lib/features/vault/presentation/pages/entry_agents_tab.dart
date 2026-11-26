@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_fab.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
@@ -32,11 +33,11 @@ class EntryAgentsTab extends StatelessWidget {
       entryId: entry.id,
       emptyTitle: l10n.entryAgentsEmptyTitle,
       emptyHint: l10n.entryAgentsEmptyHint,
-      contentPadding: const EdgeInsets.fromLTRB(
+      contentPadding: EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.fieldGap,
+        AppSpacing.section,
         AppSpacing.screenH,
-        AppSpacing.listBottom,
+        AppFab.scrollClearance(context),
       ),
     );
   }

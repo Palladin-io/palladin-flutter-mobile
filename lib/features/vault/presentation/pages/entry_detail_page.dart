@@ -1,8 +1,11 @@
+import '../../../../core/widgets/fab_registrar.dart';
+import '../../../shell/presentation/pages/app_shell.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/brand_tab_indicator.dart';
+import '../../../../core/widgets/app_detail_tabs.dart';
+import '../../../../core/widgets/app_header_surface.dart';
 
-import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_canvas_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
@@ -20,6 +23,7 @@ import '../cubit/edit_entry_cubit.dart';
 import '../cubit/entry_agents_cubit.dart';
 import '../cubit/entry_history_cubit.dart';
 import 'entry_agents_tab.dart';
+import '../widgets/entry_list_icon.dart';
 import 'entry_details_tab.dart';
 import 'entry_history_tab.dart';
 import 'entry_sharing_tab.dart';
@@ -72,14 +76,29 @@ class EntryDetailPage extends StatelessWidget {
     bool openAgentsTab = false,
     bool showSharing = false,
   }) {
-    return Navigator.of(context, rootNavigator: true).push<EntryDetailResult>(
+    final inShell =
+        context.getInheritedWidgetOfExactType<AppShellScope>() != null;
+    return Navigator.of(
+      context,
+      rootNavigator: !inShell,
+    ).push<EntryDetailResult>(
       MaterialPageRoute(
-        builder: (_) => EntryDetailPage(
-          entry: entry,
-          wrappedVK: wrappedVK,
-          openAgentsTab: openAgentsTab,
-          showSharing: showSharing,
-        ),
+        builder: (_) {
+          final page = EntryDetailPage(
+            entry: entry,
+            wrappedVK: wrappedVK,
+            openAgentsTab: openAgentsTab,
+            showSharing: showSharing,
+          );
+          return inShell
+              ? Column(
+                  children: [
+                    const FabRegistrar(fab: null),
+                    Expanded(child: page),
+                  ],
+                )
+              : page;
+        },
       ),
     );
   }
@@ -260,17 +279,23 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         if (didPop) return;
         Navigator.of(context).pop(EntryDetailUpdated(_latestUpdate!));
       },
-      child: AppBrandBackground(
+      child: AppCanvasBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           floatingActionButton: _tabController.index == _agentsTabIndex
-              ? AppFab(
-                  onPressed: _onAddAgent,
-                  tooltip: l10n.grantAccessTitleAgent,
+              ? Padding(
+                  padding: EdgeInsets.only(
+                    bottom: AppFab.overlayInset(context) - AppSpacing.lg,
+                    right: AppSpacing.xs,
+                  ),
+                  child: AppFab(
+                    onPressed: _onAddAgent,
+                    tooltip: l10n.grantAccessTitleAgent,
+                  ),
                 )
               : null,
           appBar: _EntryDetailAppBar(
-            label: _entry.label,
+            entry: _entry,
             tabController: _tabController,
             onBack: _handleBack,
             editController: _editController,
@@ -301,9 +326,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                   active: _tabController.index == _logsTabIndex,
                   contentPadding: const EdgeInsets.fromLTRB(
                     AppSpacing.screenH,
-                    AppSpacing.fieldGap,
+                    AppSpacing.section,
                     AppSpacing.screenH,
-                    AppSpacing.listBottom,
+                    AppSpacing.section,
                   ),
                 ),
                 EntryHistoryTab(entry: _entry, onUpdated: _onUpdated),
@@ -326,7 +351,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
 class _EntryDetailAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const _EntryDetailAppBar({
-    required this.label,
+    required this.entry,
     required this.tabController,
     required this.onBack,
     required this.editController,
@@ -334,14 +359,14 @@ class _EntryDetailAppBar extends StatelessWidget
     required this.brightness,
   });
 
-  final String label;
+  final EntryEntity entry;
   final TabController tabController;
   final VoidCallback onBack;
   final EntryEditController editController;
   final AppLocalizations l10n;
   final Brightness brightness;
 
-  static const double _tabBarHeight = 44;
+  static const double _tabBarHeight = 50;
 
   @override
   Size get preferredSize =>
@@ -350,9 +375,12 @@ class _EntryDetailAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     final onSurface = AppColors.onSurface(brightness);
-    final subtle = AppColors.onSurfaceSubtle(brightness);
 
     return AppBar(
+      flexibleSpace: const AppHeaderSurface(
+        showDivider: false,
+        child: SizedBox.expand(),
+      ),
       backgroundColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -364,7 +392,17 @@ class _EntryDetailAppBar extends StatelessWidget
         icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         onPressed: onBack,
       ),
-      title: AppBarTitle(title: label),
+      title: Row(
+        children: [
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: FittedBox(child: EntryListIcon(entry: entry)),
+          ),
+          const SizedBox(width: AppSpacing.innerGap),
+          Expanded(child: AppBarTitle(title: entry.label)),
+        ],
+      ),
       // Cancel sits beside the name at the very top — visible only while the
       // Details tab is in edit mode.
       actions: [
@@ -393,29 +431,8 @@ class _EntryDetailAppBar extends StatelessWidget
         preferredSize: const Size.fromHeight(_tabBarHeight),
         child: SizedBox(
           height: _tabBarHeight,
-          child: TabBar(
+          child: AppDetailTabs(
             controller: tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.cardPadding,
-            ),
-            labelColor: AppColors.brandRed,
-            unselectedLabelColor: subtle,
-            indicator: BrandTabIndicator(
-              glowColor: AppColors.primaryGlow(brightness),
-            ),
-            indicatorSize: TabBarIndicatorSize.label,
-            indicatorWeight: 2,
-            dividerColor: AppColors.navBorder(brightness),
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
             tabs: [
               Tab(text: l10n.entryTabDetails),
               Tab(text: l10n.vaultTabAgents),

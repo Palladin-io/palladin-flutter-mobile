@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_record_list.dart';
+import '../../../../core/widgets/app_record_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -162,18 +164,25 @@ class _RoleList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        0,
-        AppSpacing.screenH,
-        AppSpacing.listBottom,
-      ),
-      itemCount: roles.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
-      itemBuilder: (context, index) =>
-          _RoleCard(role: roles[index], onTap: () => onOpen(roles[index].id)),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.section,
+            AppSpacing.screenH,
+            AppSpacing.listBottom,
+          ),
+          sliver: AppRecordList(
+            itemCount: roles.length,
+            itemBuilder: (context, index) => _RoleCard(
+              role: roles[index],
+              onTap: () => onOpen(roles[index].id),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -188,72 +197,16 @@ class _RoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final accent = role.isSystem ? AppColors.vaultBlue : AppColors.brandRed;
-    return InkWell(
+    return AppRecordRow(
+      title: role.name,
+      subtitle: l10n.permissionsAssignedMembers(role.assignedMemberCount),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.cardPadding),
-        decoration: BoxDecoration(
-          color: AppColors.cardFill(brightness),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder(brightness)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.12),
-              ),
-              child: Icon(
-                role.isSystem
-                    ? Icons.verified_user_outlined
-                    : Icons.shield_outlined,
-                color: accent,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RoleNameRow(
-                    isSystem: role.isSystem,
-                    name: Text(
-                      role.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.onSurface(brightness),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    l10n.permissionsAssignedMembers(role.assignedMemberCount),
-                    style: TextStyle(
-                      color: AppColors.onSurfaceMuted(brightness),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.onSurfaceSubtle(brightness),
-              size: 20,
-            ),
-          ],
-        ),
+      leading: Icon(
+        Icons.shield_outlined,
+        size: 22,
+        color: AppColors.onSurfaceMuted(brightness),
       ),
+      trailing: role.isSystem ? const SystemRoleBadge() : null,
     );
   }
 }

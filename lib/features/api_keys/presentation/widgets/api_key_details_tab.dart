@@ -1,3 +1,4 @@
+import '../../../../core/widgets/action_zone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -8,7 +9,8 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import 'api_key_format.dart';
-import 'api_key_status_badge.dart';
+import '../../../../core/widgets/approve_action_button.dart';
+import '../../../vault/presentation/widgets/entry_field_row.dart';
 
 /// Body of the "Details" tab on the API-key detail screen.
 ///
@@ -61,11 +63,10 @@ class ApiKeyDetailsTab extends StatelessWidget {
         AppSpacing.screenH,
         AppSpacing.section,
         AppSpacing.screenH,
-        AppSpacing.screenBottom,
+        AppSpacing.section,
       ),
       children: [
         Container(
-          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -74,35 +75,25 @@ class ApiKeyDetailsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      apiKey.name,
-                      style: TextStyle(
-                        color: AppColors.onSurface(brightness),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.innerGap),
-                  ApiKeyStatusBadge(status: apiKey.status),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
               _DetailRow(
                 label: l10n.apiKeysDetailKey,
                 value: maskedApiKey(apiKey.keySuffix),
-                mono: true,
               ),
-              const SizedBox(height: AppSpacing.innerGap),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.cardBorder(brightness),
+              ),
               _DetailRow(
                 label: l10n.apiKeysDetailCreatedAt,
                 value: formatApiKeyDate(apiKey.createdAt),
               ),
               if (apiKey.revokedAt != null) ...[
-                const SizedBox(height: AppSpacing.innerGap),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppColors.cardBorder(brightness),
+                ),
                 _DetailRow(
                   label: l10n.apiKeysDetailRevokedAt,
                   value: formatApiKeyDate(apiKey.revokedAt!),
@@ -114,7 +105,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
         if (apiKey.isActive && canWrite) ...[
           const SizedBox(height: AppSpacing.section),
           _DangerZone(
-            label: l10n.vaultDangerZone,
+            label: l10n.entryDangerZone,
             actionLabel: isRevoking ? '…' : l10n.apiKeysRevoke,
             icon: isRevoking
                 ? const SizedBox(
@@ -125,92 +116,43 @@ class ApiKeyDetailsTab extends StatelessWidget {
                       color: AppColors.brandRed,
                     ),
                   )
-                : const Icon(Icons.block, size: 14, color: AppColors.brandRed),
+                : const Icon(
+                    Icons.block_outlined,
+                    size: 22,
+                    color: AppColors.brandRed,
+                  ),
             onPressed: isRevoking ? null : onRevoke,
           ),
         ],
         if (!apiKey.isActive && canWrite) ...[
           const SizedBox(height: AppSpacing.section),
-          // Activate section — green-accented card, mirrors the danger zone
-          // structure but uses positiveAccent (#10B981) instead of brandRed.
-          // positiveAccent is the "approve/restore" semantic colour shared
-          // with the web panel — visible on both dark and light backgrounds.
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.cardPadding),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColors.positiveAccent.withValues(alpha: 0.25),
-              ),
-            ),
+          ActionZone(
+            title: l10n.apiKeysActivate,
+            semanticColor: AppColors.onSurface(brightness),
+            borderColor: AppColors.cardBorder(brightness),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  l10n.apiKeysActivateZone,
-                  style: const TextStyle(
-                    color: AppColors.positiveAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
                   l10n.apiKeysActivateHint,
-                  style: const TextStyle(
-                    color: AppColors.positiveAccent,
-                    fontSize: 11,
-                    height: 1.4,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceMuted(brightness),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.innerGap),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: TextButton.icon(
-                    icon: isActivating
-                        ? const SizedBox(
-                            height: 14,
-                            width: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: AppColors.positiveAccent,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.check_circle_outline,
-                            size: 14,
-                            color: AppColors.positiveAccent,
-                          ),
-                    label: Text(
-                      isActivating
-                          ? l10n.apiKeysActivating
-                          : l10n.apiKeysActivate,
-                      style: const TextStyle(
-                        color: AppColors.positiveAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      backgroundColor: AppColors.positiveAccent.withValues(
-                        alpha: 0.12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: (isActivating || isDeleting) ? null : onActivate,
-                  ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                ApproveActionButton(
+                  label: l10n.apiKeysActivate,
+                  isLoading: isActivating,
+                  onPressed: (isActivating || isDeleting) ? null : onActivate,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.cardGap),
+          const SizedBox(height: AppSpacing.section),
           // Danger zone — delete permanently.
           _DangerZone(
-            label: l10n.vaultDangerZone,
+            label: l10n.entryDangerZone,
             actionLabel: isDeleting
                 ? l10n.apiKeysDeleting
                 : l10n.apiKeysDeletePermanently,
@@ -225,7 +167,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
                   )
                 : const Icon(
                     Icons.delete_outline,
-                    size: 14,
+                    size: 22,
                     color: AppColors.brandRed,
                   ),
             onPressed: (isActivating || isDeleting) ? null : onDelete,
@@ -254,91 +196,26 @@ class _DangerZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.brandRed,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: TextButton.icon(
-              icon: icon,
-              label: Text(
-                actionLabel,
-                style: const TextStyle(
-                  color: AppColors.brandRed,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: onPressed,
-            ),
-          ),
-        ],
-      ),
+    return CompactDangerZone(
+      title: label,
+      heading: actionLabel,
+      actionIcon: icon,
+      onPressed: onPressed,
     );
   }
 }
 
-/// A single label / value row in the detail card.
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-    this.mono = false,
-  });
-
+  const _DetailRow({required this.label, required this.value});
   final String label;
   final String value;
-
-  /// When true, renders [value] in a monospace font — used for the
-  /// masked key representation.
-  final bool mono;
-
   @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 12,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            fontFamily: mono ? 'monospace' : null,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => EntryFieldRow(
+    icon: Icons.key_outlined,
+    value: value,
+    isMasked: false,
+    revealed: true,
+    onToggleReveal: null,
+    onCopy: null,
+  ).labeled(label);
 }

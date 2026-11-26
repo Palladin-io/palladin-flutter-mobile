@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_action_footer.dart';
+import '../../../../core/widgets/primary_button.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -40,8 +42,16 @@ String _withCacheBust(String url) =>
 /// is active). The Save button is hidden when [canEdit] is false and
 /// disabled when the form is not dirty / valid.
 class AgentEditForm extends StatefulWidget {
-  const AgentEditForm({super.key, required this.agent, required this.canEdit});
+  const AgentEditForm({
+    super.key,
+    required this.agent,
+    required this.canEdit,
+    this.fullScreen = false,
+    this.onSaved,
+  });
 
+  final bool fullScreen;
+  final VoidCallback? onSaved;
   final Agent agent;
 
   /// When false all fields render as disabled and the Save button is
@@ -231,7 +241,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
     } else {
       iconForApi = selected;
     }
-    await cubit.updateAgent(
+    final saved = await cubit.updateAgent(
       widget.agent.agentId,
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
@@ -241,10 +251,11 @@ class _AgentEditFormState extends State<AgentEditForm> {
       iconColor: agentColorHex(_iconColor),
     );
     if (!mounted) return;
-    if (cubit.state.mutationError == null) {
+    if (saved) {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.agentsEditSaved)));
+      widget.onSaved?.call();
     }
   }
 
@@ -269,7 +280,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
           ]),
           builder: (context, _) {
             final canSubmit = _canSubmit(isSaving: isSaving);
-            return Column(
+            final fields = Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 OnboardingTextField(
@@ -302,7 +313,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
                   onSelected: (key) => setState(() => _iconKey = key),
                   onMoreTapped: widget.canEdit ? _openIconBrowser : null,
                 ),
-                if (widget.canEdit) ...[
+                if (widget.canEdit && !widget.fullScreen) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   _SaveButton(
                     isSaving: isSaving,
@@ -322,6 +333,23 @@ class _AgentEditFormState extends State<AgentEditForm> {
                     ),
                   ),
                 ],
+              ],
+            );
+            if (!widget.fullScreen) return fields;
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.screenH),
+                    child: fields,
+                  ),
+                ),
+                AppActionFooter(
+                  child: _SaveButton(
+                    isSaving: isSaving,
+                    onPressed: canSubmit ? _onSave : null,
+                  ),
+                ),
               ],
             );
           },
@@ -524,33 +552,10 @@ class _SaveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return SizedBox(
-      height: 44,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.brandRed,
-          disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.3),
-          foregroundColor: AppColors.onBrandRed,
-          disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-        child: isSaving
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: AppColors.onBrandRed,
-                ),
-              )
-            : Text(l10n.agentsEditSave),
-      ),
+    return PrimaryButton(
+      label: l10n.agentsEditSave,
+      isLoading: isSaving,
+      onPressed: onPressed,
     );
   }
 }

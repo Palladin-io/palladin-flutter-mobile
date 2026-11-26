@@ -45,11 +45,13 @@ class PrimaryButton extends StatelessWidget {
                   )
                 : null,
             tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
-            backgroundColor: AppColors.brandRed,
-            disabledBackgroundColor: AppColors.brandRed,
+            backgroundColor: AppColors.primaryAction,
+            disabledBackgroundColor: isLoading
+                ? AppColors.primaryAction
+                : AppColors.cardBorder(Theme.of(context).brightness),
             foregroundColor: AppColors.onBrandRed,
-            disabledForegroundColor: AppColors.onBrandRed.withValues(
-              alpha: 0.5,
+            disabledForegroundColor: AppColors.onSurfaceSubtle(
+              Theme.of(context).brightness,
             ),
             elevation: 0,
             shape: RoundedRectangleBorder(

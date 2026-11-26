@@ -111,6 +111,35 @@ void main() {
     entryNameRefreshDelay: Duration.zero,
   );
 
+  test('agent scope is retained for initial load and pagination', () async {
+    when(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: null, pageSize: 50),
+    ).thenAnswer(
+      (_) async => const AuditLogPage(entries: [], nextCursor: 'next'),
+    );
+    when(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: 'next', pageSize: 50),
+    ).thenAnswer((_) async => const AuditLogPage(entries: []));
+    final cubit = AuditLogCubit(
+      auditRepository: audit,
+      presentationResolver: presentationResolver(),
+      scope: AuditLogScope.org,
+      agentId: 'agent-1',
+      entryNameRefreshDelay: Duration.zero,
+    );
+    await cubit.load();
+    expect(cubit.state.status, AuditLogStatus.loaded);
+    await cubit.loadMore();
+    verify(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: null, pageSize: 50),
+    ).called(1);
+    verify(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: 'next', pageSize: 50),
+    ).called(1);
+    expect(cubit.state.nextCursor, isNull);
+    await cubit.close();
+  });
+
   group('vault scope', () {
     test(
       'does not present the Vault name as an unresolved Entry name',

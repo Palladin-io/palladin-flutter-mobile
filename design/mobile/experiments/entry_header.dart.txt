@@ -1,0 +1,55 @@
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: layout == 'd' ? AppSpacing.innerGap : AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(children: [
+                      EntryListIcon(entry: entry),
+                      const SizedBox(width: AppSpacing.fieldGap),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(entry.label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppColors.onSurface(brightness), fontSize: 14, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: AppSpacing.xs),
+                          if (layout == 'd')
+                            Text(entry.urlDomain?.isNotEmpty == true ? entry.urlDomain! : (vaultName ?? '—'),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: AppColors.onSurfaceSubtle(brightness), fontSize: 12))
+                          else if (entry.type == EntryType.credential)
+                            EntryUsernameLabel(username: entry.username, load: loadUsername)
+                          else
+                            Text(meta.isEmpty ? '—' : meta, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12)),
+                          if (layout == 'b') ...[
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(entry.urlDomain?.isNotEmpty == true ? entry.urlDomain! : '—',
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: AppColors.onSurfaceSubtle(brightness), fontSize: 12)),
+                          ],
+                        ],
+                      )),
+                      const SizedBox(width: AppSpacing.innerGap),
+                      if (layout == 'd' && interactive)
+                        EntrySmallIconButton(icon: isExpanded ? Icons.expand_less : Icons.expand_more,
+                          tooltip: l10n.vaultRevealEntry, onPressed: onToggleReveal!)
+                      else
+                        Icon(Icons.chevron_right, size: 18, color: AppColors.onSurfaceSubtle(brightness)),
+                    ]),
+                    if ((layout == 'b' || layout == 'c') && interactive) ...[
+                      const SizedBox(height: AppSpacing.fieldGap),
+                      Row(children: [
+                        if (layout == 'c') Expanded(child: Text(entry.urlDomain?.isNotEmpty == true ? entry.urlDomain! : (vaultName ?? '—'),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: AppColors.onSurfaceSubtle(brightness), fontSize: 12)))
+                        else const Spacer(),
+                        EntrySmallIconButton(icon: isExpanded ? Icons.visibility_off : Icons.visibility,
+                          tooltip: l10n.vaultRevealEntry, onPressed: onToggleReveal!),
+                        const SizedBox(width: AppSpacing.fieldGap),
+                        if (onShare != null) EntrySmallIconButton(icon: Icons.share_outlined,
+                          tooltip: l10n.sharingShareEntry, onPressed: onShare!),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),

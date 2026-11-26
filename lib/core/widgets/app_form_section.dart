@@ -11,11 +11,17 @@ class AppFormSection extends StatefulWidget {
     required this.summary,
     required this.child,
     this.error,
+    this.showCollapsedDivider = true,
+    this.showExpandedDivider = true,
+    this.compact = false,
   });
 
   final String label, summary;
   final String? error;
   final Widget child;
+  final bool showCollapsedDivider;
+  final bool showExpandedDivider;
+  final bool compact;
 
   @override
   State<AppFormSection> createState() => _AppFormSectionState();
@@ -38,7 +44,12 @@ class _AppFormSectionState extends State<AppFormSection> {
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: AppColors.cardBorder(brightness)),
+          bottom:
+              (_expanded
+                  ? widget.showExpandedDivider
+                  : widget.showCollapsedDivider)
+              ? BorderSide(color: AppColors.cardBorder(brightness))
+              : BorderSide.none,
         ),
       ),
       child: Column(
@@ -52,19 +63,33 @@ class _AppFormSectionState extends State<AppFormSection> {
             child: InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.section,
+                padding: EdgeInsets.symmetric(
+                  vertical: widget.compact ? AppSpacing.md : AppSpacing.section,
                 ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        widget.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.onSurface(brightness),
-                        ),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              widget.label,
+                              style: TextStyle(
+                                fontSize: widget.compact ? 12 : 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.onSurface(brightness),
+                              ),
+                            ),
+                          ),
+                          if (widget.compact) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            Icon(
+                              _expanded ? Icons.expand_less : Icons.expand_more,
+                              size: 16,
+                              color: AppColors.onSurfaceSubtle(brightness),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: AppSpacing.innerGap),
@@ -73,17 +98,19 @@ class _AppFormSectionState extends State<AppFormSection> {
                         widget.summary,
                         textAlign: TextAlign.end,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: widget.compact ? 12 : 13,
                           color: AppColors.onSurfaceMuted(brightness),
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 18,
-                      color: AppColors.onSurfaceSubtle(brightness),
-                    ),
+                    if (!widget.compact) ...[
+                      const SizedBox(width: AppSpacing.innerGap),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: AppColors.onSurfaceSubtle(brightness),
+                      ),
+                    ],
                   ],
                 ),
               ),

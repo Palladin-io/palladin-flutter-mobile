@@ -3378,42 +3378,42 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String auditSentenceCreated(String actor, String object) {
-    return '$actor: utworzono $object';
+    return '$object — utworzone przez $actor';
   }
 
   @override
   String auditSentenceUpdated(String actor, String object) {
-    return '$actor: zaktualizowano $object';
+    return '$object — zmienione przez $actor';
   }
 
   @override
   String auditSentenceDeleted(String actor, String object) {
-    return '$actor: usunięto $object';
+    return '$object — usunięte przez $actor';
   }
 
   @override
   String auditSentenceExported(String actor, String object) {
-    return '$actor wyeksportował $object';
+    return '$object — wyeksportowane przez $actor';
   }
 
   @override
   String auditSentenceActivated(String actor, String object) {
-    return '$actor: aktywowano $object';
+    return '$object — aktywowane przez $actor';
   }
 
   @override
   String auditSentenceRevoked(String actor, String object) {
-    return '$actor: unieważniono $object';
+    return '$object — cofnięte przez $actor';
   }
 
   @override
   String auditSentenceBlocked(String actor, String object) {
-    return '$actor: zablokowano $object';
+    return '$object — zablokowane przez $actor';
   }
 
   @override
   String auditSentenceReactivated(String actor, String object) {
-    return '$actor: ponownie aktywowano $object';
+    return '$object — reaktywowane przez $actor';
   }
 
   @override
@@ -5282,4 +5282,35 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entrySignInMethodVisibility => 'Widoczna dla agentów';
+
+  @override
+  String auditSentenceGrantApproved(
+    String resource,
+    String agent,
+    String actor,
+  ) {
+    return '$resource → $agent, przez $actor';
+  }
+
+  @override
+  String auditSentenceGrantExpired(String resource, String agent) {
+    return '$resource → $agent';
+  }
+
+  @override
+  String auditSentenceAccessed(String resource, String actor) {
+    return '$resource, przez $actor';
+  }
+
+  @override
+  String get teamJoinedLabel => 'Dołączono';
+
+  @override
+  String get teamSentLabel => 'Wysłano';
+
+  @override
+  String get teamExpiresLabel => 'Wygasa';
+
+  @override
+  String get teamInvitedByLabel => 'Zaprosił';
 }

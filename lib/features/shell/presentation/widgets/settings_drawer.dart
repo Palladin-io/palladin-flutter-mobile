@@ -1,3 +1,4 @@
+import '../../../../core/widgets/status_badge.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../privacy/presentation/privacy_consent_sheet.dart';
@@ -10,6 +11,7 @@ import '../../../../core/l10n/locale_cubit.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_header_surface.dart';
 import '../../../../core/widgets/brand_grain_surface.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_cubit.dart';
@@ -79,11 +81,16 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         (permissions & _kPremiumPlanBit) != 0;
 
     final content = SafeArea(
+      top: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _DrawerHeader(email: email, isPro: isPro),
-          Divider(color: AppColors.navBorder(brightness), height: 1),
+          AppHeaderSurface(
+            child: SafeArea(
+              bottom: false,
+              child: _DrawerHeader(email: email, isPro: isPro),
+            ),
+          ),
           Expanded(
             child: Scrollbar(
               controller: _scrollController,
@@ -184,7 +191,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               ),
             ),
           ),
-          const _AppVersionFooter(),
+          DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: AppColors.cardBorder(brightness)),
+              ),
+            ),
+            child: const AppHeaderSurface(
+              showDivider: false,
+              child: _AppVersionFooter(),
+            ),
+          ),
         ],
       ),
     );
@@ -192,22 +210,34 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       backgroundColor: AppColors.drawerBackground(brightness),
       surfaceTintColor: AppColors.transparent,
       shape: const RoundedRectangleBorder(),
-      child: brightness == Brightness.dark
-          ? BrandGrainSurface(
-              backgroundColor: AppColors.drawerBackground(brightness),
-              subtle: true,
-              child: content,
-            )
-          : content,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: BrandGrainOverlay(grain: AppColors.canvasGrain(brightness)),
+          ),
+          content,
+        ],
+      ),
     );
   }
 
-  void _onNavigate(BuildContext context, String route) {
-    // Close the drawer first so the destination screen lands on a clean
-    // navigator stack — leaving the drawer open looks broken during the
-    // route transition.
-    Navigator.of(context).pop();
-    context.push(route);
+  Future<void> _onNavigate(BuildContext context, String route) async {
+    final scaffold = Scaffold.of(context);
+    final router = GoRouter.of(context);
+    final origin = router.routeInformationProvider.value.uri;
+    final auth = context.read<AuthBloc>();
+    final session = auth.state;
+    scaffold.closeEndDrawer();
+    await router.push<void>(route);
+    final current = auth.state;
+    if (scaffold.mounted &&
+        session is AuthAuthenticated &&
+        current is AuthAuthenticated &&
+        current.userId == session.userId &&
+        !current.isVaultLocked &&
+        router.routeInformationProvider.value.uri == origin) {
+      scaffold.openEndDrawer();
+    }
   }
 
   void _onLock(BuildContext context) {
@@ -337,51 +367,16 @@ class _DrawerHeader extends StatelessWidget {
   }
 }
 
-/// Pro badge — amber `workspace_premium` glyph + label, low-alpha
-/// amber pill so the affordance reads as a premium accent next to the
-/// display name.
+/// Premium uses the shared neutral status badge with an amber glyph.
 class _PlanBadgePro extends StatelessWidget {
   const _PlanBadgePro({required this.label});
-
   final String label;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.innerGap,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.premiumAmber.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: AppColors.premiumAmber.withValues(alpha: 0.5),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.workspace_premium,
-            size: 12,
-            color: AppColors.premiumAmber,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.premiumAmber,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StatusBadge(
+    label: label,
+    color: AppColors.premiumAmber,
+    icon: Icons.workspace_premium,
+  );
 }
 
 /// Free-plan label — muted text, no chrome, sits inline with the
@@ -710,9 +705,9 @@ class _AppVersionFooter extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenH,
-            AppSpacing.innerGap,
+            AppSpacing.md,
             AppSpacing.screenH,
-            AppSpacing.xs,
+            AppSpacing.md,
           ),
           child: Text.rich(
             TextSpan(

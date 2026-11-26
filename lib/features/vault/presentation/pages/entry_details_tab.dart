@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/app_bar_title.dart';
+import '../../../../core/widgets/app_fab.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,13 +14,14 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_action_footer.dart';
+import '../../../../core/widgets/action_zone.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../../core/widgets/primary_button.dart';
+
 import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
 import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';
@@ -29,7 +33,6 @@ import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/sign_in_method.dart';
-import '../../domain/entities/totp_config.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../cubit/edit_entry_cubit.dart';
 import '../cubit/vault_list_cubit.dart';
@@ -61,8 +64,10 @@ class EntryDetailsTab extends StatefulWidget {
     required this.onDeleted,
     this.wrappedVK,
     this.editController,
+    this.startEditing = false,
   });
 
+  final bool startEditing;
   final EntryEntity entry;
 
   /// Bubbles the freshly-saved entity up to the host page so it can update
@@ -240,6 +245,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   @override
   void initState() {
     super.initState();
+    _editMode = widget.startEditing;
     _websiteIconResolver = WebsiteIconAutoResolver(
       service: getIt.isRegistered<WebsiteIconService>()
           ? getIt<WebsiteIconService>()
@@ -272,7 +278,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       widget.editController?.publishEditing(false);
-      if (context.read<EditEntryCubit>().state is EditEntryInitial) {
+      if (widget.startEditing) {
+        _enterEditMode();
+      } else if (context.read<EditEntryCubit>().state is EditEntryInitial) {
         _requestReveal();
       }
     });
@@ -541,6 +549,55 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     }
   }
 
+  Future<void> _openEditor() async {
+    final cubit = context.read<EditEntryCubit>();
+    final auth = context.read<AuthBloc>();
+    final result = await Navigator.of(context, rootNavigator: true)
+        .push<Object>(
+          MaterialPageRoute(
+            builder: (routeContext) => MultiBlocProvider(
+              providers: [
+                BlocProvider<EditEntryCubit>.value(value: cubit),
+                BlocProvider<AuthBloc>.value(value: auth),
+              ],
+              child: AppScreen.appBar(
+                safeAreaBottom: false,
+                appBar: AppBar(
+                  centerTitle: false,
+                  titleSpacing: 0,
+                  title: AppBarTitle(
+                    title: AppLocalizations.of(context)!.entryEditAction,
+                  ),
+                ),
+                body: EntryDetailsTab(
+                  entry: _revealedEntry ?? widget.entry,
+                  wrappedVK: widget.wrappedVK,
+                  startEditing: true,
+                  editController: widget.editController,
+                  onUpdated: (entry) => Navigator.of(routeContext).pop(entry),
+                  onDeleted: (id) => Navigator.of(routeContext).pop(id),
+                ),
+              ),
+            ),
+          ),
+        );
+    if (!mounted) return;
+    widget.editController?.bindCancel(_cancelEdit);
+    if (result is String) {
+      widget.onDeleted(result);
+      return;
+    }
+    if (result is EntryEntity) widget.onUpdated(result);
+    setState(_clearPlaintextState);
+    await _requestReveal(
+      expected: result is EntryEntity ? result : null,
+      forceRemote: result is EntryEntity,
+    );
+    if (mounted && result is EntryEntity) {
+      _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
+    }
+  }
+
   void _enterEditMode() {
     if (!_populated || !context.read<EditEntryCubit>().hasCanonicalSnapshot) {
       setState(_clearPlaintextState);
@@ -559,6 +616,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   }
 
   void _cancelEdit() {
+    if (widget.startEditing) {
+      Navigator.of(context).pop();
+      return;
+    }
     setState(() {
       _syncControllersFromSnapshot();
       _editMode = false;
@@ -939,6 +1000,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     });
     widget.editController?.publishEditing(false);
     widget.onUpdated(entry);
+    if (widget.startEditing) return;
     _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
     // The local Member cache is repaired asynchronously after a mutation and
     // may still expose N while this successful response already returned N+1.
@@ -1132,78 +1194,75 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       );
     }
 
-    if (url.isNotEmpty) {
-      addField(
-        _ReadOnlyField(
-          label: l10n.entryUrlLabel,
-          row: EntryFieldRow(
-            icon: Icons.link,
-            value: url,
-            isMasked: false,
-            revealed: true,
-            onToggleReveal: null,
-            onCopy: () => _copy(url, l10n.entryUrlLabel),
-            extraTrailing: EntrySmallIconButton(
-              icon: Icons.open_in_new,
-              tooltip: l10n.vaultOpenLink,
-              // This surface intentionally keeps its existing copy behavior.
-              onPressed: () => _copy(url, l10n.entryUrlLabel),
-            ),
-          ),
+    addField(
+      _ReadOnlyField(
+        label: l10n.entryUrlLabel,
+        row: EntryFieldRow(
+          icon: Icons.link,
+          value: url,
+          isMasked: false,
+          revealed: true,
+          onToggleReveal: null,
+          onCopy: () => _copy(url, l10n.entryUrlLabel),
+          extraTrailing: url.isEmpty
+              ? null
+              : EntrySmallIconButton(
+                  icon: Icons.open_in_new_rounded,
+                  size: 18,
+                  tooltip: l10n.vaultOpenLink,
+                  // This surface intentionally keeps its existing copy behavior.
+                  onPressed: () => _copy(url, l10n.entryUrlLabel),
+                ),
         ),
-      );
-    }
+      ),
+    );
 
     switch (entry.type) {
       case EntryType.key:
-        if (value.isNotEmpty) {
-          addField(
-            _ReadOnlyField(
-              label: l10n.entryValueLabel,
-              row: EntryFieldRow(
-                icon: Icons.vpn_key,
-                value: value,
-                isMasked: true,
-                revealed: _secretRevealed,
-                onToggleReveal: () =>
-                    setState(() => _secretRevealed = !_secretRevealed),
-                onCopy: () => _copy(value, l10n.entryValueLabel),
-              ),
+        addField(
+          _ReadOnlyField(
+            label: l10n.entryValueLabel,
+            row: EntryFieldRow(
+              icon: Icons.vpn_key,
+              value: value,
+              isMasked: true,
+              revealed: _secretRevealed,
+              onToggleReveal: () =>
+                  setState(() => _secretRevealed = !_secretRevealed),
+              onCopy: () => _copy(value, l10n.entryValueLabel),
             ),
-          );
-        }
+          ),
+        );
+
       case EntryType.credential:
-        if (username.isNotEmpty) {
-          addField(
-            _ReadOnlyField(
-              label: l10n.entryUsernameLabel,
-              row: EntryFieldRow(
-                icon: Icons.person,
-                value: username,
-                isMasked: false,
-                revealed: true,
-                onToggleReveal: null,
-                onCopy: () => _copy(username, l10n.entryUsernameLabel),
-              ),
+        addField(
+          _ReadOnlyField(
+            label: l10n.entryUsernameLabel,
+            row: EntryFieldRow(
+              icon: Icons.person,
+              value: username,
+              isMasked: false,
+              revealed: true,
+              onToggleReveal: null,
+              onCopy: () => _copy(username, l10n.entryUsernameLabel),
             ),
-          );
-        }
-        if (password.isNotEmpty) {
-          addField(
-            _ReadOnlyField(
-              label: l10n.entryPasswordLabel,
-              row: EntryFieldRow(
-                icon: Icons.lock,
-                value: password,
-                isMasked: true,
-                revealed: _secretRevealed,
-                onToggleReveal: () =>
-                    setState(() => _secretRevealed = !_secretRevealed),
-                onCopy: () => _copy(password, l10n.entryPasswordLabel),
-              ),
+          ),
+        );
+
+        addField(
+          _ReadOnlyField(
+            label: l10n.entryPasswordLabel,
+            row: EntryFieldRow(
+              icon: Icons.lock,
+              value: password,
+              isMasked: true,
+              revealed: _secretRevealed,
+              onToggleReveal: () =>
+                  setState(() => _secretRevealed = !_secretRevealed),
+              onCopy: () => _copy(password, l10n.entryPasswordLabel),
             ),
-          );
-        }
+          ),
+        );
 
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
@@ -1232,7 +1291,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           ('billingAddress', l10n.entryBillingAddressLabel, Icons.home, false),
         ]) {
           final text = payload[item.$1] as String? ?? '';
-          if (text.isEmpty) continue;
           addField(
             _ReadOnlyField(
               label: item.$2,
@@ -1273,19 +1331,31 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       );
     }
 
-    if (entry.type == EntryType.credential) {
-      addField(_signInMethodField(entry, payload, l10n));
+    if (entry.type == EntryType.credential &&
+        SignInMethodField.methods(
+          entryType: entry.type,
+          fields: CustomField.listFromPayload(payload),
+        ).isNotEmpty) {
+      addField(
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: _signInMethodField(entry, payload, l10n),
+        ),
+      );
     }
 
-    return Column(
+    return Stack(
       children: [
-        Expanded(
+        Positioned.fill(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              AppSpacing.fieldGap,
+            padding: EdgeInsets.fromLTRB(
               AppSpacing.screenH,
               AppSpacing.section,
+              AppSpacing.screenH,
+              AppFab.scrollClearance(context),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1305,10 +1375,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                         width: 1,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.cardPadding,
-                      vertical: AppSpacing.innerGap,
-                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: fields,
@@ -1323,17 +1389,19 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                   label: l10n.entryDangerZone,
                   deleteLabel: l10n.entryDeleteAction,
                   onDelete: _confirmDelete,
-                  brightness: brightness,
                 ),
               ],
             ),
           ),
         ),
-        AppActionFooter(
-          key: const ValueKey('entry-edit-footer'),
-          child: PrimaryButton(
-            label: l10n.entryEditAction,
-            onPressed: _enterEditMode,
+        Positioned(
+          right: AppSpacing.screenH,
+          bottom: AppFab.overlayInset(context),
+          child: AppFab(
+            key: const ValueKey('entry-edit-fab'),
+            icon: Icons.edit_outlined,
+            tooltip: l10n.entryEditAction,
+            onPressed: _openEditor,
           ),
         ),
       ],
@@ -1350,6 +1418,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     return SignInMethodsSection(
       key: const ValueKey('entry-sign-in-method'),
       fields: CustomField.listFromPayload(payload),
+      allowAdd: false,
       onEdit: (method) =>
           _editSignInMethod(entry, method ?? const SignInMethodAbsent()),
     );
@@ -1565,12 +1634,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           addField(
             _ReadOnlyField(
               label: field.label,
-              row: _TotpFieldRow(
-                config: config,
-                revealed: _revealedCustom.contains(field.id),
-                onToggle: () => _toggleCustomReveal(field.id),
-                onCopy: _copyTotp,
-              ),
+              row: TotpDisplay(config: config, onCopy: _copyTotp),
             ),
           );
         case CustomFieldType.unknown:
@@ -1884,7 +1948,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                       ? l10n.entryDeleting
                       : l10n.entryDeleteAction,
                   onDelete: isBusy ? null : _confirmDelete,
-                  brightness: brightness,
                 ),
               ],
             ),
@@ -1913,9 +1976,14 @@ class _ReadOnlyField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (row is EntryFieldRow) return (row as EntryFieldRow).labeled(label);
+    if (row is TotpDisplay) return (row as TotpDisplay).labeled(label);
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1923,11 +1991,11 @@ class _ReadOnlyField extends StatelessWidget {
             label,
             style: TextStyle(
               color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: AppSpacing.xxs),
+          const SizedBox(height: AppSpacing.xs),
           row,
         ],
       ),
@@ -1945,7 +2013,7 @@ class _FieldDivider extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 1,
-      color: AppColors.onSurface(brightness).withValues(alpha: 0.06),
+      color: AppColors.cardBorder(brightness),
     );
   }
 }
@@ -2094,69 +2162,6 @@ class _ScriptBodyView extends StatelessWidget {
   }
 }
 
-/// Read-only TOTP custom field — masked until revealed, then a live code
-/// with a countdown ring (via [TotpDisplay]).
-class _TotpFieldRow extends StatelessWidget {
-  const _TotpFieldRow({
-    required this.config,
-    required this.revealed,
-    required this.onToggle,
-    required this.onCopy,
-  });
-
-  final TotpConfig config;
-  final bool revealed;
-  final VoidCallback onToggle;
-  final ValueChanged<String> onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    if (revealed) {
-      return Row(
-        children: [
-          Expanded(
-            child: TotpDisplay(config: config, onCopy: onCopy),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          EntrySmallIconButton(
-            icon: Icons.visibility_off,
-            tooltip: l10n.vaultRevealValue,
-            onPressed: onToggle,
-          ),
-        ],
-      );
-    }
-    return Row(
-      children: [
-        Icon(
-          Icons.timer_outlined,
-          size: 12,
-          color: AppColors.onSurfaceSubtle(brightness),
-        ),
-        const SizedBox(width: AppSpacing.innerGap),
-        Expanded(
-          child: Text(
-            '••• •••',
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 12,
-              fontFamily: 'monospace',
-              letterSpacing: 2,
-            ),
-          ),
-        ),
-        EntrySmallIconButton(
-          icon: Icons.visibility,
-          tooltip: l10n.vaultRevealValue,
-          onPressed: onToggle,
-        ),
-      ],
-    );
-  }
-}
-
 class _RevealLoading extends StatelessWidget {
   const _RevealLoading({required this.message});
 
@@ -2253,65 +2258,18 @@ class _DangerZone extends StatelessWidget {
     required this.label,
     required this.deleteLabel,
     required this.onDelete,
-    required this.brightness,
   });
 
   final String label;
   final String deleteLabel;
   final VoidCallback? onDelete;
-  final Brightness brightness;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.brandRed.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.brandRed,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            height: 44,
-            child: OutlinedButton(
-              onPressed: onDelete,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-                disabledForegroundColor: AppColors.brandRed.withValues(
-                  alpha: 0.4,
-                ),
-                side: BorderSide(
-                  color: onDelete != null
-                      ? AppColors.brandRed.withValues(alpha: 0.5)
-                      : AppColors.brandRed.withValues(alpha: 0.2),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                deleteLabel,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return CompactDangerZone(
+      title: label,
+      heading: deleteLabel,
+      onPressed: onDelete,
     );
   }
 }

@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_fab.dart';
+import '../../../../core/widgets/app_record_list.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -230,12 +232,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.listBottom),
-        sliver: SliverList.separated(
+        padding: EdgeInsets.only(bottom: AppFab.scrollClearance(context)),
+        sliver: AppRecordList(
           itemCount: entries.length,
-          separatorBuilder: (_, _) =>
-              const SizedBox(height: AppSpacing.cardGap),
           itemBuilder: (context, i) => EntryListCard(
+            compact: true,
             key: ValueKey(entries[i].id),
             entry: entries[i],
             isExpanded: _expanded.contains(entries[i].id),
@@ -311,7 +312,10 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.section,
+                    bottom: AppSpacing.fieldGap,
+                  ),
                   child: Row(
                     children: [
                       Expanded(

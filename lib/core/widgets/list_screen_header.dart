@@ -38,9 +38,9 @@ class ListScreenHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.headerGap,
+        AppSpacing.fieldGap,
         AppSpacing.screenH,
-        AppSpacing.headerGap,
+        AppSpacing.fieldGap,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

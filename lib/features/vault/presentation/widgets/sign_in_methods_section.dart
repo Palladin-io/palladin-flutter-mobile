@@ -14,8 +14,10 @@ class SignInMethodsSection extends StatelessWidget {
     super.key,
     required this.fields,
     required this.onEdit,
+    this.allowAdd = true,
   });
 
+  final bool allowAdd;
   final List<CustomField> fields;
   final ValueChanged<SignInMethodRecognized?> onEdit;
 
@@ -27,11 +29,48 @@ class SignInMethodsSection extends StatelessWidget {
       entryType: EntryType.credential,
       fields: fields,
     );
+    if (!allowAdd) {
+      if (methods.isEmpty) return const SizedBox.shrink();
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              l10n.entrySignInMethodsLabel,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.onSurfaceSubtle(brightness),
+              ),
+            ),
+          ),
+          for (final method in methods)
+            Tooltip(
+              message: [
+                signInProviderName(l10n, method.binding.provider),
+                if (method.binding.account != null) method.binding.account!,
+              ].join(' · '),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Image.asset(
+                  'assets/images/signin_${method.binding.provider.wireName}.png',
+                  width: 18,
+                  height: 18,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
+            Icon(
+              Icons.login,
+              size: 18,
+              color: AppColors.onSurfaceMuted(brightness),
+            ),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 l10n.entrySignInMethodsLabel,
@@ -42,12 +81,13 @@ class SignInMethodsSection extends StatelessWidget {
                 ),
               ),
             ),
-            IconButton(
-              key: const ValueKey('sign-in-method-add'),
-              tooltip: l10n.entrySignInMethodAdd,
-              onPressed: () => onEdit(null),
-              icon: const Icon(Icons.add, size: 20),
-            ),
+            if (allowAdd)
+              IconButton(
+                key: const ValueKey('sign-in-method-add'),
+                tooltip: l10n.entrySignInMethodAdd,
+                onPressed: () => onEdit(null),
+                icon: const Icon(Icons.add, size: 20),
+              ),
           ],
         ),
         for (final method in methods)
@@ -57,8 +97,8 @@ class SignInMethodsSection extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/images/signin_${method.binding.provider.wireName}.png',
-                  width: 20,
-                  height: 20,
+                  width: 18,
+                  height: 18,
                   excludeFromSemantics: true,
                 ),
                 const SizedBox(width: AppSpacing.innerGap),

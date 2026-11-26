@@ -85,7 +85,7 @@ String notificationSubtitle(AppLocalizations l10n, InboxNotification n) {
 
 /// Detail rows shown inside the card body, label → value, value names bold.
 ///
-/// Every card renders EXACTLY 3 rows with a fixed label set per type, so all
+/// Every card renders EXACTLY 4 rows with a fixed label set per type, so all
 /// cards line up at the same height. A missing value shows the "—" placeholder
 /// rather than dropping the row.
 List<({String label, String value})> notificationRows(
@@ -101,6 +101,7 @@ List<({String label, String value})> notificationRows(
       final shareId = _str(n, 'shareId');
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.entryUsernameLabel, value: row('entryUsername')),
         (
           label: l10n.notifRowShare,
           value: shareId == null ? dash : _shortId(shareId),
@@ -113,6 +114,7 @@ List<({String label, String value})> notificationRows(
     case 'grant_pending':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.entryUsernameLabel, value: row('entryUsername')),
         (label: l10n.notifRowMethods, value: row('methods')),
         (label: l10n.notifRowReason, value: row('reason')),
       ];
@@ -155,12 +157,14 @@ List<({String label, String value})> notificationRows(
     case 'grant_revoked':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.entryUsernameLabel, value: row('entryUsername')),
         (label: l10n.notifRowReason, value: row('reason')),
         (label: l10n.notifRowBy, value: row('actorName')),
       ];
     default:
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.entryUsernameLabel, value: row('entryUsername')),
         (label: l10n.notifRowReason, value: row('reason')),
         (label: l10n.notifRowBy, value: row('actorName')),
       ];
@@ -319,6 +323,7 @@ NotificationDestination? notificationDeepLink(InboxNotification n) {
           : NotificationRouteDestination(AppRoutes.agentDetail(agentId));
     case 'grant_pending':
     case 'grant_approved':
+    case 'grant_expired':
     case 'grant_denied':
     case 'grant_revoked':
       final vaultId = _str(n, 'vaultId');
@@ -337,7 +342,8 @@ NotificationDestination? notificationDeepLink(InboxNotification n) {
               : NotificationEntryDestination(
                   vaultId,
                   entryId,
-                  openAgentsTab: true,
+                  openAgentsTab:
+                      n.type != 'grant_approved' && n.type != 'grant_expired',
                 );
         default:
           return null;
@@ -369,10 +375,18 @@ NotificationViewTarget? notificationViewTarget(InboxNotification n) {
     case 'agent_approved':
       return NotificationViewTarget.agent;
     case 'grant_pending':
-    case 'grant_approved':
     case 'grant_denied':
     case 'grant_revoked':
       return NotificationViewTarget.access;
+    case 'grant_approved':
+    case 'grant_expired':
+      return switch (n.metadata['grantType']) {
+        'granular' ||
+        'scriptExecution' ||
+        1 ||
+        3 => NotificationViewTarget.entry,
+        _ => NotificationViewTarget.access,
+      };
     case 'credential_stale':
       return NotificationViewTarget.entry;
     default:

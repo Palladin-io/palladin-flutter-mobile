@@ -3,19 +3,17 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/action_zone.dart';
+import '../../../../core/widgets/app_fab.dart';
+import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/app_bar_title.dart';
+import '../../../../core/widgets/app_action_footer.dart';
+import '../../../../core/widgets/primary_button.dart';
+import 'entry_field_row.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import 'vault_form.dart';
 
-/// Settings tab body — wraps [VaultForm] and adds a prominent Save
-/// button and a danger zone with the destructive "Delete Vault" button.
-///
-/// Save action is shown as a full-width button inside the scroll view
-/// (above the danger zone) when the form is dirty. The AppBar also has
-/// a small TextButton affordance for the same action — both call
-/// [onSave].
-///
-/// Custom icon bytes remain local until Save encrypts them with a Vault-
-/// derived key. The backend never receives plaintext image bytes or URLs.
+/// Vault metadata uses the same read-only and full-screen edit flow as Entries.
 class VaultSettingsTab extends StatefulWidget {
   const VaultSettingsTab({
     super.key,
@@ -30,156 +28,203 @@ class VaultSettingsTab extends StatefulWidget {
   final VaultFormData initial;
   final ValueChanged<VaultFormData> onChanged;
   final VoidCallback? onDelete;
-  final VoidCallback? onSave;
+  final Future<bool> Function()? onSave;
 
   @override
   State<VaultSettingsTab> createState() => _VaultSettingsTabState();
 }
 
 class _VaultSettingsTabState extends State<VaultSettingsTab> {
-  bool _pickingIcon = false;
-  late VaultFormData _currentData;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentData = widget.initial;
-  }
-
-  bool get _isDirty => _currentData != widget.initial;
-
-  void _onFormChanged(VaultFormData data) {
-    setState(() => _currentData = data);
-    widget.onChanged(data);
-  }
-
-  Future<String?> _pickAndUploadIcon() async {
-    if (_pickingIcon) return null;
-    setState(() => _pickingIcon = true);
-    final XFile? file;
-    try {
-      file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 85,
-      );
-    } finally {
-      if (mounted) setState(() => _pickingIcon = false);
-    }
-    if (file == null || !mounted) return null;
-    final localReference = Uri.file(file.path).toString();
-    _onFormChanged(widget.initial.copyWith(icon: localReference));
-    return localReference;
+  Future<void> _edit() async {
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _VaultEditPage(
+          initial: widget.initial,
+          onChanged: widget.onChanged,
+          onSave: widget.onSave!,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: AppSpacing.screenBottom),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          VaultForm(
-            initial: widget.initial,
-            onChanged: _onFormChanged,
-            onPickCustomIcon: _pickAndUploadIcon,
+    final b = Theme.of(context).brightness;
+    return Stack(
+      children: [
+        ListView(
+          padding: EdgeInsets.only(
+            top: AppSpacing.section,
+            bottom: widget.onSave == null
+                ? AppSpacing.section
+                : AppFab.scrollClearance(context),
           ),
-          const SizedBox(height: AppSpacing.section),
-          _SaveButton(onSave: _isDirty ? widget.onSave : null, l10n: l10n),
-          const SizedBox(height: AppSpacing.section),
-          _DangerZone(l10n: l10n, onDelete: widget.onDelete),
-        ],
-      ),
-    );
-  }
-}
-
-class _SaveButton extends StatelessWidget {
-  const _SaveButton({required this.onSave, required this.l10n});
-
-  /// Null when no changes have been made — button renders as disabled.
-  final VoidCallback? onSave;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 44,
-      child: ElevatedButton(
-        onPressed: onSave,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.brandRed,
-          disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.35),
-          foregroundColor: AppColors.onBrandRed,
-          disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          elevation: 0,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.cardFill(b),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.cardBorder(b)),
+              ),
+              child: Column(
+                children: [
+                  EntryFieldRow(
+                    icon: Icons.shield_outlined,
+                    value: widget.initial.name,
+                    isMasked: false,
+                    revealed: true,
+                    onToggleReveal: null,
+                    onCopy: null,
+                  ).labeled(l10n.vaultNameLabel),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.cardBorder(b),
+                  ),
+                  EntryFieldRow(
+                    icon: Icons.notes,
+                    value: widget.initial.description,
+                    isMasked: false,
+                    revealed: true,
+                    onToggleReveal: null,
+                    onCopy: null,
+                    multiline: true,
+                  ).labeled(l10n.vaultDescriptionLabel),
+                ],
+              ),
+            ),
+            if (widget.onDelete != null) ...[
+              const SizedBox(height: AppSpacing.section),
+              CompactDangerZone(
+                title: l10n.entryDangerZone,
+                heading: l10n.vaultDeleteVault,
+                onPressed: widget.onDelete,
+              ),
+            ],
+          ],
         ),
-        child: Text(
-          l10n.vaultSaveAction,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-}
-
-class _DangerZone extends StatelessWidget {
-  const _DangerZone({required this.l10n, required this.onDelete});
-
-  final AppLocalizations l10n;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.vaultDangerZone,
-            style: const TextStyle(
-              color: AppColors.brandRed,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+        if (widget.onSave != null)
+          Positioned(
+            right: 0,
+            bottom: AppFab.overlayInset(context),
+            child: AppFab(
+              onPressed: _edit,
+              tooltip: l10n.entryEditAction,
+              icon: Icons.edit_outlined,
             ),
           ),
-          const SizedBox(height: AppSpacing.innerGap),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: TextButton.icon(
-              icon: const Icon(
-                Icons.delete,
-                size: 14,
-                color: AppColors.brandRed,
+      ],
+    );
+  }
+}
+
+class _VaultEditPage extends StatefulWidget {
+  const _VaultEditPage({
+    required this.initial,
+    required this.onChanged,
+    required this.onSave,
+  });
+  final VaultFormData initial;
+  final ValueChanged<VaultFormData> onChanged;
+  final Future<bool> Function() onSave;
+  @override
+  State<_VaultEditPage> createState() => _VaultEditPageState();
+}
+
+class _VaultEditPageState extends State<_VaultEditPage> {
+  late VaultFormData _data = widget.initial;
+  bool _busy = false;
+  bool _failed = false;
+  bool _picking = false;
+  Future<String?> _pick() async {
+    if (_picking) return null;
+    _picking = true;
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      return file == null ? null : Uri.file(file.path).toString();
+    } finally {
+      _picking = false;
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _busy = true;
+      _failed = false;
+    });
+    widget.onChanged(_data);
+    final saved = await widget.onSave();
+    if (!mounted) return;
+    if (saved) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _busy = false;
+        _failed = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AppScreen.appBar(
+      gapAfterHeader: false,
+      safeAreaBottom: false,
+      appBar: AppBar(
+        titleSpacing: 0,
+        centerTitle: false,
+        title: AppBarTitle(
+          title: l10n.entryEditAction,
+          subtitle: widget.initial.name,
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                AppSpacing.section,
+                AppSpacing.screenH,
+                AppSpacing.section,
               ),
-              label: Text(
-                l10n.vaultDeleteVault,
-                style: const TextStyle(
-                  color: AppColors.brandRed,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              child: AbsorbPointer(
+                absorbing: _busy,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    VaultForm(
+                      initial: widget.initial,
+                      onChanged: (data) => setState(() => _data = data),
+                      onPickCustomIcon: _pick,
+                    ),
+                    if (_failed) ...[
+                      const SizedBox(height: AppSpacing.section),
+                      Text(
+                        l10n.vaultErrorUnknown,
+                        style: const TextStyle(color: AppColors.brandRed),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: onDelete,
+            ),
+          ),
+          AppActionFooter(
+            child: PrimaryButton(
+              label: l10n.vaultSaveAction,
+              isLoading: _busy,
+              onPressed:
+                  _busy || _data == widget.initial || _data.name.trim().isEmpty
+                  ? null
+                  : _save,
             ),
           ),
         ],

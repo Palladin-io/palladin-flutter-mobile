@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_canvas_background.dart';
 import '../../../../core/widgets/app_fab_toast.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -50,6 +50,7 @@ class _AppShellState extends State<AppShell> {
   void _showFabToast(String message) {
     _fabToastKey.currentState?.show(message);
   }
+
   bool _isBottomNavHidden = false;
 
   /// Ownership stack of FAB registrations. The shell renders the top
@@ -135,12 +136,19 @@ class _AppShellState extends State<AppShell> {
       setFab: _setFabRef,
       clearFab: _clearFabRef,
       showFabToast: _showFabToastRef,
-      child: AppBrandBackground(
+      child: AppCanvasBackground(
         child: Scaffold(
           key: _scaffoldKey,
           backgroundColor: Colors.transparent,
           endDrawer: const SettingsDrawer(),
-          body: widget.child,
+          body: LayoutBuilder(
+            builder: (context, constraints) => OverflowBox(
+              alignment: Alignment.topCenter,
+              minHeight: constraints.maxHeight + AppBottomNav.shieldOverhang,
+              maxHeight: constraints.maxHeight + AppBottomNav.shieldOverhang,
+              child: ClipRect(child: widget.child),
+            ),
+          ),
           // FAB is owned by the shell so it persists across page
           // transitions instead of animating with the child route. Pages
           // register their FAB via [AppShellScope.setFab] (typically by

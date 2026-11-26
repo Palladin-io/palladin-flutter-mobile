@@ -306,54 +306,12 @@ class _EventTypeChip extends StatelessWidget {
   final Brightness brightness;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.14)
-              : AppColors.cardSurface(brightness),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? color : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 16,
-              color: selected ? color : AppColors.onSurfaceSubtle(brightness),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 10,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => FilterChip(
+    label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    avatar: Icon(Icons.circle, size: 6, color: color),
+    selected: selected,
+    onSelected: (_) => onTap(),
+  );
 }
 
 class _AgentDropdown extends StatelessWidget {

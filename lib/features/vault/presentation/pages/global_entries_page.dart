@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_record_list.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -311,14 +312,13 @@ class _GlobalEntriesPageState extends State<GlobalEntriesPage>
                     AppSpacing.screenH,
                     AppSpacing.listBottom,
                   ),
-                  sliver: SliverList.separated(
+                  sliver: AppRecordList(
                     itemCount: rows.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(height: AppSpacing.cardGap),
                     itemBuilder: (_, index) {
                       final row = rows[index];
                       final entry = row.toEntryEntity();
                       return EntryListCard(
+                        compact: true,
                         enabled:
                             EntryType.values.elementAtOrNull(
                               row.entry.entryType,

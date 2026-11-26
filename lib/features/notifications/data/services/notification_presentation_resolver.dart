@@ -107,8 +107,13 @@ final class NotificationPresentationResolver {
           }
           final entryId = _string(metadata, 'entryId');
           if (entryId != null) {
-            final label = await _entryLabel(vaultId, entryId);
-            if (label != null) metadata['entryLabel'] = label;
+            final entry = await _entryPresentation(vaultId, entryId);
+            if (entry != null) {
+              metadata['entryLabel'] = entry.memberLabel;
+              if (entry.username != null) {
+                metadata['entryUsername'] = entry.username;
+              }
+            }
           }
           if (grant != null) {
             final reason = grant.reason?.trim();
@@ -200,7 +205,10 @@ final class NotificationPresentationResolver {
   List<InboxNotification> redact(List<InboxNotification> items) =>
       _generic(items);
 
-  Future<String?> _entryLabel(String vaultId, String entryId) async {
+  Future<MemberIndexEntry?> _entryPresentation(
+    String vaultId,
+    String entryId,
+  ) async {
     try {
       await _index.waitForCurrent(vaultId);
       final matches = _index
@@ -212,7 +220,7 @@ final class NotificationPresentationResolver {
                 !entry.corrupt,
           )
           .toList(growable: false);
-      return matches.length == 1 ? matches.single.memberLabel : null;
+      return matches.length == 1 ? matches.single : null;
     } catch (_) {
       AppLogger.w('Notifications', 'Local Entry-label resolution failed');
       return null;
@@ -270,6 +278,7 @@ final class NotificationPresentationResolver {
     for (final key in const [
       'vaultName',
       'entryLabel',
+      'entryUsername',
       'agentName',
       'actorName',
       'actionDeepLink',

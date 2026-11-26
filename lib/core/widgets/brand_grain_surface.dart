@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -78,7 +79,40 @@ class _BrandGrainPainter extends CustomPainter {
   final bool centeredAtShield;
   static const double _tileSize = 128;
   // Generated once, independent of credentials and application state.
-  static final List<Offset> _points = _makePoints();
+  static final ui.Image _tile = _makeTile();
+  static final Float64List _identity = Float64List.fromList([
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+  ]);
+
+  static ui.Image _makeTile() {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawPoints(
+      ui.PointMode.points,
+      _makePoints(),
+      Paint()
+        ..color = AppColors.onBrandRed
+        ..strokeWidth = 0.5,
+    );
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(_tileSize.toInt(), _tileSize.toInt());
+    picture.dispose();
+    return image;
+  }
 
   static List<Offset> _makePoints() {
     final random = math.Random(42);
@@ -113,21 +147,32 @@ class _BrandGrainPainter extends CustomPainter {
           [0, 1],
         ),
     );
-    final paint = Paint()..strokeWidth = 0.5;
-    for (double y = 0; y < size.height; y += _tileSize) {
-      for (double x = 0; x < size.width; x += _tileSize) {
-        canvas.save();
-        canvas.translate(x, y);
-        paint.shader = ui.Gradient.radial(
-          origin - Offset(x, y),
+    // Rasterize the decorative tile once; do not replay thousands of points
+    // per tile on every route transition. This cache contains no user data.
+    canvas.saveLayer(bounds, Paint());
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = ui.ImageShader(
+          _tile,
+          TileMode.repeated,
+          TileMode.repeated,
+          _identity,
+        )
+        ..colorFilter = ColorFilter.mode(grain, BlendMode.srcIn),
+    );
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..blendMode = BlendMode.dstIn
+        ..shader = ui.Gradient.radial(
+          origin,
           radius,
-          [grain, grain.withValues(alpha: grain.a * 0.1)],
+          [AppColors.onBrandRed, AppColors.onBrandRed.withValues(alpha: 0.1)],
           [0, 1],
-        );
-        canvas.drawPoints(ui.PointMode.points, _points, paint);
-        canvas.restore();
-      }
-    }
+        ),
+    );
+    canvas.restore();
     canvas.restore();
   }
 

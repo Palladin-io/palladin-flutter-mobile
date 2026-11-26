@@ -104,6 +104,7 @@ void main() {
           'entryId': 'entry',
           'vaultName': 'forged',
           'entryLabel': 'forged',
+          'entryUsername': 'forged@example.test',
           'actionDeepLink': '/vaults/foreign',
         },
       );
@@ -124,6 +125,8 @@ void main() {
       );
 
       expect(locked.single.metadata['entryLabel'], isNull);
+      expect(locked.single.metadata['entryUsername'], isNull);
+      expect(foreign.single.metadata['entryUsername'], isNull);
       expect(foreign.single.metadata['vaultId'], isNull);
       verifyNever(() => index.entries(any()));
       verifyNever(() => index.waitForCurrent(any()));
@@ -414,6 +417,43 @@ void main() {
     },
   );
 
+  test(
+    'Inbox account comes only from the unlocked exact Vault index',
+    () async {
+      final index = _Index();
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'entry',
+          entryType: 2,
+          memberLabel: 'Notion',
+          username: 'work@example.test',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.active,
+        ),
+      ]);
+      final result = await NotificationPresentationResolver(index: index)
+          .resolve(
+            items: [
+              _inbox(
+                metadata: const {
+                  'vaultId': 'vault',
+                  'entryId': 'entry',
+                  'entryUsername': 'forged@example.test',
+                },
+              ),
+            ],
+            unlocked: true,
+            activeAccountId: 'account',
+            activeOrganizationId: 'organization',
+            activeVaults: [_vault],
+          );
+      expect(result.single.metadata['entryUsername'], 'work@example.test');
+      verify(() => index.waitForCurrent('vault')).called(1);
+    },
+  );
+
   test('Entry navigation does not use stale rows after sync failure', () async {
     final index = _Index();
     when(
@@ -437,11 +477,13 @@ void main() {
           'grantId': 'grant',
           'reason': 'Deploy release',
           'actorName': 'Alice',
+          'entryUsername': 'local@example.test',
         },
       ),
     ]);
 
     expect(redacted.single.metadata['reason'], isNull);
+    expect(redacted.single.metadata['entryUsername'], isNull);
     expect(redacted.single.metadata['actorName'], isNull);
     expect(redacted.single.metadata['grantId'], isNull);
   });

@@ -516,36 +516,16 @@ class _InboxControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // segments → search: fieldGap
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            0,
-            AppSpacing.screenH,
-            AppSpacing.fieldGap,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child:
-                    BlocBuilder<
-                      NotificationCenterCubit,
-                      NotificationCenterState
-                    >(
-                      buildWhen: (p, c) =>
-                          p.pendingActionCount != c.pendingActionCount,
-                      builder: (context, state) => _SegmentToggle(
-                        segment: segment,
-                        todoCount: state.pendingActionCount,
-                        onChanged: onSegmentChanged,
-                      ),
-                    ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _SegmentOverflowButton(onSelected: onMenuSelected),
-            ],
+        BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+          buildWhen: (p, c) => p.pendingActionCount != c.pendingActionCount,
+          builder: (context, state) => _SegmentToggle(
+            segment: segment,
+            todoCount: state.pendingActionCount,
+            onChanged: onSegmentChanged,
+            trailing: _SegmentOverflowButton(onSelected: onMenuSelected),
           ),
         ),
+        const SizedBox(height: AppSpacing.fieldGap),
         // Search applies to all three log segments. The Grants list is a
         // separate page (kebab) with its own UI.
         Padding(
@@ -850,13 +830,9 @@ class _SegmentOverflowButton extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     return Container(
-      height: AppSpacing.controlHeight,
-      width: AppSpacing.controlHeight,
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
+      height: 36,
+      width: 36,
+      decoration: BoxDecoration(color: AppColors.cardFill(brightness)),
       child: PopupMenuButton<_InboxMenuAction>(
         tooltip: l10n.inboxMoreActions,
         padding: EdgeInsets.zero,
@@ -918,9 +894,11 @@ class _SegmentToggle extends StatelessWidget {
     required this.segment,
     required this.todoCount,
     required this.onChanged,
+    required this.trailing,
   });
   final InboxSegment segment;
   final int todoCount;
+  final Widget trailing;
   final ValueChanged<InboxSegment> onChanged;
   @override
   Widget build(BuildContext context) {
@@ -928,6 +906,8 @@ class _SegmentToggle extends StatelessWidget {
     return AppSegmentedControl<InboxSegment>(
       value: segment,
       onChanged: onChanged,
+      edgeToEdge: true,
+      trailing: trailing,
       options: [
         AppSegment(value: InboxSegment.all, label: l10n.inboxSegAll),
         AppSegment(

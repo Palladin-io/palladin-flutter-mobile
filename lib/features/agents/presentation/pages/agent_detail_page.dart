@@ -1,3 +1,5 @@
+import '../widgets/agent_status_badge.dart';
+import '../widgets/agent_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -94,6 +96,7 @@ class _AgentDetailView extends StatelessWidget {
     // split-view pane and this pushed page have identical rhythm — hence
     // gapAfterHeader is left to the body here.
     return AppScreen.appBar(
+      safeAreaBottom: false,
       gapAfterHeader: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -207,15 +210,26 @@ class _AppBarTitle extends StatelessWidget {
     final name = agent == null
         ? l10n.agentsDetailTitle
         : agentDisplayName(l10n, agent);
-    final statusLabel = switch (agent?.status) {
-      AgentStatus.active => l10n.agentsStatusActive,
-      AgentStatus.pending => l10n.agentsStatusPending,
-      AgentStatus.deactivated => l10n.agentsStatusDeactivated,
-      AgentStatus.deactivating => l10n.agentsDeactivating,
-      null => '',
-    };
-
-    return AppBarTitle(title: name, subtitle: statusLabel);
+    return Row(
+      children: [
+        if (agent != null) ...[
+          AgentAvatar(
+            agentId: agent.agentId,
+            name: agent.name,
+            iconKey: agent.iconKey,
+            iconColor: agent.iconColor,
+            size: 28,
+          ),
+          const SizedBox(width: AppSpacing.innerGap),
+        ],
+        Expanded(child: AppBarTitle(title: name)),
+        if (agent != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+            child: AgentStatusBadge(status: agent.status),
+          ),
+      ],
+    );
   }
 }
 

@@ -256,7 +256,6 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
         const SizedBox(height: AppSpacing.innerGap),
         _QuickChip(
           label: l10n.approvalQuickCustom,
-          icon: Icons.event_outlined,
           selected: _quickMinutesSelected == null,
           onTap: widget.enabled ? _pickDateTime : null,
         ),
@@ -352,68 +351,21 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   }
 }
 
-/// Quick-pick duration chip (and the Custom chip) for the Time policy. Selected
-/// chips get the brand-red tinted fill; an optional leading [icon] marks the
-/// Custom chip.
+/// Duration presets and Custom share the policy selector's neutral outline.
 class _QuickChip extends StatelessWidget {
   const _QuickChip({
     required this.label,
     required this.selected,
     required this.onTap,
-    this.icon,
   });
 
   final String label;
   final bool selected;
   final VoidCallback? onTap;
-  final IconData? icon;
 
   @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final fg = selected
-        ? AppColors.brandRed
-        : AppColors.onSurfaceMuted(brightness);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.brandRed.withValues(alpha: 0.15)
-                : AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected
-                  ? AppColors.brandRed
-                  : AppColors.cardBorder(brightness),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 14, color: fg),
-                const SizedBox(width: AppSpacing.xs),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      _SegmentButton(label: label, selected: selected, onTap: onTap);
 }
 
 /// Chosen-expiry summary box — relative distance ("Expires in 24h", teal) on
@@ -486,16 +438,20 @@ class _SegmentButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
+          constraints: const BoxConstraints(
+            minHeight: AppSpacing.controlHeight,
+          ),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.innerGap,
+            horizontal: AppSpacing.xs,
+          ),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected
-                ? AppColors.brandRed.withValues(alpha: 0.15)
-                : AppColors.cardFill(brightness),
+            color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected
-                  ? AppColors.brandRed
+                  ? AppColors.onSurface(brightness)
                   : AppColors.cardBorder(brightness),
             ),
           ),
@@ -503,7 +459,7 @@ class _SegmentButton extends StatelessWidget {
             label,
             style: TextStyle(
               color: selected
-                  ? AppColors.brandRed
+                  ? AppColors.onSurface(brightness)
                   : AppColors.onSurfaceMuted(brightness),
               fontSize: 13,
               fontWeight: FontWeight.w600,
