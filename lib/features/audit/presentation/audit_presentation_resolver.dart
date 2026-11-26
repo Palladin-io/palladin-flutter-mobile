@@ -214,6 +214,12 @@ final class LocalAuditPresentationResolver
           await cubit.refresh();
         } else {
           await cubit.waitForCurrent();
+          // An Agent enrolled after the list was loaded is otherwise shown by
+          // ID; one whole-list repair covers every unknown ID on this page.
+          final known = {for (final agent in cubit.state.agents) agent.agentId};
+          if (!known.containsAll(requestedAgentIds)) {
+            await cubit.refresh(ensureFresh: true);
+          }
         }
       }
       final agents =

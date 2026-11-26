@@ -347,6 +347,37 @@ void main() {
     );
 
     test(
+      'repairs a loaded agent list once when a row references a newer agent',
+      () async {
+        var calls = 0;
+        when(() => agents.listAgents()).thenAnswer((_) async {
+          calls += 1;
+          return [
+            _agent('a-1', 'Existing agent'),
+            if (calls > 1) _agent('a-2', 'New agent'),
+          ];
+        });
+        final agentsCubit = AgentsCubit(repository: agents);
+        await agentsCubit.load();
+
+        final names = await presentationResolver(agentsCubit: agentsCubit)
+            .resolveNames([
+              _entry('1', agentId: 'a-1'),
+              _entry('2', agentId: 'a-2'),
+            ]);
+
+        expect(names.agents['a-2'], 'New agent');
+        verify(() => agents.listAgents()).called(2);
+
+        await presentationResolver(
+          agentsCubit: agentsCubit,
+        ).resolveNames([_entry('3', agentId: 'a-1')]);
+        verifyNever(() => agents.listAgents());
+        await agentsCubit.close();
+      },
+    );
+
+    test(
       'prefers scoped local names and preserves canonical metadata',
       () async {
         const vaultId = '11111111-1111-1111-1111-111111111111';
