@@ -2,13 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Reusable green-tinted "approve" CTA. Mirrors the web button style:
-/// green text + icon on a translucent green fill with a green border.
-///
-/// Lives in `core/widgets/` so any feature (agents, vault, the shared
-/// icon-color browser sheet) can render the same confirm affordance
-/// without `core/` depending on a feature — and without duplicating the
-/// styling.
+/// Neutral outlined approval action with a semantic green foreground.
 class ApproveActionButton extends StatelessWidget {
   const ApproveActionButton({
     super.key,
@@ -27,6 +21,7 @@ class ApproveActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     final enabled = onPressed != null && !isLoading;
     return SizedBox(
       width: double.infinity,
@@ -42,27 +37,25 @@ class ApproveActionButton extends StatelessWidget {
                   color: AppColors.positiveAccent,
                 ),
               )
-            : Icon(icon, size: 16, color: AppColors.positiveAccent),
+            : Icon(
+                icon,
+                size: 16,
+                color: enabled ? AppColors.positiveAccent : null,
+              ),
         label: Text(
           label,
-          style: const TextStyle(
-            color: AppColors.positiveAccent,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         style: TextButton.styleFrom(
           foregroundColor: AppColors.positiveAccent,
-          disabledForegroundColor:
-              AppColors.positiveAccent.withValues(alpha: 0.4),
-          backgroundColor: AppColors.positiveAccent.withValues(alpha: 0.12),
-          disabledBackgroundColor:
-              AppColors.positiveAccent.withValues(alpha: 0.06),
+          disabledForegroundColor: AppColors.positiveAccent.withValues(
+            alpha: 0.4,
+          ),
+          backgroundColor: AppColors.cardFill(brightness),
+          disabledBackgroundColor: AppColors.cardFill(brightness),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(
-              color: AppColors.positiveAccent.withValues(alpha: 0.3),
-            ),
+            side: BorderSide(color: AppColors.cardBorder(brightness)),
           ),
         ),
       ),

@@ -111,6 +111,86 @@ void main() {
     entryNameRefreshDelay: Duration.zero,
   );
 
+  for (final fail in [false, true]) {
+    test(
+      'closing during audit fetch ignores completion (failure: $fail)',
+      () async {
+        final response = Completer<AuditLogPage>();
+        when(
+          () => audit.listOrgLogs(cursor: null, pageSize: 50),
+        ).thenAnswer((_) => response.future);
+        final cubit = orgCubit();
+        final load = cubit.load();
+        await cubit.close();
+        if (fail) {
+          response.completeError(const AuditException(AuditErrorKind.unknown));
+        } else {
+          response.complete(const AuditLogPage(entries: []));
+        }
+        await expectLater(load, completes);
+      },
+    );
+  }
+
+  test('closing during audit name resolution ignores completion', () async {
+    final names = Completer<List<Agent>>();
+    when(() => audit.listOrgLogs(cursor: null, pageSize: 50)).thenAnswer(
+      (_) async => AuditLogPage(entries: [_entry('e', agentId: 'a')]),
+    );
+    when(() => agents.listAgents()).thenAnswer((_) => names.future);
+    final cubit = orgCubit();
+    final load = cubit.load();
+    await Future<void>.delayed(Duration.zero);
+    await cubit.close();
+    names.complete([_agent('a', 'Agent')]);
+    await expectLater(load, completes);
+  });
+
+  test('closed pagination ignores its pending response', () async {
+    final response = Completer<AuditLogPage>();
+    when(() => audit.listOrgLogs(cursor: null, pageSize: 50)).thenAnswer(
+      (_) async => const AuditLogPage(entries: [], nextCursor: 'next'),
+    );
+    when(
+      () => audit.listOrgLogs(cursor: 'next', pageSize: 50),
+    ).thenAnswer((_) => response.future);
+    final cubit = orgCubit();
+    await cubit.load();
+    final more = cubit.loadMore();
+    await cubit.close();
+    response.complete(const AuditLogPage(entries: []));
+    await expectLater(more, completes);
+  });
+
+  test('agent scope is retained for initial load and pagination', () async {
+    when(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: null, pageSize: 50),
+    ).thenAnswer(
+      (_) async => const AuditLogPage(entries: [], nextCursor: 'next'),
+    );
+    when(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: 'next', pageSize: 50),
+    ).thenAnswer((_) async => const AuditLogPage(entries: []));
+    final cubit = AuditLogCubit(
+      auditRepository: audit,
+      presentationResolver: presentationResolver(),
+      scope: AuditLogScope.org,
+      agentId: 'agent-1',
+      entryNameRefreshDelay: Duration.zero,
+    );
+    await cubit.load();
+    expect(cubit.state.status, AuditLogStatus.loaded);
+    await cubit.loadMore();
+    verify(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: null, pageSize: 50),
+    ).called(1);
+    verify(
+      () => audit.listOrgLogs(agentId: 'agent-1', cursor: 'next', pageSize: 50),
+    ).called(1);
+    expect(cubit.state.nextCursor, isNull);
+    await cubit.close();
+  });
+
   group('vault scope', () {
     test(
       'does not present the Vault name as an unresolved Entry name',

@@ -114,9 +114,9 @@ void main() {
         );
         expect(notificationSubtitle(l10n, receipt), isNotEmpty);
         final rows = notificationRows(l10n, receipt);
-        expect(rows, hasLength(3));
+        expect(rows, hasLength(4));
         expect(rows.first.value, 'Local entry · Local vault');
-        expect(rows[1].value, '00112233…ddeeff');
+        expect(rows[2].value, '00112233…ddeeff');
         expect(
           rows.last.value,
           locale == 'en'

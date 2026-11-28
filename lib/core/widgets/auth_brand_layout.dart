@@ -2,21 +2,32 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
 import '../theme/app_colors.dart';
-import 'app_brand_background.dart';
+import 'brand_grain_surface.dart';
 
-/// Auth alias for the shared application background.
+/// Shared authentication canvas; the hero anchors the light grain to its shield.
 class AuthBrandBackground extends StatelessWidget {
   const AuthBrandBackground({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => AppBrandBackground(
-    lightPageGradient: AppColors.authEntryLightPageGradient,
-    lightLogoGlow: AppColors.authEntryLightLogoGlow,
-    showDarkGrain: true,
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: AppColors.authGradient(brightness)),
+      child: Stack(
+        children: [
+          if (brightness == Brightness.dark)
+            Positioned.fill(
+              child: BrandGrainOverlay(
+                grain: AppColors.onSurface(brightness).withValues(alpha: 0.065),
+              ),
+            ),
+          child,
+        ],
+      ),
+    );
+  }
 }
 
 /// Canonical side margins for auth and confirmation content.

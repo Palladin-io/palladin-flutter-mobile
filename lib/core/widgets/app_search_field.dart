@@ -63,12 +63,15 @@ class AppSearchField extends StatelessWidget {
       // and the design's input-border tone so the search bar matches
       // every other input on the screen.
       borderColor: AppColors.inputBorder(brightness),
-      prefixIcon: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
-        child: Icon(
-          Icons.search,
-          size: 18,
-          color: AppColors.textTertiaryMobile,
+      prefixIcon: const SizedBox(
+        height: AppSpacing.controlHeight,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
+          child: Icon(
+            Icons.search,
+            size: 18,
+            color: AppColors.textTertiaryMobile,
+          ),
         ),
       ),
       suffixIcon: onToggleFilter != null
@@ -76,7 +79,9 @@ class AppSearchField extends StatelessWidget {
               onTap: onToggleFilter,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.fieldGap,
+                ),
                 child: Icon(
                   Icons.tune,
                   size: 18,

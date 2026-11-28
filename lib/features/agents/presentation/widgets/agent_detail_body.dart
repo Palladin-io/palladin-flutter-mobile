@@ -1,6 +1,17 @@
+import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/app_bar_title.dart';
+import '../bloc/agents_cubit.dart';
+import '../../../vault/presentation/widgets/entry_field_row.dart';
+import '../../../../core/di/injection.dart';
+import '../../../audit/domain/entities/audit_log_entry.dart';
+import '../../../audit/domain/repositories/audit_repository.dart';
+import '../../../audit/presentation/audit_presentation_resolver.dart';
+import '../../../audit/presentation/cubit/audit_log_cubit.dart';
+import '../../../audit/presentation/widgets/audit_log_content.dart';
+import '../../../../core/widgets/action_zone.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/brand_tab_indicator.dart';
+import '../../../../core/widgets/app_detail_tabs.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/permissions.dart';
@@ -13,10 +24,8 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/agent.dart';
-import 'agent_avatar.dart';
 import 'agent_edit_form.dart';
 import 'agent_format.dart';
-import 'agent_status_badge.dart';
 
 /// Tab segments shown on the agent detail screen — mirrors the web
 /// panel's `AgentDetail` so the two surfaces feel consistent.
@@ -24,16 +33,9 @@ enum _AgentDetailTab { details, grants, logs }
 
 /// Scrollable detail body for a single agent.
 ///
-/// Mirrors the web panel's `AgentDetail`:
-/// 1. **Tab bar** (Details / Grants / Logs). Grants is disabled until
-///    the agent is active. The active tab is underlined in brand red.
-/// 2. **Details tab** — hero card (avatar + name + status badge), an
-///    always-visible edit form (name + type + description), a read-only
-///    metadata list (public key, connected on, enrolled, deactivated)
-///    and a status-aware action zone (approve / deactivate / reactivate).
-/// 3. **Grants tab** — empty card placeholder until the grants module
-///    ships its mobile UI.
-/// 4. **Logs tab** — lifecycle timeline derived from the agent's dates.
+/// Shared tabs host read-only metadata, grants and an agent-scoped audit feed.
+/// Identity and status belong in the page header; Edit opens a root form.
+/// Pending agents cannot open grants or logs, and audit access stays permission-gated.
 ///
 /// Reused unchanged by both the split-view detail pane and the pushed
 /// full-screen detail page.
@@ -62,7 +64,15 @@ class AgentDetailBody extends StatefulWidget {
   State<AgentDetailBody> createState() => _AgentDetailBodyState();
 }
 
-class _AgentDetailBodyState extends State<AgentDetailBody> {
+class _AgentDetailBodyState extends State<AgentDetailBody>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 3, vsync: this);
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
   _AgentDetailTab _activeTab = _AgentDetailTab.details;
 
   // Bumped after a grant is created so the (self-providing) grants list remounts and reloads.
@@ -78,6 +88,49 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
     }
   }
 
+  void _onEdit() {
+    final cubit = context.read<AgentsCubit>();
+    final l10n = AppLocalizations.of(context)!;
+    Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute(
+        builder: (routeContext) => MultiBlocProvider(
+          providers: [
+            BlocProvider<AgentsCubit>.value(value: cubit),
+            BlocProvider<AuthBloc>.value(value: context.read<AuthBloc>()),
+          ],
+          child: AppScreen.appBar(
+            safeAreaBottom: false,
+            appBar: AppBar(
+              titleSpacing: 0,
+              centerTitle: false,
+              title: AppBarTitle(title: l10n.agentsEditTitle),
+            ),
+            body: Builder(
+              builder: (editorContext) {
+                final session = editorContext.watch<AuthBloc>().state;
+                final current = editorContext
+                    .watch<AgentsCubit>()
+                    .state
+                    .agentById(widget.agent.agentId);
+                final canEdit =
+                    session is AuthAuthenticated &&
+                    !session.isVaultLocked &&
+                    (session.permissions & Permissions.agentManage) != 0 &&
+                    current?.isActive == true;
+                return AgentEditForm(
+                  agent: current ?? widget.agent,
+                  canEdit: canEdit,
+                  fullScreen: true,
+                  onSaved: () => Navigator.of(routeContext).pop(),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void didUpdateWidget(AgentDetailBody oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -86,6 +139,7 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
     // mounts a single body and only swaps the [agent] prop).
     if (oldWidget.agent.agentId != widget.agent.agentId) {
       _activeTab = _AgentDetailTab.details;
+      _tabs.index = 0;
     }
   }
 
@@ -103,54 +157,79 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
     // active — a pending agent has no grants and no activity yet. Lock
     // those tabs (greyed out) and keep the view pinned to Details.
     final lockedTabs = widget.agent.isPending;
-    final activeTab = lockedTabs && _activeTab != _AgentDetailTab.details
+    final activeTab =
+        (lockedTabs && _activeTab != _AgentDetailTab.details) ||
+            (_activeTab == _AgentDetailTab.logs &&
+                (permissions & Permissions.auditView) == 0)
         ? _AgentDetailTab.details
         : _activeTab;
+
+    if (_activeTab != activeTab) {
+      _activeTab = activeTab;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tabs.index = _activeTab.index;
+      });
+    }
 
     // Fixed tab bar + scrolling content (Expanded) — so the Grants tab can host its own scrollable
     // list (ContextGrantsTab). The host gives this body a bounded height (split-view pane).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header (pane title / AppBar) → tab bar: headerGap. Owned here so the
-        // split-view pane and the pushed page share one rhythm.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            AppSpacing.headerGap,
-            AppSpacing.screenH,
-            0,
-          ),
-          child: _TabBar(
-            active: activeTab,
-            lockedTabs: lockedTabs,
-            onSelected: (tab) => setState(() => _activeTab = tab),
-          ),
+        AppDetailTabs(
+          controller: _tabs,
+          tabs: [
+            Tab(text: l10n.agentsTabDetails),
+            Tab(text: l10n.agentsTabGrants),
+            Tab(text: l10n.agentsTabLogs),
+          ],
+          disabledIndices: {
+            if (lockedTabs) 1,
+            if (lockedTabs || (permissions & Permissions.auditView) == 0) 2,
+          },
+          onSelected: (index) =>
+              setState(() => _activeTab = _AgentDetailTab.values[index]),
         ),
-        // Tab bar → content: fieldGap.
-        const SizedBox(height: AppSpacing.fieldGap),
         Expanded(
           child: switch (activeTab) {
-            _AgentDetailTab.details => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                0,
-                AppSpacing.screenH,
-                AppSpacing.screenBottom,
-              ),
+            _AgentDetailTab.details => Stack(
               children: [
-                _DetailsCard(agent: widget.agent, canEdit: canManage),
-                if (canManage) ...[
-                  const SizedBox(height: AppSpacing.cardPadding),
-                  _ActionZone(
-                    agent: widget.agent,
-                    isMutating: widget.isMutating,
-                    onApprove: widget.onApprove,
-                    onDeactivate: widget.onDeactivate,
-                    onReactivate: widget.onReactivate,
+                Positioned.fill(
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      AppSpacing.section,
+                      AppSpacing.screenH,
+                      canManage && widget.agent.isActive
+                          ? AppFab.scrollClearance(context)
+                          : AppSpacing.section,
+                    ),
+                    children: [
+                      _DetailsCard(agent: widget.agent),
+                      if (canManage) ...[
+                        const SizedBox(height: AppSpacing.section),
+                        _ActionZone(
+                          agent: widget.agent,
+                          isMutating: widget.isMutating,
+                          onApprove: widget.onApprove,
+                          onDeactivate: widget.onDeactivate,
+                          onReactivate: widget.onReactivate,
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
+                if (canManage && widget.agent.isActive)
+                  Positioned(
+                    right: AppSpacing.screenH,
+                    bottom: AppFab.overlayInset(context),
+                    child: AppFab(
+                      onPressed: _onEdit,
+                      tooltip: l10n.agentsEditTitle,
+                      icon: Icons.edit_outlined,
+                    ),
+                  ),
               ],
             ),
             _AgentDetailTab.grants => Stack(
@@ -158,13 +237,21 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
                 ContextGrantsTab(
                   key: ValueKey(_grantsRefresh),
                   agentId: widget.agent.agentId,
+                  contentPadding: EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    AppSpacing.section,
+                    AppSpacing.screenH,
+                    canManage
+                        ? AppFab.scrollClearance(context)
+                        : AppSpacing.section,
+                  ),
                   emptyTitle: l10n.agentGrantsEmptyTitle,
                   emptyHint: l10n.agentGrantsEmptyHint,
                 ),
                 if (canManage)
                   Positioned(
-                    right: AppSpacing.headerGap,
-                    bottom: AppSpacing.headerGap,
+                    right: AppSpacing.screenH,
+                    bottom: AppFab.overlayInset(context),
                     child: AppFab(
                       onPressed: _onAddGrant,
                       tooltip: l10n.grantAddGrant,
@@ -172,15 +259,24 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
                   ),
               ],
             ),
-            _AgentDetailTab.logs => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                0,
-                AppSpacing.screenH,
-                AppSpacing.screenBottom,
+            _AgentDetailTab.logs => BlocProvider(
+              key: ValueKey(widget.agent.agentId),
+              create: (_) => AuditLogCubit(
+                auditRepository: getIt<AuditRepository>(),
+                presentationResolver: getIt<AuditPresentationResolver>(),
+                scope: AuditLogScope.org,
+                agentId: widget.agent.agentId,
+              )..load(),
+              child: const AuditLogContent(
+                groups: AuditEventType.orgGroups,
+                showVaultFilter: true,
+                contentPadding: EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  AppSpacing.section,
+                  AppSpacing.screenH,
+                  AppSpacing.section,
+                ),
               ),
-              children: [_LogsCard(agent: widget.agent)],
             ),
           },
         ),
@@ -189,231 +285,22 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Tab bar
-// ─────────────────────────────────────────────────────────────────────────
-
-/// Underlined tab bar — mirrors the web entry/agent detail pattern.
-///
-/// Active tab gets a brand-red underline + bold label; inactive tabs use
-/// the muted surface tint. The Grants tab is disabled until the agent
-/// reaches the active state.
-class _TabBar extends StatelessWidget {
-  const _TabBar({
-    required this.active,
-    required this.lockedTabs,
-    required this.onSelected,
-  });
-
-  final _AgentDetailTab active;
-
-  /// When true the Grants and Logs tabs are greyed out and unselectable —
-  /// the agent is still pending so neither has any content yet.
-  final bool lockedTabs;
-  final ValueChanged<_AgentDetailTab> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    final tabs = <({_AgentDetailTab tab, String label, bool disabled})>[
-      (
-        tab: _AgentDetailTab.details,
-        label: l10n.agentsTabDetails,
-        disabled: false,
-      ),
-      (
-        tab: _AgentDetailTab.grants,
-        label: l10n.agentsTabGrants,
-        disabled: lockedTabs,
-      ),
-      (
-        tab: _AgentDetailTab.logs,
-        label: l10n.agentsTabLogs,
-        disabled: lockedTabs,
-      ),
-    ];
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.cardBorder(brightness)),
-        ),
-      ),
-      child: Row(
-        children: [
-          for (final t in tabs)
-            _TabButton(
-              label: t.label,
-              isActive: active == t.tab,
-              disabled: t.disabled,
-              onTap: () => onSelected(t.tab),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.label,
-    required this.isActive,
-    required this.disabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isActive;
-  final bool disabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-
-    final color = disabled
-        ? AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.4)
-        : isActive
-        ? AppColors.brandRed
-        : AppColors.onSurfaceSubtle(brightness);
-
-    return InkWell(
-      onTap: disabled ? null : onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.fieldGap,
-          vertical: AppSpacing.cardGap,
-        ),
-        decoration: isActive && !disabled
-            ? BrandTabIndicator(glowColor: AppColors.primaryGlow(brightness))
-            : null,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Details tab — hero card with edit form + read-only metadata
-// ─────────────────────────────────────────────────────────────────────────
-
-/// Card holding the identity header, the editable form and the read-only
-/// metadata list. Mirrors the web panel `AgentDetail` "Details" tab.
-///
-/// On mobile we take a stricter stance than the web panel: the inline
-/// edit form is only shown for **active** agents. Pending and
-/// deactivated agents render the identity header and metadata list
-/// only — keeping the surface focused on the next available action
-/// (approve / reactivate) which lives in the [_ActionZone] below.
 class _DetailsCard extends StatelessWidget {
-  const _DetailsCard({required this.agent, required this.canEdit});
-
+  const _DetailsCard({required this.agent});
   final Agent agent;
 
-  /// True when the operator may edit the agent — derived from the
-  /// `agentManage` permission.
-  final bool canEdit;
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    // Mirror web semantics: form is editable only for an active agent
-    // held by an operator with manage permission. The mobile surface
-    // takes one extra step and hides the form entirely for non-active
-    // agents (pending / deactivated) — the approve / reactivate CTA in
-    // the action zone covers the available next step.
-    final showEditForm = canEdit && agent.isActive;
-
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _IdentityHeader(agent: agent),
-          const SizedBox(height: AppSpacing.cardPadding),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: AppColors.cardBorder(brightness),
-          ),
-          const SizedBox(height: AppSpacing.cardPadding),
-          _MetadataList(agent: agent, l10n: l10n),
-          if (showEditForm) ...[
-            const SizedBox(height: AppSpacing.cardPadding),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: AppColors.cardBorder(brightness),
-            ),
-            const SizedBox(height: AppSpacing.cardPadding),
-            AgentEditForm(agent: agent, canEdit: true),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Identity header — avatar + name + status badge.
-///
-/// Layout: `[avatar] [name / status-badge]` — badge sits under the name.
-class _IdentityHeader extends StatelessWidget {
-  const _IdentityHeader({required this.agent});
-
-  final Agent agent;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        AgentAvatar(
-          agentId: agent.agentId,
-          name: agent.name,
-          iconKey: agent.iconKey,
-          iconColor: agent.iconColor,
-          size: 40,
-        ),
-        const SizedBox(width: AppSpacing.fieldGap),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                agentDisplayName(l10n, agent),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              AgentStatusBadge(status: agent.status),
-            ],
-          ),
-        ),
-      ],
+      child: _MetadataList(agent: agent, l10n: l10n),
     );
   }
 }
@@ -431,6 +318,15 @@ class _MetadataList extends StatelessWidget {
   Widget build(BuildContext context) {
     final locale = Localizations.localeOf(context).toString();
     final rows = <Widget>[
+      _DetailRow(
+        label: l10n.agentTypeLabel,
+        value: agentTypeLabel(l10n, agent.type) ?? l10n.agentsTypeUnknown,
+      ),
+      if (agent.description?.isNotEmpty == true)
+        _DetailRow(
+          label: l10n.agentsEditDescription,
+          value: agent.description!,
+        ),
       _DetailRow(label: l10n.agentsDetailId, value: agent.agentId, mono: true),
       _DetailRow(
         label: l10n.agentsDetailPublicKey,
@@ -474,7 +370,11 @@ class _MetadataList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: AppSpacing.cardGap),
+          if (i > 0)
+            Divider(
+              height: 1,
+              color: AppColors.cardBorder(Theme.of(context).brightness),
+            ),
           rows[i],
         ],
       ],
@@ -524,14 +424,10 @@ class _ActionZone extends StatelessWidget {
         isLoading: isMutating,
         onPressed: isMutating ? null : onApprove,
       ),
-      AgentStatus.active => _DangerZone(
-        title: l10n.agentsDeactivateZone,
+      AgentStatus.active => CompactDangerZone(
+        title: l10n.entryDangerZone,
         heading: l10n.agentsDeactivate,
-        hint: l10n.agentsDeactivateHint,
-        actionLabel: isMutating
-            ? l10n.agentsDeactivating
-            : l10n.agentsDeactivate,
-        isLoading: isMutating,
+        icon: Icons.block,
         onPressed: isMutating ? null : onDeactivate,
       ),
       AgentStatus.deactivated => _PositiveZone(
@@ -567,33 +463,18 @@ class _PositiveZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.positiveAccent.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.positiveAccent.withValues(alpha: 0.25),
-        ),
-      ),
+    final brightness = Theme.of(context).brightness;
+    return ActionZone(
+      title: title,
+      semanticColor: AppColors.positiveAccent,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.positiveAccent,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
           Text(
             hint,
             style: TextStyle(
-              color: AppColors.positiveAccent.withValues(alpha: 0.85),
-              fontSize: 11,
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 12,
               height: 1.4,
             ),
           ),
@@ -611,243 +492,8 @@ class _PositiveZone extends StatelessWidget {
 
 /// Red-bordered destructive-action card — section label, a heading + hint
 /// and the full-width deactivate CTA.
-class _DangerZone extends StatelessWidget {
-  const _DangerZone({
-    required this.title,
-    required this.heading,
-    required this.hint,
-    required this.actionLabel,
-    required this.isLoading,
-    required this.onPressed,
-  });
-
-  final String title;
-  final String heading;
-  final String hint;
-  final String actionLabel;
-  final bool isLoading;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.brandRed.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.brandRed,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.chipGap),
-          Text(
-            heading,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            hint,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: TextButton.icon(
-              icon: isLoading
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: AppColors.brandRed,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.block,
-                      size: 16,
-                      color: AppColors.brandRed,
-                    ),
-              label: Text(
-                actionLabel,
-                style: const TextStyle(
-                  color: AppColors.brandRed,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
-                disabledBackgroundColor: AppColors.brandRed.withValues(
-                  alpha: 0.06,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(
-                    color: AppColors.brandRed.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              onPressed: onPressed,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────
-// Logs tab — lifecycle timeline
-// ─────────────────────────────────────────────────────────────────────────
-
-/// Lifecycle timeline derived from the agent's dates — first connected,
-/// enrolled, deactivated.
-class _LogsCard extends StatelessWidget {
-  const _LogsCard({required this.agent});
-
-  final Agent agent;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final locale = Localizations.localeOf(context).toString();
-
-    final entries = <({String label, DateTime date, String? detail})>[
-      (
-        label: l10n.agentsLogsFirstConnected,
-        date: agent.createdAt,
-        detail: null,
-      ),
-      if (agent.enrolledAt != null)
-        (
-          label: l10n.agentsLogsEnrolled,
-          date: agent.enrolledAt!,
-          detail: agent.enrolledByName,
-        ),
-      if (agent.deactivatedAt != null)
-        (
-          label: l10n.agentsLogsDeactivated,
-          date: agent.deactivatedAt!,
-          detail: agent.deactivatedByName,
-        ),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < entries.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.cardBorder(brightness),
-              ),
-            _LogRow(
-              label: entries[i].label,
-              date: formatAgentDate(entries[i].date, locale),
-              detail: entries[i].detail,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _LogRow extends StatelessWidget {
-  const _LogRow({required this.label, required this.date, this.detail});
-
-  final String label;
-  final String date;
-  final String? detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.cardGap),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            // Nudges the bullet down to align with the first text line.
-            margin: const EdgeInsets.only(top: 5),
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.onSurfaceSubtle(brightness),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.cardGap),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: AppColors.onSurface(brightness),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (detail != null && detail!.trim().isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    detail!.trim(),
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            date,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Detail row — label + value, used inside the metadata list
+// Detail metadata
 // ─────────────────────────────────────────────────────────────────────────
 
 class _DetailRow extends StatelessWidget {
@@ -866,33 +512,13 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.fieldGap),
-        Flexible(
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              fontFamily: mono ? 'monospace' : null,
-            ),
-          ),
-        ),
-      ],
-    );
+    return EntryFieldRow(
+      icon: Icons.info_outline,
+      value: value,
+      isMasked: false,
+      revealed: true,
+      onToggleReveal: null,
+      onCopy: null,
+    ).labeled(label);
   }
 }

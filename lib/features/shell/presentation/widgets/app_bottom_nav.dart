@@ -1,7 +1,7 @@
+import '../../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/brand_grain_surface.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
@@ -34,8 +34,8 @@ class AppBottomNav extends StatelessWidget {
   static const int tabSettings = 4;
 
   static const double _barHeight = 58;
-  // Transparent headroom above the bar that the larger Home logo pokes into.
-  static const double _overhang = 14;
+  // Headroom above the bar that the larger Home logo pokes into.
+  static const double shieldOverhang = 14;
   static const double _logoSize = 44; // grows upward only (labels stay aligned)
 
   @override
@@ -45,11 +45,8 @@ class AppBottomNav extends StatelessWidget {
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
     return SizedBox(
-      // Reserve ONLY the bar height — the Scaffold lays the body flush on top
-      // of the bar (no gap). The Home logo pokes [_overhang] px ABOVE the bar
-      // by overflowing upward (Stack clipBehavior: none) instead of inflating
-      // the reserved height.
-      height: _barHeight + bottomInset,
+      // Keep the raised shield inside the space reserved for navigation.
+      height: _barHeight + shieldOverhang + bottomInset,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -61,28 +58,38 @@ class AppBottomNav extends StatelessWidget {
             child: Container(
               height: _barHeight + bottomInset,
               decoration: BoxDecoration(
-                color: AppColors.navBackground(brightness),
-                border: Border(
-                  top: BorderSide(
-                    color: AppColors.navBorder(brightness),
-                    width: 1,
-                  ),
-                ),
+                color: brightness == Brightness.light
+                    ? AppColors.navBackground(brightness)
+                    : null,
+                gradient: brightness == Brightness.dark
+                    ? AppColors.navigationGradient(brightness, bottom: true)
+                    : null,
               ),
               child: brightness == Brightness.dark
-                  ? BrandGrainSurface(
-                      backgroundColor: AppColors.navBackground(brightness),
-                      child: const SizedBox.expand(),
+                  ? DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.navigationLogoGlow,
+                      ),
                     )
                   : null,
             ),
           ),
-          // Items — overflow [_overhang] px above the bar so the Home logo
+          Positioned(
+            left: 0,
+            right: 0,
+            top: shieldOverhang,
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.navBorder(brightness),
+            ),
+          ),
+          // Items — overflow [shieldOverhang] px above the bar so the Home logo
           // pokes upward, while every label stays bottom-aligned on the bar.
           Positioned(
             left: 0,
             right: 0,
-            top: -_overhang,
+            top: 0,
             bottom: bottomInset,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -174,8 +181,11 @@ class _NavItem extends StatelessWidget {
       );
     }
     return Expanded(
-      child: InkWell(
+      child: InkResponse(
         onTap: onTap,
+        highlightShape: BoxShape.circle,
+        radius: 28,
+        overlayColor: AppTheme.tabOverlay(Theme.of(context).brightness),
         child: Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.innerGap),
           child: Column(

@@ -183,7 +183,7 @@ class AgentsCubit extends Cubit<AgentsState> {
   /// shown in the avatar optimistically — it may differ when the S3 upload
   /// failed and we have a local `file://` path that can't go to the backend.
   /// When [iconKeyDisplay] is omitted it falls back to [iconKey].
-  Future<void> updateAgent(
+  Future<bool> updateAgent(
     String agentId, {
     String? name,
     String? description,
@@ -243,6 +243,7 @@ class AgentsCubit extends Cubit<AgentsState> {
           clearMutatingAgentId: true,
         ),
       );
+      return true;
     } on AgentsException catch (e) {
       AppLogger.w('Agents', 'updateAgent failed: ${e.kind.name}');
       emit(state.copyWith(mutationError: e.kind, clearMutatingAgentId: true));
@@ -260,6 +261,7 @@ class AgentsCubit extends Cubit<AgentsState> {
         ),
       );
     }
+    return false;
   }
 
   /// Shared driver for every agent mutation.

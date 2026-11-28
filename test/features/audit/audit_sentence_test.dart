@@ -79,8 +79,8 @@ void main() {
         ),
         const {},
       )!;
-      expect(plain(spans), 'Patryk created vault Production');
-      expect(bold(spans), ['Patryk', 'Production']);
+      expect(plain(spans), 'vault Production created by Patryk');
+      expect(bold(spans), ['Production', 'Patryk']);
     });
 
     test('vault.created without a name uses a generic, non-id fallback', () {
@@ -89,7 +89,7 @@ void main() {
         _entry(AuditEventType.vaultCreated, actorName: 'Patryk'),
         const {},
       )!;
-      expect(plain(spans), 'Patryk created a vault');
+      expect(plain(spans), 'a vault created by Patryk');
       expect(bold(spans), ['Patryk']);
     });
 
@@ -103,8 +103,8 @@ void main() {
         ),
         const {},
       )!;
-      expect(plain(spans), 'Patryk created entry Stripe Key');
-      expect(bold(spans), ['Patryk', 'Stripe Key']);
+      expect(plain(spans), 'Stripe Key by Patryk');
+      expect(bold(spans), ['Stripe Key', 'Patryk']);
     });
 
     test('Vault log uses locally resolved actor and Entry names', () {
@@ -121,8 +121,8 @@ void main() {
         const {},
       )!;
 
-      expect(plain(spans), 'Patryk deleted entry Stripe Key');
-      expect(bold(spans), ['Patryk', 'Stripe Key']);
+      expect(plain(spans), 'Stripe Key by Patryk');
+      expect(bold(spans), ['Stripe Key', 'Patryk']);
     });
 
     test('Vault log safely shortens unresolved actor and object ids', () {
@@ -137,7 +137,7 @@ void main() {
         const {},
       )!;
 
-      expect(plain(spans), 'user-123…opaque deleted entry entry-12…purged');
+      expect(plain(spans), 'entry-12…purged by user-123…opaque');
     });
 
     test('org.created reads from metadata.name', () {
@@ -150,7 +150,7 @@ void main() {
         ),
         const {},
       )!;
-      expect(plain(spans), 'Patryk created organization Acme');
+      expect(plain(spans), 'organization Acme created by Patryk');
     });
 
     test('apikey.revoked reads from metadata.keyName', () {
@@ -163,8 +163,8 @@ void main() {
         ),
         const {},
       )!;
-      expect(plain(spans), 'Patryk revoked API key CI deploy');
-      expect(bold(spans), ['Patryk', 'CI deploy']);
+      expect(plain(spans), 'API key CI deploy revoked by Patryk');
+      expect(bold(spans), ['CI deploy', 'Patryk']);
     });
 
     test('agent.blocked names actor and the affected agent', () {
@@ -178,8 +178,8 @@ void main() {
         ),
         const {},
       )!;
-      expect(plain(spans), 'Patryk blocked agent claude-code-01');
-      expect(bold(spans), ['Patryk', 'claude-code-01']);
+      expect(plain(spans), 'agent claude-code-01 blocked by Patryk');
+      expect(bold(spans), ['claude-code-01', 'Patryk']);
     });
 
     test('agent.enrolled subject is the agent', () {
@@ -213,8 +213,8 @@ void main() {
         _entry(AuditEventType.vaultUpdated, metadata: const {'name': 'Prod'}),
         const {},
       )!;
-      expect(plain(spans), 'Unknown user updated vault Prod');
-      expect(bold(spans), ['Unknown user', 'Prod']);
+      expect(plain(spans), 'vault Prod updated by Unknown user');
+      expect(bold(spans), ['Prod', 'Unknown user']);
     });
 
     test(
@@ -232,8 +232,8 @@ void main() {
           ),
           const {},
         )!;
-        expect(plain(spans), 'Patryk created vault Prod');
-        expect(bold(spans), ['Patryk', 'Prod']);
+        expect(plain(spans), 'vault Prod created by Patryk');
+        expect(bold(spans), ['Prod', 'Patryk']);
       },
     );
 
@@ -248,7 +248,7 @@ void main() {
         ),
         const {'a-9': 'cursor-ai'},
       )!;
-      expect(plain(spans), 'cursor-ai updated entry Token');
+      expect(plain(spans), 'Token by cursor-ai');
     });
 
     test(
@@ -256,8 +256,6 @@ void main() {
       () {
         for (final type in [
           AuditEventType.grantCreated,
-          AuditEventType.grantApproved,
-          AuditEventType.credentialAccessed,
           AuditEventType.credentialAccessDenied,
           AuditEventType.unknown,
         ]) {

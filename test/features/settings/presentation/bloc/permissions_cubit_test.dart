@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -25,6 +26,19 @@ void main() {
         ],
       ),
     );
+  });
+
+  test('pending mutation stops when its editor owner closes', () async {
+    final response = Completer<OrganizationRole>();
+    when(
+      () => repository.updateOrganizationRole(any(), any(), any()),
+    ).thenAnswer((_) => response.future);
+    final cubit = PermissionsCubit(repository: repository);
+    final action = cubit.updateRole('role-1', 'Draft', 2);
+    await cubit.close();
+    response.complete(_role);
+    await expectLater(action, completes);
+    verifyNever(() => repository.listOrganizationRoles());
   });
 
   blocTest<PermissionsCubit, PermissionsState>(

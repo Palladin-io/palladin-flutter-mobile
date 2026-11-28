@@ -23,6 +23,7 @@ void main() {
     for (final type in [
       'grant_pending',
       'grant_approved',
+      'grant_expired',
       'grant_denied',
       'grant_revoked',
     ]) {
@@ -40,7 +41,7 @@ void main() {
               .having(
                 (target) => target.openAgentsTab,
                 'openAgentsTab',
-                isTrue,
+                type != 'grant_approved' && type != 'grant_expired',
               ),
         );
       });
@@ -165,7 +166,7 @@ void main() {
               .having(
                 (target) => target.openAgentsTab,
                 'openAgentsTab',
-                isTrue,
+                isFalse,
               ),
         );
       });
@@ -210,6 +211,17 @@ void main() {
         l10n.inboxViewAccess,
       );
     });
+
+    for (final type in ['grant_approved', 'grant_expired']) {
+      test('$type offers View Entry for entry-scoped access', () {
+        final n = make(type, {
+          'grantType': 'granular',
+          'vaultId': 'v',
+          'entryId': 'e',
+        });
+        expect(notificationViewTarget(n), NotificationViewTarget.entry);
+      });
+    }
 
     test('entry deep-link → entry target → "View Entry"', () {
       final n = make('credential_stale', {

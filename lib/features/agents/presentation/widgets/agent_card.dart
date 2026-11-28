@@ -8,24 +8,17 @@ import 'agent_avatar.dart';
 import 'agent_format.dart';
 import 'agent_status_badge.dart';
 
-/// A single tappable agent row on the list screen.
-///
-/// The card has two zones:
-///
-/// * An identification zone (tappable) — avatar, name + status badge,
-///   and a subtitle line that prefers the localized agent type when
-///   set and falls back to the monospaced agent ID.
-/// * A footer (non-tappable) — separator, an icon and a short status
-///   line summarizing the agent's lifecycle (deactivated, last access,
-///   enrolled, or first connected — in that order of priority).
+/// Agent identity and status; lifecycle dates belong in the detail view.
 class AgentCard extends StatelessWidget {
   const AgentCard({
     super.key,
     required this.agent,
     required this.onTap,
     this.selected = false,
+    this.compact = false,
   });
 
+  final bool compact;
   final Agent agent;
   final VoidCallback onTap;
 
@@ -39,13 +32,54 @@ class AgentCard extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final typeLabel = agentTypeLabel(l10n, agent.type);
 
+    if (compact) {
+      return Material(
+        color: selected
+            ? AppColors.cardFooterOverlay(brightness)
+            : AppColors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.cardPadding,
+              vertical: AppSpacing.lg,
+            ),
+            child: Row(
+              children: [
+                AgentAvatar(
+                  agentId: agent.agentId,
+                  name: agent.name,
+                  iconKey: agent.iconKey,
+                  iconColor: agent.iconColor,
+                ),
+                const SizedBox(width: AppSpacing.fieldGap),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _AgentCardIdentity(
+                        agent: agent,
+                        typeLabel: typeLabel,
+                        brightness: brightness,
+                        l10n: l10n,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: selected
-              ? AppColors.brandRed.withValues(alpha: 0.5)
+              ? AppColors.onSurface(brightness)
               : AppColors.cardBorder(brightness),
         ),
       ),
@@ -57,7 +91,7 @@ class AgentCard extends StatelessWidget {
           children: [
             // Identification zone — tappable.
             Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
@@ -84,7 +118,6 @@ class AgentCard extends StatelessWidget {
                 ),
               ),
             ),
-            _AgentCardFooter(agent: agent, brightness: brightness),
           ],
         ),
       ),
@@ -142,80 +175,6 @@ class _AgentCardIdentity extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The non-tappable card footer — sits below the identification block,
-/// separated by a hairline top border and a near-transparent overlay
-/// fill. Shows a single lifecycle status line (deactivated / last access
-/// / enrolled / connected) plus an icon on the left.
-class _AgentCardFooter extends StatelessWidget {
-  const _AgentCardFooter({required this.agent, required this.brightness});
-
-  final Agent agent;
-  final Brightness brightness;
-
-  /// Resolves the footer label using the same priority order as the
-  /// web panel:
-  ///   1. Deactivated + `deactivatedAt`
-  ///   2. `lastAccessAt`
-  ///   3. `enrolledAt`
-  ///   4. fallback to `createdAt` ("Connected on ...")
-  String _footerText(AppLocalizations l10n, String locale) {
-    if (agent.isDeactivated && agent.deactivatedAt != null) {
-      final base =
-          '${l10n.agentsDeactivatedOn} ${formatAgentDate(agent.deactivatedAt!, locale)}';
-      final by = agent.deactivatedByName;
-      return by != null && by.isNotEmpty ? '$base · $by' : base;
-    }
-    if (agent.enrolledAt != null) {
-      final base =
-          '${l10n.agentsEnrolled} ${formatAgentDate(agent.enrolledAt!, locale)}';
-      final by = agent.enrolledByName;
-      return by != null && by.isNotEmpty ? '$base · $by' : base;
-    }
-    return '${l10n.agentsConnectedOn} ${formatAgentDate(agent.createdAt, locale)}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final locale = Localizations.localeOf(context).toString();
-    final isDeactivated = agent.isDeactivated;
-    final iconData = isDeactivated ? Icons.block : Icons.schedule;
-    final iconColor = isDeactivated
-        ? AppColors.brandRed
-        : AppColors.onSurfaceSubtle(brightness);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.cardBorder(brightness), width: 1),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.innerGap,
-      ),
-      child: Row(
-        children: [
-          Icon(iconData, size: 12, color: iconColor),
-          const SizedBox(width: AppSpacing.chipGap),
-          Expanded(
-            child: Text(
-              _footerText(l10n, locale),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 10,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -24,6 +24,7 @@ class TeamCubit extends Cubit<TeamState> {
   }
 
   Future<void> _fetch({required bool showLoading}) async {
+    if (isClosed) return;
     if (showLoading) {
       emit(state.copyWith(status: TeamStatus.loading, clearError: true));
     }
@@ -34,6 +35,7 @@ class TeamCubit extends Cubit<TeamState> {
         if (_canInvite) repository.listInvitationRoles(),
         if (_canManage) repository.listOrganizationRoles(),
       ]);
+      if (isClosed) return;
       var index = 0;
       final members = results[index++] as List<OrganizationMember>;
       final invitations = _canInvite
@@ -56,8 +58,10 @@ class TeamCubit extends Cubit<TeamState> {
         ),
       );
     } on SettingsException catch (error) {
+      if (isClosed) return;
       emit(state.copyWith(status: TeamStatus.error, error: error.kind));
     } catch (error, stackTrace) {
+      if (isClosed) return;
       AppLogger.e(
         'Team',
         'Team load failed unexpectedly',
@@ -120,11 +124,15 @@ class TeamCubit extends Cubit<TeamState> {
     );
     try {
       await call();
+      if (isClosed) return;
       await _fetch(showLoading: false);
+      if (isClosed) return;
       emit(state.copyWith(clearBusyAction: true, completedAction: action));
     } on SettingsException catch (error) {
+      if (isClosed) return;
       emit(state.copyWith(clearBusyAction: true, actionError: error.kind));
     } catch (error, stackTrace) {
+      if (isClosed) return;
       AppLogger.e(
         'Team',
         '${action.name} failed unexpectedly',
@@ -141,6 +149,7 @@ class TeamCubit extends Cubit<TeamState> {
   }
 
   void acknowledgeActionResult() {
+    if (isClosed) return;
     emit(state.copyWith(clearActionError: true, clearCompletedAction: true));
   }
 }

@@ -1,3 +1,6 @@
+import '../../../../core/widgets/accent_button.dart';
+import '../../../../core/widgets/app_record_list.dart';
+import '../../../grants/presentation/widgets/grant_format.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,7 +10,6 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
-import '../../../../core/widgets/compact_primary_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
@@ -99,63 +101,83 @@ class _EntryHistoryTabState extends State<EntryHistoryTab>
             onRetry: () => context.read<EntryHistoryCubit>().open(widget.entry),
           );
         }
-        return ListView(
+        return CustomScrollView(
           key: const ValueKey('entry-history-list'),
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            AppSpacing.fieldGap,
-            AppSpacing.screenH,
-            AppSpacing.listBottom,
-          ),
-          children: [
-            if (state.items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxxl),
-                child: Center(
-                  child: Text(
-                    l10n.entryHistoryEmpty,
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(
-                        Theme.of(context).brightness,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                AppSpacing.section,
+                AppSpacing.screenH,
+                AppSpacing.section,
+              ),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  if (state.items.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xxxl,
+                        ),
+                        child: Center(
+                          child: Text(
+                            l10n.entryHistoryEmpty,
+                            style: TextStyle(
+                              color: AppColors.onSurfaceSubtle(
+                                Theme.of(context).brightness,
+                              ),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                       ),
-                      fontSize: 13,
                     ),
-                  ),
-                ),
+                  if (state.items.isNotEmpty)
+                    AppRecordList(
+                      itemCount: state.items.length,
+                      itemBuilder: (context, index) {
+                        final version = state.items[index];
+                        return _VersionCard(
+                          key: ValueKey('entry-history-${version.revision}'),
+                          entry: widget.entry,
+                          version: version,
+                          selected: state.selectedRevision == version.revision,
+                          snapshot: state.selectedRevision == version.revision
+                              ? state.selected
+                              : null,
+                          revealing:
+                              state.status == EntryHistoryStatus.revealing &&
+                              state.selectedRevision == version.revision,
+                          restoring:
+                              state.status == EntryHistoryStatus.restoring &&
+                              state.selectedRevision == version.revision,
+                          onReveal: () => _reveal(context, version),
+                          onHide: context
+                              .read<EntryHistoryCubit>()
+                              .hideSelected,
+                          onRestore: () => _restore(context),
+                        );
+                      },
+                    ),
+                  if (state.nextCursor != null)
+                    SliverToBoxAdapter(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton(
+                          onPressed:
+                              state.status == EntryHistoryStatus.ready &&
+                                  !state.loadingMore
+                              ? () => context
+                                    .read<EntryHistoryCubit>()
+                                    .loadMore(widget.entry)
+                              : null,
+                          child: Text(l10n.entryHistoryLoadMore),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            for (final version in state.items)
-              _VersionCard(
-                key: ValueKey('entry-history-${version.revision}'),
-                entry: widget.entry,
-                version: version,
-                selected: state.selectedRevision == version.revision,
-                snapshot: state.selectedRevision == version.revision
-                    ? state.selected
-                    : null,
-                revealing:
-                    state.status == EntryHistoryStatus.revealing &&
-                    state.selectedRevision == version.revision,
-                restoring:
-                    state.status == EntryHistoryStatus.restoring &&
-                    state.selectedRevision == version.revision,
-                onReveal: () => _reveal(context, version),
-                onHide: context.read<EntryHistoryCubit>().hideSelected,
-                onRestore: () => _restore(context),
-              ),
-            if (state.nextCursor != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton(
-                  onPressed:
-                      state.status == EntryHistoryStatus.ready &&
-                          !state.loadingMore
-                      ? () => context.read<EntryHistoryCubit>().loadMore(
-                          widget.entry,
-                        )
-                      : null,
-                  child: Text(l10n.entryHistoryLoadMore),
-                ),
-              ),
+            ),
           ],
         );
       },
@@ -220,116 +242,92 @@ class _VersionCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final current = version.revision == entry.currentRevision;
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.cardPadding,
-              vertical: AppSpacing.md,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.entryHistoryVersion(version.revision),
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.entryHistoryVersion(version.revision),
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                CompactPrimaryButton(
-                  label: revealing
-                      ? l10n.entryHistoryDecrypting
-                      : selected && snapshot != null
-                      ? l10n.entryHistoryHide
-                      : l10n.entryHistoryReveal,
-                  isLoading: revealing,
-                  minimumWidth: 88,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              SizedBox(
+                width: 96,
+                child: AccentButton(
+                  height: 32,
+                  compact: true,
                   onPressed: revealing
                       ? null
                       : selected && snapshot != null
                       ? onHide
                       : onReveal,
+                  label: revealing
+                      ? l10n.entryHistoryDecrypting
+                      : selected && snapshot != null
+                      ? l10n.entryHistoryHide
+                      : l10n.entryHistoryReveal,
                 ),
-              ],
-            ),
-          ),
-          if (snapshot != null) ...[
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: AppColors.cardBorder(brightness),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.cardPadding),
-              child: _HistoricalEntryView(
-                key: ValueKey('entry-history-form-${version.revision}'),
-                entry: entry,
-                snapshot: snapshot!,
               ),
-            ),
-            if (!current)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.cardPadding,
-                  0,
-                  AppSpacing.cardPadding,
-                  AppSpacing.cardPadding,
-                ),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
+            ],
+          ),
+        ),
+        _VersionFooter(version: version),
+        if (snapshot != null) ...[
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.cardBorder(brightness),
+          ),
+          _HistoricalEntryView(
+            key: ValueKey('entry-history-form-${version.revision}'),
+            entry: entry,
+            snapshot: snapshot!,
+          ),
+          if (!current)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                0,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: 120,
+                  child: AccentButton(
+                    height: 32,
+                    compact: true,
                     onPressed: restoring ? null : onRestore,
-                    icon: restoring
-                        ? const SizedBox.square(
-                            dimension: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.onBrandRed,
-                            ),
-                          )
-                        : const Icon(Icons.restore, size: 16),
-                    label: Text(
-                      restoring
-                          ? l10n.entryHistoryRestoring
-                          : l10n.entryHistoryRestore,
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.brandRed,
-                      foregroundColor: AppColors.onBrandRed,
-                      textStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    label: restoring
+                        ? l10n.entryHistoryRestoring
+                        : l10n.entryHistoryRestore,
                   ),
                 ),
               ),
-          ],
-          _VersionFooter(version: version, current: current),
+            ),
         ],
-      ),
+      ],
     );
   }
 }
 
 class _VersionFooter extends StatelessWidget {
-  const _VersionFooter({required this.version, required this.current});
+  const _VersionFooter({required this.version});
 
   final EntryHistoryVersion version;
-  final bool current;
 
   @override
   Widget build(BuildContext context) {
@@ -339,52 +337,37 @@ class _VersionFooter extends StatelessWidget {
     final timestamp = DateFormat.yMMMd(
       locale,
     ).add_Hm().format(version.changedAt);
-    final operation = current
-        ? l10n.entryHistoryCurrent
-        : _operationLabel(l10n, version.operation);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.cardPadding,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.cardBorder(brightness)),
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.cardPadding,
+        0,
+        AppSpacing.cardPadding,
+        AppSpacing.md,
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.history,
-            size: 13,
-            color: AppColors.onSurfaceSubtle(brightness),
-          ),
-          const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text(
-              '$operation · $timestamp',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 10,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
+            child: Tooltip(
+              message: _actorLabel(l10n, version),
               child: Text(
                 _actorLabel(l10n, version),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
                 style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 10,
+                  color: AppColors.onSurfaceMuted(brightness),
+                  fontSize: 12,
                 ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.innerGap),
+          Tooltip(
+            message: timestamp,
+            child: Text(
+              grantRelativeTime(l10n, version.changedAt),
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 11,
               ),
             ),
           ),
@@ -616,10 +599,6 @@ class _HistoricalEntryViewState extends State<_HistoricalEntryView> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.inputBorder(brightness)),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.cardPadding,
-        vertical: AppSpacing.innerGap,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: fields,
@@ -690,9 +669,15 @@ class _HistoryField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (child is EntryFieldRow) {
+      return (child as EntryFieldRow).labeled(label);
+    }
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -786,9 +771,9 @@ class _HistorySkeleton extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.fieldGap,
+        AppSpacing.section,
         AppSpacing.screenH,
-        AppSpacing.listBottom,
+        AppSpacing.section,
       ),
       children: [
         for (var index = 0; index < 3; index++)
@@ -848,16 +833,6 @@ class _HistoryLoadError extends StatelessWidget {
     );
   }
 }
-
-String _operationLabel(AppLocalizations l10n, String value) =>
-    switch (value.toLowerCase()) {
-      '1' || 'created' => l10n.entryHistoryOperationCreated,
-      '2' || 'updated' => l10n.entryHistoryOperationUpdated,
-      '3' || 'archived' => l10n.entryHistoryOperationArchived,
-      '4' || 'restored' => l10n.entryHistoryOperationRestored,
-      '5' || 'deleted' => l10n.entryHistoryOperationDeleted,
-      _ => value,
-    };
 
 String _actorLabel(AppLocalizations l10n, EntryHistoryVersion version) {
   return switch (version.changedByType.toLowerCase()) {

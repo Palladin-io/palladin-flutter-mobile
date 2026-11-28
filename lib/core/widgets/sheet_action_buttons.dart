@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'approve_action_button.dart';
 
 /// Standard Cancel + Confirm footer for modal bottom sheets.
 ///
@@ -96,37 +97,43 @@ class SheetActionButtons extends StatelessWidget {
               minHeight: _height,
               maxHeight: equalActions ? double.infinity : _height,
             ),
-            child: FilledButton(
-              onPressed: busy ? null : onConfirm,
-              style: FilledButton.styleFrom(
-                backgroundColor: confirmColor,
-                foregroundColor: AppColors.onBrandRed,
-                padding: EdgeInsets.zero,
-                minimumSize: equalActions ? Size.zero : null,
-                tapTargetSize: equalActions
-                    ? MaterialTapTargetSize.shrinkWrap
-                    : null,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.onBrandRed,
-                      ),
-                    )
-                  : Text(
-                      confirmLabel,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+            child: confirmColor == AppColors.positiveAccent
+                ? ApproveActionButton(
+                    label: confirmLabel,
+                    onPressed: onConfirm,
+                    isLoading: busy,
+                  )
+                : FilledButton(
+                    onPressed: busy ? null : onConfirm,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: confirmColor,
+                      foregroundColor: AppColors.onBrandRed,
+                      padding: EdgeInsets.zero,
+                      minimumSize: equalActions ? Size.zero : null,
+                      tapTargetSize: equalActions
+                          ? MaterialTapTargetSize.shrinkWrap
+                          : null,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-            ),
+                    child: busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.onBrandRed,
+                            ),
+                          )
+                        : Text(
+                            confirmLabel,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
           ),
         ),
       ],

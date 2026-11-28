@@ -74,7 +74,7 @@ so a return-tab refresh cannot absorb a required post-mutation refresh.
 but keep the softer light palette. `AuthBrandBackground` selects the more
 defined web-login gray ramp and white bloom for entry screens. Dark stays unchanged.
 `BrandGrainSurface` adds static grayscale texture behind the dark bottom navigation
-and a weaker version behind the settings drawer. Both keep solid base colors;
+while the settings drawer uses the opaque application surface and canvas grain. Both keep solid base colors;
 the texture is decorative, isolated in a repaint boundary, and never covers
 labels or changes hit targets. Primary CTA glow is shared by the full-width
 and compact primary buttons; disabled/loading actions have no glow.
@@ -85,19 +85,19 @@ API key detail, recovery and onboarding delegate to the same background so tab
 changes cannot reveal the old gray ramp. Navbar glow originates directly below
 the central shield and fades to both sides in dark mode. The light navbar uses
 a plain opaque surface and a fine top border, without grain or a central bloom.
-Drawer grain is weaker and broader in dark mode. The light drawer uses an
-opaque white surface without grain or Material surface tint. The localized version and
+The drawer uses the same graphite surface as application cards in dark mode,
+with subtle canvas grain and a navigation-gradient header. The light drawer uses an
+opaque white surface with subtle canvas grain and no Material surface tint. The localized version and
 Palladin.io share one compact footer line separated by a pipe, without a shield.
 The footer is right-aligned; Palladin uses a bold theme-aware wordmark with a
 brand-red .io suffix. The settings list has a persistent scrollbar and track
 when it overflows, so offscreen actions remain discoverable before scrolling.
-The footer stays pinned below the scrollable settings list with minimal bottom
-padding inside the device safe area.
+The footer stays pinned below the scrollable settings list, separated by a fine
+line and the shared navigation gradient, with symmetric 12dp vertical padding.
+Returning from a drawer destination reopens the menu on its original page,
+provided the same user remains unlocked and navigation returned to that origin.
 
-Selected Inbox segments reuse `PrimaryButtonGlow`. Navbar icons retain their
-active color without a red glow. Detail tabs
-in Vault, Entry, API keys and Agent use `BrandTabIndicator` for a glowing red
-underline. Inactive and disabled tabs have no glow.
+Selected Inbox/library segments and detail tabs use a neutral outline: dark on light, light on dark. `BrandTabIndicator` owns the detail-tab border; Material tab bars use whole-tab sizing and a 4dp inset. Navbar icons retain their existing active color. These controls have no selection glow.
 
 ## Directional navbar transitions
 
@@ -134,3 +134,20 @@ padding above and below the action inside `SafeArea`. The remaining bottom
 system inset is added once, outside that visual padding; an outer SafeArea
 already consuming it must not add a second inset. The Scaffold owns keyboard
 resizing, leaving the same 12dp gap above the keyboard.
+
+## Authenticated canvas and detail navigation
+
+`AppCanvasBackground` owns the authenticated grain surface, independently of
+the authentication bloom. `BrandGrainOverlay` rasterizes its fixed 128dp noise
+tile once and repeats it through an image shader with the existing radial fade.
+It never caches application content.
+
+Entry Details pushes onto the nearest shell Navigator, leaving `AppBottomNav`
+visible and claiming a null shell FAB through `FabRegistrar`. Its own agent
+action stays local to the detail page. Entry navigation without a shell retains
+the root Navigator. Navbar changes can leave an open detail and return to a root
+tab; back returns to the originating list.
+
+The startup/privacy cover reuses AuthBrandBackground and BrandHero, keeping an
+opaque Material base over protected content. Drawer footer gradient extends
+through the iOS bottom safe area; only the footer content consumes that inset.

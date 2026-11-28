@@ -5,7 +5,7 @@ Master-password unlock with a biometric shortcut.
 - **Cubit:** `UnlockCubit`.
 - **Pages:** `UnlockPage`. **Widgets:** reuses `AuthBrandBackground`,
   `AuthContentWidth`, `AuthBrandHeader`, `OnboardingTextField`, and
-  `PrimaryButton`. Its glow, lockup height, 320px content cap, 20px minimum
+  `PrimaryButton`. Its shared app canvas, Inter wordmark, 320px content cap, 20px minimum
   gutters, and labelled-field start match the authentication entry screen.
   The shared header keeps the persistent `Enter your master password` caption
   instead of rotating the authentication-entry messages.

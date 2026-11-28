@@ -1,3 +1,5 @@
+import '../../../../core/widgets/warning_zone.dart';
+import '../../../../core/widgets/accent_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -311,59 +313,15 @@ class _RevealPhaseState extends State<_RevealPhase> {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        // One-time secret warning — brand-red tinted banner so the
-        // "save it now" instruction is impossible to miss.
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.cardPadding),
-          decoration: BoxDecoration(
-            color: AppColors.brandRed.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.brandRed.withValues(alpha: 0.4),
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.warning_amber_rounded,
-                color: AppColors.brandRed,
-                size: 18,
-              ),
-              const SizedBox(width: AppSpacing.innerGap),
-              Expanded(
-                child: Text(
-                  l10n.apiKeysSecretWarning,
-                  style: const TextStyle(
-                    color: AppColors.brandRed,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        WarningZone(
+          title: l10n.approvalMethodWarningZone,
+          message: l10n.apiKeysSecretWarning,
         ),
         const SizedBox(height: AppSpacing.md),
         // The plaintext secret in a monospace, selectable highlighted box.
         _MonospaceBox(text: widget.newKey.plaintext),
         const SizedBox(height: AppSpacing.md),
-        OutlinedButton.icon(
-          onPressed: widget.onCopy,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.onSurface(brightness),
-            side: BorderSide(color: AppColors.onSurface(brightness)),
-            minimumSize: const Size(double.infinity, 44),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          icon: const Icon(Icons.copy, size: 16),
-          label: Text(
-            l10n.apiKeysCopyKey,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        ),
+        AccentButton(onPressed: widget.onCopy, label: l10n.apiKeysCopyKey),
         const SizedBox(height: AppSpacing.md),
         _CollapsibleSection(
           title: l10n.apiKeysConnectTitle,

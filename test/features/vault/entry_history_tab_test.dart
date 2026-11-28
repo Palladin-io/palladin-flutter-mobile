@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mobile_palladin/core/widgets/compact_primary_button.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_history_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
@@ -95,23 +94,12 @@ void main() {
     await pump(tester);
 
     expect(find.text('Version 7'), findsOneWidget);
-    expect(find.textContaining('Current ·'), findsOneWidget);
+    expect(find.text('Current'), findsNothing);
     expect(find.text('Reveal'), findsOneWidget);
     expect(find.textContaining('Updated ·'), findsNothing);
     expect(find.text('Patryk Roguszewski'), findsOneWidget);
-    expect(
-      tester.getSize(find.byType(CompactPrimaryButton)).width,
-      inInclusiveRange(88, 96),
-    );
-    expect(tester.getRect(find.text('Reveal')).right, lessThan(355));
-    expect(
-      tester.getRect(find.text('Patryk Roguszewski')).right,
-      greaterThan(330),
-    );
-    expect(
-      tester.getRect(find.textContaining('Current ·')).right,
-      lessThan(tester.getRect(find.text('Patryk Roguszewski')).left),
-    );
+    expect(find.widgetWithText(OutlinedButton, 'Reveal'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     expect(
       find.text(
         'Historical versions may contain previous passwords and TOTP seeds.',

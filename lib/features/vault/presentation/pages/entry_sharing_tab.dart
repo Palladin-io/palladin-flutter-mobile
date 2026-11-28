@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_fab.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,7 +12,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_form_section.dart';
 import '../../../../core/widgets/card_action_footer.dart';
-import '../../../../core/widgets/accent_button.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/sheet_drag_handle.dart';
@@ -19,14 +19,12 @@ import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../grants/presentation/widgets/org_grant_card.dart';
 import '../../data/datasources/entry_sharing_remote_datasource.dart';
 import '../../data/services/member_sync_session_authority_provider.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/entry_share_list.dart';
 import '../../domain/entities/entry_share_creation.dart';
 import '../cubit/entry_sharing_cubit.dart';
-import '../widgets/entry_share_creation_form.dart';
 import '../widgets/entry_share_protection_sheet.dart';
 import 'entry_share_creation_page.dart';
 
@@ -356,13 +354,18 @@ class EntrySharingListBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        Expanded(child: _content(context)),
+        Positioned.fill(child: _content(context)),
         if (onCreate != null)
-          EntryShareActionFooter(
-            label: AppLocalizations.of(context)!.sharingCreate,
-            onPressed: state.busy ? null : onCreate,
+          Positioned(
+            right: AppSpacing.screenH,
+            bottom: AppFab.overlayInset(context),
+            child: AppFab(
+              icon: Icons.share_outlined,
+              tooltip: AppLocalizations.of(context)!.sharingShareLink,
+              onPressed: state.busy ? null : onCreate,
+            ),
           ),
       ],
     );
@@ -408,11 +411,13 @@ class EntrySharingListBody extends StatelessWidget {
       onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           AppSpacing.screenH,
-          AppSpacing.fieldGap,
+          AppSpacing.section,
           AppSpacing.screenH,
-          AppSpacing.screenBottom,
+          onCreate != null
+              ? AppFab.scrollClearance(context)
+              : AppSpacing.section,
         ),
         children: [
           if (state.failure != null) ...[
@@ -440,9 +445,9 @@ class EntrySharingListBody extends StatelessWidget {
             const SkeletonBox(height: 180)
           else if (state.loaded && state.items.isEmpty)
             Text(l10n.sharingEmpty, style: textStyle),
-          for (final item in state.items)
+          for (final (index, item) in state.items.indexed)
             Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+              padding: EdgeInsets.only(top: index == 0 ? 0 : AppSpacing.cardGap),
               child: _ShareCard(
                 item: item,
                 showChangeProtection: onChangeProtection != null,
@@ -516,9 +521,38 @@ class _ShareCard extends StatelessWidget {
       'pin' => l10n.sharingProtectionPin,
       _ => l10n.responseUnknownValue,
     };
+    final statusColor = switch (item.status) {
+      'active' => AppColors.positiveAccent,
+      'revoked' || 'locked' => AppColors.brandRed,
+      _ => AppColors.onSurfaceSubtle(brightness),
+    };
     Widget detail(String label, String value) => Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.innerGap),
-      child: GrantDetailRow(label: label, value: value, maxLines: null),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.onSurfaceSubtle(brightness),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.onSurfaceMuted(brightness),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
     return Container(
       key: ValueKey('entry-share-${item.shareId}'),
@@ -532,10 +566,7 @@ class _ShareCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.cardPadding,
-              vertical: AppSpacing.innerGap,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.cardPadding),
             child: Row(
               children: [
                 Expanded(
@@ -544,22 +575,21 @@ class _ShareCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.onSurface(brightness),
                     ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.innerGap),
+                const SizedBox(width: AppSpacing.sm),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
+                  constraints: const BoxConstraints(maxWidth: 110),
                   child: Text(
                     status,
-                    textAlign: TextAlign.end,
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
                     ),
                   ),
                 ),
@@ -588,6 +618,9 @@ class _ShareCard extends StatelessWidget {
                 ),
                 AppFormSection(
                   label: l10n.entryTabDetails,
+                  compact: true,
+                  showCollapsedDivider: false,
+                  showExpandedDivider: false,
                   summary: protection,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -610,14 +643,6 @@ class _ShareCard extends StatelessWidget {
                             ? l10n.sharingNotificationOn
                             : l10n.sharingNotificationOff,
                       ),
-                      const SizedBox(height: AppSpacing.innerGap),
-                      Text(
-                        l10n.sharingListNotice,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.onSurfaceSubtle(brightness),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -639,19 +664,25 @@ class _ShareCard extends StatelessWidget {
                   children: [
                     if (item.canChangeProtection && showChangeProtection) ...[
                       Expanded(
-                        child: AccentButton(
-                          height: null,
+                        child: CardFooterAction(
+                          icon: Icons.edit_outlined,
+                          color: AppColors.onSurface(
+                            Theme.of(context).brightness,
+                          ),
                           label: l10n.sharingChangeProtection,
                           onPressed: onChangeProtection,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
+                      VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: AppColors.cardBorder(
+                          Theme.of(context).brightness,
+                        ),
+                      ),
                     ],
                     Expanded(
                       child: CardRevokeButton(
-                        height: item.canChangeProtection && showChangeProtection
-                            ? null
-                            : 36,
                         label: l10n.sharingRevoke,
                         onPressed: onRevoke,
                       ),

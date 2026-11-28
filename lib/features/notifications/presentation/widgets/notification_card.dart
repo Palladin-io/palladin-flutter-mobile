@@ -1,3 +1,4 @@
+import '../../../../core/widgets/card_action_footer.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -265,31 +266,27 @@ class _Footer extends StatelessWidget {
 
   /// Fixed height for every footer slot so buttons line up across cards
   /// regardless of whether they carry a leading icon.
-  static const double _buttonHeight = 36;
+  static const double _buttonHeight = AppSpacing.controlHeight;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final hasInlineActions = onPrimary != null || onSecondary != null;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.cardBorder(brightness)),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.cardPadding,
-        vertical: AppSpacing.innerGap,
-      ),
-      // Pin a consistent footer min-height so action + log cards align.
-      constraints: const BoxConstraints(minHeight: _buttonHeight + 16),
+    return CardActionFooter(
       child: hasInlineActions
           ? Row(
               children: [
                 if (onSecondary != null) ...[
                   Expanded(child: _secondaryButton(brightness)),
-                  const SizedBox(width: AppSpacing.innerGap),
+                  if (onPrimary != null)
+                    SizedBox(
+                      height: _buttonHeight,
+                      child: VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: AppColors.cardBorder(brightness),
+                      ),
+                    ),
                 ],
                 if (onPrimary != null) Expanded(child: _primaryButton()),
               ],
@@ -298,81 +295,43 @@ class _Footer extends StatelessWidget {
     );
   }
 
-  Widget _viewLink(Brightness brightness) {
-    return SizedBox(
-      height: _buttonHeight,
-      width: double.infinity,
-      child: TextButton.icon(
-        onPressed: onView,
-        icon: const Icon(
-          Icons.open_in_new,
-          size: 14,
-          color: AppColors.brandRed,
-        ),
-        label: Text(
-          viewLabel ?? '',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.brandRed,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-    );
-  }
+  Widget _viewLink(Brightness brightness) => _action(
+    label: viewLabel ?? '',
+    icon: Icons.open_in_new,
+    color: AppColors.brandRed,
+    onPressed: onView,
+  );
 
-  Widget _secondaryButton(Brightness brightness) {
-    return SizedBox(
-      height: _buttonHeight,
-      child: OutlinedButton(
-        onPressed: isBusy ? null : onSecondary,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.onSurfaceMuted(brightness),
-          side: BorderSide(color: AppColors.cardBorder(brightness)),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: Text(
-          secondaryLabel ?? '',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
+  Widget _secondaryButton(Brightness brightness) => _action(
+    label: secondaryLabel ?? '',
+    icon: Icons.close,
+    color: AppColors.onSurfaceMuted(brightness),
+    onPressed: isBusy ? null : onSecondary,
+  );
 
-  Widget _primaryButton() {
-    final background = switch (primaryTone) {
-      NotificationPrimaryTone.positive => AppColors.positiveAccent,
-      NotificationPrimaryTone.danger => AppColors.brandRed,
-    };
-    return SizedBox(
-      height: _buttonHeight,
-      child: FilledButton(
-        onPressed: isBusy ? null : onPrimary,
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: AppColors.onBrandRed,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: isBusy
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.onBrandRed,
-                ),
-              )
-            : Text(
-                primaryLabel ?? '',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-      ),
+  Widget _primaryButton() => _action(
+    label: primaryLabel ?? '',
+    icon: Icons.check,
+    color: primaryTone == NotificationPrimaryTone.positive
+        ? AppColors.positiveAccent
+        : AppColors.brandRed,
+    onPressed: isBusy ? null : onPrimary,
+    loading: isBusy,
+  );
+
+  Widget _action({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onPressed,
+    bool loading = false,
+  }) {
+    return CardFooterAction(
+      label: label,
+      icon: icon,
+      color: color,
+      onPressed: onPressed,
+      loading: loading,
     );
   }
 }

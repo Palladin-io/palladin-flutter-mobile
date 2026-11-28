@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/widgets/app_empty_state.dart';
 import 'package:mobile_palladin/core/widgets/card_action_footer.dart';
-import 'package:mobile_palladin/core/widgets/primary_button.dart';
+import 'package:mobile_palladin/core/widgets/app_fab.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
@@ -855,7 +855,7 @@ void main() {
       await pump(tester, textScale: 1.5);
       expect(find.byType(AppEmptyState), findsOneWidget);
       expect(find.byIcon(Icons.link_outlined), findsOneWidget);
-      expect(find.byType(PrimaryButton), findsOneWidget);
+      expect(find.byType(AppFab), findsOneWidget);
       expect(find.text('Refresh'), findsNothing);
       expect(find.textContaining('Delivery and display'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -886,16 +886,16 @@ void main() {
         const EntrySharingState(loading: true),
       ]) {
         await show(state);
-        expect(find.byType(PrimaryButton), findsOneWidget);
+        expect(find.byType(AppFab), findsOneWidget);
         expect(find.byType(AppEmptyState), findsNothing);
         expect(find.textContaining('Delivery and display'), findsNothing);
       }
       await show(const EntrySharingState(loaded: true));
       expect(find.byType(AppEmptyState), findsOneWidget);
-      expect(find.byType(PrimaryButton), findsOneWidget);
-      final action = tester.getRect(find.byType(PrimaryButton));
+      expect(find.byType(AppFab), findsOneWidget);
+      final action = tester.getRect(find.byType(AppFab));
       await show(const EntrySharingState(loaded: true, loading: true));
-      expect(tester.getRect(find.byType(PrimaryButton)), action);
+      expect(tester.getRect(find.byType(AppFab)), action);
       expect(tester.takeException(), isNull);
       await dispose(tester);
     });
@@ -982,10 +982,7 @@ void main() {
         expect(find.byType(RefreshIndicator), findsOneWidget);
         expect(find.byType(CardActionFooter), findsOneWidget);
         expect(find.byType(CardRevokeButton), findsOneWidget);
-        final createAction = find.widgetWithText(
-          PrimaryButton,
-          'Create sharing link',
-        );
+        final createAction = find.byTooltip('Share');
         final footerPosition = tester.getRect(createAction);
         expect(find.text('First delivery'), findsNothing);
         await tester.tap(find.text('Details'));

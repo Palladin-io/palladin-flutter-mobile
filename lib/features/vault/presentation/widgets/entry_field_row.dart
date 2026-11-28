@@ -21,10 +21,29 @@ class EntryFieldRow extends StatelessWidget {
     required this.onToggleReveal,
     required this.onCopy,
     this.extraTrailing,
+    this.beforeActions,
+    this.label,
     this.multiline = false,
     this.valueFontSize = 12,
     this.actionIconSize = 14,
   });
+
+  final String? label;
+
+  EntryFieldRow labeled(String text) => EntryFieldRow(
+    icon: icon,
+    value: value,
+    isMasked: isMasked,
+    revealed: revealed,
+    onToggleReveal: onToggleReveal,
+    onCopy: onCopy,
+    extraTrailing: extraTrailing,
+    beforeActions: beforeActions,
+    multiline: multiline,
+    label: text,
+    valueFontSize: 14,
+    actionIconSize: 18,
+  );
 
   final IconData icon;
   final String value;
@@ -39,6 +58,7 @@ class EntryFieldRow extends StatelessWidget {
   /// Null hides the copy action (status rows without a copyable value).
   final VoidCallback? onCopy;
   final Widget? extraTrailing;
+  final Widget? beforeActions;
   final bool multiline;
 
   /// Font size of the value text. Defaults to 12 (entry detail); the
@@ -52,42 +72,76 @@ class EntryFieldRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final displayed = isMasked && !revealed ? '••••••••••••' : value;
+    final displayed = value.isEmpty
+        ? '—'
+        : isMasked && !revealed
+        ? '••••••••••••'
+        : value;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      padding: label == null
+          ? const EdgeInsets.symmetric(vertical: AppSpacing.xs)
+          : const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
       child: Row(
         children: [
-          Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(width: AppSpacing.innerGap),
+          const SizedBox(height: AppSpacing.controlHeight),
+          if (label == null) ...[
+            Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
+            const SizedBox(width: AppSpacing.innerGap),
+          ],
           Expanded(
-            child: multiline
-                ? _ExpandableValueText(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (label != null) ...[
+                  Text(
+                    label!,
+                    style: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
+                if (multiline)
+                  _ExpandableValueText(
                     value: displayed,
                     fontSize: valueFontSize,
                     brightness: brightness,
+                    monospace: label == null,
                   )
-                : Text(
+                else
+                  Text(
                     displayed,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: AppColors.onSurface(brightness),
                       fontSize: valueFontSize,
-                      fontFamily: 'monospace',
-                      letterSpacing: 0.5,
+                      fontFamily: label == null ? 'monospace' : null,
+                      letterSpacing: label == null ? 0.5 : null,
                     ),
                   ),
+              ],
+            ),
           ),
-          if (onToggleReveal != null)
+          const SizedBox(width: AppSpacing.innerGap),
+          if (beforeActions != null) ...[
+            beforeActions!,
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          if (value.isNotEmpty && onToggleReveal != null)
             EntrySmallIconButton(
               icon: revealed ? Icons.visibility_off : Icons.visibility,
               size: actionIconSize,
               tooltip: l10n.vaultRevealValue,
               onPressed: onToggleReveal!,
             ),
-          if (onToggleReveal != null && onCopy != null)
+          if (value.isNotEmpty && onToggleReveal != null && onCopy != null)
             const SizedBox(width: AppSpacing.xs),
-          if (onCopy != null)
+          if (value.isNotEmpty && onCopy != null)
             EntrySmallIconButton(
               icon: Icons.content_copy,
               size: actionIconSize,
@@ -109,11 +163,13 @@ class _ExpandableValueText extends StatefulWidget {
     required this.value,
     required this.fontSize,
     required this.brightness,
+    required this.monospace,
   });
 
   final String value;
   final double fontSize;
   final Brightness brightness;
+  final bool monospace;
 
   @override
   State<_ExpandableValueText> createState() => _ExpandableValueTextState();
@@ -128,8 +184,8 @@ class _ExpandableValueTextState extends State<_ExpandableValueText> {
     final style = TextStyle(
       color: AppColors.onSurface(widget.brightness),
       fontSize: widget.fontSize,
-      fontFamily: 'monospace',
-      letterSpacing: 0.5,
+      fontFamily: widget.monospace ? 'monospace' : null,
+      letterSpacing: widget.monospace ? 0.5 : null,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -193,12 +249,14 @@ class EntrySmallIconButton extends StatelessWidget {
       child: InkResponse(
         onTap: onPressed,
         radius: 16,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xs),
-          child: Icon(
-            icon,
-            size: size,
-            color: AppColors.onSurfaceSubtle(brightness),
+        child: SizedBox.square(
+          dimension: AppSpacing.controlHeight,
+          child: Center(
+            child: Icon(
+              icon,
+              size: size,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
           ),
         ),
       ),

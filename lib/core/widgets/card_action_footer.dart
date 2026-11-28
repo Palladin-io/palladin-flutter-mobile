@@ -12,20 +12,56 @@ class CardActionFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      constraints: const BoxConstraints(minHeight: 46),
       decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
         border: Border(
           top: BorderSide(color: AppColors.cardBorder(brightness)),
         ),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.cardPadding,
-        vertical: AppSpacing.innerGap,
-      ),
       child: Center(child: child),
     );
   }
+}
+
+class CardFooterAction extends StatelessWidget {
+  const CardFooterAction({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+    this.loading = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: AppSpacing.controlHeight,
+    width: double.infinity,
+    child: TextButton.icon(
+      onPressed: loading ? null : onPressed,
+      icon: loading
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: color),
+            )
+          : Icon(icon, size: 14),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      style: TextButton.styleFrom(
+        foregroundColor: color,
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    ),
+  );
 }
 
 class CardRevokeButton extends StatelessWidget {
@@ -34,39 +70,17 @@ class CardRevokeButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.busy = false,
-    this.height = 36,
   });
-
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
-  final double? height;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    height: height,
-    child: OutlinedButton(
-      onPressed: busy ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.brandRed,
-        side: const BorderSide(color: AppColors.brandRed),
-        padding: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: busy
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.brandRed,
-              ),
-            )
-          : Text(
-              label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-    ),
+  Widget build(BuildContext context) => CardFooterAction(
+    label: label,
+    icon: Icons.block,
+    color: AppColors.brandRed,
+    onPressed: onPressed,
+    loading: busy,
   );
 }

@@ -1,3 +1,8 @@
+import '../../../../core/permissions.dart';
+import '../widgets/push_settings_editor.dart';
+import '../../../../core/widgets/app_fab.dart';
+import '../../../vault/presentation/widgets/entry_field_row.dart';
+import '../../../../core/widgets/action_zone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -33,9 +38,10 @@ class PermissionRolePage extends StatelessWidget {
 }
 
 class _PermissionRoleView extends StatefulWidget {
-  const _PermissionRoleView({required this.roleId});
+  const _PermissionRoleView({required this.roleId, this.editing = false});
 
   final String roleId;
+  final bool editing;
 
   @override
   State<_PermissionRoleView> createState() => _PermissionRoleViewState();
@@ -45,6 +51,21 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
   final _nameController = TextEditingController();
   String _syncedSignature = '';
   int _mask = 0;
+  bool _editorOpen = false;
+  Future<void> _edit() async {
+    final cubit = context.read<PermissionsCubit>();
+    _editorOpen = true;
+    await pushSettingsEditor(
+      context: context,
+      permission: Permissions.organizationManagement,
+      owner: cubit,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _PermissionRoleView(roleId: widget.roleId, editing: true),
+      ),
+    );
+    if (mounted) setState(() => _editorOpen = false);
+  }
 
   @override
   void dispose() {
@@ -61,6 +82,7 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
   }
 
   void _listen(BuildContext context, PermissionsState state) {
+    if (_editorOpen) return;
     if (state.actionError == null && state.completedAction == null) return;
     final l10n = AppLocalizations.of(context)!;
     final action = state.completedAction;
@@ -77,7 +99,9 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
         ..showSnackBar(SnackBar(content: Text(message)));
     }
     context.read<PermissionsCubit>().acknowledgeActionResult();
-    if (action == PermissionsAction.delete && context.mounted) {
+    if ((action == PermissionsAction.delete ||
+            (action == PermissionsAction.update && widget.editing)) &&
+        context.mounted) {
       Navigator.of(context).pop();
     }
   }
@@ -97,8 +121,11 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
             .firstOrNull;
         if (role != null) _sync(role);
         return AppScreen.appBar(
-          safeAreaBottom: false,
-          floatingActionButton: const FabRegistrar(fab: null),
+          gapAfterHeader: false,
+          safeAreaBottom: !widget.editing,
+          floatingActionButton: widget.editing
+              ? null
+              : const FabRegistrar(fab: null),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
@@ -151,13 +178,82 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
     final editable = canEditOrganizationRole(role);
     final name = _nameController.text.trim();
     final dirty = name != role.name || _mask != role.permissions;
+    if (!widget.editing) {
+      return Stack(
+        children: [
+          ListView(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.section,
+              AppSpacing.screenH,
+              editable ? AppFab.scrollClearance(context) : AppSpacing.section,
+            ),
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.cardFill(brightness),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder(brightness)),
+                ),
+                child: EntryFieldRow(
+                  icon: Icons.shield_outlined,
+                  value: role.name,
+                  isMasked: false,
+                  revealed: true,
+                  onToggleReveal: null,
+                  onCopy: null,
+                ).labeled(l10n.permissionsRoleName),
+              ),
+              const SizedBox(height: AppSpacing.section),
+              PermissionFields(
+                permissions: state.assignablePermissions,
+                mask: role.permissions,
+                enabled: false,
+                readOnly: true,
+                onChanged: (_) {},
+              ),
+              if (editable) ...[
+                const SizedBox(height: AppSpacing.section),
+                CompactDangerZone(
+                  title: l10n.entryDangerZone,
+                  heading: l10n.permissionsDelete,
+                  onPressed: busy || role.assignedMemberCount != 0
+                      ? null
+                      : () => _confirmDelete(context, role),
+                ),
+                if (role.assignedMemberCount != 0) ...[
+                  const SizedBox(height: AppSpacing.innerGap),
+                  Text(
+                    l10n.permissionsDeleteBlocked,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.onSurfaceMuted(brightness),
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+          if (editable)
+            Positioned(
+              right: AppSpacing.screenH,
+              bottom: AppFab.overlayInset(context),
+              child: AppFab(
+                onPressed: busy ? null : _edit,
+                tooltip: l10n.entryEditAction,
+                icon: Icons.edit_outlined,
+              ),
+            ),
+        ],
+      );
+    }
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.screenH,
-              0,
+              AppSpacing.section,
               AppSpacing.screenH,
               AppSpacing.section,
             ),
@@ -205,29 +301,6 @@ class _PermissionRoleViewState extends State<_PermissionRoleView> {
                     fontSize: 12,
                   ),
                 ),
-              ] else ...[
-                const SizedBox(height: AppSpacing.section),
-                Divider(color: AppColors.cardBorder(brightness)),
-                const SizedBox(height: AppSpacing.innerGap),
-                if (role.assignedMemberCount == 0)
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.brandRed,
-                    ),
-                    onPressed: busy
-                        ? null
-                        : () => _confirmDelete(context, role),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: Text(l10n.permissionsDelete),
-                  )
-                else
-                  Text(
-                    l10n.permissionsDeleteBlocked,
-                    style: TextStyle(
-                      color: AppColors.onSurfaceMuted(brightness),
-                      fontSize: 12,
-                    ),
-                  ),
               ],
             ],
           ),

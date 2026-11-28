@@ -1,7 +1,9 @@
+import '../../../../core/widgets/app_record_list.dart';
+import '../../../../core/widgets/app_record_row.dart';
+import '../../../../core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
@@ -288,10 +290,8 @@ class _TeamViewState extends State<_TeamView> {
                 AppSpacing.screenH,
                 AppSpacing.listBottom,
               ),
-              sliver: SliverList.separated(
+              sliver: AppRecordList(
                 itemCount: filtered.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.cardGap),
                 itemBuilder: (context, index) => switch (filtered[index]) {
                   _MemberEntry(:final member) => TeamMemberCard(
                     member: member,
@@ -357,147 +357,17 @@ class TeamMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final displayName = member.displayName.trim().isEmpty
         ? member.email
         : member.displayName;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.cardPadding),
-                  child: Row(
-                    children: [
-                      _Avatar(
-                        label: displayName,
-                        color: AppColors.positiveAccent,
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    displayName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: AppColors.onSurface(brightness),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                if (member.isOwner)
-                                  _Badge(
-                                    label: l10n.teamOwner,
-                                    color: AppColors.premiumAmber,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              member.email,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppColors.onSurfaceMuted(brightness),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: AppColors.onSurfaceSubtle(brightness),
-                      ),
-                    ],
-                  ),
-                ),
-                _MemberCardFooter(member: member),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemberCardFooter extends StatelessWidget {
-  const _MemberCardFooter({required this.member});
-
-  final OrganizationMember member;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final subtle = AppColors.onSurfaceSubtle(brightness);
-    final locale = Localizations.localeOf(context).toLanguageTag();
-    final joined = DateFormat.yMMMd(locale).format(member.joinedAt.toLocal());
-    return Container(
-      key: const ValueKey('team-member-card-footer'),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.innerGap,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.cardBorder(brightness)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              l10n.teamRoleCount(member.roles.length),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: subtle, fontSize: 11),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(Icons.calendar_today_outlined, size: 12, color: subtle),
-                const SizedBox(width: AppSpacing.chipGap),
-                Flexible(
-                  child: Text(
-                    l10n.teamJoined(joined),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(color: subtle, fontSize: 11),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return AppRecordRow(
+      title: displayName,
+      subtitle: member.email,
+      onTap: onTap,
+      leading: _Avatar(label: displayName, color: AppColors.positiveAccent),
+      trailing: member.isOwner
+          ? StatusBadge(label: l10n.teamOwner, color: AppColors.premiumAmber)
+          : null,
     );
   }
 }
@@ -511,64 +381,14 @@ class _InvitationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return InkWell(
+    return AppRecordRow(
+      title: invitation.email,
+      subtitle: invitation.roleName,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.cardPadding),
-        decoration: BoxDecoration(
-          color: AppColors.cardFill(brightness),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder(brightness)),
-        ),
-        child: Row(
-          children: [
-            _Avatar(label: invitation.email, color: AppColors.vaultBlue),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          invitation.email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.onSurface(brightness),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      _Badge(
-                        label: l10n.teamPending,
-                        color: AppColors.vaultBlue,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.innerGap),
-                  Text(
-                    invitation.roleName,
-                    style: TextStyle(
-                      color: AppColors.onSurfaceMuted(brightness),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: AppColors.onSurfaceSubtle(brightness),
-            ),
-          ],
-        ),
+      leading: _Avatar(label: invitation.email, color: AppColors.vaultBlue),
+      trailing: StatusBadge(
+        label: l10n.teamPending,
+        color: AppColors.vaultBlue,
       ),
     );
   }
@@ -596,35 +416,6 @@ class _Avatar extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 15,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.innerGap,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
       ),

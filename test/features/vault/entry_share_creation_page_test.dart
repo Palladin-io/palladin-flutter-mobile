@@ -304,7 +304,7 @@ void main() {
     await tester.pumpAndSettle();
     if (fromList) {
       await tester.tap(
-        find.widgetWithText(PrimaryButton, 'Create sharing link'),
+        find.byTooltip('Share'),
       );
       await tester.pumpAndSettle();
     }

@@ -16,12 +16,14 @@ class PermissionFields extends StatelessWidget {
     required this.mask,
     required this.onChanged,
     this.enabled = true,
+    this.readOnly = false,
   });
 
   final List<AssignablePermission> permissions;
   final int mask;
   final ValueChanged<int> onChanged;
   final bool enabled;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -37,27 +39,53 @@ class PermissionFields extends StatelessWidget {
       child: Column(
         children: [
           for (var index = 0; index < permissions.length; index++) ...[
-            CheckboxListTile(
-              value: (mask & permissions[index].value) != 0,
-              activeColor: AppColors.brandRed,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: Text(_label(l10n, permissions[index].key)),
-              onChanged: enabled && permissions[index].canAssign
-                  ? (selected) {
-                      final value = permissions[index].value;
-                      onChanged(
-                        selected ?? false ? mask | value : mask & ~value,
-                      );
-                    }
-                  : null,
-            ),
-            if (index != permissions.length - 1)
-              Divider(
-                height: 1,
-                color: AppColors.cardBorder(brightness),
-                indent: AppSpacing.screenH,
-                endIndent: AppSpacing.screenH,
+            if (readOnly)
+              Semantics(
+                checked: (mask & permissions[index].value) != 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _label(l10n, permissions[index].key),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.onSurface(brightness),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        (mask & permissions[index].value) != 0
+                            ? Icons.check
+                            : Icons.remove,
+                        size: 18,
+                        color: AppColors.onSurfaceMuted(brightness),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              CheckboxListTile(
+                value: (mask & permissions[index].value) != 0,
+                activeColor: AppColors.brandRed,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(
+                  _label(l10n, permissions[index].key),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                onChanged: enabled && permissions[index].canAssign
+                    ? (selected) {
+                        final value = permissions[index].value;
+                        onChanged(
+                          selected ?? false ? mask | value : mask & ~value,
+                        );
+                      }
+                    : null,
               ),
+            if (index != permissions.length - 1)
+              Divider(height: 1, color: AppColors.cardBorder(brightness)),
           ],
         ],
       ),

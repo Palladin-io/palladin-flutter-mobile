@@ -132,10 +132,8 @@ void main() {
             (widget) => widget is Text && widget.textSpan != null,
           ),
         );
-        expect(
-          tester.renderObject<RenderParagraph>(auditText).didExceedMaxLines,
-          false,
-        );
+        // The compact audit sentence truncates; tapping the row opens details.
+        expect(tester.widget<Text>(auditText).maxLines, 1);
         final proofText = find.text(l10n.notifDisplayNotReadProof);
         final proof = tester.renderObject<RenderParagraph>(proofText);
         expect(proof.didExceedMaxLines, false);

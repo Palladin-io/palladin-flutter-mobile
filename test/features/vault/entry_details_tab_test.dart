@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/core/widgets/app_action_footer.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -136,8 +137,8 @@ void main() {
 
   Future<void> enterEdit(WidgetTester tester) async {
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
-    await tester.tap(find.text(l10n.entryEditAction));
-    await tester.pump();
+    await tester.tap(find.byTooltip(l10n.entryEditAction));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('loads canonical details on entry without a reveal gate', (
@@ -185,7 +186,7 @@ void main() {
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     expect(find.text(l10n.entryRevealDetailsAction), findsNothing);
     expect(find.byType(TextField), findsNothing);
-    expect(find.text(l10n.entryEditAction), findsOneWidget);
+    expect(find.byTooltip(l10n.entryEditAction), findsOneWidget);
     expect(find.text(secret), findsNothing);
     verify(
       () => canonical.reveal(
@@ -218,13 +219,14 @@ void main() {
       addTearDown(tester.view.reset);
       await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
       final l10n = await AppLocalizations.delegate.load(const Locale('en'));
-      final edit = find.widgetWithText(ElevatedButton, l10n.entryEditAction);
+      final edit = find.byTooltip(l10n.entryEditAction);
       expect(
         tester.getBottomRight(edit).dy,
         lessThanOrEqualTo(844 - bottomInset),
       );
       await enterEdit(tester);
       final save = find.widgetWithText(ElevatedButton, l10n.entrySaveAction);
+      expect(tester.getBottomRight(find.byType(AppActionFooter)).dy, 844);
       expect(
         tester.getBottomRight(save).dy,
         lessThanOrEqualTo(844 - bottomInset),
@@ -239,12 +241,15 @@ void main() {
 
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     expect(find.byType(TextField), findsNothing);
-    expect(find.text(l10n.entryEditAction), findsOneWidget);
-    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    expect(find.byTooltip(l10n.entryEditAction), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-edit-fab')), findsOneWidget);
     await enterEdit(tester);
     expect(find.byType(TextField), findsWidgets);
     expect(find.text(l10n.entrySaveAction), findsOneWidget);
-    expect(find.text(l10n.entryDangerZone), findsOneWidget);
+    expect(
+      find.text('${l10n.entryDangerZone} | ${l10n.entryDeleteAction}'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('successful save refreshes the canonical base for another edit', (
@@ -287,7 +292,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsNothing);
-    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-edit-fab')), findsOneWidget);
     expect(find.text(l10n.entryChangesSaved), findsOneWidget);
     expect(harness.cubit.hasCanonicalSnapshot, isTrue);
     verify(
@@ -355,7 +360,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsNothing);
-    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-edit-fab')), findsOneWidget);
     expect(find.text(l10n.entryChangesSaved), findsOneWidget);
     expect(harness.cubit.hasCanonicalSnapshot, isTrue);
     verify(
@@ -486,7 +491,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsNothing);
-      expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+      expect(find.byKey(const ValueKey('entry-edit-fab')), findsOneWidget);
       expect(find.text(l10n.entryChangesSaved), findsOneWidget);
       expect(harness.cubit.hasCanonicalSnapshot, isTrue);
       expect(baseRevisions, ['1', '2']);
@@ -724,7 +729,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
     expect(find.text(secret), findsNothing);
-    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-edit-fab')), findsOneWidget);
   });
 
   group('sign-in method', () {
@@ -756,14 +761,14 @@ void main() {
 
     Future<String> rowText(WidgetTester tester) async {
       final row = find.byKey(const ValueKey('entry-sign-in-method'));
-      expect(row, findsOneWidget);
-      final texts = tester
-          .widgetList<Text>(
-            find.descendant(of: row, matching: find.byType(Text)),
+      if (row.evaluate().isEmpty) return '';
+      return tester
+          .widgetList<Tooltip>(
+            find.descendant(of: row, matching: find.byType(Tooltip)),
           )
-          .map((text) => text.data)
-          .whereType<String>();
-      return texts.where((text) => text != 'Sign-in methods').join(' · ');
+          .map((tooltip) => tooltip.message)
+          .whereType<String>()
+          .join(' · ');
     }
 
     const legacyId = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
@@ -1316,7 +1321,11 @@ void main() {
         ),
       ).thenAnswer((_) async => credential);
 
-      await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
+      expect(find.byKey(const ValueKey('sign-in-method-add')), findsNothing);
+      await enterEdit(tester);
+      final addMethod = find.byKey(const ValueKey('sign-in-method-add'));
+      await tester.ensureVisible(addMethod);
+      await tester.tap(addMethod);
       await tester.pumpAndSettle();
       expect(find.text(l10n.entrySignInMethodRemove), findsNothing);
       await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
@@ -1330,8 +1339,9 @@ void main() {
         ),
         '  qa@example.test  ',
       );
-      await tester.tap(find.text(l10n.entrySaveAction));
+      await tester.tap(find.text(l10n.entrySaveAction).last);
       await tester.pumpAndSettle();
+      await saveForm(tester);
 
       final content =
           verify(
@@ -1407,24 +1417,23 @@ void main() {
         const CanonicalEntryDetailException(CanonicalEntryDetailError.network),
       );
 
-      await tester.tap(find.byKey(const ValueKey('sign-in-method-add')));
+      expect(find.byKey(const ValueKey('sign-in-method-add')), findsNothing);
+      await enterEdit(tester);
+      final addMethod = find.byKey(const ValueKey('sign-in-method-add'));
+      await tester.ensureVisible(addMethod);
+      await tester.tap(addMethod);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sign-in-method-provider')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('GitHub').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.entrySaveAction));
+      await tester.tap(find.text(l10n.entrySaveAction).last);
       await tester.pumpAndSettle();
+      await saveForm(tester);
 
       expect(cubit.state, isA<EditEntryError>());
       expect(find.text('qa@example.test'), findsOneWidget);
-      expect(await rowText(tester), '');
       expect(cubit.hasCanonicalSnapshot, isTrue);
-      ScaffoldMessenger.of(
-        tester.element(find.byType(EntryDetailsTab)),
-      ).removeCurrentSnackBar();
-      await tester.pumpAndSettle();
-      await enterEdit(tester);
       final username = tester.widget<TextField>(
         find.widgetWithText(TextField, 'qa@example.test'),
       );

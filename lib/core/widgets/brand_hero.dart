@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'auth_shield_surface.dart';
+
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -42,12 +44,16 @@ class BrandHero extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/images/logo.png', height: 72),
+        AuthShieldSurface(
+          child: Image.asset('assets/images/logo.png', height: 72),
+        ),
         SizedBox(height: logoWordmarkGap),
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
             style: TextStyle(
+              fontFamily: 'PalladinBrand',
+              fontVariations: const [FontVariation('wght', 800)],
               fontSize: wordmarkFontSize,
               fontWeight: FontWeight.w800,
               height: 1.0,

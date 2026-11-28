@@ -7,6 +7,55 @@ import 'package:mobile_palladin/features/vault/presentation/widgets/entry_list_c
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 void main() {
+  testWidgets('simple compact row shows account and opens details', (
+    tester,
+  ) async {
+    var expanded = 0;
+    var opened = 0;
+    var usernameReads = 0;
+    final entry = EntryEntity(
+      id: 'entry',
+      vaultId: 'vault',
+      label: 'GitHub',
+      username: 'account',
+      urlDomain: 'github.com',
+      type: EntryType.credential,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: EntryListCard(
+            compact: true,
+            entry: entry,
+            isExpanded: false,
+            payload: null,
+            revealedFields: const {},
+            onToggleReveal: () => expanded++,
+            onToggleFieldReveal: (_, _) {},
+            onCopy: (_) {},
+            onEdit: () => opened++,
+            loadUsername: () async {
+              usernameReads++;
+              return 'account';
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.text('github.com'), findsNothing);
+    expect(find.text('account'), findsOneWidget);
+    expect(usernameReads, 0);
+    expect(find.byIcon(Icons.expand_more), findsNothing);
+    expect(expanded, 0);
+    expect(opened, 0);
+    await tester.tap(find.text('GitHub'));
+    expect(opened, 1);
+  });
+
   for (final label in [
     'example.test',
     'https://example.test/',
@@ -237,4 +286,50 @@ void main() {
       );
     });
   }
+  testWidgets('API and credential cards retain three equal-height lines', (
+    tester,
+  ) async {
+    EntryEntity entry(EntryType type) => EntryEntity(
+      id: type.name,
+      vaultId: 'vault',
+      label: type == EntryType.key ? 'Development API' : 'Account',
+      type: type,
+      username: type == EntryType.credential ? 'demo' : null,
+      urlDomain: type == EntryType.credential ? 'example.test' : null,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: Column(
+              children: [
+                EntryListCard.selection(
+                  entry: entry(EntryType.key),
+                  onSelect: () {},
+                ),
+                EntryListCard.selection(
+                  entry: entry(EntryType.credential),
+                  onSelect: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final cards = find.byType(EntryListCard);
+    expect(
+      tester.getSize(cards.at(0)).height,
+      tester.getSize(cards.at(1)).height,
+    );
+    expect(
+      find.descendant(of: cards.at(0), matching: find.text('—')),
+      findsNWidgets(2),
+    );
+  });
 }

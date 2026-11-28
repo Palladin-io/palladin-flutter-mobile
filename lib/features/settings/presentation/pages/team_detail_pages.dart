@@ -1,3 +1,7 @@
+import '../widgets/push_settings_editor.dart';
+import '../../../../core/widgets/card_action_footer.dart';
+import '../../../vault/presentation/widgets/entry_field_row.dart';
+import '../../../../core/widgets/app_fab.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -46,10 +50,12 @@ class _TeamMemberView extends StatefulWidget {
   const _TeamMemberView({
     required this.userId,
     required this.callerPermissions,
+    this.editing = false,
   });
 
   final String userId;
   final int callerPermissions;
+  final bool editing;
 
   @override
   State<_TeamMemberView> createState() => _TeamMemberViewState();
@@ -59,6 +65,26 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
   Set<String> _selectedRoles = {};
   String _syncedRoles = '';
   bool _attemptedEmpty = false;
+  bool _editorOpen = false;
+
+  Future<void> _edit() async {
+    final cubit = context.read<TeamCubit>();
+    _editorOpen = true;
+    await pushSettingsEditor(
+      context: context,
+      permission: Permissions.organizationManagement,
+      owner: cubit,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _TeamMemberView(
+          userId: widget.userId,
+          callerPermissions: widget.callerPermissions,
+          editing: true,
+        ),
+      ),
+    );
+    if (mounted) setState(() => _editorOpen = false);
+  }
 
   void _syncRoles(OrganizationMember member) {
     final signature = member.roles.map((role) => role.id).toList()..sort();
@@ -69,6 +95,7 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
   }
 
   void _listen(BuildContext context, TeamState state) {
+    if (_editorOpen) return;
     if (state.actionError == null &&
         state.completedAction != TeamAction.updateMemberRoles) {
       return;
@@ -80,7 +107,11 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+    final saved =
+        state.actionError == null &&
+        state.completedAction == TeamAction.updateMemberRoles;
     context.read<TeamCubit>().acknowledgeActionResult();
+    if (saved && widget.editing) Navigator.of(context).pop();
   }
 
   @override
@@ -103,8 +134,11 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
             : member.displayName;
         if (member != null) _syncRoles(member);
         return AppScreen.appBar(
-          safeAreaBottom: false,
-          floatingActionButton: const FabRegistrar(fab: null),
+          gapAfterHeader: false,
+          safeAreaBottom: !widget.editing,
+          floatingActionButton: widget.editing
+              ? null
+              : const FabRegistrar(fab: null),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
@@ -157,35 +191,91 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
       Localizations.localeOf(context).toLanguageTag(),
     ).format(member.joinedAt.toLocal());
 
+    if (!widget.editing) {
+      return Stack(
+        children: [
+          ListView(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.section,
+              AppSpacing.screenH,
+              canEdit ? AppFab.scrollClearance(context) : AppSpacing.section,
+            ),
+            children: [
+              _DetailCard(
+                padding: EdgeInsets.zero,
+                children: [
+                  _metadata(l10n.teamEmailLabel, member.email),
+                  Divider(height: 1, color: AppColors.cardBorder(brightness)),
+                  _metadata(l10n.teamJoinedLabel, joined),
+                  if (member.isOwner) ...[
+                    Divider(height: 1, color: AppColors.cardBorder(brightness)),
+                    _metadata(l10n.teamRolesTitle, l10n.teamOwner),
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.section),
+              _DetailCard(
+                padding: EdgeInsets.zero,
+                children: [
+                  for (final (index, role) in member.roles.indexed) ...[
+                    if (index > 0)
+                      Divider(
+                        height: 1,
+                        color: AppColors.cardBorder(brightness),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: RoleNameRow(
+                        isSystem: role.isSystem,
+                        name: Text(
+                          role.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.onSurface(brightness),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (!canEdit) ...[
+                const SizedBox(height: AppSpacing.section),
+                Text(
+                  l10n.teamMemberReadOnly,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onSurfaceMuted(brightness),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (canEdit)
+            Positioned(
+              right: AppSpacing.screenH,
+              bottom: AppFab.overlayInset(context),
+              child: AppFab(
+                onPressed: _edit,
+                tooltip: l10n.entryEditAction,
+                icon: Icons.edit_outlined,
+              ),
+            ),
+        ],
+      );
+    }
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.screenH,
-              0,
+              AppSpacing.section,
               AppSpacing.screenH,
               AppSpacing.section,
             ),
             children: [
-              _DetailCard(
-                children: [
-                  _DetailRow(icon: Icons.email_outlined, value: member.email),
-                  const SizedBox(height: AppSpacing.innerGap),
-                  _DetailRow(
-                    icon: Icons.calendar_today_outlined,
-                    value: l10n.teamJoined(joined),
-                  ),
-                  if (member.isOwner) ...[
-                    const SizedBox(height: AppSpacing.innerGap),
-                    _DetailRow(
-                      icon: Icons.workspace_premium_outlined,
-                      value: l10n.teamOwner,
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.section),
               Text(
                 l10n.teamRolesTitle,
                 style: TextStyle(
@@ -214,7 +304,10 @@ class _TeamMemberViewState extends State<_TeamMemberView> {
                       controlAffinity: ListTileControlAffinity.leading,
                       title: RoleNameRow(
                         isSystem: catalog[index].isSystem,
-                        name: Text(catalog[index].name),
+                        name: Text(
+                          catalog[index].name,
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                       onChanged: canEdit && catalog[index].canAssign && !busy
                           ? (selected) {
@@ -305,9 +398,10 @@ class TeamInvitationPage extends StatelessWidget {
 }
 
 class _TeamInvitationView extends StatefulWidget {
-  const _TeamInvitationView({required this.invitationId});
+  const _TeamInvitationView({required this.invitationId, this.editing = false});
 
   final String invitationId;
+  final bool editing;
 
   @override
   State<_TeamInvitationView> createState() => _TeamInvitationViewState();
@@ -319,6 +413,25 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
   DateTime? _scheduledResendAt;
   Timer? _resendTimer;
   bool _resendCooldownElapsed = false;
+  bool _editorOpen = false;
+
+  Future<void> _edit() async {
+    final cubit = context.read<TeamCubit>();
+    _editorOpen = true;
+    await pushSettingsEditor(
+      context: context,
+      permission: Permissions.addUser,
+      owner: cubit,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _TeamInvitationView(
+          invitationId: widget.invitationId,
+          editing: true,
+        ),
+      ),
+    );
+    if (mounted) setState(() => _editorOpen = false);
+  }
 
   @override
   void dispose() {
@@ -340,6 +453,7 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
   }
 
   void _listen(BuildContext context, TeamState state) {
+    if (_editorOpen) return;
     if (state.actionError == null && state.completedAction == null) return;
     final l10n = AppLocalizations.of(context)!;
     final action = state.completedAction;
@@ -357,7 +471,10 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
         ..showSnackBar(SnackBar(content: Text(message)));
     }
     context.read<TeamCubit>().acknowledgeActionResult();
-    if (action == TeamAction.cancelInvitation && context.mounted) {
+    if (state.actionError == null &&
+        (action == TeamAction.cancelInvitation ||
+            (widget.editing && action == TeamAction.updateInvitationRole)) &&
+        context.mounted) {
       Navigator.of(context).pop();
     }
   }
@@ -380,7 +497,11 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
           _selectedRoleId = invitation.roleId;
         }
         return AppScreen.appBar(
-          floatingActionButton: const FabRegistrar(fab: null),
+          gapAfterHeader: false,
+          safeAreaBottom: !widget.editing,
+          floatingActionButton: widget.editing
+              ? null
+              : const FabRegistrar(fab: null),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
@@ -427,85 +548,121 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
         .where((role) => role.id == _selectedRoleId)
         .firstOrNull;
 
+    final brightness = Theme.of(context).brightness;
+    final metadata = _DetailCard(
+      padding: EdgeInsets.zero,
+      children: [
+        _metadata(l10n.teamEmailLabel, invitation.email),
+        Divider(height: 1, color: AppColors.cardBorder(brightness)),
+        _metadata(
+          l10n.teamSentLabel,
+          format.format(invitation.sentAt.toLocal()),
+        ),
+        Divider(height: 1, color: AppColors.cardBorder(brightness)),
+        _metadata(
+          l10n.teamExpiresLabel,
+          format.format(invitation.expiresAt.toLocal()),
+        ),
+        if (invitation.invitedByName case final name?) ...[
+          Divider(height: 1, color: AppColors.cardBorder(brightness)),
+          _metadata(l10n.teamInvitedByLabel, name),
+        ],
+        if (!widget.editing) ...[
+          Divider(height: 1, color: AppColors.cardBorder(brightness)),
+          _metadata(l10n.teamRoleLabel, invitation.roleName),
+          CardActionFooter(
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Tooltip(
+                      message: resendAvailable
+                          ? l10n.teamResend
+                          : l10n.teamResendAvailable(
+                              format.format(resendAvailableAt),
+                            ),
+                      child: CardFooterAction(
+                        key: const ValueKey('invitation-resend-action'),
+                        label: l10n.teamResend,
+                        icon: Icons.send_outlined,
+                        color: AppColors.onSurface(brightness),
+                        loading:
+                            state.busyAction == TeamAction.resendInvitation,
+                        onPressed: busy || !resendAvailable
+                            ? null
+                            : () => context.read<TeamCubit>().resendInvitation(
+                                invitation.id,
+                              ),
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(
+                    width: 1,
+                    color: AppColors.cardBorder(brightness),
+                  ),
+                  Expanded(
+                    child: CardFooterAction(
+                      label: l10n.teamCancelInvitation,
+                      icon: Icons.cancel_outlined,
+                      color: AppColors.brandRed,
+                      loading: state.busyAction == TeamAction.cancelInvitation,
+                      onPressed: busy
+                          ? null
+                          : () => _confirmCancel(context, invitation),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+    final content = ListView(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.section,
+        AppSpacing.screenH,
+        widget.editing ? AppSpacing.section : AppFab.scrollClearance(context),
+      ),
+      children: [
+        metadata,
+        if (widget.editing) ...[
+          const SizedBox(height: AppSpacing.section),
+          AppDropdownField<InvitationRole>(
+            label: l10n.teamRoleLabel,
+            value: roleValue,
+            items: [
+              for (final role in state.invitationRoles)
+                DropdownMenuItem(value: role, child: Text(role.name)),
+            ],
+            onChanged: busy
+                ? null
+                : (role) => setState(() => _selectedRoleId = role?.id),
+            enabled: !busy,
+          ),
+        ],
+      ],
+    );
+    if (!widget.editing) {
+      return Stack(
+        children: [
+          content,
+          Positioned(
+            right: AppSpacing.screenH,
+            bottom: AppFab.overlayInset(context),
+            child: AppFab(
+              onPressed: busy ? null : _edit,
+              tooltip: l10n.entryEditAction,
+              icon: Icons.edit_outlined,
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              0,
-              AppSpacing.screenH,
-              AppSpacing.section,
-            ),
-            children: [
-              _DetailCard(
-                children: [
-                  _DetailRow(
-                    icon: Icons.schedule_outlined,
-                    value: l10n.teamSentAt(
-                      format.format(invitation.sentAt.toLocal()),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.innerGap),
-                  _DetailRow(
-                    icon: Icons.event_busy_outlined,
-                    value: l10n.teamExpiresAt(
-                      format.format(invitation.expiresAt.toLocal()),
-                    ),
-                  ),
-                  if (invitation.invitedByName case final invitedBy?) ...[
-                    const SizedBox(height: AppSpacing.innerGap),
-                    _DetailRow(
-                      icon: Icons.person_outline,
-                      value: l10n.teamInvitedBy(invitedBy),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.section),
-              AppDropdownField<InvitationRole>(
-                label: l10n.teamRoleLabel,
-                value: roleValue,
-                items: [
-                  for (final role in state.invitationRoles)
-                    DropdownMenuItem(value: role, child: Text(role.name)),
-                ],
-                onChanged: busy
-                    ? null
-                    : (role) => setState(() => _selectedRoleId = role?.id),
-                enabled: !busy,
-              ),
-              const SizedBox(height: AppSpacing.section),
-              OutlinedButton.icon(
-                key: const ValueKey('invitation-resend-action'),
-                onPressed: busy || !resendAvailable
-                    ? null
-                    : () => context.read<TeamCubit>().resendInvitation(
-                        invitation.id,
-                      ),
-                icon: const Icon(Icons.send_outlined, size: 18),
-                label: Text(
-                  resendAvailable
-                      ? l10n.teamResend
-                      : l10n.teamResendAvailable(
-                          format.format(resendAvailableAt),
-                        ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.cardGap),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.brandRed,
-                ),
-                onPressed: busy
-                    ? null
-                    : () => _confirmCancel(context, invitation),
-                icon: const Icon(Icons.cancel_outlined, size: 18),
-                label: Text(l10n.teamCancelInvitation),
-              ),
-            ],
-          ),
-        ),
+        Expanded(child: content),
         AppActionFooter(
           key: const ValueKey('team-invitation-save-footer'),
           child: PrimaryButton(
@@ -579,33 +736,6 @@ class _DetailCard extends StatelessWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.icon, required this.value});
-
-  final IconData icon;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.onSurfaceSubtle(brightness)),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              color: AppColors.onSurfaceMuted(brightness),
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _DetailMessage extends StatelessWidget {
   const _DetailMessage({required this.message});
 
@@ -645,3 +775,12 @@ bool canEditOrganizationMemberRoles({
       (member.effectivePermissions & ~callerPermissions) != 0;
   return canManage && !member.isOwner && !targetExceedsCaller;
 }
+
+Widget _metadata(String label, String value) => EntryFieldRow(
+  icon: Icons.info_outline,
+  value: value,
+  isMasked: false,
+  revealed: true,
+  onToggleReveal: null,
+  onCopy: null,
+).labeled(label);

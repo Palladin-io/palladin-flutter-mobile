@@ -9,21 +9,16 @@ import '../../data/services/encrypted_presentation_asset_service.dart';
 import 'encrypted_asset_image.dart';
 import 'vault_visuals.dart';
 
-/// A single row in the vault list. Identity zone (icon + name + counts) over
-/// a distinct footer zone (last-updated), matching the AgentCard proportions.
-///
-/// Visual structure:
-///
-/// ```
-/// ┌──────────────────────────────────────────────┐
-/// │ [icon]  Vault name              N grants     │
-/// │         N entries                            │
-/// │ ── footer zone ──                            │
-/// │ 🕘 Updated Xh ago                            │
-/// └──────────────────────────────────────────────┘
-/// ```
+/// Shared Vault identity row for the library and Vault chooser.
 class VaultCard extends StatelessWidget {
-  const VaultCard({super.key, required this.vault, required this.onTap});
+  const VaultCard({
+    super.key,
+    required this.vault,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  final bool compact;
 
   final VaultEntity vault;
   final VoidCallback onTap;
@@ -36,41 +31,36 @@ class VaultCard extends StatelessWidget {
     final isUrl = VaultVisuals.isCustomUrl(vault.icon);
     final icon = isUrl ? Icons.shield : VaultVisuals.iconFor(vault.icon);
 
+    final row = Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(compact ? 0 : 12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.cardPadding,
+            vertical: AppSpacing.lg,
+          ),
+          child: _CardHeader(
+            vaultName: vault.name,
+            entryCount: vault.entryCount,
+            icon: icon,
+            iconUrl: isUrl ? vault.icon : null,
+            vaultId: vault.id,
+            accent: accent,
+            l10n: l10n,
+          ),
+        ),
+      ),
+    );
+    if (compact) return row;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness), width: 1),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Identification zone — tappable (mirrors AgentCard).
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.cardPadding),
-                  child: _CardHeader(
-                    vaultName: vault.name,
-                    entryCount: vault.entryCount,
-                    icon: icon,
-                    iconUrl: isUrl ? vault.icon : null,
-                    vaultId: vault.id,
-                    accent: accent,
-                    l10n: l10n,
-                  ),
-                ),
-              ),
-            ),
-            _CardFooter(lastUpdated: vault.updatedAt, l10n: l10n),
-          ],
-        ),
-      ),
+      child: row,
     );
   }
 }
@@ -106,7 +96,7 @@ class _CardHeader extends StatelessWidget {
           iconUrl: iconUrl,
           vaultId: vaultId,
         ),
-        const SizedBox(width: AppSpacing.innerGap),
+        const SizedBox(width: AppSpacing.fieldGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,8 +108,8 @@ class _CardHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.onSurface(brightness),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   height: 1.2,
                 ),
               ),
@@ -134,6 +124,12 @@ class _CardHeader extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        const SizedBox(width: AppSpacing.innerGap),
+        Icon(
+          Icons.chevron_right,
+          size: 18,
+          color: AppColors.onSurfaceSubtle(brightness),
         ),
       ],
     );
@@ -188,65 +184,5 @@ class _IconCircle extends StatelessWidget {
             )
           : Icon(icon, color: accent, size: 20),
     );
-  }
-}
-
-class _CardFooter extends StatelessWidget {
-  const _CardFooter({required this.lastUpdated, required this.l10n});
-
-  final DateTime lastUpdated;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final subtle = AppColors.onSurfaceSubtle(brightness);
-    // Distinct footer zone with the same treatment as AgentCard's footer —
-    // overlay fill, hairline top border, 12/8 padding.
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardFooterOverlay(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.cardBorder(brightness), width: 1),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.innerGap,
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.schedule, size: 12, color: subtle),
-          const SizedBox(width: AppSpacing.chipGap),
-          Expanded(
-            child: Text(
-              l10n.vaultUpdatedAt(_formatRelative(l10n, lastUpdated)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: subtle, fontSize: 11),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Localised relative timestamp ("teraz" / "now", "3 min temu" /
-  /// "3m ago", …) — delegates to the ARB plural keys
-  /// `vaultUpdatedNow` / `vaultUpdatedMinutesAgo` /
-  /// `vaultUpdatedHoursAgo` / `vaultUpdatedDaysAgo`. Falls back to an
-  /// ISO date when older than 30 days (no localisation needed there —
-  /// the format is purely numeric).
-  String _formatRelative(AppLocalizations l10n, DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return l10n.vaultUpdatedNow;
-    if (diff.inMinutes < 60) return l10n.vaultUpdatedMinutesAgo(diff.inMinutes);
-    if (diff.inHours < 24) return l10n.vaultUpdatedHoursAgo(diff.inHours);
-    if (diff.inDays < 30) return l10n.vaultUpdatedDaysAgo(diff.inDays);
-    final local = dt.toLocal();
-    final y = local.year.toString().padLeft(4, '0');
-    final m = local.month.toString().padLeft(2, '0');
-    final d = local.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
   }
 }

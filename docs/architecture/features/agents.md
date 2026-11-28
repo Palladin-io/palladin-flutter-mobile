@@ -13,8 +13,15 @@ Agent lifecycle: approve pending agents, deactivate, reactivate, edit.
   concurrent consumers still share that operation, while a push/resume
   invalidation received during it queues at most one trailing quiet refresh so
   a response snapshotted before the event cannot leave the list stale.
-- **Exports:** `AgentAvatar` is reused by `grants` and `notifications`; it renders glyph keys and uploaded `public-asset:` icons (fetched only from the configured API via `PublicAssetImage`) and shows the initials avatar for any raw `https`/`http`/`file` URL; `AgentStatusBadge` shares its shape with `api_keys`' `ApiKeyStatusBadge` (extract `StatusPill`).
+- **Exports:** `AgentAvatar` is reused by `grants` and `notifications`; it renders glyph keys and uploaded `public-asset:` icons (fetched only from the configured API via `PublicAssetImage`) and shows the initials avatar for any raw `https`/`http`/`file` URL; `AgentStatusBadge` and `ApiKeyStatusBadge` compose the shared `StatusBadge`; feature wrappers own localized labels and semantic colors.
 
 **Cross-feature deps:** consumed by `grants`, `notifications` (which reuse `AgentAvatar` + the approve/deactivate sheets).
 
-**⚠ Architecture smells:** `agent_detail_body.dart:855` defines `_DetailRow`, duplicated in `api_keys` → extract `LabelValueRow`. `_AgentsEmpty` duplicates the empty-card pattern → extract `ListEmptyCard`. AppBar title duplicates `AppBarTitle`. See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).
+
+Agent Details defaults to shared read-only EntryFieldRow presentation. Status sits beside the identity; an Edit FAB opens the existing form on a root Navigator route above bottom navigation, with a pinned Save footer. Successful Save returns to Details. Active-agent deactivation uses CompactDangerZone and retains the existing confirmation flow.
+
+The root editor observes current AuthBloc permissions and the current Agent record,
+so loss of manage permission or deactivation disables editing immediately.
+AgentsCubit.updateAgent returns the operation outcome; a transient error being
+acknowledged by the underlying page cannot turn a failed save into success.
+Its AppActionFooter owns the bottom safe-area inset, matching Add/Edit Entry.

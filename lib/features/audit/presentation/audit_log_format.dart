@@ -274,14 +274,36 @@ List<AuditSentenceSpan>? auditEventSentence(
   final apiKey = obj(l10n.auditObjectApiKeyNamed, l10n.auditObjectApiKey);
 
   final raw = switch (entry.eventType) {
+    AuditEventType.credentialAccessed => l10n.auditSentenceAccessed(
+      _mark(objName ?? l10n.auditObjectEntry),
+      actor,
+    ),
+    AuditEventType.grantApproved => l10n.auditSentenceGrantApproved(
+      _mark(objName ?? l10n.auditObjectEntry),
+      agentName != null ? _mark(agentName) : l10n.auditActorAgent,
+      actor,
+    ),
+    AuditEventType.grantExpired => l10n.auditSentenceGrantExpired(
+      _mark(objName ?? l10n.auditObjectEntry),
+      agentName != null ? _mark(agentName) : l10n.auditActorAgent,
+    ),
     AuditEventType.loginFailed => l10n.auditSentenceLoginFailed,
     AuditEventType.vaultCreated => l10n.auditSentenceCreated(actor, vault),
     AuditEventType.vaultUpdated => l10n.auditSentenceUpdated(actor, vault),
     AuditEventType.vaultDeleted => l10n.auditSentenceDeleted(actor, vault),
     AuditEventType.vaultExported => l10n.auditSentenceExported(actor, vault),
-    AuditEventType.entryCreated => l10n.auditSentenceCreated(actor, item),
-    AuditEventType.entryUpdated => l10n.auditSentenceUpdated(actor, item),
-    AuditEventType.entryDeleted => l10n.auditSentenceDeleted(actor, item),
+    AuditEventType.entryCreated => l10n.auditSentenceAccessed(
+      _mark(objName ?? l10n.auditObjectEntry),
+      actor,
+    ),
+    AuditEventType.entryUpdated => l10n.auditSentenceAccessed(
+      _mark(objName ?? l10n.auditObjectEntry),
+      actor,
+    ),
+    AuditEventType.entryDeleted => l10n.auditSentenceAccessed(
+      _mark(objName ?? l10n.auditObjectEntry),
+      actor,
+    ),
     AuditEventType.entryShareCreated => l10n.auditSentenceEntryShareCreated(
       actor,
       item,

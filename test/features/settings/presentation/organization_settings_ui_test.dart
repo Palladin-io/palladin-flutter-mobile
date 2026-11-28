@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/core/widgets/card_action_footer.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -345,7 +346,7 @@ void main() {
     expect((container.decoration! as BoxDecoration).borderRadius, isNotNull);
   });
 
-  testWidgets('team member footer shows roles left and joined date right', (
+  testWidgets('team row shows identity without a duplicated metadata footer', (
     tester,
   ) async {
     final member = OrganizationMember(
@@ -393,19 +394,11 @@ void main() {
       ),
     );
 
-    final roles = find.text('2 roles');
-    final joined = find.text('Joined Sep 1, 2026');
-    expect(
-      find.byKey(const ValueKey('team-member-card-footer')),
-      findsOneWidget,
-    );
-    expect(roles, findsOneWidget);
-    expect(joined, findsOneWidget);
-    expect(tester.getCenter(roles).dx, lessThan(tester.getCenter(joined).dx));
-    final footer = tester.getRect(
-      find.byKey(const ValueKey('team-member-card-footer')),
-    );
-    expect(footer.right - tester.getRect(joined).right, lessThanOrEqualTo(16));
+    expect(find.text('Ada Lovelace'), findsOneWidget);
+    expect(find.text('ada@example.com'), findsOneWidget);
+    expect(find.text('2 roles'), findsNothing);
+    expect(find.text('Joined Sep 1, 2026'), findsNothing);
+    expect(find.byKey(const ValueKey('team-member-card-footer')), findsNothing);
   });
 
   testWidgets('system role marker stays beside the right-aligned role name', (
@@ -436,7 +429,7 @@ void main() {
     expect(tester.getTopRight(badge).dx, tester.getTopRight(row).dx);
   });
 
-  testWidgets('invitation Save stays pinned and Resend unlocks on deadline', (
+  testWidgets('invitation detail actions and edit preserve cooldown', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(430, 932);
@@ -474,6 +467,7 @@ void main() {
       const AuthAuthenticated(
         userId: 'user-1',
         isOnboarded: true,
+        isVaultLocked: false,
         permissions: Permissions.addUser,
       ),
     );
@@ -498,20 +492,22 @@ void main() {
     await tester.pumpAndSettle();
 
     final footer = find.byKey(const ValueKey('team-invitation-save-footer'));
-    expect(footer, findsOneWidget);
-    expect(
-      find.descendant(
-        of: footer,
-        matching: find.widgetWithText(PrimaryButton, 'Save'),
-      ),
-      findsOneWidget,
-    );
-    expect(tester.getBottomLeft(footer).dy, 932);
-
+    expect(footer, findsNothing);
     final resend = find.byKey(const ValueKey('invitation-resend-action'));
-    expect(tester.widget<OutlinedButton>(resend).onPressed, isNull);
+    expect(tester.widget<CardFooterAction>(resend).onPressed, isNull);
     await tester.pump(const Duration(seconds: 2));
-    expect(tester.widget<OutlinedButton>(resend).onPressed, isNotNull);
+    expect(tester.widget<CardFooterAction>(resend).onPressed, isNotNull);
+    final cancel = find.widgetWithText(CardFooterAction, 'Cancel invitation');
+    expect(tester.getCenter(resend).dy, tester.getCenter(cancel).dy);
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pumpAndSettle();
+    expect(footer, findsOneWidget);
+    expect(tester.getBottomLeft(footer).dy, 932);
+    expect(find.widgetWithText(PrimaryButton, 'Save'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(footer, findsNothing);
+    expect(find.text('User'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

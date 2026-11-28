@@ -11,14 +11,14 @@ import '../../domain/exceptions/audit_exceptions.dart';
 import '../audit_log_format.dart';
 import '../cubit/audit_log_cubit.dart';
 import 'audit_log_filter_sheet.dart';
-import 'audit_log_row.dart';
+import 'audit_log_list.dart';
 
 /// Shared body for the vault-scoped Logs tab and the org-wide Logs
 /// screen.
 ///
 /// Renders the search bar (with a `tune` filter trigger that opens the filter
 /// sheet — event-type groups, user, agent, vault and date range) and the
-/// paginated, expandable [AuditLogRow] list with skeleton / error / empty
+/// paginated, expandable [AuditLogList] list with skeleton / error / empty
 /// states. Reads its [AuditLogCubit] from the nearest provider — the host
 /// (tab / page) owns creation and chrome.
 class AuditLogContent extends StatefulWidget {
@@ -130,8 +130,7 @@ class _AuditLogContentState extends State<AuditLogContent> {
             padding: EdgeInsets.symmetric(horizontal: hPad),
             sliver: SliverList.separated(
               itemCount: 6,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: AppSpacing.cardGap),
+              separatorBuilder: (_, _) => const SizedBox.shrink(),
               itemBuilder: (_, i) => SkeletonBox(
                 height: 64,
                 delay: Duration(milliseconds: i * 80),
@@ -174,12 +173,9 @@ class _AuditLogContentState extends State<AuditLogContent> {
         return [
           SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: hPad),
-            sliver: SliverList.separated(
-              itemCount: items.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: AppSpacing.cardGap),
-              itemBuilder: (_, i) =>
-                  AuditLogRow(entry: items[i], agentNames: state.agentNames),
+            sliver: AuditLogList.sliver(
+              entries: items,
+              agentNames: state.agentNames,
             ),
           ),
           SliverToBoxAdapter(

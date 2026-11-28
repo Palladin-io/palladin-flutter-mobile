@@ -1,3 +1,4 @@
+import '../../../vault/presentation/widgets/entry_list_icon.dart';
 import '../../../unlock/presentation/widgets/biometric_setup_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,7 +23,7 @@ import '../../../agents/presentation/widgets/agent_format.dart';
 import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
 import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
-import '../../../audit/presentation/widgets/audit_log_row.dart';
+import '../../../audit/presentation/widgets/audit_log_list.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -493,10 +494,7 @@ class _DashboardViewState extends State<_DashboardView> {
       if (logs.isEmpty)
         const _ActivityEmpty()
       else
-        for (int i = 0; i < logs.length; i++) ...[
-          if (i > 0) const SizedBox(height: AppSpacing.cardGap),
-          AuditLogRow(entry: logs[i], agentNames: agentNames),
-        ],
+        AuditLogList(entries: logs, agentNames: agentNames),
       const SizedBox(height: AppSpacing.section),
     ];
   }
@@ -525,7 +523,7 @@ class _DashboardViewState extends State<_DashboardView> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.screenH,
-                    0,
+                    AppSpacing.fieldGap,
                     AppSpacing.screenH,
                     AppSpacing.fieldGap,
                   ),
@@ -591,51 +589,57 @@ class _DashboardViewState extends State<_DashboardView> {
             onTap: _closeDropdown,
           ),
         ),
-        CompositedTransformFollower(
-          link: _searchLink,
-          showWhenUnlinked: false,
-          targetAnchor: Alignment.bottomLeft,
-          followerAnchor: Alignment.topLeft,
-          offset: const Offset(0, AppSpacing.sm),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: width,
-              child: _SearchDropdownCard(
-                maxHeight: maxHeight,
-                child: BlocBuilder<SearchCubit, SearchState>(
-                  builder: (context, searchState) =>
-                      BlocBuilder<DashboardCubit, DashboardState>(
-                        builder: (context, dashboardState) => AnimatedSize(
-                          duration: const Duration(milliseconds: 140),
-                          curve: Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 140),
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            // Top-align the outgoing/incoming children so the
-                            // cross-fade doesn't vertically re-center mid-flight
-                            // (the "jump" that reads as lag).
-                            layoutBuilder: (currentChild, previousChildren) =>
-                                Stack(
-                                  alignment: Alignment.topCenter,
-                                  children: [
-                                    ...previousChildren,
-                                    ?currentChild,
-                                  ],
+        Positioned.fill(
+          child: CompositedTransformFollower(
+            link: _searchLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, AppSpacing.sm),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width,
+                child: TextFieldTapRegion(
+                  child: _SearchDropdownCard(
+                    maxHeight: maxHeight,
+                    child: BlocBuilder<SearchCubit, SearchState>(
+                      builder: (context, searchState) =>
+                          BlocBuilder<DashboardCubit, DashboardState>(
+                            builder: (context, dashboardState) => AnimatedSize(
+                              duration: const Duration(milliseconds: 140),
+                              curve: Curves.easeOutCubic,
+                              alignment: Alignment.topCenter,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 140),
+                                switchInCurve: Curves.easeOut,
+                                switchOutCurve: Curves.easeIn,
+                                // Top-align the outgoing/incoming children so the
+                                // cross-fade doesn't vertically re-center mid-flight
+                                // (the "jump" that reads as lag).
+                                layoutBuilder:
+                                    (currentChild, previousChildren) => Stack(
+                                      alignment: Alignment.topCenter,
+                                      children: [
+                                        ...previousChildren,
+                                        ?currentChild,
+                                      ],
+                                    ),
+                                child: KeyedSubtree(
+                                  key: ValueKey(
+                                    _dropdownContentKey(searchState),
+                                  ),
+                                  child: _dropdownContent(
+                                    context,
+                                    searchState,
+                                    _recentEntriesFor(dashboardState),
+                                  ),
                                 ),
-                            child: KeyedSubtree(
-                              key: ValueKey(_dropdownContentKey(searchState)),
-                              child: _dropdownContent(
-                                context,
-                                searchState,
-                                _recentEntriesFor(dashboardState),
                               ),
                             ),
                           ),
-                        ),
-                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -860,7 +864,7 @@ class _GreetingHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.headerGap,
+        AppSpacing.fieldGap,
         AppSpacing.screenH,
         0,
       ),
@@ -1491,76 +1495,83 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     final label = _typeLabel(l10n, result.type);
     final hasActions = widget.onRevealSecret != null;
     final subtitle = switch (result) {
-      EntrySearchResult(:final vaultName) => vaultName,
+      EntrySearchResult(:final vaultName) => [
+        label,
+        if (vaultName.isNotEmpty) vaultName,
+      ].join(' · '),
       _ => label,
     };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        InkWell(
+        Semantics(
+          button: true,
           onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.cardPadding,
-              vertical: AppSpacing.innerGap + AppSpacing.xs,
-            ),
-            child: Row(
-              children: [
-                _SearchResultIcon(result: result, color: color),
-                const SizedBox(width: AppSpacing.innerGap),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        result.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.onSurface(brightness),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
+          child: InkWell(
+            excludeFromSemantics: true,
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.cardPadding,
+                vertical: AppSpacing.innerGap + AppSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  _SearchResultIcon(result: result, color: color),
+                  const SizedBox(width: AppSpacing.innerGap),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          result.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.onSurface(brightness),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.onSurfaceSubtle(brightness),
-                          fontSize: 11,
-                          height: 1.2,
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 11,
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.innerGap),
-                if (hasActions) ...[
-                  _RowActionButton(
-                    icon: _expanded ? Icons.visibility_off : Icons.visibility,
-                    busy: _revealBusy,
-                    tooltip: l10n.vaultRevealValue,
-                    onPressed: _onToggleReveal,
-                    brightness: brightness,
-                  ),
-                  const SizedBox(width: AppSpacing.chipGap),
-                  _RowActionButton(
-                    icon: Icons.content_copy,
-                    busy: _copyBusy,
-                    tooltip: l10n.vaultCopyValue,
-                    onPressed: _onCopy,
-                    brightness: brightness,
-                  ),
-                  const SizedBox(width: AppSpacing.chipGap),
+                  const SizedBox(width: AppSpacing.innerGap),
+                  if (hasActions) ...[
+                    _RowActionButton(
+                      icon: _expanded ? Icons.visibility_off : Icons.visibility,
+                      busy: _revealBusy,
+                      tooltip: l10n.vaultRevealValue,
+                      onPressed: _onToggleReveal,
+                      brightness: brightness,
+                    ),
+                    const SizedBox(width: AppSpacing.chipGap),
+                    _RowActionButton(
+                      icon: Icons.content_copy,
+                      busy: _copyBusy,
+                      tooltip: l10n.vaultCopyValue,
+                      onPressed: _onCopy,
+                      brightness: brightness,
+                    ),
+                    const SizedBox(width: AppSpacing.chipGap),
+                  ],
                 ],
-                _TypeBadge(label: label, color: color),
-              ],
+              ),
             ),
           ),
         ),
@@ -1616,6 +1627,27 @@ class _SearchResultIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (result case final EntrySearchResult entry) {
+      return SizedBox(
+        width: 32,
+        height: 32,
+        child: FittedBox(
+          child: EntryListIcon(
+            entry: EntryEntity(
+              id: entry.entryId,
+              vaultId: entry.vaultId,
+              label: entry.displayName,
+              icon: entry.iconReference,
+              type: EntryTypeExtension.fromWire(entry.entryType),
+              createdAt: DateTime(1970),
+              updatedAt: DateTime(1970),
+              currentRevision: entry.currentRevision,
+              currentKeyVersion: entry.currentKeyVersion,
+            ),
+          ),
+        ),
+      );
+    }
     final reference = result.icon;
     Widget fallback() =>
         Icon(_SearchResultRowState._typeIcon(result), size: 16, color: color);
@@ -1738,31 +1770,3 @@ class _RowActionButton extends StatelessWidget {
 }
 
 /// Small type pill (e.g. "Agent") tinted with the type color.
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.chipGap,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}

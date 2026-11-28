@@ -54,3 +54,22 @@ Unknown actor values render as unknown rather than being attributed to System.
 Ordinary audit metadata remains displayable without response enum validation;
 local identity resolution and removal of server-supplied sensitive presentation
 remain unchanged.
+
+`AuditLogList` owns the shared card surface around the feed. Its sliver constructor
+keeps full Global/Vault/Entry feeds lazy; Home uses the regular constructor for
+its bounded recent feed. Rows have no individual card or icon tile; date, event
+and chips share one content column with separators only between rows.
+
+The metadata row anchors relative time at the trailing edge, measures shared
+StatusBadge typography with the current text scale, and displays the ordered
+chips that fit. +N expands only the remaining chips; exact date stays in a tooltip.
+
+Resource actions put the author last; grant approval names Entry → Agent before
+the approver. Rows show one line, and tapping opens SheetSurface with the full
+localized sentence, exact date and metadata. Chip expansion remains independent.
+
+Agent Details uses AuditLogContent/AuditLogList with an immutable server-side agentId scope on AuditLogCubit, retained for pagination. It requires AuditView and replaces the separate lifecycle-date timeline. The offline preview uses the same feed with its local audit adapter.
+
+AuditLogCubit fences fetch, name resolution and pagination completions by its
+load generation and closed state, so leaving Agent Logs cannot publish stale
+results or emit into a disposed tab.

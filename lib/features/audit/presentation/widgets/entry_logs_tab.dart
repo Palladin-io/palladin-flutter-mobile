@@ -9,14 +9,14 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/exceptions/audit_exceptions.dart';
 import '../audit_log_format.dart';
 import '../cubit/entry_logs_cubit.dart';
-import 'audit_log_row.dart';
+import 'audit_log_list.dart';
 import 'entry_logs_filter_sheet.dart';
 
 /// The entry-detail **Logs** tab.
 ///
 /// Read-only, filterable audit feed scoped to a single entry: a search bar
 /// with a `tune` filter trigger, a filter sheet (event-type checkboxes +
-/// agent dropdown + date range) and expandable [AuditLogRow]s. Provides its
+/// agent dropdown + date range) and expandable [AuditLogList]s. Provides its
 /// own [EntryLogsCubit] scoped to the given vault/entry.
 class EntryLogsTab extends StatelessWidget {
   const EntryLogsTab({
@@ -27,9 +27,9 @@ class EntryLogsTab extends StatelessWidget {
     this.cubit,
     this.contentPadding = const EdgeInsets.fromLTRB(
       AppSpacing.screenH,
-      AppSpacing.fieldGap,
+      AppSpacing.section,
       AppSpacing.screenH,
-      AppSpacing.listBottom,
+      AppSpacing.section,
     ),
   });
 
@@ -204,12 +204,9 @@ class _EntryLogsViewState extends State<_EntryLogsView>
         return [
           SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: hPad),
-            sliver: SliverList.separated(
-              itemCount: items.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: AppSpacing.cardGap),
-              itemBuilder: (_, i) =>
-                  AuditLogRow(entry: items[i], agentNames: state.agentNames),
+            sliver: AuditLogList.sliver(
+              entries: items,
+              agentNames: state.agentNames,
             ),
           ),
           if (state.nextCursor != null)

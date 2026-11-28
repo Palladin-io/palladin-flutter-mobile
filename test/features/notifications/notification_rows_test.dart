@@ -37,14 +37,14 @@ void main() {
 
   test('every type renders its web-parity rows (1–4, never empty)', () {
     const expectedCount = {
-      'grant_pending': 3,
+      'grant_pending': 4,
       'agent_pending': 4,
       'agent_approved': 4,
       'credential_stale': 4,
       'grant_approved': 4,
-      'grant_revoked': 3,
+      'grant_revoked': 4,
       'grant_denied': 4,
-      'future_unknown_type': 3,
+      'future_unknown_type': 4,
     };
     for (final type in allTypes) {
       final rows = notificationRows(l10n, make(type));
@@ -60,9 +60,24 @@ void main() {
     expect(rows.every((r) => r.value == l10n.notifPlaceholder), isTrue);
     expect(rows.map((r) => r.label), [
       l10n.notifRowEntry,
+      l10n.entryUsernameLabel,
       l10n.notifRowMethods,
       l10n.notifRowReason,
     ]);
+  });
+
+  test('access request identifies the requested account', () {
+    final rows = notificationRows(
+      l10n,
+      make(
+        'grant_pending',
+        metadata: {'entryUsername': 'alex.work@example.test'},
+      ),
+    );
+    expect(
+      rows.singleWhere((row) => row.label == l10n.entryUsernameLabel).value,
+      'alex.work@example.test',
+    );
   });
 
   test('agent_approved shows Agent Id, Type, Host · Ip, By (web parity)', () {
@@ -152,11 +167,14 @@ void main() {
     });
 
     test('avatar reads agentId / agentName / agentIconKey from metadata', () {
-      final n = make('grant_pending', metadata: const {
-        'agentId': 'a-1',
-        'agentName': 'Acme-bot',
-        'agentIconKey': 'terminal',
-      });
+      final n = make(
+        'grant_pending',
+        metadata: const {
+          'agentId': 'a-1',
+          'agentName': 'Acme-bot',
+          'agentIconKey': 'terminal',
+        },
+      );
       expect(notificationAgentId(n), 'a-1');
       expect(notificationAgentName(n), 'Acme-bot');
       expect(notificationAgentIconKey(n), 'terminal');

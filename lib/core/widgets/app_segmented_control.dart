@@ -1,8 +1,8 @@
+import '../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
-import 'primary_button_glow.dart';
 
 class AppSegment<T> {
   const AppSegment({
@@ -24,35 +24,53 @@ class AppSegmentedControl<T> extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.edgeToEdge = false,
+    this.trailing,
   });
   final T value;
   final List<AppSegment<T>> options;
   final ValueChanged<T> onChanged;
+  final bool edgeToEdge;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      height: AppSpacing.controlHeight,
-      // Fixed track inset, matching the original Inbox control.
-      padding: const EdgeInsets.all(3),
+      height: edgeToEdge ? 50 : AppSpacing.controlHeight,
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
+        borderRadius: BorderRadius.circular(edgeToEdge ? 0 : 10),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final option in options)
-            _SegmentButton(
-              label: option.label,
-              badge: option.badge,
-              icon: option.icon,
-              selected: value == option.value,
-              onTap: () => onChanged(option.value),
-            ),
-        ],
+      child: Container(
+        padding: edgeToEdge
+            ? const EdgeInsets.all(AppSpacing.chipGap)
+            : EdgeInsets.zero,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(edgeToEdge ? 0 : 10),
+          border: edgeToEdge
+              ? Border(
+                  bottom: BorderSide(color: AppColors.cardBorder(brightness)),
+                )
+              : Border.all(color: AppColors.cardBorder(brightness)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final option in options) ...[
+              _SegmentButton(
+                label: option.label,
+                badge: option.badge,
+                icon: option.icon,
+                selected: value == option.value,
+                onTap: () => onChanged(option.value),
+              ),
+              if (edgeToEdge && (option != options.last || trailing != null))
+                const SizedBox(width: AppSpacing.chipGap),
+            ],
+            ?trailing,
+          ],
+        ),
       ),
     );
   }
@@ -77,7 +95,7 @@ class _SegmentButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final fg = selected
-        ? AppColors.onBrandRed
+        ? AppColors.onSurface(brightness)
         : AppColors.onSurfaceMuted(brightness);
     return Expanded(
       child: Semantics(
@@ -87,15 +105,20 @@ class _SegmentButton extends StatelessWidget {
         child: Tooltip(
           message: icon == null ? '' : label,
           excludeFromSemantics: true,
-          child: PrimaryButtonGlow(
-            enabled: selected,
-            radius: 8,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: selected
+                  ? Border.all(color: AppColors.onSurface(brightness))
+                  : null,
+            ),
             child: Material(
-              color: selected ? AppColors.brandRed : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
               child: InkWell(
                 onTap: onTap,
-                borderRadius: BorderRadius.circular(8),
+                overlayColor: AppTheme.tabOverlay(Theme.of(context).brightness),
+                borderRadius: BorderRadius.circular(6),
                 // Cell is stretched to the track height — center the label so the
                 // selected pill fills the full height with the text centred.
                 child: Center(
@@ -109,11 +132,11 @@ class _SegmentButton extends StatelessWidget {
                           label,
                           style: TextStyle(
                             color: fg,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      if (badge != null) ...[
+                      if (badge != null && badge! > 0) ...[
                         const SizedBox(width: AppSpacing.chipGap),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -121,9 +144,7 @@ class _SegmentButton extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.onBrandRed.withValues(alpha: 0.25)
-                                : AppColors.brandRed,
+                            color: AppColors.brandRed,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(

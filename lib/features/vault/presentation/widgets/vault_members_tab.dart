@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_record_list.dart';
+import '../../../../core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -57,20 +59,26 @@ class VaultMembersTab extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: () =>
               context.read<VaultMembersCubit>().load(preserveContent: true),
-          child: ListView.separated(
-            padding: const EdgeInsets.only(bottom: AppSpacing.listBottom),
-            itemCount: state.members.length,
-            separatorBuilder: (_, _) =>
-                const SizedBox(height: AppSpacing.cardGap),
-            itemBuilder: (context, index) {
-              final member = state.members[index];
-              return _MemberCard(
-                member: member,
-                isCurrentUser: member.id == currentUserId,
-                canRemove: canRemove,
-                busy: state.removingMemberId == member.id,
-              );
-            },
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.section,
+                ),
+                sliver: AppRecordList(
+                  itemCount: state.members.length,
+                  itemBuilder: (context, index) {
+                    final member = state.members[index];
+                    return _MemberCard(
+                      member: member,
+                      isCurrentUser: member.id == currentUserId,
+                      canRemove: canRemove,
+                      busy: state.removingMemberId == member.id,
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -103,52 +111,45 @@ class _MemberCard extends StatelessWidget {
         !isCurrentUser &&
         member.status == VaultMemberStatus.active &&
         !busy;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.cardPadding),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: AppColors.vaultBlue.withValues(alpha: 0.16),
-              foregroundColor: AppColors.vaultBlue,
-              child: Text(name.characters.first.toUpperCase()),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isCurrentUser ? '$name · ${l10n.vaultMemberYou}' : name,
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontWeight: FontWeight.w600,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.vaultBlue.withValues(alpha: 0.16),
+            foregroundColor: AppColors.vaultBlue,
+            child: Text(name.characters.first.toUpperCase()),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isCurrentUser ? '$name · ${l10n.vaultMemberYou}' : name,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  _StatusLabel(status: member.status),
-                ],
-              ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _StatusLabel(status: member.status),
+              ],
             ),
-            if (busy)
-              const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else if (removable)
-              IconButton(
-                tooltip: l10n.vaultMemberRemove,
-                icon: const Icon(Icons.person_remove_outlined),
-                color: AppColors.brandRed,
-                onPressed: () => _confirmRemoval(context, member, name),
-              ),
-          ],
-        ),
+          ),
+          if (busy)
+            const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (removable)
+            IconButton(
+              tooltip: l10n.vaultMemberRemove,
+              icon: const Icon(Icons.person_remove_outlined),
+              color: AppColors.brandRed,
+              onPressed: () => _confirmRemoval(context, member, name),
+            ),
+        ],
       ),
     );
   }
@@ -207,10 +208,7 @@ class _StatusLabel extends StatelessWidget {
         AppColors.brandRed,
       ),
     };
-    return Text(
-      text,
-      style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
-    );
+    return StatusBadge(label: text, color: color);
   }
 }
 

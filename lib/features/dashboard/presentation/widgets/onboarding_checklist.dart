@@ -1,3 +1,4 @@
+import '../../../../core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -372,35 +373,15 @@ class _StepIcon extends StatelessWidget {
 
 class _StepBadge extends StatelessWidget {
   const _StepBadge({required this.number, required this.isActive});
-
   final int number;
   final bool isActive;
-
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final color = isActive
+  Widget build(BuildContext context) => StatusBadge(
+    label: AppLocalizations.of(context)!.dashboardOnboardingStep(number),
+    color: isActive
         ? AppColors.onboardingStepAmber
-        : AppColors.textTertiary;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.chipGap,
-        vertical: AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isActive ? 0.15 : 0.12),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        l10n.dashboardOnboardingStep(number),
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+        : AppColors.onSurfaceMuted(Theme.of(context).brightness),
+  );
 }
 
 class _NotificationActions extends StatelessWidget {

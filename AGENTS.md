@@ -20,7 +20,9 @@ Repository: [Palladin-io/palladin-flutter-mobile](https://github.com/Palladin-io
 
 ## Architecture Reference Docs
 
-The **shared widget catalog lives in this file** (see "## Shared Widget Catalog" below — always loaded, so reuse is always at hand). `docs/architecture/` holds the per-feature structure docs.
+The **shared widget catalog lives in this file** (see "Shared Widget Catalog" below). `docs/architecture/` holds the per-feature structure docs.
+
+Before UI changes read `docs/design/mobile-ui-alignment.md` → "Current approved UI contract". Dated experiment notes are history, not alternative specifications. Update the interactive preview through shared production components; verify affected screens in both themes.
 
 **Reuse-first rule:** before building any widget, check the **Shared Widget Catalog** section below. If a shared widget exists, use it. If a pattern appears **2+ times**, extract it to `lib/core/widgets/` — duplicating an input/button/card/sheet style inline is a bug. Never inline `Color(0x..)` (use `AppColors.*`) or bare spacing numbers (use `AppSpacing.*`).
 
@@ -211,27 +213,34 @@ lib/
 | Widget | File | Purpose / key params |
 |--------|------|----------------------|
 | `AppScreen` | `lib/core/widgets/app_screen.dart` | Gradient background + transparent Scaffold. `.titled(title, subtitle, actions, body)` for list tabs; `.appBar(appBar, body)` for pushed detail screens; default `(header, body)` is legacy. Also `floatingActionButton`, `endDrawer` |
+| `AppHeaderSurface` / `AppDetailTabs` | `lib/core/widgets/app_header_surface.dart`, `app_detail_tabs.dart` | Shadow-free gradient header with separator; full-width framed detail tabs with neutral active outline and overflow scrolling |
 | `ListScreenHeader` | `lib/core/widgets/list_screen_header.dart` | In-body title row used by `AppScreen.titled` (owns the `headerGap` below the title). Params: `title`, `subtitle`, `actions` |
 | `AppSearchField` | `lib/core/widgets/app_search_field.dart` | Search input (wraps `OnboardingTextField`) with optional filter toggle (`tune` icon). Params: `controller`, `hint`, `onChanged`, `filterActive`, `onToggleFilter` |
 | `SkeletonBox` | `lib/core/widgets/skeleton_box.dart` | The only skeleton primitive — never reimplement the opacity loop. Params: `height`, `borderRadius` (default 12), `delay` (stagger) |
 | `SetupCard` | `lib/core/widgets/setup_card.dart` | Shared device-setup card surface, title, description paragraphs and action column. AutoFill/biometric owners supply copy, actions and optional warning border; no lifecycle logic |
 | `SheetSurface` | `lib/core/widgets/sheet_surface.dart` | Titled surface used by the shared startup/settings consent bottom sheet; fills a bounded host height, expands its body below the header; max width 640, optional close; host owns height and modal semantics. Params: `title`, `child`, `showClose`, `onClose` |
+| `CardActionFooter` + `CardFooterAction` | `lib/core/widgets/card_action_footer.dart` | Compact card actions shared by Inbox/Sharing/grants: top separator, no distinct fill, 44dp text/icon actions; separate from form footers |
 | `AppActionFooter` | `lib/core/widgets/app_action_footer.dart` | Pinned full-width action band; symmetric 12dp action padding plus remaining bottom SafeArea. Host owns keyboard resizing; do not add a second navigation inset |
 | `SheetActionButtons` | `lib/core/widgets/sheet_action_buttons.dart` | Cancel (1×) + Confirm (2×) footer band for modal sheets. Params: `onCancel`, `onConfirm`, `confirmLabel`, `confirmColor`, `cancelLabel`, `busy`, `equalActions` (equal widths and natural equal heights, minimum 44; Confirm stays primary) |
 | `AppMenuSheet` | `lib/core/widgets/app_menu_sheet.dart` | `showAppMenuSheet<T>({title, items})` — native bottom-sheet action menu (the mobile "⋯" popover). `AppMenuItem<T>(value, icon, label, trailing?, danger, dividerBefore)`. Use for row/overflow menus instead of hand-rolling a sheet |
-| `WarningZone` | `lib/core/widgets/warning_zone.dart` | Amber-bordered security warning box. Params: `title` (uppercase), `message` |
-| `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green-tinted approve CTA. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
+| `WarningZone` | `lib/core/widgets/warning_zone.dart` | Web-parity amber warning: subtle tinted fill, 30% border, 12dp padding. Params: `title` (uppercase), `message` |
+| `AppRecordRow` | `lib/core/widgets/app_record_row.dart` | Shared compact resource identity row: 40dp leading slot, name/subtitle, optional status/action; use inside AppRecordList |
+| `ConfirmationSheet` | `lib/core/widgets/confirmation_sheet.dart` | Shared destructive confirmation layout with SheetDragHandle and SheetActionButtons; owner keeps mutation and confirmation semantics |
+| `AppRecordList` | `lib/core/widgets/app_record_list.dart` | Lazy continuous record list with one neutral surface and full-width row separators; compact Entries and Agents reuse it |
+| `StatusBadge` | `lib/core/widgets/status_badge.dart` | Canonical compact neutral outlined chip, optional icon and semantic text color. Used by grant/team/role/import/plan labels; FilterChip and ChoiceChip use the matching AppTheme chip theme. Features own localization/status mapping; no tinted fill or pill shape |
+| `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width neutral outlined approve CTA with green text. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
 | `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
-| `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip`. `.shell` includes the established shell right/bottom inset |
+| `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: nullable `onPressed` (disabled while busy), `tooltip`, `icon` (add by default; share/edit in Entry details). `.shell` includes the established shell right/bottom inset |
 | `AppFabToast` | `lib/core/widgets/app_fab_toast.dart` | Shell action slot: sequential FAB fade-out → localized hint → current FAB return; latest hint wins, supports reduced motion |
 | `AppFormSection` | `lib/core/widgets/app_form_section.dart` | Initially collapsed form group with current-choice summary; opens for a new error and retains feedback when collapsed. Params: `label`, `summary`, `child`, `error` |
 | `AppEmptyState` | `lib/core/widgets/app_empty_state.dart` | Centered icon, title, hint and optional primary action; shared by empty Vault Entries and Sharing. |
-| `CardActionFooter` / `CardRevokeButton` | `lib/core/widgets/card_action_footer.dart` | Shared tinted card-footer band and compact outlined revoke action, used by Grant and Entry-sharing cards. |
+| `CardActionFooter` / `CardRevokeButton` | `lib/core/widgets/card_action_footer.dart` | Shared transparent card-footer band and compact revoke action, used by Grant and Entry-sharing cards. |
 | `SheetDragHandle` | `lib/core/widgets/sheet_drag_handle.dart` | The 36×4 rounded pill at the top of a modal sheet. Use in new sheets; the ~17 inline copies migrate opportunistically |
 | `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | 0×0 widget that claims the shell FAB slot for the current page. Param: `fab` (null = suppress a covered page's leaked FAB) |
 | `AppBarTitle` | `lib/core/widgets/app_bar_title.dart` | Canonical pushed-screen AppBar title: 16/w700 name + optional 11px subtle subtitle (ellipsised). Params: `title`, `subtitle` (null/empty ⇒ title only). Use in every `AppBar(title:)` — never hand-roll the `Column(start, [Text, Text])` |
 | `AppDropdownField` | `lib/core/widgets/app_dropdown_field.dart` | 44px bordered dropdown matching input height, generic `<T>`. Params: `label`, `value`, `items`, `onChanged`, `hint`, `enabled`, `filled` |
 | `AppAutocompleteField` | `lib/core/widgets/app_autocomplete_field.dart` | Type-to-search autocomplete backed by `OnboardingTextField`, generic `<T extends Object>`. Params: `label`, `initialText`, `options`, `displayString`, `onSelected`, `onTextChanged` |
+| `AuthShieldSurface` | `lib/core/widgets/auth_shield_surface.dart` | Approved shield-centered auth grain/bloom; light soft-b10, dark subdued graphite. Used by BrandHero. |
 | `BrandHero` | `lib/core/widgets/brand_hero.dart` | Logo + "Palladin.io" wordmark (`.io` always brandRed). Param: `textColor`; static `BrandHero.textColorFor(brightness)` |
 | `AuthBrandBackground` + `AuthContentWidth` | `lib/core/widgets/auth_brand_layout.dart` | Shared auth/confirmation frame: regular background plus brand glow, and centered 320px content width after the minimum screen gutters. Use with `AuthBrandHeader` so auth screens do not drift |
 | `AuthLegalFooter` | `lib/core/widgets/auth_legal_footer.dart` | Localized Terms + Privacy footer for login and registration; opens the matching EN/PL palladin.io pages |
@@ -239,12 +248,15 @@ lib/
 | `IconPickerGrid` | `lib/core/widgets/icon_picker_grid.dart` | Grid of selectable icon tiles (used inside `IconColorBrowserSheet` and vault/entry icon pickers) |
 | `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips, generic `<T>` (used in audit filter sheets) |
 | `UploadIconButton` | `lib/core/widgets/upload_icon_button.dart` | Upload button with brandRed gradient shimmer label. Param: `onPressed`, upload state |
-| `AppBrandBackground` | `lib/core/widgets/app_brand_background.dart` | Shared full-screen auth/app surface: white bloom over the light radial background, neutral glow in dark. `AuthBrandBackground` delegates to it |
-| `BrandGrainOverlay` | `lib/core/widgets/brand_grain_surface.dart` | Static, pointer-transparent grain shared by navigation and dark auth backgrounds; colors from `AppColors` |
+| `AppTheme` | `lib/core/theme/app_theme.dart` | Single light/dark ThemeData composition shared by production and the offline mobile preview |
+| `AppCanvasBackground` | `lib/core/widgets/app_canvas_background.dart` | Authenticated neutral canvas with grain; reuse through AppScreen/AppShell, keep cards opaque |
+| `ActionZone` / `CompactDangerZone` | `lib/core/widgets/action_zone.dart` | Shared semantic card; compact Entry/Vault/Agent/API-key danger actions use a neutral border, inline title and trailing icon. Owners retain permission gates and confirmation flows |
+| `AppBrandBackground` | `lib/core/widgets/app_brand_background.dart` | Shared full-screen authentication surface: white bloom over the light radial background, neutral glow in dark. `AuthBrandBackground` delegates to it |
+| `BrandGrainOverlay` | `lib/core/widgets/brand_grain_surface.dart` | Cached decorative raster tile with pointer-transparent radial fade; colors from `AppColors` |
 | `BrandGrainSurface` | `lib/core/widgets/brand_grain_surface.dart` | Opaque navigation background with static neutral grain below content; `subtle` softens drawer grain |
-| `BrandTabIndicator` | `lib/core/widgets/brand_tab_indicator.dart` | Shared active underline with a subtle brand glow for detail tabs |
+| `BrandTabIndicator` | `lib/core/widgets/brand_tab_indicator.dart` | Shared theme-aware outline for selected detail tabs; pass `color: AppColors.onSurface(brightness)` and use whole-tab indicator size with a 4dp inset |
 | `PrimaryButtonGlow` | `lib/core/widgets/primary_button_glow.dart` | Shared decorative brand shadow for enabled primary actions; no shadow while disabled/loading |
-| `AppSegmentedControl<T>` | `lib/core/widgets/app_segmented_control.dart` | Shared 44px under-title segment track with selected glow and optional count badges; used by Inbox and Vaults / Entries |
+| `AppSegmentedControl<T>` | `lib/core/widgets/app_segmented_control.dart` | Shared 44px under-title segment track with neutral selected outline and optional count badges; used by Inbox and Vaults / Entries |
 | `PrimaryButton` | `lib/core/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state and subtle brand glow |
 | `AccentButton` | `lib/core/widgets/accent_button.dart` | Full-width 44px neutral outline action, matching API-key Copy: onSurface label/border, no red fill or glow |
 | `AppActionFooter` | `lib/core/widgets/app_action_footer.dart` | Full-width form/action footer surface with top border and safe-area bottom padding; accepts a single CTA or a paired action row |
@@ -258,13 +270,15 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 |--------|------|---------------------|
 | `OnboardingTextField` + `FieldFeedbackSlot` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Primary 44px text input with label, border, and animated feedback slot below the input. Used by every feature with a form field (auth, onboarding, vault settings, recovery) |
 | `EntriesListView` | `lib/features/vault/presentation/widgets/entries_list_view.dart` | Shared global Entries and AutoFill screen: header/search/scroll/optional footer; owners supply data and actions |
-| `EntryListCard` | `lib/features/vault/presentation/widgets/entry_list_card.dart` | One Entry row/reveal panel for global and per-Vault lists; shared show/details/share actions, optional Vault-name context. Never duplicate with ListTile. |
+| `EntryFieldRow` | `lib/features/vault/presentation/widgets/entry_field_row.dart` | Shared value/copy/reveal row. `.labeled(text)` matches extension read-only fields: label above value, no leading glyph, sans-serif text, actions centered at right; container owns full-width separators. |
+| `EntryListCard` | `lib/features/vault/presentation/widgets/entry_list_card.dart` | Shared Entry row/reveal panel. Simple global/per-Vault lists: name + account/Vault fallback, 40dp icon, 16dp vertical padding, row opens Details; sharing lives in Details. Selection forms retain their account identity and selection behavior. Never duplicate with ListTile. |
 | `PasswordSecurityCheckController` + `resolvePasswordSecurityFeedback` + `PasswordSecurityStatusLine` | `lib/features/auth/presentation/widgets/password_security_status.dart` | Shared debounced HIBP state, presentation resolver, and compact one-line renderer. Registration reuses the resolver in its pinned copy; master-password screens use the line widget. Never duplicate breach-check state or message precedence |
+| `AuditLogList` | `lib/features/audit/presentation/widgets/audit_log_list.dart` | One bordered audit list surface: lazy `.sliver` for Global/Vault/Entry feeds, regular constructor for bounded Home recent activity; reuses AuditLogRow |
 | `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | 5-slot bottom navigation bar with badge counts (used by `AppShell`) |
 | `AgentAvatar` | `lib/features/agents/presentation/widgets/agent_avatar.dart` | Agent icon circle (tinted initials fallback or custom icon/color). Reused by grants (`OrgGrantCard`) + notifications (`NotificationCard`) |
-| `AgentStatusBadge` | `lib/features/agents/presentation/widgets/agent_status_badge.dart` | Rounded status pill (pending/active/deactivated). Used by `AgentCard`, `AgentDetailBody` |
-| `ApiKeyStatusBadge` | `lib/features/api_keys/presentation/widgets/api_key_status_badge.dart` | Status pill (active/revoked) — same shape as `AgentStatusBadge` |
-| `AgentCard` | `lib/features/agents/presentation/widgets/agent_card.dart` | Tappable agent row (identity + footer zones) |
+| `AgentStatusBadge` | `lib/features/agents/presentation/widgets/agent_status_badge.dart` | Outlined status badge (pending/active/deactivated), composed from `StatusBadge`. Used by `AgentCard` and the Agent detail header |
+| `ApiKeyStatusBadge` | `lib/features/api_keys/presentation/widgets/api_key_status_badge.dart` | Outlined status badge (active/revoked), composed from `StatusBadge` |
+| `AgentCard` | `lib/features/agents/presentation/widgets/agent_card.dart` | Tappable agent identity/type/status row; lifecycle dates belong in Details |
 | `GrantDetailRow` | `lib/features/grants/presentation/widgets/org_grant_card.dart` (exported) | Fixed 76px label column + value text row. Used by `OrgGrantCard`, `NotificationCard` |
 
 ### Widgets to extract (missing shared widgets)
@@ -272,8 +286,7 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 These patterns are duplicated and have **no** shared widget yet. Extract to `lib/core/widgets/` when next touching the affected code, then replace all instances. **Do not add another copy.**
 
 - **Sheet drag handle (×17 files)** — `SheetDragHandle` now exists in `lib/core/widgets/` (used by `export_sheet`); the ~17 inline copies still need migrating: 7 private `_SheetHandle` classes (incl. one inside the core `icon_color_browser_sheet.dart`) + 10 inline 36×4 pills in approval (`approve_grant_sheet`, `deny_grant_sheet`, `grant_access_sheet`, `grant_methods_selector`, `regrant_sheet`), audit (`audit_legend_sheet`, `audit_log_filter_sheet`, `entry_logs_filter_sheet`), grants (`revoke_grant_sheet`), and `vault_list_page`. Replace with the shared widget on next touch.
-- **Status pills (×2)** — `AgentStatusBadge` ≡ `ApiKeyStatusBadge` → extract `StatusPill({label, color})` (bg = `color.withValues(alpha:0.12)`, border = `alpha:0.5`, text 10/w700).
-- **Label/value rows (×2)** — `_DetailRow` in `api_key_details_tab.dart` + `agent_detail_body.dart` → extract `LabelValueRow`.
+- Read-only metadata reuses `EntryFieldRow.labeled`; do not introduce a second label/value row style.
 - **Empty cards (×3)** — `_AgentsEmpty` (agents_page), `_KeysEmpty` (api_keys_page), `_EmptyCard` (notification_center_page) → extract `ListEmptyCard({icon, title, hint})`.
 
 ### Skeleton reimplementations to replace
@@ -321,10 +334,10 @@ For the sharing-link ready screen, pin an `AppActionFooter` below the centered m
 | Constant | Value | Usage |
 |----------|-------|-------|
 | `AppColors.darkBackground` | `#15171B` | Dark scaffold background — deep graphite |
-| `AppColors.darkSurface` | `#20242C` | Dark elevated surfaces |
-| `AppColors.mobileSurface` | `#23262C` | Graphite card background (vault list/detail) |
+| `AppColors.darkSurface` | `#191C20` | Dark elevated surfaces |
+| `AppColors.mobileSurface` | `#191C20` | Graphite card background (vault list/detail) |
 | `AppColors.lightBackground` | `#E8EAED` | Light scaffold background — warm cream |
-| `AppColors.lightSurface` | `#DCDEE2` | Light elevated surfaces |
+| `AppColors.lightSurface` | `#FFFFFF` | Light elevated surfaces |
 | `AppColors.brandRed` | `#E54645` | Primary/interactive color: "Vault" wordmark, errors, primary buttons, links, Retry, **active/focused inputs**, loaders. Neutral accent buttons use `onSurface`, not brandRed. |
 | `AppColors.positiveAccent` | `#10B981` | Success / positive green — password-strength "strong/veryStrong", positive states. **Same green as web (`--cv-success`); web↔mobile parity. NEVER use teal (`#48ECDF`) or `#2EC4B6` as the success green.** |
 | `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
@@ -351,7 +364,7 @@ The first control under the title (search bar **or** segment toggle) is a **sing
 
 - **Left/right edge:** horizontal `AppSpacing.screenH` (20) — the same gutter as the search bar. The segment toggle must align flush with the search bar.
 - **Height:** `AppSpacing.controlHeight` (44). `AppSearchField` and the segment toggle are both this tall. Never hardcode a control height — reference `controlHeight`.
-- **Title → control:** `headerGap` (16, owned by `ListScreenHeader`). **Control → content:** `fieldGap` (12).
+- **Title → control:** `headerGap` (12, owned by the scrolling content). **Control → content:** `fieldGap` (12).
 - **Overflow / "more" actions** (when a tab strip has extra destinations, e.g. Inbox → Grants/Preferences) go in a trailing button at the **end of the segment row**, sized `controlHeight × controlHeight`, styled like the segment track — not hidden in an AppBar kebab. Pattern: `Row(children: [Expanded(toggle), SizedBox(sm), _OverflowButton])`.
 
 ### Control scrolls WITH the content — only the title is pinned
@@ -379,7 +392,7 @@ On a list screen the search bar **and** the segment toggle row **scroll together
 |-------|-------|-----|
 | Raw scale | `xxs`=2, `xs`=4, `sm`=8, `md`=12, `lg`=16, `xl`=20, `xxl`=24, `xxxl`=32 | fall back here only when no semantic token fits |
 | `screenH` | 20 | screen horizontal padding (the only screen gutter) |
-| `headerGap` | 16 | header row → first content |
+| `headerGap` | 12 | list header → first scrolling control; detail tabs use section (16) |
 | `section` | 16 | between sections (vertical) |
 | `fieldGap` | 12 | input↔input, search → content |
 | `cardGap` | 10 | between cards / list separators |
@@ -387,7 +400,7 @@ On a list screen the search bar **and** the segment toggle row **scroll together
 | `innerGap` | 8 | elements inside a card |
 | `chipGap` | 6 | between chips |
 | `screenBottom` | 32 | last element → bottom (non-scrolling) |
-| `listBottom` | 96 | scrollable list bottom (clears FAB + bottom nav) |
+| `listBottom` | 96 | legacy list FAB clearance; new overlay details use AppFab.scrollClearance, no-FAB feeds use section |
 | `controlHeight` | 44 | height of an under-title control (search bar, segment toggle, overflow button) |
 
 Prefer the semantic token over a raw step when one fits the context.
@@ -423,7 +436,7 @@ Column(children: [AppSearchField(...), Expanded(child: switch (state) { ... })])
 - `vault_entries_tab.dart`: `_LoadingSliver` after the search `SliverToBoxAdapter`.
 - `notification_center_page.dart`: `_SkeletonSliver` after the leading segment-row + search header sliver.
 
-**Skeleton widget pattern:** `StatefulWidget` with `AnimationController`, `repeat(reverse: true)`, `Tween(0.4 → 0.85)` opacity. Use `SingleTickerProviderStateMixin`. Stagger multiple rows with `Future.delayed(Duration(milliseconds: i * 80))`.
+**Skeleton widget pattern:** reuse `SkeletonBox`, including its optional stagger delay. Never create another opacity animation controller in a screen.
 
 ## Error Handling
 
@@ -471,3 +484,37 @@ This file is **always loaded** into context, so keep it lean. Only guidance usef
 - **Extend this file autonomously** as conventions emerge: a new shared widget, a renamed/changed token, or a new screen contract → add it to the catalog or the relevant section in the same PR that introduces it.
 - **PR reviewers must check whether a code change requires updating `AGENTS.md` or a `docs/architecture/` doc** (new shared widget, changed token/convention, new feature). Doc drift is a review finding.
 - `AGENTS.md` and `CLAUDE.md` are intentionally maintained as complete, byte-for-byte identical copies by product-owner decision. Every instruction change must update both files in the same commit and verify them with `cmp`.
+
+## Interactive mobile preview
+
+`design/mobile/main.dart` uses the production router/pages/widgets with memory-only
+fixtures. Run `./design/mobile/serve.sh 5461` and see
+`docs/design/mobile-ui-alignment.md` for supported flows and native limitations.
+Update fixtures and verify the real affected screens before proposing UI changes;
+do not replace them with a separate single-screen component demo.
+
+The browser preview uses a fitted 390×844 phone viewport with matching MediaQuery
+and safe insets. Do not merely constrain width while retaining desktop geometry.
+
+### Entry edit navigation
+
+Entry Edit opens as a full-screen root Navigator route, like Add Entry, above
+the shell navigation. Reuse EntryDetailsTab's form and shared AppActionFooter;
+do not add a second form implementation. Save returns the updated Entry and
+refreshes Details; cancel returns without saving. Read-only Sign-in methods
+have no Add action. Unlocked read-only TOTP shows the live code and Copy;
+the seed remains hidden and normal lock/background cleanup still applies.
+
+### Visual symmetry and floating actions
+
+Symmetric spacing is a required UI invariant, not optional polish. Use the same
+section gap between related cards and between the final card and a floating
+action at the scroll limit. Match horizontal edges, action sizes and baselines
+to the established Entry Details components; verify the real screen at both
+scroll extremes.
+
+Entries Add is the reference height for all FABs. A FAB overlays the full-height
+scroll viewport: never shorten the viewport or insert a non-scrollable bottom
+lane for it. Use AppFab.scrollClearance(context) as the content bottom padding
+on overlay-FAB details so the final card ends one AppSpacing.section above the
+button. The surrounding area remains scrollable; only the button intercepts taps.

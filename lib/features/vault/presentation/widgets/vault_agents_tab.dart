@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_fab.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
@@ -17,7 +18,12 @@ class VaultAgentsTab extends StatelessWidget {
       vaultId: vaultId,
       emptyTitle: l10n.vaultAgentsEmptyTitle,
       emptyHint: l10n.vaultAgentsEmptyHint,
-      contentPadding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.listBottom),
+      contentPadding: EdgeInsets.fromLTRB(
+        0,
+        AppSpacing.section,
+        0,
+        AppFab.scrollClearance(context),
+      ),
     );
   }
 }

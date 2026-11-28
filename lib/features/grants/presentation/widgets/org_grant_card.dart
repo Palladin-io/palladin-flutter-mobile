@@ -1,3 +1,4 @@
+import '../../../../core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -176,43 +177,13 @@ class _IdentityRow extends StatelessWidget {
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.status, required this.color});
-
   final GrantStatus status;
   final Color color;
-
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.innerGap,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            grantStatusLabel(l10n, status),
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => StatusBadge(
+    label: grantStatusLabel(AppLocalizations.of(context)!, status),
+    color: color,
+  );
 }
 
 /// One labelled row inside a grant card — muted fixed-width label + a
@@ -224,11 +195,13 @@ class GrantDetailRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.maxLines = 1,
+    this.valueAlign = TextAlign.end,
   });
 
   final String label;
   final String value;
   final int? maxLines;
+  final TextAlign valueAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +225,7 @@ class GrantDetailRow extends StatelessWidget {
           child: Text(
             value,
             maxLines: maxLines,
+            textAlign: valueAlign,
             overflow: maxLines == null
                 ? TextOverflow.visible
                 : TextOverflow.ellipsis,
@@ -295,10 +269,11 @@ class _Footer extends StatelessWidget {
     // Actions are driven strictly by the backend capability flags.
     if (grant.status == GrantStatus.pending) {
       return CardActionFooter(
-        child: _FilledFooterAction(
+        child: CardFooterAction(
           label: l10n.orgGrantReviewRequest,
           onPressed: onReviewPending,
-          backgroundColor: AppColors.brandRed,
+          color: AppColors.brandRed,
+          icon: Icons.fact_check_outlined,
         ),
       );
     }
@@ -315,10 +290,11 @@ class _Footer extends StatelessWidget {
 
     if (grant.canGrantAgain && grant.scope != GrantScope.unknown) {
       return CardActionFooter(
-        child: _FilledFooterAction(
+        child: CardFooterAction(
           label: l10n.approvalRegrant,
           onPressed: onRegrant,
-          backgroundColor: AppColors.positiveAccent,
+          color: AppColors.positiveAccent,
+          icon: Icons.check,
         ),
       );
     }
@@ -395,39 +371,6 @@ class _FooterInfoAction extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FilledFooterAction extends StatelessWidget {
-  const _FilledFooterAction({
-    required this.label,
-    required this.onPressed,
-    required this.backgroundColor,
-  });
-
-  final String label;
-  final VoidCallback onPressed;
-  final Color backgroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 36,
-      child: FilledButton(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: AppColors.onBrandRed,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-      ),
     );
   }
 }

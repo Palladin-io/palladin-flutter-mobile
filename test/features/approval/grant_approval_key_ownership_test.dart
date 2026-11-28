@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/core/widgets/approve_action_button.dart';
 import 'dart:typed_data';
 import 'dart:async';
 
@@ -245,7 +246,12 @@ void main() {
 
     expect(openCount, 2);
     expect(cubit.state.review, isNotNull);
-    final approve = tester.widget<FilledButton>(find.byType(FilledButton));
+    final approve = tester.widget<TextButton>(
+      find.descendant(
+        of: find.byType(ApproveActionButton),
+        matching: find.byType(TextButton),
+      ),
+    );
     expect(approve.onPressed, isNotNull);
   });
 }

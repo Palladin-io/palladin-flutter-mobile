@@ -58,7 +58,7 @@ class AuthBrandHeader extends StatelessWidget {
                   l10n.loginRotatingYourKeys,
                   l10n.loginRotatingEncrypted,
                 ],
-          textColor: AppColors.onSurfaceSubtle(brightness),
+          textColor: AppColors.onSurfaceMuted(brightness),
         ),
       ],
     );
