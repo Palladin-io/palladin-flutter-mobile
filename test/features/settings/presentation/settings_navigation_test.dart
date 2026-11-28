@@ -1,3 +1,4 @@
+import 'package:mobile_palladin/core/widgets/app_header_surface.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,9 @@ void main() {
   ) async {
     tester.view.physicalSize = const Size(500, 1400);
     tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.reset);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -62,6 +66,7 @@ void main() {
     }
 
     await pumpDrawer(Permissions.vaultCreate | Permissions.vaultManage);
+    expect(tester.getBottomRight(find.byType(AppHeaderSurface).last).dy, 1400);
     expect(find.text('Organization'), findsOneWidget);
     expect(find.text('General'), findsOneWidget);
     expect(find.text('Team'), findsOneWidget);

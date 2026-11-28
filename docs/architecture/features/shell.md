@@ -147,3 +147,7 @@ visible and claiming a null shell FAB through `FabRegistrar`. Its own agent
 action stays local to the detail page. Entry navigation without a shell retains
 the root Navigator. Navbar changes can leave an open detail and return to a root
 tab; back returns to the originating list.
+
+The startup/privacy cover reuses AuthBrandBackground and BrandHero, keeping an
+opaque Material base over protected content. Drawer footer gradient extends
+through the iOS bottom safe area; only the footer content consumes that inset.

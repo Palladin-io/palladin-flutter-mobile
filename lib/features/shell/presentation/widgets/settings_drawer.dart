@@ -82,6 +82,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
     final content = SafeArea(
       top: false,
+      bottom: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -200,7 +201,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
             child: const AppHeaderSurface(
               showDivider: false,
-              child: _AppVersionFooter(),
+              child: SafeArea(top: false, child: _AppVersionFooter()),
             ),
           ),
         ],
